@@ -316,16 +316,99 @@
     <p>Control the output format through your system prompt or initial message:</p>
     <ul>
       <li>Ask for <strong>Markdown</strong> (<code>.md</code>), <strong>HTML</strong>, <strong>JSON</strong>, or plain text</li>
+      <li>Ask the <code>excel</code> server to produce a <strong>.xlsx</strong> spreadsheet from any structured data</li>
+      <li>Ask the <code>chart</code> or <code>mermaid</code> servers to produce <strong>.png</strong> diagram or chart images</li>
       <li>TealKit saves the raw result plus a rendered HTML preview automatically</li>
     </ul>
 
-    <h3>Email output <span class="pro-tag">PRO</span></h3>
+    <h3>Output channels <span class="pro-tag">PRO</span></h3>
+    <p>Task results can be delivered automatically to one or more channels when a run finishes.
+       Each channel has its own <em>send condition</em> and can optionally attach the output files.
+       Global credentials are configured once in <em>Settings &rarr; Data Sources</em>;
+       per-task overrides are set on the task's <strong>Output</strong> tab.</p>
+    <p><strong>Any generated file can be attached</strong> &mdash; not just the Markdown log.
+       This includes <code>.xlsx</code> spreadsheets (from the <code>excel</code> server),
+       <code>.png</code> charts and diagrams (from <code>chart</code> / <code>mermaid</code>),
+       <code>.html</code> previews, and <code>.md</code> result files.
+       Enable the <em>Include output files</em> toggle on the task's <strong>Output</strong> tab
+       to have all generated files forwarded to every active delivery channel.</p>
+
+    <h3>&#x2709; Email output <span class="pro-tag">PRO</span></h3>
     <p>Have the task result emailed automatically when done. Configure in the task's <em>Output</em> section:</p>
     <ul>
       <li><strong>Recipient</strong> &mdash; one or more email addresses</li>
       <li><strong>Subject</strong> &mdash; static text or dynamic (can reference task name / date)</li>
       <li><strong>Condition</strong> &mdash; always, only on success, or only if output is non-empty</li>
+      <li><strong>Include output files</strong> &mdash; attach all generated files as email attachments:
+          <code>.md</code> result, <code>.html</code> preview, <code>.xlsx</code> spreadsheets,
+          <code>.png</code> charts and diagrams, and any other files the AI created during the run</li>
     </ul>
+
+    <h3>&#x1F4AC; Slack output <span class="pro-tag">PRO</span></h3>
+    <p>Post the task result to a Slack channel automatically.
+       Creating a Slack App is <strong>free</strong> &mdash;
+       <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">create one at api.slack.com</a>.
+       Two auth modes are supported:</p>
+    <ul>
+      <li><strong>Incoming Webhook</strong> &mdash; simplest option, no bot needed. To get the URL:
+        <ol>
+          <li>Go to <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">api.slack.com/apps</a> and create a free app (<em>From scratch</em>).</li>
+          <li>Under <em>Add features &amp; functionality</em>, click <strong>Incoming Webhooks</strong> and activate them.</li>
+          <li>Click <strong>Add New Webhook to Workspace</strong>, pick a channel, and allow access.</li>
+          <li>Copy the <strong>Webhook URL</strong> shown &mdash; it starts with <code>https://hooks.slack.com/services/&hellip;</code></li>
+          <li>Paste it into <em>Data Sources &rarr; Slack &rarr; Webhook URL</em> in TealKit.</li>
+        </ol>
+        Text attachments are embedded as code blocks in the message.
+      </li>
+      <li><strong>Bot Token</strong> (<code>xoxb-&hellip;</code>) &mdash; enables real file uploads. Steps:
+        <ol>
+          <li>In your Slack App, open the <strong>left sidebar &rarr; OAuth &amp; Permissions</strong>.</li>
+          <li>Scroll to the <strong>Scopes</strong> section &rarr; <strong>Bot Token Scopes</strong>.</li>
+          <li>Click <strong>Add an OAuth Scope</strong> and add: <code>chat:write</code>, <code>files:write</code>, <code>files:read</code>.</li>
+          <li>Scroll back up and click <strong>Install to Workspace</strong> (or <em>Reinstall</em>).</li>
+          <li>Copy the <strong>Bot User OAuth Token</strong> that starts with <code>xoxb-&hellip;</code></li>
+          <li>Also invite the bot to your target channel: in Slack type <code>/invite @YourBotName</code>.</li>
+        </ol>
+      </li>
+    </ul>
+    <p>Per-task options on the <strong>Output</strong> tab:</p>
+    <ul>
+      <li><strong>Send condition</strong> &mdash; Always / Only on success / Only on error</li>
+      <li><strong>Override channel</strong> &mdash; leave blank to use the global default channel</li>
+      <li><strong>Include output files</strong> &mdash; attach all generated output files:
+          <code>.md</code> result log, <code>.html</code> preview, <code>.xlsx</code> spreadsheets,
+          <code>.png</code> charts &amp; diagrams, and any other files produced during the run
+          (or the ZIP if ZIP output is enabled).
+          <em>Bot Token required for native file uploads; Webhook mode embeds text content inline.</em></li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> Use a Bot Token when you need output files (Excel, PNG charts, &hellip;) attached as
+      native Slack files. A Webhook is enough for text-only notifications.</div>
+
+    <h3>&#x1F4F2; WhatsApp output <span class="pro-tag">PRO</span></h3>
+    <p>Send the task result to a WhatsApp number via the <strong>Meta Business Cloud API</strong>.
+       Registration is <strong>free</strong> and includes 1,000 conversations / month at no cost.
+       Requires a Meta Business account with a verified phone number.</p>
+    <ol>
+      <li>Create or open a Meta app at
+          <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" target="_blank" rel="noopener">developers.facebook.com &rarr; WhatsApp Cloud API Get Started</a>.</li>
+      <li>Add the <em>WhatsApp</em> product and note your <strong>Phone Number ID</strong>.</li>
+      <li>Generate a <strong>System User access token</strong> with
+          <code>whatsapp_business_messaging</code> permission.</li>
+      <li>Enter both values in <em>Settings &rarr; Data Sources &rarr; WhatsApp</em>.</li>
+    </ol>
+    <p>Per-task options on the <strong>Output</strong> tab:</p>
+    <ul>
+      <li><strong>Send condition</strong> &mdash; Always / Only on success / Only on error</li>
+      <li><strong>Override recipient</strong> &mdash; E.164 phone number (e.g. <code>+49170…</code>);
+          leave blank to use the global default</li>
+      <li><strong>Include output files</strong> &mdash; all generated files (<code>.xlsx</code>,
+          <code>.png</code>, <code>.md</code>, <code>.html</code>, &hellip;) are uploaded via the
+          WhatsApp Media API and sent as separate document messages after the text summary.
+          <em>Meta Cloud API only &mdash; CallMeBot (text-only) lists file names in the message instead.</em></li>
+    </ul>
+    <div class="note"><strong>Note:</strong> WhatsApp Business accounts are subject to Meta's
+      messaging policy. Recipients must have opted in or you must use an approved message template
+      for first contact.</div>
 
     <h3>ZIP output <span class="pro-tag">PRO</span></h3>
     <p>Bundle the full output folder (result + logs + attachments) into a single ZIP file.
@@ -364,6 +447,28 @@
     <p>Connect via OAuth to search and read files from your Drive.</p>
     <h3>&#x1F5A5; SSH</h3>
     <p>Connect to a remote SSH server. See the <a href="#ssh">SSH section</a> for full details.</p>
+    <h3>&#x1F4AC; Slack</h3>
+    <p>Configure Slack credentials for automatic task output delivery.
+       Creating a Slack App is <strong>free</strong> &mdash;
+       <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">create one at api.slack.com</a>.
+       Two modes:</p>
+    <ul>
+      <li><strong>Incoming Webhook URL</strong> &mdash; in your Slack App go to <em>Incoming Webhooks &rarr; Add New Webhook to Workspace</em>, pick a channel, then copy the URL that starts with <code>https://hooks.slack.com/services/&hellip;</code>
+          Text results are posted as formatted messages; attachments are embedded as code blocks.</li>
+      <li><strong>Bot Token</strong> &mdash; paste an <code>xoxb-&hellip;</code> token and set a default channel.
+          Enables native file uploads. In your Slack App go to <em>OAuth &amp; Permissions &rarr; Scopes &rarr; Bot Token Scopes</em> and add <code>chat:write</code>, <code>files:write</code>, <code>files:read</code>; then reinstall the app and copy the <code>xoxb-&hellip;</code> token. Invite the bot to the channel with <code>/invite @YourBotName</code>.</li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> Tap <em>Send Test Message</em> to verify the connection before saving.</div>
+    <h3>&#x1F4F2; WhatsApp</h3>
+    <p>Configure Meta Business Cloud API credentials for WhatsApp output delivery.
+       Registration is <strong>free</strong> and includes 1,000 conversations / month at no cost &mdash;
+       <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" target="_blank" rel="noopener">get started on Meta Developers</a>.</p>
+    <ul>
+      <li><strong>Phone Number ID</strong> &mdash; from your Meta app's WhatsApp product page</li>
+      <li><strong>System User Access Token</strong> &mdash; long-lived token with <code>whatsapp_business_messaging</code> permission</li>
+      <li><strong>Default Recipient</strong> &mdash; E.164 phone number used when a task does not specify one (e.g. <code>+49170123456</code>)</li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> Tap <em>Send Test Message</em> to verify your credentials before running a task.</div>
   </section>
 
   <!-- 7 -->
@@ -379,11 +484,14 @@
       <tr><td><code>web_search</code></td><td>Live web search (DuckDuckGo / Serper / SerpAPI)</td></tr>
       <tr><td><code>email</code></td><td>Read, search, and send emails via Gmail or IMAP</td></tr>
       <tr><td><code>google_drive</code></td><td>Search and read files from Google Drive</td></tr>
-      <tr><td><code>location</code></td><td>Provides current GPS coordinates to the LLM</td></tr>
+      <tr><td><code>toolbox</code></td><td>Current time, timezone, device location, and city geocoding</td></tr>
       <tr><td><code>ssh</code></td><td>Run shell commands on remote SSH hosts</td></tr>
       <tr><td><code>weather</code></td><td>Current weather and forecast (uses location if available)</td></tr>
-      <tr><td><code>calculator</code></td><td>Precise arithmetic evaluation</td></tr>
-      <tr><td><code>datetime</code></td><td>Current date, time, and timezone information</td></tr>
+      <tr><td><code>file</code></td><td>Create text, Markdown, or HTML output files</td></tr>
+      <tr><td><code>excel</code></td><td>Convert CSV / JSON / text data to an Excel .xlsx file</td></tr>
+      <tr><td><code>chart</code></td><td>Generate line / bar / pie charts as PNG images from numeric data series</td></tr>
+      <tr><td><code>mermaid</code></td><td>Render Mermaid diagram syntax (flowcharts, sequence diagrams &hellip;) to PNG images</td></tr>
+      <tr><td><code>pdf</code></td><td>Extract text and metadata from PDF files</td></tr>
     </table>
 
     <h3>External MCP servers</h3>
@@ -392,10 +500,30 @@
        Go to <em>Settings &rarr; External MCP Servers</em> and add a server URL or package name.
        External servers extend the AI with calendar access, task managers, databases, and more.</p>
 
-    <h3>JS mini-MCP servers <span class="pro-tag">COMING SOON</span></h3>
-    <p>Write your own lightweight MCP server as a small JavaScript snippet directly in the app.
-       The snippet runs in a sandboxed environment and can expose any custom tools to the AI &mdash;
-       ideal for one-off integrations or private APIs.</p>
+    <h3>&#x1F527; Custom Tools</h3>
+    <p>TealKit lets you build your own tools without writing any native code. Two wizards are available &mdash; accessible from the <strong>Tools</strong> tab in Playground settings or when editing a Task.</p>
+
+    <h3>&#x1F4DC; Shell Script Wizard</h3>
+    <p>Describe what you need in plain language and the AI writes a ready-to-use shell script (<code>.sh</code> / <code>.ps1</code>). Saved scripts are auto-discovered by the SSH server and can be referenced by name in any task.</p>
+    <p>Tips for a good shell script prompt:</p>
+    <ul>
+      <li>Name the target environment: <em>&ldquo;Bash on Ubuntu&rdquo;</em>, <em>&ldquo;PowerShell on Windows Server&rdquo;</em></li>
+      <li>Describe inputs and outputs: <em>&ldquo;takes a folder path as argument, writes CSV to stdout&rdquo;</em></li>
+      <li>Mention error handling: <em>&ldquo;exit with code 1 on failure, print error to stderr&rdquo;</em></li>
+      <li>Example: <em>&ldquo;List files modified in the last 24 hours in a given directory and save the result to report.txt&rdquo;</em></li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> After generating, tap <strong>Test Run</strong> to execute the script via SSH and verify the output before saving.</div>
+
+    <h3>&#x1F9E9; JavaScript Tool Wizard</h3>
+    <p>Write a custom MCP tool as a small JavaScript snippet. The snippet runs in a secure on-device sandbox and can call REST APIs with <code>fetch()</code>. Saved tools appear immediately in the tool selector for Playground and Tasks.</p>
+    <p>Tips for a good JavaScript tool prompt:</p>
+    <ul>
+      <li>Define input schema and output clearly: <em>&ldquo;input: { from, to, amount }, output: { rate, converted }&rdquo;</em></li>
+      <li>For REST APIs include the full URL pattern: <em>&ldquo;GET https://api.example.com/v1/data?key={param}&rdquo;</em></li>
+      <li>Mention error cases: <em>&ldquo;return an error message if the currency code is invalid&rdquo;</em></li>
+      <li>Example: <em>&ldquo;Fetch the current Bitcoin price in EUR from the Coinbase public API and return price and timestamp&rdquo;</em></li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> Use the <em>Browse Example Prompts</em> button in the JS Tool editor to load working examples (calculator, currency converter, city geocoding) and see the expected tool structure.</div>
   </section>
 
   <!-- 8 -->
@@ -468,12 +596,26 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
   <!-- 10 -->
   <section id="output">
     <h2>10 &nbsp; Output Files</h2>
-    <p>TealKit saves three files per task run to a timestamped subfolder:</p>
+    <p>TealKit saves core files per task run to a timestamped subfolder:</p>
     <ul>
       <li><code>output_log.md</code> &mdash; the main result in Markdown</li>
       <li><code>execution_log.md</code> &mdash; step-by-step tool call log</li>
       <li><code>output.html</code> &mdash; rendered HTML version of the result</li>
     </ul>
+    <p>In addition, <strong>any file the AI generates during the run is saved automatically</strong>:</p>
+    <ul>
+      <li><code>.xlsx</code> &mdash; Excel spreadsheets created by the <code>excel</code> server
+          (e.g. <em>&ldquo;Export the data as an Excel file&rdquo;</em>)</li>
+      <li><code>.png</code> &mdash; charts generated by the <code>chart</code> server or
+          Mermaid diagrams rendered by the <code>mermaid</code> server</li>
+      <li>Any other <code>.md</code>, <code>.html</code>, <code>.csv</code>, <code>.json</code> files
+          the AI writes via the <code>file</code> server</li>
+    </ul>
+    <div class="tip"><strong>Tip: Forward files to Email / Slack / WhatsApp.</strong>
+      Enable <em>Include output files</em> on the task&rsquo;s <strong>Output</strong> tab to have
+      all generated files (xlsx, png, md, html &hellip;) delivered automatically via every active
+      output channel &mdash; as email attachments, native Slack file uploads (Bot Token required),
+      or WhatsApp document messages (Meta Cloud API).</div>
     <h3>Configuring the output directory</h3>
     <p>Go to <em>Settings &rarr; General</em> and tap <em>Output Directory</em> to choose a folder.
        Defaults to an internal app folder if left blank.</p>
@@ -487,7 +629,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
     <h2>11 &nbsp; Settings</h2>
     <ul>
       <li><strong>LLM Settings</strong> &mdash; AI provider, model, API key, temperature</li>
-      <li><strong>Data Sources</strong> &mdash; email, search, documents, websites, location, SSH</li>
+      <li><strong>Data Sources</strong> &mdash; email, search, documents, websites, location, SSH, Slack, WhatsApp</li>
       <li><strong>External MCP Servers</strong> &mdash; connect to Smithery or custom MCP servers</li>
       <li><strong>General &rarr; Output Directory</strong> &mdash; where task output files are saved</li>
       <li><strong>General &rarr; Scripts Directory</strong> &mdash; local script library for SSH tasks</li>

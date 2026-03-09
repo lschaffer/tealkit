@@ -320,17 +320,89 @@
     <p>Das Ausgabeformat &uuml;ber den System-Prompt oder die Startnachricht steuern:</p>
     <ul>
       <li>Nach <strong>Markdown</strong> (<code>.md</code>), <strong>HTML</strong>, <strong>JSON</strong> oder Nur-Text fragen</li>
+      <li>Den <code>excel</code>-Server bitten, strukturierte Daten als <strong>.xlsx</strong>-Tabelle zu exportieren</li>
+      <li>Den <code>chart</code>- oder <code>mermaid</code>-Server bitten, Diagramme als <strong>.png</strong>-Bilder zu erzeugen</li>
       <li>TealKit speichert das Rohergebnis und eine gerenderte HTML-Vorschau automatisch</li>
     </ul>
 
-    <h3>E-Mail-Ausgabe <span class="pro-tag">PRO</span></h3>
+    <h3>Ausgabekan&auml;le <span class="pro-tag">PRO</span></h3>
+    <p>Aufgabenergebnisse k&ouml;nnen nach Abschluss automatisch an einen oder mehrere Kan&auml;le geliefert werden.
+       Jeder Kanal besitzt eine eigene <em>Sendebedingung</em> und kann optional die Ausgabedateien
+       anh&auml;ngen. Globale Zugangsdaten werden einmalig unter <em>Einstellungen &rarr; Datenquellen</em>
+       konfiguriert; aufgabenspezifische &Uuml;berschreibungen im Reiter <strong>Ausgabe</strong>.</p>
+    <p><strong>Jede generierte Datei kann angeh&auml;ngt werden</strong> &mdash; nicht nur das Markdown-Protokoll:
+       <code>.xlsx</code>-Tabellen (vom <code>excel</code>-Server),
+       <code>.png</code>-Diagramme (<code>chart</code>&nbsp;/&nbsp;<code>mermaid</code>),
+       <code>.html</code>-Vorschauen und <code>.md</code>-Ergebnisdateien.
+       Die Option <em>Ausgabedateien anh&auml;ngen</em> im Reiter <strong>Ausgabe</strong> der Aufgabe
+       leitet alle erzeugten Dateien an jeden aktiven Zustellkanal weiter.</p>
+
+    <h3>&#x2709; E-Mail-Ausgabe <span class="pro-tag">PRO</span></h3>
     <p>Das Ergebnis nach Abschluss automatisch per E-Mail verschicken.
        Im Bereich <em>Ausgabe</em> der Aufgabe konfigurieren:</p>
     <ul>
       <li><strong>Empf&auml;nger</strong> &mdash; eine oder mehrere E-Mail-Adressen</li>
       <li><strong>Betreff</strong> &mdash; statischer Text oder dynamisch (Aufgabenname / Datum)</li>
       <li><strong>Bedingung</strong> &mdash; immer, nur bei Erfolg, oder nur bei nicht-leerer Ausgabe</li>
+      <li><strong>Ausgabedateien anh&auml;ngen</strong> &mdash; alle generierten Dateien als E-Mail-Anh&auml;nge:
+          <code>.md</code>-Ergebnis, <code>.html</code>-Vorschau, <code>.xlsx</code>-Tabellen,
+          <code>.png</code>-Diagramme und alle weiteren Dateien, die die KI w&auml;hrend des Durchlaufs erstellt hat</li>
     </ul>
+
+    <h3>&#x1F4AC; Slack-Ausgabe <span class="pro-tag">PRO</span></h3>
+    <p>Das Aufgabenergebnis automatisch in einen Slack-Kanal posten.
+       Eine Slack-App zu erstellen ist <strong>kostenlos</strong> &mdash;
+       <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">app erstellen auf api.slack.com</a>.
+       Zwei Authentifizierungsmodi werden unterst&uuml;tzt:</p>
+    <ul>
+      <li><strong>Incoming Webhook</strong> &mdash; einfachste Option, kein Bot n&ouml;tig. URL holen:
+        <ol>
+          <li>Auf <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">api.slack.com/apps</a> eine kostenlose App erstellen (<em>From scratch</em>).</li>
+          <li>Unter <em>Incoming Webhooks</em> die Webhooks aktivieren.</li>
+          <li><strong>Add New Webhook to Workspace</strong> klicken, Kanal w&auml;hlen und Zugriff erlauben.</li>
+          <li>Die angezeigte <strong>Webhook-URL</strong> kopieren &mdash; sie beginnt mit <code>https://hooks.slack.com/services/&hellip;</code></li>
+          <li>In TealKit unter <em>Datenquellen &rarr; Slack &rarr; Webhook-URL</em> einf&uuml;gen.</li>
+        </ol>
+        Textinhalte werden als formatierte Code-Bl&ouml;cke eingebettet.
+      </li>
+      <li><strong>Bot-Token</strong> (<code>xoxb-&hellip;</code>) &mdash; erm&ouml;glicht echte Datei-Uploads:
+        <ol>
+          <li>In der Slack-App <em>OAuth &amp; Permissions &rarr; Scopes &rarr; Bot Token Scopes</em> &ouml;ffnen.</li>
+          <li>Folgende Scopes hinzuf&uuml;gen: <code>chat:write</code>, <code>files:write</code>, <code>files:read</code>.</li>
+          <li>App neu installieren und den <code>xoxb-&hellip;</code>-Token kopieren.</li>
+          <li>Bot mit <code>/invite @BotName</code> zum Kanal einladen.</li>
+        </ol>
+      </li>
+    </ul>
+    <p>Aufgabenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
+    <ul>
+      <li><strong>Sendebedingung</strong> &mdash; Immer / Nur bei Erfolg / Nur bei Fehler</li>
+      <li><strong>Kanal &uuml;berschreiben</strong> &mdash; leer lassen f&uuml;r Standardkanal</li>
+      <li><strong>Ausgabedateien anh&auml;ngen</strong> &mdash; alle erzeugten Dateien (<code>.xlsx</code>,
+          <code>.png</code>, <code>.md</code>, <code>.html</code> &hellip;) als native Slack-Dateien
+          (Bot-Token) bzw. als Text eingebettet (Webhook)</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> Bot-Token verwenden, wenn Dateien (Excel, PNG-Diagramme &hellip;)
+      als native Slack-Dateien hochgeladen werden sollen. Ein Webhook gen&uuml;gt f&uuml;r Textnachrichten.</div>
+
+    <h3>&#x1F4F2; WhatsApp-Ausgabe <span class="pro-tag">PRO</span></h3>
+    <p>Das Aufgabenergebnis automatisch an eine WhatsApp-Nummer senden. Unterst&uuml;tzte Modi:</p>
+    <ul>
+      <li><strong>Meta Business Cloud API</strong> &mdash; kostenloses Konto inklusive 1&nbsp;000 Gespr&auml;che/Monat.
+          Dateien (<code>.xlsx</code>, <code>.png</code>, <code>.md</code> &hellip;) werden &uuml;ber die
+          Media API hochgeladen und als separate Dokumentnachrichten zugestellt.</li>
+      <li><strong>CallMeBot</strong> &mdash; Textnachrichten an eine private Nummer ohne Meta-Konto.
+          Dateinamen werden im Text erw&auml;hnt; kein Datei-Upload m&ouml;glich.</li>
+    </ul>
+    <p>Aufgabenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
+    <ul>
+      <li><strong>Sendebedingung</strong> &mdash; Immer / Nur bei Erfolg / Nur bei Fehler</li>
+      <li><strong>Empf&auml;nger &uuml;berschreiben</strong> &mdash; E.164-Nummer (z.&nbsp;B. <code>+49170&hellip;</code>)</li>
+      <li><strong>Ausgabedateien anh&auml;ngen</strong> &mdash; Meta API l&auml;dt Dateien via Media API hoch;
+          CallMeBot listet Dateinamen im Text</li>
+    </ul>
+    <div class="note"><strong>Hinweis:</strong> WhatsApp-Business-Konten unterliegen Metas Nachrichtenrichtlinien.
+      Empf&auml;nger m&uuml;ssen zugestimmt haben oder ein genehmigtes Template ist f&uuml;r Erstkontakt erforderlich.</div>
 
     <h3>ZIP-Ausgabe <span class="pro-tag">PRO</span></h3>
     <p>Den vollst&auml;ndigen Ausgabeordner (Ergebnis + Protokolle + Anh&auml;nge) als ZIP-Datei b&uuml;ndeln.
@@ -372,6 +444,35 @@
     <p>Per OAuth verbinden, um Dateien aus Google Drive zu durchsuchen und zu lesen.</p>
     <h3>&#x1F5A5; SSH</h3>
     <p>Einen entfernten SSH-Server verbinden. Siehe den <a href="#ssh">SSH-Abschnitt</a> f&uuml;r alle Details.</p>
+    <h3>&#x1F4AC; Slack</h3>
+    <p>Slack-Zugangsdaten f&uuml;r die automatische Ausgabezustellung konfigurieren.
+       Eine Slack-App zu erstellen ist <strong>kostenlos</strong> &mdash;
+       <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">app erstellen auf api.slack.com</a>.
+       Zwei Modi werden unterst&uuml;tzt:</p>
+    <ul>
+      <li><strong>Incoming Webhook URL</strong> &mdash; In der Slack-App unter <em>Incoming Webhooks &rarr;
+          Add New Webhook to Workspace</em> einen Kanal ausw&auml;hlen und die URL kopieren, die mit
+          <code>https://hooks.slack.com/services/&hellip;</code> beginnt.
+          Textergebnisse werden als formatierte Nachrichten gepostet; Anh&auml;nge als Code-Bl&ouml;cke eingebettet.</li>
+      <li><strong>Bot-Token</strong> &mdash; <code>xoxb-&hellip;</code>-Token einf&uuml;gen und Standardkanal setzen.
+          Erm&ouml;glicht native Datei-Uploads. In der Slack-App unter <em>OAuth &amp; Permissions &rarr;
+          Scopes &rarr; Bot Token Scopes</em> folgende Scopes hinzuf&uuml;gen:
+          <code>chat:write</code>, <code>files:write</code>, <code>files:read</code>;
+          anschlie&szlig;end App neu installieren und <code>xoxb-&hellip;</code>-Token kopieren.
+          Bot mit <code>/invite @BotName</code> zum Kanal einladen.</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> &Uuml;ber <em>Testnachricht senden</em> die Verbindung vor dem Speichern pr&uuml;fen.</div>
+    <h3>&#x1F4F2; WhatsApp</h3>
+    <p>Meta Business Cloud API-Zugangsdaten f&uuml;r WhatsApp-Ausgabe konfigurieren.
+       Registrierung ist <strong>kostenlos</strong> inklusive 1&nbsp;000 Gespr&auml;che/Monat &mdash;
+       <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started" target="_blank" rel="noopener">Erste Schritte auf Meta Developers</a>.
+       Alternativ CallMeBot f&uuml;r einfache Textnachrichten an eine private Nummer (kein Meta-Konto n&ouml;tig).</p>
+    <ul>
+      <li><strong>Phone Number ID</strong> &mdash; von der WhatsApp-Produktseite der Meta-App</li>
+      <li><strong>System User Access Token</strong> &mdash; langlebiger Token mit <code>whatsapp_business_messaging</code>-Berechtigung</li>
+      <li><strong>Standardempf&auml;nger</strong> &mdash; E.164-Telefonnummer (z.&nbsp;B. <code>+49170123456</code>)</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> &Uuml;ber <em>Testnachricht senden</em> die Zugangsdaten vor dem Ausf&uuml;hren einer Aufgabe pr&uuml;fen.</div>
   </section>
 
   <!-- 7 -->
@@ -387,11 +488,14 @@
       <tr><td><code>web_search</code></td><td>Live-Websuche (DuckDuckGo / Serper / SerpAPI)</td></tr>
       <tr><td><code>email</code></td><td>E-Mails lesen, suchen und senden via Gmail oder IMAP</td></tr>
       <tr><td><code>google_drive</code></td><td>Dateien in Google Drive durchsuchen und lesen</td></tr>
-      <tr><td><code>location</code></td><td>Aktuelle GPS-Koordinaten an das LLM &uuml;bergeben</td></tr>
+      <tr><td><code>toolbox</code></td><td>Aktuelle Uhrzeit, Zeitzone, Ger&auml;testandort und Stadt-Geocodierung</td></tr>
       <tr><td><code>ssh</code></td><td>Shell-Befehle auf entfernten SSH-Hosts ausf&uuml;hren</td></tr>
       <tr><td><code>weather</code></td><td>Aktuelles Wetter und Vorhersage (nutzt Standort, falls verf&uuml;gbar)</td></tr>
-      <tr><td><code>calculator</code></td><td>Pr&auml;zise arithmetische Auswertung</td></tr>
-      <tr><td><code>datetime</code></td><td>Aktuelles Datum, Uhrzeit und Zeitzoneinformation</td></tr>
+      <tr><td><code>file</code></td><td>Text-, Markdown- oder HTML-Ausgabedateien erstellen</td></tr>
+      <tr><td><code>excel</code></td><td>CSV / JSON / Text-Daten in eine Excel .xlsx-Datei konvertieren</td></tr>
+      <tr><td><code>chart</code></td><td>Linie-, Balken- und weitere Diagramme als PNG-Bilder aus numerischen Datenreihen erzeugen</td></tr>
+      <tr><td><code>mermaid</code></td><td>Mermaid-Diagrammsyntax (Flussdiagramme, Sequenzdiagramme &hellip;) in PNG-Bilder rendern</td></tr>
+      <tr><td><code>pdf</code></td><td>Text und Metadaten aus PDF-Dateien extrahieren</td></tr>
     </table>
 
     <h3>Externe MCP-Server</h3>
@@ -400,10 +504,30 @@
        Unter <em>Einstellungen &rarr; Externe MCP-Server</em> eine Server-URL oder einen Paketnamen eingeben.
        Externe Server erweitern die KI um Kalender, Aufgabenmanager, Datenbanken und mehr.</p>
 
-    <h3>JS-Mini-MCP-Server <span class="pro-tag">DEMNÄCHST</span></h3>
-    <p>Eigene leichtgewichtige MCP-Server als kleines JavaScript-Snippet direkt in der App schreiben.
-       Das Snippet l&auml;uft in einer Sandbox und kann beliebige benutzerdefinierte Werkzeuge
-       f&uuml;r die KI bereitstellen &mdash; ideal f&uuml;r einmalige Integrationen oder private APIs.</p>
+    <h3>&#x1F527; Eigene Werkzeuge</h3>
+    <p>TealKit erm&ouml;glicht es, eigene Werkzeuge ohne nativen Code zu erstellen. Zwei Assistenten stehen zur Verf&uuml;gung &mdash; erreichbar &uuml;ber den <strong>Werkzeuge</strong>-Reiter in den Playground-Einstellungen oder beim Bearbeiten einer Aufgabe.</p>
+
+    <h3>&#x1F4DC; Shell-Skript-Assistent</h3>
+    <p>In nat&uuml;rlicher Sprache beschreiben, was ben&ouml;tigt wird &mdash; die KI schreibt ein fertiges Shell-Skript (<code>.sh</code>&nbsp;/&nbsp;<code>.ps1</code>). Gespeicherte Skripte werden automatisch vom SSH-Server erkannt und k&ouml;nnen in Aufgaben beim Namen referenziert werden.</p>
+    <p>Tipps f&uuml;r einen guten Skript-Prompt:</p>
+    <ul>
+      <li>Zielumgebung nennen: <em>&bdquo;Bash auf Ubuntu&ldquo;</em>, <em>&bdquo;PowerShell auf Windows Server&ldquo;</em></li>
+      <li>Ein- und Ausgaben beschreiben: <em>&bdquo;nimmt Ordnerpfad als Argument, schreibt CSV nach stdout&ldquo;</em></li>
+      <li>Fehlerbehandlung erw&auml;hnen: <em>&bdquo;Exit-Code 1 bei Fehler, Fehlermeldung nach stderr&ldquo;</em></li>
+      <li>Beispiel: <em>&bdquo;Listet Dateien, die in den letzten 24 Stunden ge&auml;ndert wurden, und speichert das Ergebnis in report.txt&ldquo;</em></li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> Nach dem Generieren &uuml;ber <strong>Test-Ausf&uuml;hrung</strong> das Skript via SSH testen, bevor es gespeichert wird.</div>
+
+    <h3>&#x1F9E9; JavaScript-Werkzeug-Assistent</h3>
+    <p>Ein benutzerdefiniertes MCP-Werkzeug als kleines JavaScript-Snippet schreiben. Das Snippet l&auml;uft in einer sicheren On-Device-Sandbox und kann REST-APIs mit <code>fetch()</code> aufrufen. Gespeicherte Werkzeuge erscheinen sofort im Werkzeug-Selektor f&uuml;r Playground und Aufgaben.</p>
+    <p>Tipps f&uuml;r einen guten JavaScript-Werkzeug-Prompt:</p>
+    <ul>
+      <li>Input-Schema und Ausgabe klar definieren: <em>&bdquo;input: { from, to, amount }, output: { rate, converted}&ldquo;</em></li>
+      <li>F&uuml;r REST-APIs das vollst&auml;ndige URL-Muster angeben: <em>&bdquo;GET https://api.example.com/v1/data?key={param}&ldquo;</em></li>
+      <li>Fehlerf&auml;lle erw&auml;hnen: <em>&bdquo;Fehlermeldung zur&uuml;ckgeben, wenn der W&auml;hrungscode ung&uuml;ltig ist&ldquo;</em></li>
+      <li>Beispiel: <em>&bdquo;Aktuellen Bitcoin-Preis in EUR von der &ouml;ffentlichen Coinbase-API abrufen und Preis und Zeitstempel zur&uuml;ckgeben&ldquo;</em></li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> Unter <em>Beispiel-Prompts durchsuchen</em> im JS-Werkzeug-Editor funktionierende Beispiele laden (Rechner, W&auml;hrungsrechner, Geocodierung), um die Werkzeugstruktur zu sehen.</div>
   </section>
 
   <!-- 8 -->
@@ -477,12 +601,26 @@ und zeige mir dann die Zusammenfassung.</pre>
   <!-- 10 -->
   <section id="output">
     <h2>10 &nbsp; Ausgabedateien</h2>
-    <p>TealKit speichert drei Dateien pro Aufgabendurchlauf in einem Unterordner mit Zeitstempel:</p>
+    <p>TealKit speichert Kerndateien pro Aufgabendurchlauf in einem Unterordner mit Zeitstempel:</p>
     <ul>
       <li><code>output_log.md</code> &mdash; das Hauptergebnis als Markdown</li>
       <li><code>execution_log.md</code> &mdash; schrittweises Werkzeugaufruf-Protokoll</li>
       <li><code>output.html</code> &mdash; gerenderte HTML-Version des Ergebnisses</li>
     </ul>
+    <p>Zus&auml;tzlich werden <strong>alle Dateien, die die KI w&auml;hrend des Durchlaufs erzeugt, automatisch gespeichert</strong>:</p>
+    <ul>
+      <li><code>.xlsx</code> &mdash; Excel-Tabellen, die der <code>excel</code>-Server erstellt
+          (z.&nbsp;B. <em>&bdquo;Exportiere die Daten als Excel-Datei&ldquo;</em>)</li>
+      <li><code>.png</code> &mdash; Diagramme des <code>chart</code>-Servers oder
+          Mermaid-Diagramme des <code>mermaid</code>-Servers</li>
+      <li>Weitere <code>.md</code>-, <code>.html</code>-, <code>.csv</code>-, <code>.json</code>-Dateien,
+          die die KI &uuml;ber den <code>file</code>-Server schreibt</li>
+    </ul>
+    <div class="tip"><strong>Tipp: Dateien an E-Mail / Slack / WhatsApp weiterleiten.</strong>
+      Die Option <em>Ausgabedateien anh&auml;ngen</em> im Reiter <strong>Ausgabe</strong> der Aufgabe
+      leitet alle erzeugten Dateien (xlsx, png, md, html &hellip;) automatisch &uuml;ber jeden aktiven
+      Zustellkanal weiter &mdash; als E-Mail-Anh&auml;nge, native Slack-Datei-Uploads (Bot-Token erforderlich)
+      oder WhatsApp-Dokumentnachrichten (Meta Cloud API).</div>
     <h3>Ausgabeverzeichnis konfigurieren</h3>
     <p>Unter <em>Einstellungen &rarr; Allgemein</em> auf <em>Ausgabeverzeichnis</em> tippen,
        um einen Ordner auszuw&auml;hlen. Ohne Angabe wird interner App-Speicher verwendet.</p>
@@ -496,7 +634,7 @@ und zeige mir dann die Zusammenfassung.</pre>
     <h2>11 &nbsp; Einstellungen</h2>
     <ul>
       <li><strong>LLM-Einstellungen</strong> &mdash; KI-Anbieter, Modell, API-Schl&uuml;ssel, Temperatur</li>
-      <li><strong>Datenquellen</strong> &mdash; E-Mail, Suche, Dokumente, Webseiten, Standort, SSH</li>
+      <li><strong>Datenquellen</strong> &mdash; E-Mail, Suche, Dokumente, Webseiten, Standort, SSH, Slack, WhatsApp</li>
       <li><strong>Externe MCP-Server</strong> &mdash; Smithery oder eigene MCP-Server verbinden</li>
       <li><strong>Allgemein &rarr; Ausgabeverzeichnis</strong> &mdash; Speicherort f&uuml;r Ausgabedateien</li>
       <li><strong>Allgemein &rarr; Skriptverzeichnis</strong> &mdash; lokale Skriptbibliothek f&uuml;r SSH-Aufgaben</li>
