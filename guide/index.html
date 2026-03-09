@@ -170,6 +170,9 @@
       <li><a href="#output">Output Files</a></li>
       <li><a href="#settings">Settings</a></li>
       <li><a href="#faq">FAQ</a></li>
+      <li><a href="#jstool">JavaScript Tool</a></li>
+      <li><a href="#tokenstats">Token &amp; Cost Stats</a></li>
+      <li><a href="#tips">Useful Tips</a></li>
     </ol>
   </nav>
 
@@ -662,6 +665,179 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
     <p><strong>Run</strong> executes the task autonomously and saves the result to disk.
        <strong>Interactive</strong> opens a full chat with the same LLM and tools, so you can
        guide the AI step by step &mdash; useful for exploration or debugging a task.</p>
+  </section>
+
+  <!-- 13 -->
+  <section id="jstool">
+    <h2>13 &nbsp; JavaScript Tool <span class="pro-tag">PRO</span></h2>
+    <p>The JavaScript Tool Wizard lets you create lightweight custom MCP tools using pure JavaScript &mdash; no native code or external packages required. Tools run in a secure on-device sandbox (QuickJS&nbsp;/&nbsp;JavaScriptCore) and are available immediately in Playground and Tasks after saving.</p>
+
+    <h3>Tool structure</h3>
+    <p>Every generated tool must define exactly one object named <code>generatedTool</code>:</p>
+    <pre>const generatedTool = {
+  name: "bitcoin_price",
+  description: "Fetch the current Bitcoin price from CoinGecko",
+  inputSchema: {
+    type: "object",
+    properties: {
+      currency: { type: "string", description: "Target currency code, e.g. usd" }
+    },
+    required: ["currency"]
+  },
+  execute: async (args) => {
+    try {
+      const cur = String(args?.currency ?? "usd").toLowerCase();
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&amp;vs_currencies=${cur}`);
+      const data = await res.json();
+      return JSON.stringify({ ok: true, price: data.bitcoin[cur], currency: cur });
+    } catch (error) {
+      return JSON.stringify({ ok: false, error: String(error?.message || error) });
+    }
+  }
+};</pre>
+
+    <h3>Runtime rules &amp; limits</h3>
+    <ul>
+      <li><code>execute(args)</code> must return a JSON string via <code>JSON.stringify(&hellip;)</code> or a plain string</li>
+      <li><code>fetch()</code> is available for HTTP/REST calls</li>
+      <li><code>console.log()</code> output is captured and shown in test results</li>
+      <li><strong>Forbidden:</strong> <code>require</code>, <code>import</code>, <code>process</code>, <code>fs</code>, <code>path</code>, <code>net</code>, <code>child_process</code></li>
+      <li>Max script size: <strong>64 KB</strong> &nbsp;&bull;&nbsp; max response payload: <strong>256 KB</strong> &nbsp;&bull;&nbsp; default execution timeout: <strong>8 s</strong> (max 15 s)</li>
+      <li>ES6 syntax only &mdash; no top-level <code>await</code> outside <code>execute()</code></li>
+    </ul>
+
+    <h3>Creating a tool step by step</h3>
+    <div class="step"><div class="step-num">1</div><div>
+      Open <strong>Playground</strong> or a <strong>Task</strong>, tap the <strong>Tools</strong> tab, then tap <strong>+ New JS Tool</strong> (or <em>JS Tool Library</em> from Settings).
+    </div></div>
+    <div class="step"><div class="step-num">2</div><div>
+      Type a description of what the tool should do. The AI generates the full <code>generatedTool</code> snippet including schema.
+    </div></div>
+    <div class="step"><div class="step-num">3</div><div>
+      Review the generated code. Tap <strong>Test Run</strong> to execute it in the sandbox with sample arguments and see the output and any console logs.
+    </div></div>
+    <div class="step"><div class="step-num">4</div><div>
+      Tap <strong>Save</strong> &mdash; the tool is now available in the tool selector for any Playground session or Task.
+    </div></div>
+    <div class="tip"><strong>Tip:</strong> Use the <em>Browse Example Prompts</em> button in the editor to load working examples (calculator, currency converter, geocoding) and see the expected tool structure.</div>
+
+    <h3>Calling saved tools via MCP</h3>
+    <p>When the <code>js_bridge</code> server is selected, the AI can discover and call your tools automatically:</p>
+    <ul>
+      <li><code>list_js_tools</code> &mdash; returns all saved tools with their schemas</li>
+      <li><code>run_js_tool</code> &mdash; call by name: <code>{ "toolName": "bitcoin_price", "args": { "currency": "eur" } }</code></li>
+      <li>Dynamic direct call &mdash; active tools are also registered as <code>js_&lt;name&gt;</code> tools (e.g. <code>js_bitcoin_price</code>)</li>
+    </ul>
+
+    <h3>Example prompts for generation</h3>
+    <ul>
+      <li><em>&ldquo;Fetch today&rsquo;s EUR/USD exchange rate from the free Frankfurter API and return rate and date.&rdquo;</em></li>
+      <li><em>&ldquo;Calculate compound interest. Input: principal, annualRate, years. Return: finalAmount, totalInterest.&rdquo;</em></li>
+      <li><em>&ldquo;Look up a city name using the Open-Meteo geocoding API and return latitude, longitude, and country.&rdquo;</em></li>
+      <li><em>&ldquo;Convert a Unix timestamp to a human-readable date string in a given timezone.&rdquo;</em></li>
+    </ul>
+  </section>
+
+  <!-- 14 -->
+  <section id="tokenstats">
+    <h2>14 &nbsp; Token &amp; Cost Statistics</h2>
+    <p>TealKit tracks token consumption and estimates API cost per session and per task run. No data is sent to TealKit &mdash; all calculations use built-in pricing tables on your device.</p>
+
+    <h3>Playground &mdash; live session stats</h3>
+    <p>During a Playground chat, a token counter appears at the bottom of the chat area showing the cumulative tokens consumed and characters sent in the current session. The counter turns amber when approaching the model&rsquo;s configured token warning threshold.</p>
+    <p>Tap the token counter to open the full detail sheet:</p>
+    <table>
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td>Cumulative Tokens</td><td>Total prompt + completion tokens used since session start</td></tr>
+      <tr><td>Prompt Tokens</td><td>Tokens sent to the LLM (cumulative)</td></tr>
+      <tr><td>Completion Tokens</td><td>Tokens generated by the LLM (cumulative)</td></tr>
+      <tr><td>Last Request Tokens</td><td>Tokens used by the most recent LLM call</td></tr>
+      <tr><td>Last Request Cost</td><td>Estimated USD cost of the most recent call</td></tr>
+      <tr><td>Session Cost (est.)</td><td>Estimated total USD cost for the entire session</td></tr>
+      <tr><td>Model Pricing Info</td><td>Input / output price per 1 M tokens for the selected model</td></tr>
+    </table>
+    <div class="tip"><strong>Tip:</strong> Tap the &#x21BA; <strong>Reset Chat</strong> button to start a fresh session &mdash; this clears all conversation history and resets the token counters to zero.</div>
+
+    <h3>Tasks &mdash; run statistics</h3>
+    <p>Every completed task run records full statistics. Tap any run entry in the task history to view:</p>
+    <table>
+      <tr><th>Metric</th><th>Description</th></tr>
+      <tr><td>Duration</td><td>Total wall-clock time for the run</td></tr>
+      <tr><td>Status</td><td>Success&nbsp;/&nbsp;Failed&nbsp;/&nbsp;Cancelled</td></tr>
+      <tr><td>Tokens used</td><td>Total prompt + completion tokens</td></tr>
+      <tr><td>Chars sent</td><td>Characters sent in LLM requests</td></tr>
+      <tr><td>Tool calls</td><td>Number of MCP tool calls made</td></tr>
+      <tr><td>Messages</td><td>Total conversation turns</td></tr>
+      <tr><td>Last price</td><td>Estimated cost of the final LLM call (USD)</td></tr>
+      <tr><td>Total price</td><td>Estimated total session cost for this run (USD)</td></tr>
+    </table>
+
+    <h3>Supported providers for cost estimation</h3>
+    <p>Cost estimates are calculated from built-in pricing tables for:</p>
+    <ul>
+      <li><strong>OpenAI</strong> &mdash; GPT-4o, GPT-4, GPT-3.5-turbo &amp; variants</li>
+      <li><strong>Anthropic</strong> &mdash; Claude 3.x &amp; Claude 3.5 family</li>
+      <li><strong>Google Gemini</strong> &mdash; Gemini 1.5 &amp; 2.0 series</li>
+      <li><strong>Mistral</strong> &mdash; Mistral Small, Medium, Large</li>
+      <li><strong>Azure OpenAI</strong> &mdash; same pricing tables as OpenAI</li>
+    </ul>
+    <div class="note"><strong>Note:</strong> For Ollama and custom OpenAI-compatible providers the cost is shown as &mdash; (not estimated), because no public pricing is available. Token counts are still tracked.</div>
+
+    <h3>Playground stats example</h3>
+    <pre>Cumulative Tokens : 4 820
+Prompt Tokens     : 4 210
+Completion Tokens :   610
+Last Request Cost : $0.0062
+Session Cost      : $0.0241</pre>
+  </section>
+
+  <!-- 15 -->
+  <section id="tips">
+    <h2>15 &nbsp; Useful Tips</h2>
+    <p>Quick practical suggestions to get the most out of TealKit.</p>
+
+    <h3>&#x1F9E9; Generate a JavaScript function</h3>
+    <p>Open the JS Tool editor and describe the function precisely, including inputs, outputs, and the API to call:</p>
+    <pre>Fetch the current Bitcoin price in EUR and USD from the free CoinGecko API.
+Input: { currency: string }. Return: { price, currency, lastUpdated }.</pre>
+    <p>Tap <strong>Generate</strong>, inspect the code, then <strong>Test Run</strong> it in the sandbox before saving. The tool is instantly available in any session.</p>
+
+    <h3>&#x1F4DC; Write a shell script</h3>
+    <p>Open the Shell Script Wizard and state the target environment, inputs, and expected behaviour:</p>
+    <pre>Bash on Ubuntu. The script takes a folder path as argument,
+finds all .log files older than 7 days, deletes them,
+and prints a summary (count and freed space) to stdout.
+Exit code 1 on error, error message to stderr.</pre>
+    <p>After generation, tap <strong>Test Run</strong> to execute via SSH and verify the output before saving to the script library.</p>
+
+    <h3>&#x25B6; Test a task before scheduling</h3>
+    <p>Before activating a cron schedule, open the task with <strong>Interactive&nbsp;/&nbsp;Try-Out</strong> mode. This loads the task&rsquo;s configuration into a live Playground chat so you can step through the AI&rsquo;s tool calls and refine the system prompt &mdash; without creating any scheduled run history.</p>
+    <div class="tip"><strong>Tip:</strong> Use Interactive mode to iterate on the prompt and tool selection until the output looks right, then save the task and enable the schedule.</div>
+
+    <h3>&#x1F310; Register an external MCP server</h3>
+    <p>Go to <em>Settings &rarr; External MCP Servers &rarr; + Add Server</em> and fill in:</p>
+    <ul>
+      <li><strong>Name</strong> &mdash; a friendly label for the server</li>
+      <li><strong>Server URL</strong> &mdash; the HTTP(S) base URL of the MCP server, or a Smithery package name (e.g. <code>@modelcontextprotocol/server-filesystem</code>)</li>
+      <li><strong>MCP Endpoint</strong> &mdash; typically <code>/mcp</code> (default); leave unchanged for Smithery</li>
+      <li><strong>API Key</strong> &mdash; only if the server requires authentication</li>
+    </ul>
+    <p>Tap <strong>Test Connection</strong> to validate the server is reachable, then <strong>Save</strong>. The server&rsquo;s tools appear immediately in the tool selector.</p>
+    <div class="tip"><strong>Tip:</strong> Browse the <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a> catalogue directly from the screen using the search bar &mdash; results show the package name, description, and tool count.</div>
+
+    <h3>&#x1F4B0; Check current session costs</h3>
+    <p>In the <strong>Playground</strong>: tap the token counter at the bottom of the chat &rarr; the detail sheet shows last-request cost and cumulative session cost.</p>
+    <p>For <strong>Tasks</strong>: open the task &rarr; tap a completed run entry &rarr; the <em>Last Run Statistics</em> card shows <em>Last price</em> and <em>Total price</em>.</p>
+
+    <h3>&#x21BA; Reset a session (cleanup)</h3>
+    <p>Tap the <strong>Reset Chat</strong> button (&#x21BA; icon in the toolbar, or the button below the last message) to:</p>
+    <ul>
+      <li>Clear all conversation history from the current session</li>
+      <li>Reset the token counter and session cost to zero</li>
+      <li>Keep the system prompt, tools, and configuration intact</li>
+    </ul>
+    <p>The AI starts fresh with no memory of the previous conversation &mdash; useful when switching topics or when context has grown too large.</p>
+    <div class="tip"><strong>Tip:</strong> If a long session causes the AI to lose track of earlier instructions, reset the chat and add a concise summary of what was already done as the first message.</div>
   </section>
 
 </div>

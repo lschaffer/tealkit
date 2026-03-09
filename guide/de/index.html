@@ -170,6 +170,9 @@
       <li><a href="#output">Ausgabedateien</a></li>
       <li><a href="#settings">Einstellungen</a></li>
       <li><a href="#faq">FAQ</a></li>
+      <li><a href="#jstool">JavaScript-Werkzeug</a></li>
+      <li><a href="#tokenstats">Token- &amp; Kostenstatistik</a></li>
+      <li><a href="#tips">N&uuml;tzliche Tipps</a></li>
     </ol>
   </nav>
 
@@ -669,6 +672,179 @@ und zeige mir dann die Zusammenfassung.</pre>
     <p><strong>Starten</strong> f&uuml;hrt die Aufgabe autonom aus und speichert das Ergebnis.
        <strong>Interaktiv</strong> &ouml;ffnet einen vollst&auml;ndigen Chat mit demselben LLM und denselben
        Werkzeugen &mdash; ideal zum schrittweisen Steuern der KI oder zum Debuggen einer Aufgabe.</p>
+  </section>
+
+  <!-- 13 -->
+  <section id="jstool">
+    <h2>13 &nbsp; JavaScript-Werkzeug <span class="pro-tag">PRO</span></h2>
+    <p>Der JavaScript-Werkzeug-Assistent erm&ouml;glicht es, leichtgewichtige eigene MCP-Werkzeuge in reinem JavaScript zu erstellen &mdash; ohne nativen Code oder externe Pakete. Werkzeuge laufen in einer sicheren On-Device-Sandbox (QuickJS&nbsp;/&nbsp;JavaScriptCore) und stehen nach dem Speichern sofort im Playground und in Aufgaben zur Verf&uuml;gung.</p>
+
+    <h3>Werkzeugstruktur</h3>
+    <p>Jedes generierte Werkzeug muss genau ein Objekt namens <code>generatedTool</code> definieren:</p>
+    <pre>const generatedTool = {
+  name: "bitcoin_preis",
+  description: "Aktuellen Bitcoin-Kurs von CoinGecko abrufen",
+  inputSchema: {
+    type: "object",
+    properties: {
+      waehrung: { type: "string", description: "W\u00e4hrungscode, z.\u00a0B. eur" }
+    },
+    required: ["waehrung"]
+  },
+  execute: async (args) => {
+    try {
+      const cur = String(args?.waehrung ?? "eur").toLowerCase();
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&amp;vs_currencies=${cur}`);
+      const data = await res.json();
+      return JSON.stringify({ ok: true, preis: data.bitcoin[cur], waehrung: cur });
+    } catch (error) {
+      return JSON.stringify({ ok: false, error: String(error?.message || error) });
+    }
+  }
+};</pre>
+
+    <h3>Laufzeitregeln &amp; Grenzen</h3>
+    <ul>
+      <li><code>execute(args)</code> muss einen JSON-String per <code>JSON.stringify(&hellip;)</code> oder einen einfachen String zur&uuml;ckgeben</li>
+      <li><code>fetch()</code> steht f&uuml;r HTTP-/REST-Aufrufe zur Verf&uuml;gung</li>
+      <li><code>console.log()</code>-Ausgaben werden erfasst und in den Testergebnissen angezeigt</li>
+      <li><strong>Verboten:</strong> <code>require</code>, <code>import</code>, <code>process</code>, <code>fs</code>, <code>path</code>, <code>net</code>, <code>child_process</code></li>
+      <li>Max. Scriptgr&ouml;&szlig;e: <strong>64&nbsp;KB</strong> &nbsp;&bull;&nbsp; max. Antwortgr&ouml;&szlig;e: <strong>256&nbsp;KB</strong> &nbsp;&bull;&nbsp; Standard-Timeout: <strong>8&nbsp;s</strong> (max. 15&nbsp;s)</li>
+      <li>Nur ES6-Syntax &mdash; kein <code>await</code> auf oberster Ebene au&szlig;erhalb von <code>execute()</code></li>
+    </ul>
+
+    <h3>Werkzeug Schritt f&uuml;r Schritt erstellen</h3>
+    <div class="step"><div class="step-num">1</div><div>
+      <strong>Playground</strong> oder eine <strong>Aufgabe</strong> &ouml;ffnen, auf den Reiter <strong>Werkzeuge</strong> tippen und dann auf <strong>+ Neues JS-Werkzeug</strong> (oder &uuml;ber <em>Einstellungen &rarr; JS-Werkzeugbibliothek</em>).
+    </div></div>
+    <div class="step"><div class="step-num">2</div><div>
+      Eine Beschreibung eingeben, was das Werkzeug tun soll. Die KI generiert das vollst&auml;ndige <code>generatedTool</code>-Snippet inklusive Schema.
+    </div></div>
+    <div class="step"><div class="step-num">3</div><div>
+      Den generierten Code pr&uuml;fen. <strong>Test-Ausf&uuml;hrung</strong> tippen, um das Werkzeug in der Sandbox mit Beispielargumenten zu starten und die Ausgabe sowie Console-Logs zu sehen.
+    </div></div>
+    <div class="step"><div class="step-num">4</div><div>
+      <strong>Speichern</strong> tippen &mdash; das Werkzeug ist sofort im Werkzeug-Selektor f&uuml;r jede Playground-Sitzung oder Aufgabe verf&uuml;gbar.
+    </div></div>
+    <div class="tip"><strong>Tipp:</strong> &Uuml;ber <em>Beispiel-Prompts durchsuchen</em> im Editor funktionierende Beispiele laden (Rechner, W&auml;hrungsrechner, Geocodierung), um die Werkzeugstruktur zu verstehen.</div>
+
+    <h3>Gespeicherte Werkzeuge per MCP aufrufen</h3>
+    <p>Wenn der <code>js_bridge</code>-Server ausgew&auml;hlt ist, kann die KI deine Werkzeuge automatisch entdecken und aufrufen:</p>
+    <ul>
+      <li><code>list_js_tools</code> &mdash; gibt alle gespeicherten Werkzeuge mit Schemas aus</li>
+      <li><code>run_js_tool</code> &mdash; per Name aufrufen: <code>{ "toolName": "bitcoin_preis", "args": { "waehrung": "eur" } }</code></li>
+      <li>Dynamischer Direktaufruf &mdash; aktive Werkzeuge werden auch als <code>js_&lt;name&gt;</code>-Werkzeuge registriert (z.&nbsp;B. <code>js_bitcoin_preis</code>)</li>
+    </ul>
+
+    <h3>Beispiel-Prompts f&uuml;r die Generierung</h3>
+    <ul>
+      <li><em>&bdquo;Heutigen EUR/USD-Kurs von der kostenlosen Frankfurter API abrufen und Kurs und Datum zur&uuml;ckgeben.&ldquo;</em></li>
+      <li><em>&bdquo;Zinseszins berechnen. Eingabe: Kapital, Jahreszins, Jahre. Ausgabe: Endkapital, Gesamtzinsen.&ldquo;</em></li>
+      <li><em>&bdquo;Einen Stadtnamen &uuml;ber die Open-Meteo-Geocoding-API aufl&ouml;sen und Breitengrad, L&auml;ngengrad und Land zur&uuml;ckgeben.&ldquo;</em></li>
+      <li><em>&bdquo;Unix-Zeitstempel in eine lesbare Datumszeichenkette in einer gegebenen Zeitzone umwandeln.&ldquo;</em></li>
+    </ul>
+  </section>
+
+  <!-- 14 -->
+  <section id="tokenstats">
+    <h2>14 &nbsp; Token- &amp; Kostenstatistik</h2>
+    <p>TealKit erfasst den Token-Verbrauch und sch&auml;tzt die API-Kosten pro Sitzung und Aufgabendurchlauf. Keine Daten werden an TealKit &uuml;bertragen &mdash; s&auml;mtliche Berechnungen erfolgen anhand integrierter Preistabellen auf dem Ger&auml;t.</p>
+
+    <h3>Playground &mdash; Live-Sitzungsstatistik</h3>
+    <p>W&auml;hrend eines Playground-Chats erscheint am unteren Rand der Chat-Fl&auml;che ein Token-Z&auml;hler mit den kumulativen Tokens und gesendeten Zeichen der aktuellen Sitzung. Der Z&auml;hler f&auml;rbt sich amber, wenn der konfigurierte Token-Warnschwellenwert des Modells n&auml;her r&uuml;ckt.</p>
+    <p>Den Token-Z&auml;hler antippen, um die vollst&auml;ndige Detailansicht zu &ouml;ffnen:</p>
+    <table>
+      <tr><th>Feld</th><th>Beschreibung</th></tr>
+      <tr><td>Kumulative Tokens</td><td>Gesamte Prompt- + Completion-Tokens seit Sitzungsstart</td></tr>
+      <tr><td>Prompt-Tokens</td><td>An das LLM gesendete Tokens (kumulativ)</td></tr>
+      <tr><td>Completion-Tokens</td><td>Vom LLM generierte Tokens (kumulativ)</td></tr>
+      <tr><td>Letzte Anfrage Tokens</td><td>Tokens der j&uuml;ngsten LLM-Anfrage</td></tr>
+      <tr><td>Letzte Anfrage Kosten</td><td>Gesch&auml;tzte USD-Kosten der letzten Anfrage</td></tr>
+      <tr><td>Sitzungskosten (gesch.)</td><td>Gesch&auml;tzte USD-Gesamtkosten der Sitzung</td></tr>
+      <tr><td>Modellpreisinfo</td><td>Eingabe-&nbsp;/&nbsp;Ausgabepreis pro 1&nbsp;Mio. Tokens f&uuml;r das Modell</td></tr>
+    </table>
+    <div class="tip"><strong>Tipp:</strong> Die Schaltfl&auml;che &#x21BA; <strong>Chat zur&uuml;cksetzen</strong> startet eine neue Sitzung &mdash; die Gespr&auml;chshistorie und der Token-Z&auml;hler werden vollst&auml;ndig zur&uuml;ckgesetzt.</div>
+
+    <h3>Aufgaben &mdash; Ausf&uuml;hrungsstatistiken</h3>
+    <p>Jeder abgeschlossene Aufgabendurchlauf zeichnet vollst&auml;ndige Statistiken auf. Einen Eintrag in der Aufgabenhistorie antippen:</p>
+    <table>
+      <tr><th>Kennzahl</th><th>Beschreibung</th></tr>
+      <tr><td>Dauer</td><td>Gesamte Laufzeit des Durchlaufs</td></tr>
+      <tr><td>Status</td><td>Erfolgreich&nbsp;/&nbsp;Fehlgeschlagen&nbsp;/&nbsp;Abgebrochen</td></tr>
+      <tr><td>Token verbraucht</td><td>Gesamte Prompt- + Completion-Tokens</td></tr>
+      <tr><td>Gesendete Zeichen</td><td>In LLM-Anfragen gesendete Zeichen</td></tr>
+      <tr><td>Werkzeugaufrufe</td><td>Anzahl der MCP-Werkzeugaufrufe</td></tr>
+      <tr><td>Nachrichten</td><td>Gespr&auml;chsrunden insgesamt</td></tr>
+      <tr><td>Letzter Preis</td><td>Gesch&auml;tzte Kosten der letzten LLM-Anfrage (USD)</td></tr>
+      <tr><td>Gesamtpreis</td><td>Gesch&auml;tzte Gesamtkosten der Sitzung (USD)</td></tr>
+    </table>
+
+    <h3>Unterst&uuml;tzte Anbieter f&uuml;r Kostensch&auml;tzung</h3>
+    <p>Kosten werden anhand integrierter Preistabellen f&uuml;r folgende Anbieter berechnet:</p>
+    <ul>
+      <li><strong>OpenAI</strong> &mdash; GPT-4o, GPT-4, GPT-3.5-turbo &amp; Varianten</li>
+      <li><strong>Anthropic</strong> &mdash; Claude 3.x &amp; Claude 3.5 Familie</li>
+      <li><strong>Google Gemini</strong> &mdash; Gemini 1.5 &amp; 2.0 Serie</li>
+      <li><strong>Mistral</strong> &mdash; Mistral Small, Medium, Large</li>
+      <li><strong>Azure OpenAI</strong> &mdash; gleiche Preistabellen wie OpenAI</li>
+    </ul>
+    <div class="note"><strong>Hinweis:</strong> F&uuml;r Ollama und benutzerdefinierte OpenAI-kompatible Anbieter wird kein Preis gesch&auml;tzt (Anzeige: &mdash;), da keine &ouml;ffentliche Preisgestaltung verf&uuml;gbar ist. Token-Z&auml;hlungen werden trotzdem erfasst.</div>
+
+    <h3>Playground-Statistik (Beispiel)</h3>
+    <pre>Kumulative Tokens  : 4 820
+Prompt-Tokens      : 4 210
+Completion-Tokens  :   610
+Letzte Anfrage     : 0,0062 $
+Sitzungskosten     : 0,0241 $</pre>
+  </section>
+
+  <!-- 15 -->
+  <section id="tips">
+    <h2>15 &nbsp; N&uuml;tzliche Tipps</h2>
+    <p>Schnelle praktische Hinweise, um das Beste aus TealKit herauszuholen.</p>
+
+    <h3>&#x1F9E9; JavaScript-Funktion generieren</h3>
+    <p>Den JS-Werkzeug-Editor &ouml;ffnen und die Funktion pr&auml;zise beschreiben &mdash; Eingaben, Ausgaben und die aufzurufende API:</p>
+    <pre>Aktuellen Bitcoin-Kurs in EUR und USD von der kostenlosen CoinGecko-API abrufen.
+Eingabe: { waehrung: string }. Ausgabe: { preis, waehrung, letzteAktualisierung }.</pre>
+    <p>Auf <strong>Generieren</strong> tippen, den Code kontrollieren und dann mit <strong>Test-Ausf&uuml;hrung</strong> in der Sandbox pr&uuml;fen, bevor gespeichert wird. Das Werkzeug steht danach sofort in jeder Sitzung zur Verf&uuml;gung.</p>
+
+    <h3>&#x1F4DC; Shell-Skript schreiben</h3>
+    <p>Im Shell-Skript-Assistenten die Zielumgebung, Eingaben und das erwartete Verhalten angeben:</p>
+    <pre>Bash auf Ubuntu. Das Skript nimmt einen Ordnerpfad als Argument,
+findet alle .log-Dateien, die &auml;lter als 7 Tage sind, l&ouml;scht sie
+und gibt eine Zusammenfassung (Anzahl und freigewordener Speicher)
+nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
+    <p>Nach der Generierung <strong>Test-Ausf&uuml;hrung</strong> tippen, um das Skript via SSH auszuf&uuml;hren und die Ausgabe zu pr&uuml;fen, bevor es in der Skriptbibliothek gespeichert wird.</p>
+
+    <h3>&#x25B6; Aufgabe vor der Planung testen</h3>
+    <p>Vor dem Aktivieren eines Cron-Zeitplans die Aufgabe mit dem Modus <strong>Interaktiv&nbsp;/&nbsp;Ausprobieren</strong> &ouml;ffnen. Dieser l&auml;dt die Aufgabenkonfiguration als Live-Playground-Chat, sodass Werkzeugaufrufe und Ausgaben Schritt f&uuml;r Schritt kontrolliert und der System-Prompt verfeinert werden kann &mdash; ohne Scheduling-Historie zu erzeugen.</p>
+    <div class="tip"><strong>Tipp:</strong> Im interaktiven Modus iterieren, bis die Ausgabe stimmt &mdash; dann speichern und den Zeitplan aktivieren.</div>
+
+    <h3>&#x1F310; Externen MCP-Server registrieren</h3>
+    <p>Unter <em>Einstellungen &rarr; Externe MCP-Server &rarr; + Server hinzuf&uuml;gen</em> ausf&uuml;llen:</p>
+    <ul>
+      <li><strong>Name</strong> &mdash; eine aussagekr&auml;ftige Bezeichnung</li>
+      <li><strong>Server-URL</strong> &mdash; die HTTP(S)-Basis-URL des MCP-Servers oder ein Smithery-Paketname (z.&nbsp;B. <code>@modelcontextprotocol/server-filesystem</code>)</li>
+      <li><strong>MCP-Endpunkt</strong> &mdash; in der Regel <code>/mcp</code> (Standard); f&uuml;r Smithery unver&auml;ndert lassen</li>
+      <li><strong>API-Schl&uuml;ssel</strong> &mdash; nur wenn der Server eine Authentifizierung erfordert</li>
+    </ul>
+    <p>Auf <strong>Verbindung testen</strong> tippen, um den Server erreichbar zu pr&uuml;fen, dann <strong>Speichern</strong>. Die Werkzeuge des Servers erscheinen sofort im Werkzeug-Selektor.</p>
+    <div class="tip"><strong>Tipp:</strong> Den <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a>-Katalog direkt &uuml;ber die Suchleiste im Bildschirm durchsuchen &mdash; die Ergebnisse zeigen Paketname, Beschreibung und Werkzeuganzahl.</div>
+
+    <h3>&#x1F4B0; Aktuelle Sitzungskosten pr&uuml;fen</h3>
+    <p>Im <strong>Playground</strong>: den Token-Z&auml;hler am unteren Rand des Chats antippen &rarr; das Detailblatt zeigt die Kosten der letzten Anfrage und die kumulativen Sitzungskosten.</p>
+    <p>F&uuml;r <strong>Aufgaben</strong>: Aufgabe &ouml;ffnen &rarr; abgeschlossenen Eintrag antippen &rarr; die Karte <em>Ausf&uuml;hrungsstatistiken</em> zeigt <em>Letzter Preis</em> und <em>Gesamtpreis</em>.</p>
+
+    <h3>&#x21BA; Sitzung zur&uuml;cksetzen (Aufr&auml;umen)</h3>
+    <p>Die Schaltfl&auml;che <strong>Chat zur&uuml;cksetzen</strong> (&#x21BA;-Symbol in der Toolbar oder unter der letzten Nachricht) tippen, um:</p>
+    <ul>
+      <li>Die gesamte Gespr&auml;chshistorie der aktuellen Sitzung zu l&ouml;schen</li>
+      <li>Token-Z&auml;hler und Sitzungskosten auf null zu setzen</li>
+      <li>System-Prompt, Werkzeuge und Konfiguration beizubehalten</li>
+    </ul>
+    <p>Die KI startet mit leerer Gespr&auml;chshistorie &mdash; hilfreich beim Themenwechsel oder wenn der Kontext zu gro&szlig; wurde.</p>
+    <div class="tip"><strong>Tipp:</strong> Wenn die KI durch eine lange Sitzung den Faden verliert, Chat zur&uuml;cksetzen und eine kurze Zusammenfassung des bisherigen Stands als erste Nachricht eingeben.</div>
   </section>
 
 </div>
