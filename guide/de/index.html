@@ -238,8 +238,8 @@
       gespeichert und verlassen es nie.
     </div></div>
     <div class="step"><div class="step-num">4</div><div>
-      <strong>Modell ausw&auml;hlen</strong>, z.&nbsp;B. <code>gpt-4o</code>, <code>claude-3-5-sonnet</code>
-      oder <code>gemini-2.0-flash</code>.
+      <strong>Modell ausw&auml;hlen</strong>, z.&nbsp;B. <code>gpt-4o</code>, <code>claude-sonnet-4-5</code>
+      oder <code>gemini-2.5-flash</code>.
     </div></div>
     <div class="step"><div class="step-num">5</div><div>
       Auf <strong>LLM-Einstellungen speichern</strong> tippen. Die Startbildschirm-Schaltfl&auml;chen
@@ -247,6 +247,41 @@
     </div></div>
     <div class="tip"><strong>Tipp:</strong> Ollama-Nutzer &mdash; <code>http://localhost:11434</code>
       als Basis-URL eingeben und den API-Schl&uuml;ssel leer lassen.</div>
+    <h3>Anbieterdetails &amp; API-Schl&uuml;ssel-Registrierung</h3>
+    <table>
+      <tr><th>Anbieter</th><th>API-Schl&uuml;ssel &amp; Registrierung</th><th>Empfohlene Modelle (2025)</th></tr>
+      <tr>
+        <td><strong>OpenAI</strong></td>
+        <td><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a></td>
+        <td><code>gpt-4o</code>, <code>gpt-4o-mini</code>, <code>o3-mini</code>, <code>o4-mini</code></td>
+      </tr>
+      <tr>
+        <td><strong>Anthropic</strong></td>
+        <td><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a></td>
+        <td><code>claude-opus-4-5</code>, <code>claude-sonnet-4-5</code>, <code>claude-3-5-haiku-20241022</code></td>
+      </tr>
+      <tr>
+        <td><strong>Google Gemini</strong></td>
+        <td><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a> (kostenloser Tarif verf&uuml;gbar)</td>
+        <td><code>gemini-3.1-pro</code>, <code>gemini-2.5-pro</code>, <code>gemini-2.5-flash</code></td>
+      </tr>
+      <tr>
+        <td><strong>Mistral</strong></td>
+        <td><a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">console.mistral.ai</a></td>
+        <td><code>mistral-large-latest</code>, <code>mistral-small-latest</code></td>
+      </tr>
+      <tr>
+        <td><strong>Azure OpenAI</strong></td>
+        <td>Azure Portal &rarr; Azure AI Foundry &rarr; Schl&uuml;ssel &amp; Endpunkt</td>
+        <td>Abh&auml;ngig vom Deployment-Namen</td>
+      </tr>
+      <tr>
+        <td><strong>Ollama</strong> (lokal)</td>
+        <td>Kein Schl&uuml;ssel &mdash; <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a> f&uuml;r Setup</td>
+        <td><code>llama3.1</code>, <code>phi4</code>, <code>mistral</code>, <code>qwen2.5</code></td>
+      </tr>
+    </table>
+    <div class="tip"><strong>Tipp:</strong> Google Gemini bietet einen kostenlosen API-Tarif (mit Anfragegrenzen) &mdash; ideal, um TealKit kostenlos auszuprobieren. Mit Google-Konto bei <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> anmelden, API-Schl&uuml;ssel erzeugen und in <em>LLM-Einstellungen</em> eingeben.</div>
   </section>
 
   <!-- 4 -->
@@ -498,7 +533,7 @@
       <tr><td><code>excel</code></td><td>CSV / JSON / Text-Daten in eine Excel .xlsx-Datei konvertieren</td></tr>
       <tr><td><code>chart</code></td><td>Linie-, Balken- und weitere Diagramme als PNG-Bilder aus numerischen Datenreihen erzeugen</td></tr>
       <tr><td><code>mermaid</code></td><td>Mermaid-Diagrammsyntax (Flussdiagramme, Sequenzdiagramme &hellip;) in PNG-Bilder rendern</td></tr>
-      <tr><td><code>pdf</code></td><td>Text und Metadaten aus PDF-Dateien extrahieren</td></tr>
+      <tr><td><code>pdf</code></td><td>PDF-Dokumente aus KI-generierten Inhalten erstellen</td></tr>
     </table>
 
     <h3>Externe MCP-Server</h3>
