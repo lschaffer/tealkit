@@ -175,6 +175,7 @@
       <li><a href="#jstool">JavaScript Tool</a></li>
       <li><a href="#tokenstats">Token &amp; Cost Stats</a></li>
       <li><a href="#tips">Useful Tips</a></li>
+      <li><a href="#desktop">Desktop Features</a></li>
     </ol>
   </nav>
 
@@ -216,9 +217,10 @@
       </tr>
       <tr>
         <td><strong>Windows</strong></td>
-        <td>Full desktop experience with direct access to local file paths. Output files are
-          written to any folder. SSH scripts (<code>.ps1</code> / <code>.sh</code>) placed in
-          the configured scripts directory are auto-discovered.</td>
+        <td>The Windows desktop app is <strong>coming in a future release</strong>.
+          See <a href="#desktop">Desktop Features</a> for a full preview of what&rsquo;s coming &mdash;
+          and note that <strong>purchasing any single mobile version</strong> (Android or iOS)
+          unlocks the Windows desktop app at no extra cost.</td>
       </tr>
     </table>
   </section>
@@ -875,6 +877,44 @@ Exit code 1 on error, error message to stderr.</pre>
     </ul>
     <p>The AI starts fresh with no memory of the previous conversation &mdash; useful when switching topics or when context has grown too large.</p>
     <div class="tip"><strong>Tip:</strong> If a long session causes the AI to lose track of earlier instructions, reset the chat and add a concise summary of what was already done as the first message.</div>
+
+    <h3>&#x1F5A5; Pro unlocks the Windows desktop app</h3>
+    <p>Purchasing TealKit Pro on <strong>Android or iOS</strong> includes the <strong>Windows desktop version</strong> at no extra cost &mdash; one purchase, all platforms. Linux and macOS support is coming in a future release.</p>
+    <div class="step"><div class="step-num">1</div><div>Buy Pro on your phone via <em>Settings &rarr; Pro &rarr; Upgrade</em>.</div></div>
+    <div class="step"><div class="step-num">2</div><div>On mobile: <em>Settings &rarr; Pro card &rarr; <strong>Desktop Key</strong></em> &rarr; paste the <strong>Machine ID</strong> shown in the Windows app &rarr; tap <strong>Generate</strong>.</div></div>
+    <div class="step"><div class="step-num">3</div><div>On Windows: <em>Settings &rarr; Pro &rarr; Enter Key</em> &rarr; paste the generated <code>TKIT-&hellip;</code> key &rarr; tap <strong>Activate</strong>.</div></div>
+    <div class="tip"><strong>Tip:</strong> The key is bound to the specific machine &mdash; it will not work on a different PC. Repeat the process for each Windows machine you use TealKit on.</div>
+  </section>
+
+  <!-- 16 -->
+  <section id="desktop">
+    <h2>16 &nbsp; Desktop Features <span class="pro-tag">PRO</span></h2>
+    <p>The Windows desktop version shares all mobile features and adds exclusive desktop-only capabilities. Linux and macOS support is coming soon.</p>
+
+    <h3>&#x1F40D; Python MCP Tool Generator <span class="pro-tag">PRO</span></h3>
+    <p>Create custom MCP server tools written in <strong>Python</strong> directly from within TealKit. Describe what you need in plain language and the AI generates a complete, runnable Python MCP tool including input schema and execute function.</p>
+    <ul>
+      <li>Tools run locally in a sandboxed Python environment</li>
+      <li>Full access to standard Python libraries (<code>json</code>, <code>datetime</code>, <code>math</code>, <code>re</code>, <code>urllib</code> &hellip;)</li>
+      <li>HTTP calls via <code>urllib.request</code> or the bundled <code>requests</code> library</li>
+      <li>Generated tools are saved and auto-discovered by TealKit</li>
+      <li>Available immediately in any Playground session or Task on Windows</li>
+    </ul>
+    <div class="note"><strong>Note:</strong> Node.js tool support is planned for a future release.</div>
+    <div class="tip"><strong>Tip:</strong> Python tools are ideal for data-processing tasks that exceed the size or time limits of JavaScript tools &mdash; e.g. parsing large CSV files, multi-step numerical calculations, or calling data-processing libraries.</div>
+
+    <h3>&#x1F4E6; Import MCP Servers from Registry <span class="pro-tag">PRO</span> &nbsp;<span style="font-size:.82em;color:var(--warn);font-weight:500">(coming soon)</span></h3>
+    <p>Browse and install MCP servers directly from the official
+       <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">MCP Servers GitHub registry</a>.
+       TealKit will scan the repository index and present available servers by category &mdash;
+       no manual URL configuration required.</p>
+    <ul>
+      <li>Search by name, category, or capability</li>
+      <li>One-tap install: TealKit clones the repository, installs dependencies, and registers the server</li>
+      <li>Installed servers appear immediately in the External MCP Server list and tool selector</li>
+      <li>Compatible with both the official <code>modelcontextprotocol/servers</code> index and community registries</li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> While this feature is in development you can already add any MCP server manually via <em>Settings &rarr; External MCP Servers &rarr; + Add Server</em>. Find server URLs in the <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a> catalogue or the <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">GitHub registry</a>.</div>
   </section>
 
 </div>

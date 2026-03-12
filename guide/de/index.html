@@ -175,6 +175,7 @@
       <li><a href="#jstool">JavaScript-Werkzeug</a></li>
       <li><a href="#tokenstats">Token- &amp; Kostenstatistik</a></li>
       <li><a href="#tips">N&uuml;tzliche Tipps</a></li>
+      <li><a href="#desktop">Desktop-Funktionen</a></li>
     </ol>
   </nav>
 
@@ -217,9 +218,10 @@
       </tr>
       <tr>
         <td><strong>Windows</strong></td>
-        <td>Vollst&auml;ndige Desktop-Erfahrung mit direktem Zugriff auf lokale Dateipfade.
-          SSH-Skripte (<code>.ps1</code> / <code>.sh</code>) im konfigurierten Skriptverzeichnis
-          werden automatisch erkannt.</td>
+        <td>Die Windows-Desktop-App erscheint in einer <strong>k&uuml;nftigen Version</strong>.
+          Vorschau der geplanten Funktionen: <a href="#desktop">Desktop-Funktionen</a> &mdash;
+          der Kauf einer einzigen <strong>mobilen Version</strong> (Android oder iOS)
+          schaltet die Windows-Desktop-App kostenlos frei.</td>
       </tr>
     </table>
   </section>
@@ -882,6 +884,42 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
     </ul>
     <p>Die KI startet mit leerer Gespr&auml;chshistorie &mdash; hilfreich beim Themenwechsel oder wenn der Kontext zu gro&szlig; wurde.</p>
     <div class="tip"><strong>Tipp:</strong> Wenn die KI durch eine lange Sitzung den Faden verliert, Chat zur&uuml;cksetzen und eine kurze Zusammenfassung des bisherigen Stands als erste Nachricht eingeben.</div>
+
+    <h3>&#x1F5A5; Pro schaltet die Windows-Desktop-App frei</h3>
+    <p>Wer TealKit Pro auf <strong>Android oder iOS</strong> kauft, erh&auml;lt die <strong>Windows-Desktop-Version</strong> kostenlos dazu &mdash; eine einzige Zahlung f&uuml;r alle Plattformen. Linux- und macOS-Unterst&uuml;tzung folgt in einer k&uuml;nftigen Version.</p>
+    <div class="step"><div class="step-num">1</div><div>Pro auf dem Smartphone kaufen: <em>Einstellungen &rarr; Pro &rarr; Upgraden</em>.</div></div>
+    <div class="step"><div class="step-num">2</div><div>Auf dem Smartphone: <em>Einstellungen &rarr; Pro-Karte &rarr; <strong>Desktop-Schl&uuml;ssel</strong></em> &rarr; die <strong>Maschinen-ID</strong> aus der Windows-App einf&uuml;gen &rarr; <strong>Generieren</strong> tippen.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Auf Windows: <em>Einstellungen &rarr; Pro &rarr; Schl&uuml;ssel eingeben</em> &rarr; den generierten <code>TKIT-&hellip;</code>-Schl&uuml;ssel einf&uuml;gen &rarr; <strong>Aktivieren</strong> tippen.</div></div>
+    <div class="tip"><strong>Tipp:</strong> Der Schl&uuml;ssel ist an die jeweilige Maschine gebunden und funktioniert nicht auf einem anderen PC. Den Vorgang f&uuml;r jeden Windows-Rechner wiederholen, auf dem TealKit genutzt wird.</div>
+  </section>
+
+  <!-- 16 -->
+  <section id="desktop">
+    <h2>16 &nbsp; Desktop-Funktionen <span class="pro-tag">PRO</span></h2>
+    <p>Die Windows-Desktop-Version teilt alle mobilen Funktionen und erg&auml;nzt exklusive Desktop-Funktionen. Linux- und macOS-Unterst&uuml;tzung folgt in K&uuml;rze.</p>
+
+    <h3>&#x1F40D; Python-MCP-Werkzeug-Generator <span class="pro-tag">PRO</span></h3>
+    <p>Eigene MCP-Server-Werkzeuge in <strong>Python</strong> direkt in TealKit erstellen. Die KI generiert aus einer einfachen Beschreibung ein vollst&auml;ndiges, ausf&uuml;hrbares Python-MCP-Werkzeug inklusive Input-Schema und Execute-Funktion.</p>
+    <ul>
+      <li>Werkzeuge laufen lokal in einer gesandboxten Python-Umgebung</li>
+      <li>Vollzugriff auf Standard-Python-Bibliotheken (<code>json</code>, <code>datetime</code>, <code>math</code>, <code>re</code>, <code>urllib</code> &hellip;)</li>
+      <li>HTTP-Aufrufe via <code>urllib.request</code> oder der mitgelieferten <code>requests</code>-Bibliothek</li>
+      <li>Gespeicherte Werkzeuge werden automatisch erkannt und stehen sofort zur Verf&uuml;gung</li>
+    </ul>
+    <div class="note"><strong>Hinweis:</strong> Node.js-Unterst&uuml;tzung ist f&uuml;r eine k&uuml;nftige Version geplant.</div>
+    <div class="tip"><strong>Tipp:</strong> Python-Werkzeuge eignen sich besonders f&uuml;r datenintensive Aufgaben, die die Gr&ouml;&szlig;en- oder Zeit-Limits von JavaScript-Werkzeugen &uuml;berschreiten &mdash; z.&nbsp;B. gro&szlig;e CSV-Dateien verarbeiten oder mehrstufige numerische Berechnungen.</div>
+
+    <h3>&#x1F4E6; MCP-Server aus Registry importieren <span class="pro-tag">PRO</span> &nbsp;<span style="font-size:.82em;color:var(--warn);font-weight:500">(demnächst)</span></h3>
+    <p>MCP-Server direkt aus der offiziellen
+       <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">MCP-Servers-GitHub-Registry</a>
+       durchsuchen und installieren. TealKit liest den Repository-Index und pr&auml;sentiert verf&uuml;gbare Server nach Kategorien &mdash; keine manuelle URL-Konfiguration n&ouml;tig.</p>
+    <ul>
+      <li>Suche nach Name, Kategorie oder F&auml;higkeit</li>
+      <li>Ein-Tipp-Installation: TealKit klont das Repository, installiert Abh&auml;ngigkeiten und registriert den Server</li>
+      <li>Installierte Server erscheinen sofort in der Liste der externen MCP-Server und im Werkzeug-Selektor</li>
+      <li>Kompatibel mit dem offiziellen <code>modelcontextprotocol/servers</code>-Index und Community-Registries</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> Bis die Funktion verf&uuml;gbar ist, k&ouml;nnen MCP-Server manuell &uuml;ber <em>Einstellungen &rarr; Externe MCP-Server &rarr; + Server hinzuf&uuml;gen</em> eingetragen werden. Server-URLs im <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a>-Katalog oder der <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">GitHub-Registry</a> finden.</div>
   </section>
 
 </div>
