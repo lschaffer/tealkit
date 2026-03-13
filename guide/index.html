@@ -285,6 +285,25 @@
       </tr>
     </table>
     <div class="tip"><strong>Tip:</strong> Google Gemini offers a free API tier (with rate limits) &mdash; a great way to try TealKit at no cost. Sign up at <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a>, generate an API key, and paste it into <em>LLM Settings</em>.</div>
+
+    <h3>LLM Provider and Model Settings</h3>
+    <p>When configuring an LLM, you will find several advanced settings. Not all parameters shown in certain models or external guides apply to TealKit, but here is a quick helper for the ones available:</p>
+    <ul>
+      <li><strong>Temperature:</strong> Controls how creative or focused the AI is. Use lower values (e.g., <code>0.0 &ndash; 0.3</code>) for precise, factual tasks to avoid hallucinations. Use higher values (<code>0.7 &ndash; 1.0</code>) for more varied, natural language.</li>
+      <li><strong>Max Tokens:</strong> The maximum length of a single AI response. Increase this if the AI cuts off long data summaries. Reduce it to save costs on simple queries.</li>
+      <li><strong>Small Language Model Mode:</strong> Uses a shorter, simpler system prompt. Recommended for smaller local models (e.g., 7B&ndash;13B parameters via Ollama) that struggle with long, complex instructions.</li>
+      <li><strong>Hide &lt;think&gt; blocks:</strong> Some reasoning models (like DeepSeek-R1 or QwQ) output their internal logic inside thinking tags. Enable this setting to hide these blocks from the chat for a cleaner view.</li>
+    </ul>
+
+    <h3>Use Case Examples</h3>
+    <p>Here are some examples of what you can accomplish in the Playground or build as automated Tasks:</p>
+    <ul>
+      <li><strong>Semantic Document Search:</strong> <em>"Search semantically for 'setup new sensors in wsca' in any document files."</em></li>
+      <li><strong>Emails:</strong> <em>"Search my emails containing the text 'TaskAI' from the last 24 hours, and summarize them."</em></li>
+      <li><strong>Calendar:</strong> <em>"Fetch each next calendar events for the next 1 week and save them into the PDF document."</em></li>
+      <li><strong>Shell Script:</strong> <em>"Generate a shell script that inputs a directory and lists the 20 biggest files."</em></li>
+      <li><strong>Task Chaining / Automation:</strong> Call disk usage tools, put only the <code>/dev/sda1</code> percentage in the task result... Add a condition: if <code>task result &gt; 65%</code> ... Action: call subtask <code>diskusage_alert</code>.</li>
+    </ul>
   </section>
 
   <!-- 4 -->

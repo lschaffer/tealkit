@@ -287,6 +287,25 @@
       </tr>
     </table>
     <div class="tip"><strong>Tipp:</strong> Google Gemini bietet einen kostenlosen API-Tarif (mit Anfragegrenzen) &mdash; ideal, um TealKit kostenlos auszuprobieren. Mit Google-Konto bei <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a> anmelden, API-Schl&uuml;ssel erzeugen und in <em>LLM-Einstellungen</em> eingeben.</div>
+
+    <h3>LLM-Anbieter und Modelleinstellungen</h3>
+    <p>Bei der Konfiguration eines LLM finden Sie verschiedene erweiterte Einstellungen. Beachten Sie, dass nicht jeder Parameter bei jedem Anbieter in TealKit verf&uuml;gbar ist. Hier ist eine kurze Hilfe zu den wichtigsten Optionen:</p>
+    <ul>
+      <li><strong>Temperature:</strong> Steuert, wie kreativ oder fokussiert die KI ist. Nutzen Sie niedrigere Werte (z.&nbsp;B. <code>0.0 &ndash; 0.3</code>) f&uuml;r pr&auml;zise, faktenbasierte Aufgaben, um Halluzinationen zu vermeiden. H&ouml;here Werte (<code>0.7 &ndash; 1.0</code>) sorgen f&uuml;r variablere oder nat&uuml;rlichere Sprache.</li>
+      <li><strong>Max Tokens:</strong> Die maximale L&auml;nge einer einzelnen KI-Antwort. Erh&ouml;hen Sie diesen Wert, wenn lange Datenzusammenfassungen abgeschnitten werden. Verringern Sie ihn, um bei einfachen Abfragen Kosten zu sparen.</li>
+      <li><strong>Small Language Model Mode:</strong> Verwendet einen k&uuml;rzeren, simpleren System-Prompt. Empfohlen f&uuml;r kleinere lokale Modelle (7B&ndash;13B Parameter via Ollama), die mit langen Anweisungen &uuml;berfordert sind.</li>
+      <li><strong>&lt;think&gt;-Bl&ouml;cke verstecken:</strong> Einige Reasoning-Modelle (wie DeepSeek-R1 oder QwQ) geben ihre internen &Uuml;berlegungen in Think-Tags aus. Aktivieren Sie dies, um diese Bl&ouml;cke f&uuml;r eine aufger&auml;umtere Ansicht im Chat auszublenden.</li>
+    </ul>
+
+    <h3>Anwendungsbeispiele</h3>
+    <p>Hier sind einige Beispiele, die Sie im Playground ausprobieren oder als automatisierte Aufgabe (Task) anlegen k&ouml;nnen:</p>
+    <ul>
+      <li><strong>Semantische Dokumentensuche:</strong> <em>"Suche semantisch nach 'setup new sensors in wsca' in allen Dokumentendateien."</em></li>
+      <li><strong>E-Mails:</strong> <em>"Durchsuche E-Mails der letzten 24 Stunden nach dem Text 'TaskAI' und fasse diese zusammen."</em></li>
+      <li><strong>Kalender:</strong> <em>"Hole alle anstehenden Kalendereintr&auml;ge f&uuml;r die n&auml;chste 1 Woche und speichere sie in ein PDF-Dokument."</em></li>
+      <li><strong>Shell-Skripte:</strong> <em>"Erstelle ein Shell-Skript, das ein Verzeichnis als Eingabe nimmt und die 20 gr&ouml;&szlig;ten Dateien auflistet."</em></li>
+      <li><strong>Aufgaben-Verkettung (Task Chaining):</strong> F&uuml;hre die Festplattennutzung aus, speichere nur den Prozentsatz von <code>/dev/sda1</code> in das Aufgabenergebnis. Setze die Bedingung: <em>Task-Ergebnis &gt; 65%</em> &rarr; Aktion: Rufe Unteraufgabe <code>diskusage_alert</code> auf.</li>
+    </ul>
   </section>
 
   <!-- 4 -->
