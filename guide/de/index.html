@@ -293,8 +293,8 @@
     <ul>
       <li><strong>Temperature:</strong> Steuert, wie kreativ oder fokussiert die KI ist. Nutzen Sie niedrigere Werte (z.&nbsp;B. <code>0.0 &ndash; 0.3</code>) f&uuml;r pr&auml;zise, faktenbasierte Aufgaben, um Halluzinationen zu vermeiden. H&ouml;here Werte (<code>0.7 &ndash; 1.0</code>) sorgen f&uuml;r variablere oder nat&uuml;rlichere Sprache.</li>
       <li><strong>Max Tokens:</strong> Die maximale L&auml;nge einer einzelnen KI-Antwort. Erh&ouml;hen Sie diesen Wert, wenn lange Datenzusammenfassungen abgeschnitten werden. Verringern Sie ihn, um bei einfachen Abfragen Kosten zu sparen.</li>
-      <li><strong>Small Language Model Mode:</strong> Verwendet einen k&uuml;rzeren, simpleren System-Prompt. Empfohlen f&uuml;r kleinere lokale Modelle (7B&ndash;13B Parameter via Ollama), die mit langen Anweisungen &uuml;berfordert sind.</li>
-      <li><strong>&lt;think&gt;-Bl&ouml;cke verstecken:</strong> Einige Reasoning-Modelle (wie DeepSeek-R1 oder QwQ) geben ihre internen &Uuml;berlegungen in Think-Tags aus. Aktivieren Sie dies, um diese Bl&ouml;cke f&uuml;r eine aufger&auml;umtere Ansicht im Chat auszublenden.</li>
+      <li><strong>Max. Werkzeugausgabe (Zeichen):</strong> Begrenzt, wie viele Zeichen ein einzelnes Werkzeugergebnis an das LLM zur&uuml;ckgeben kann. Auf <code>0</code> setzen f&uuml;r unbegrenzt. Verringern, um zu verhindern, dass sehr gro&szlig;e Werkzeugausgaben (z.&nbsp;B. eine riesige Webseite) das Kontextfenster belegen.</li>
+      <li><strong>Token-Warnschwellenwert:</strong> Wenn die Sitzungs-Tokenanzahl diesen Wert erreicht, schl&auml;gt TealKit vor, die Gespr&auml;chshistorie aufzur&auml;umen, um einen Kontext&uuml;berlauf zu vermeiden. Standard: <code>1.500.000</code>. An das Kontextfenster des verwendeten Modells anpassen.</li>
     </ul>
 
     <h3>Anwendungsbeispiele</h3>
@@ -466,6 +466,17 @@
     <div class="note"><strong>Hinweis:</strong> WhatsApp-Business-Konten unterliegen Metas Nachrichtenrichtlinien.
       Empf&auml;nger m&uuml;ssen zugestimmt haben oder ein genehmigtes Template ist f&uuml;r Erstkontakt erforderlich.</div>
 
+    <h3>&#x1F4C2; SFTP-Ausgabe <span class="pro-tag">PRO</span></h3>
+    <p>Aufgabenergebnisse und generierte Dateien werden nach einem Durchlauf automatisch per SFTP auf einen Remote-Server hochgeladen.
+       SSH/SFTP-Zugangsdaten einmalig unter <em>Einstellungen &rarr; Datenquellen &rarr; SSH</em> konfigurieren.</p>
+    <p>Aufgabenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
+    <ul>
+      <li><strong>Remote-Verzeichnis</strong> &mdash; standardm&auml;&szlig;ig der normalisierte Aufgaben-Name-Slug; aufgabenweise &uuml;berschreibbar</li>
+      <li><strong>Sendebedingung</strong> &mdash; Immer / Nur bei Erfolg / Nur bei Fehler</li>
+      <li><strong>Ausgabedateien anh&auml;ngen</strong> &mdash; l&auml;dt alle generierten Dateien (<code>.md</code>, <code>.html</code>, <code>.xlsx</code>, <code>.png</code>, &hellip;) in das Remote-Verzeichnis hoch</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> SFTP-Ausgabe mit E-Mail-Ausgabe kombinieren &mdash; Dateien werden auf dem Server gespeichert <em>und</em> nach jedem Durchlauf wird eine Benachrichtigungs-E-Mail versendet.</div>
+
     <h3>ZIP-Ausgabe <span class="pro-tag">PRO</span></h3>
     <p>Den vollst&auml;ndigen Ausgabeordner (Ergebnis + Protokolle + Anh&auml;nge) als ZIP-Datei b&uuml;ndeln.
        Kombiniert mit E-Mail-Ausgabe kommt das Archiv nach jedem Durchlauf per Mail.</p>
@@ -496,8 +507,13 @@
     <p>Auf einen oder mehrere lokale Ordner zeigen. TealKit indexiert alle Dokumente in eine lokale DuckDB-Datenbank
        mit hybrider semantischer + Schl&uuml;sselwortsuche. Siehe <a href="#docsearch">Dokumentensuche</a> f&uuml;r Details.</p>
     <h3>&#x1F310; Website-Suche</h3>
-    <p>Bis zu 3 Start-URLs hinzuf&uuml;gen. TealKit crawlt und indexiert diese lokal.
+    <p>Start-URLs hinzuf&uuml;gen und TealKit crawlt und indexiert diese lokal in einen Volltextsuchindex.
        Vor dem Start des Playgrounds oder der Aufgabe indexieren &mdash; das Crawling kann jederzeit gestoppt werden.</p>
+    <ul>
+      <li><strong>Kostenlos:</strong> bis zu <strong>3</strong> Start-URLs</li>
+      <li><strong>Pro:</strong> bis zu <strong>10</strong> Start-URLs <span class="pro-tag">PRO</span></li>
+    </ul>
+    <p>Die Indexierung kann <strong>automatisch geplant</strong> werden nach einem Cron-Zeitplan (Mindestintervall 1 Stunde: st&uuml;ndlich, t&auml;glich, w&ouml;chentlich oder monatlich). Ein <em>Zuletzt indexiert</em>-Zeitstempel wird angezeigt und eine manuelle Schaltfl&auml;che <em>Jetzt indexieren</em> ist jederzeit verf&uuml;gbar. Geplante Neu-Indexierungen laufen automatisch im Hintergrund. <span class="pro-tag">PRO</span></p>
     <h3>&#x1F4CD; Standort</h3>
     <p>Optional GPS-Koordinaten speichern. Diese werden in jede Aufgabe eingebettet, damit
        Anfragen wie &bdquo;Wetter an meinem Standort&ldquo; automatisch aufgel&ouml;st werden.
@@ -566,14 +582,27 @@
        Unter <em>Einstellungen &rarr; Externe MCP-Server</em> eine Server-URL oder einen Paketnamen eingeben.
        Externe Server erweitern die KI um Kalender, Aufgabenmanager, Datenbanken und mehr.</p>
 
+    <h3>&#x1F4E5; MCP-Server aus Registry importieren</h3>
+    <p>TealKit kann MCP-Server direkt aus der eingebauten Registry importieren. Nach Kategorie st&ouml;bern oder nach Name und F&auml;higkeit suchen:</p>
+    <ul>
+      <li><strong>Python-basierte MCP-Server</strong> &mdash; vollst&auml;ndig implementiert. Registry durchsuchen, auf <em>Importieren</em> tippen &mdash; der Server wird installiert und ist sofort einsatzbereit.</li>
+      <li><strong>Node.js-basierte MCP-Server</strong> &mdash; folgt im n&auml;chsten Release.</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> Die Registry ist nach Name, Beschreibung und F&auml;higkeit durchsuchbar &mdash; schnell community-entwickelte Werkzeuge finden und installieren.</div>
+
     <h3>&#x1F527; Eigene Werkzeuge</h3>
     <p>TealKit erm&ouml;glicht es, eigene Werkzeuge ohne nativen Code zu erstellen. Zwei Assistenten stehen zur Verf&uuml;gung &mdash; erreichbar &uuml;ber den <strong>Werkzeuge</strong>-Reiter in den Playground-Einstellungen oder beim Bearbeiten einer Aufgabe.</p>
 
     <h3>&#x1F4DC; Shell-Skript-Assistent</h3>
-    <p>In nat&uuml;rlicher Sprache beschreiben, was ben&ouml;tigt wird &mdash; die KI schreibt ein fertiges Shell-Skript (<code>.sh</code>&nbsp;/&nbsp;<code>.ps1</code>). Gespeicherte Skripte werden automatisch vom SSH-Server erkannt und k&ouml;nnen in Aufgaben beim Namen referenziert werden.</p>
+    <p>In nat&uuml;rlicher Sprache beschreiben, was ben&ouml;tigt wird &mdash; die KI schreibt ein fertiges Shell-Skript. Der Skripttyp wird automatisch anhand der Zielplattform gew&auml;hlt:</p>
+    <ul>
+      <li><strong>Windows</strong> &mdash; erzeugt ein <code>.ps1</code>-PowerShell-Skript</li>
+      <li><strong>Linux / macOS</strong> &mdash; erzeugt ein <code>.sh</code>-Bash-Skript</li>
+    </ul>
+    <p>Gespeicherte Skripte werden automatisch vom SSH-Server erkannt und k&ouml;nnen in Aufgaben beim Namen referenziert werden.</p>
     <p>Tipps f&uuml;r einen guten Skript-Prompt:</p>
     <ul>
-      <li>Zielumgebung nennen: <em>&bdquo;Bash auf Ubuntu&ldquo;</em>, <em>&bdquo;PowerShell auf Windows Server&ldquo;</em></li>
+      <li>Zielplattform und -umgebung nennen: <em>&bdquo;PowerShell auf Windows&ldquo;</em>, <em>&bdquo;Bash auf Ubuntu&ldquo;</em>, <em>&bdquo;Bash auf macOS&ldquo;</em></li>
       <li>Ein- und Ausgaben beschreiben: <em>&bdquo;nimmt Ordnerpfad als Argument, schreibt CSV nach stdout&ldquo;</em></li>
       <li>Fehlerbehandlung erw&auml;hnen: <em>&bdquo;Exit-Code 1 bei Fehler, Fehlermeldung nach stderr&ldquo;</em></li>
       <li>Beispiel: <em>&bdquo;Listet Dateien, die in den letzten 24 Stunden ge&auml;ndert wurden, und speichert das Ergebnis in report.txt&ldquo;</em></li>
@@ -922,12 +951,12 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
        frei.</strong></p>
 
     <h3>&#x1F4DC; Skript-Generierung &mdash; Shell &amp; PowerShell <span class="pro-tag">PRO</span></h3>
-    <p>Fertige Shell-Skripte (<code>.sh</code>) und PowerShell-Skripte (<code>.ps1</code>) direkt auf
-       dem lokalen Windows-Rechner generieren. Die Aufgabe in nat&uuml;rlicher Sprache beschreiben &mdash;
-       die KI schreibt das vollst&auml;ndige Skript, das sofort ausgef&uuml;hrt oder in der Skriptbibliothek
-       gespeichert werden kann.</p>
+    <p>Fertige Skripte direkt auf dem lokalen Rechner generieren. Die Aufgabe in nat&uuml;rlicher Sprache
+       beschreiben &mdash; die KI schreibt das vollst&auml;ndige Skript, das sofort ausgef&uuml;hrt oder in der
+       Skriptbibliothek gespeichert werden kann. Der Skripttyp wird automatisch anhand der Plattform gew&auml;hlt:</p>
     <ul>
-      <li>Unterst&uuml;tzt Bash (<code>.sh</code>) und PowerShell (<code>.ps1</code>) als Zielumgebung</li>
+      <li><strong>Windows</strong> &mdash; generiert ein PowerShell-Skript (<code>.ps1</code>)</li>
+      <li><strong>Linux / macOS</strong> &mdash; generiert ein Shell-Skript (<code>.sh</code>)</li>
       <li>Skripte werden lokal gespeichert und automatisch f&uuml;r Aufgaben und SSH-Sitzungen erkannt</li>
       <li><strong>Test-Ausf&uuml;hrung</strong> tippen, um das generierte Skript zu testen, bevor es gespeichert wird</li>
       <li>Die Zielumgebung im Prompt nennen: <em>&bdquo;PowerShell auf Windows Server&ldquo;</em> oder <em>&bdquo;Bash auf Ubuntu&ldquo;</em></li>
@@ -942,10 +971,10 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li>HTTP-Aufrufe via <code>urllib.request</code> oder der mitgelieferten <code>requests</code>-Bibliothek</li>
       <li>Gespeicherte Werkzeuge werden automatisch erkannt und stehen sofort zur Verf&uuml;gung</li>
     </ul>
-    <div class="note"><strong>Hinweis:</strong> Node.js-Unterst&uuml;tzung ist f&uuml;r eine k&uuml;nftige Version geplant.</div>
+    <div class="note"><strong>Hinweis:</strong> Node.js-Unterst&uuml;tzung folgt im n&auml;chsten Release.</div>
     <div class="tip"><strong>Tipp:</strong> Python-Werkzeuge eignen sich besonders f&uuml;r datenintensive Aufgaben, die die Gr&ouml;&szlig;en- oder Zeit-Limits von JavaScript-Werkzeugen &uuml;berschreiten &mdash; z.&nbsp;B. gro&szlig;e CSV-Dateien verarbeiten oder mehrstufige numerische Berechnungen.</div>
 
-    <h3>&#x1F4E6; MCP-Server aus Registry importieren <span class="pro-tag">PRO</span> &nbsp;<span style="font-size:.82em;color:var(--warn);font-weight:500">(demnächst)</span></h3>
+    <h3>&#x1F4E6; MCP-Server aus Registry importieren <span class="pro-tag">PRO</span></h3>
     <p>MCP-Server direkt aus der offiziellen
        <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">MCP-Servers-GitHub-Registry</a>
        durchsuchen und installieren. TealKit liest den Repository-Index und pr&auml;sentiert verf&uuml;gbare Server nach Kategorien &mdash; keine manuelle URL-Konfiguration n&ouml;tig.</p>
@@ -955,7 +984,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li>Installierte Server erscheinen sofort in der Liste der externen MCP-Server und im Werkzeug-Selektor</li>
       <li>Kompatibel mit dem offiziellen <code>modelcontextprotocol/servers</code>-Index und Community-Registries</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> Bis die Funktion verf&uuml;gbar ist, k&ouml;nnen MCP-Server manuell &uuml;ber <em>Einstellungen &rarr; Externe MCP-Server &rarr; + Server hinzuf&uuml;gen</em> eingetragen werden. Server-URLs im <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a>-Katalog oder der <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">GitHub-Registry</a> finden.</div>
+    <div class="tip"><strong>Tipp:</strong> MCP-Server k&ouml;nnen auch manuell &uuml;ber <em>Einstellungen &rarr; Externe MCP-Server &rarr; + Server hinzuf&uuml;gen</em> eingetragen werden. Weitere Server-URLs im <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a>-Katalog finden.</div>
   </section>
 
 </div>

@@ -291,8 +291,8 @@
     <ul>
       <li><strong>Temperature:</strong> Controls how creative or focused the AI is. Use lower values (e.g., <code>0.0 &ndash; 0.3</code>) for precise, factual tasks to avoid hallucinations. Use higher values (<code>0.7 &ndash; 1.0</code>) for more varied, natural language.</li>
       <li><strong>Max Tokens:</strong> The maximum length of a single AI response. Increase this if the AI cuts off long data summaries. Reduce it to save costs on simple queries.</li>
-      <li><strong>Small Language Model Mode:</strong> Uses a shorter, simpler system prompt. Recommended for smaller local models (e.g., 7B&ndash;13B parameters via Ollama) that struggle with long, complex instructions.</li>
-      <li><strong>Hide &lt;think&gt; blocks:</strong> Some reasoning models (like DeepSeek-R1 or QwQ) output their internal logic inside thinking tags. Enable this setting to hide these blocks from the chat for a cleaner view.</li>
+      <li><strong>Max Tool Output Size (chars):</strong> Limits how many characters a single tool result can return to the LLM. Set to <code>0</code> for unlimited. Reduce this to prevent very large tool outputs (e.g. a huge web page) from consuming the context window.</li>
+      <li><strong>Token Warning Threshold:</strong> When the session token count reaches this number, TealKit suggests cleaning up the chat history to prevent context overflow. Default: <code>1,500,000</code>. Adjust based on your model's context window.</li>
     </ul>
 
     <h3>Use Case Examples</h3>
@@ -472,6 +472,17 @@
       messaging policy. Recipients must have opted in or you must use an approved message template
       for first contact.</div>
 
+    <h3>&#x1F4C2; SFTP output <span class="pro-tag">PRO</span></h3>
+    <p>Upload task results and generated files to a remote server automatically via SFTP when a run finishes.
+       Configure SSH/SFTP credentials once in <em>Settings &rarr; Data Sources &rarr; SSH</em>.</p>
+    <p>Per-task options on the <strong>Output</strong> tab:</p>
+    <ul>
+      <li><strong>Remote directory</strong> &mdash; defaults to the normalised task name slug; override per task if needed</li>
+      <li><strong>Send condition</strong> &mdash; Always / Only on success / Only on error</li>
+      <li><strong>Include output files</strong> &mdash; uploads all generated files (<code>.md</code>, <code>.html</code>, <code>.xlsx</code>, <code>.png</code>, &hellip;) to the remote directory</li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> Combine SFTP output with Email output &mdash; have files stored on your server <em>and</em> receive a notification email after every run.</div>
+
     <h3>ZIP output <span class="pro-tag">PRO</span></h3>
     <p>Bundle the full output folder (result + logs + attachments) into a single ZIP file.
        Combine with Email output to receive the archive by mail after every run.</p>
@@ -500,8 +511,13 @@
     <p>Point to one or more local folders. TealKit indexes all documents into a local DuckDB database
        using hybrid semantic + keyword search. See <a href="#docsearch">Document Search</a> for details.</p>
     <h3>&#x1F310; Website Search</h3>
-    <p>Add up to 3 seed URLs. TealKit crawls and indexes them locally. Index before starting
-       the Playground or Task &mdash; crawling can be stopped at any time.</p>
+    <p>Add seed URLs and let TealKit crawl and index them locally into a full-text search index.
+       Index before starting the Playground or Task &mdash; crawling can be stopped at any time.</p>
+    <ul>
+      <li><strong>Free tier:</strong> up to <strong>3</strong> seed URLs</li>
+      <li><strong>Pro:</strong> up to <strong>10</strong> seed URLs <span class="pro-tag">PRO</span></li>
+    </ul>
+    <p>Indexing can be <strong>scheduled automatically</strong> on a cron schedule (minimum 1-hour intervals: hourly, daily, weekly, or monthly). A <em>Last indexed</em> timestamp is shown and a manual <em>Index Now</em> button is always available. Scheduled re-indexing runs in the background without any user interaction. <span class="pro-tag">PRO</span></p>
     <h3>&#x1F4CD; Location</h3>
     <p>Optionally save GPS coordinates. They are injected into every task so queries like
        "weather at my location" resolve automatically. Coordinates never leave your device.</p>
@@ -562,14 +578,27 @@
        Go to <em>Settings &rarr; External MCP Servers</em> and add a server URL or package name.
        External servers extend the AI with calendar access, task managers, databases, and more.</p>
 
+    <h3>&#x1F4E5; Import MCP Servers from Registry</h3>
+    <p>TealKit can import MCP servers directly from the built-in registry. Browse by category or search by name and capability:</p>
+    <ul>
+      <li><strong>Python-based MCP servers</strong> &mdash; fully implemented. Browse the registry, tap <em>Import</em>, and the server is installed and ready to use.</li>
+      <li><strong>Node.js-based MCP servers</strong> &mdash; coming in the next release.</li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> The registry is searchable by name, description, and capability &mdash; use it to quickly find and install community-built tools.</div>
+
     <h3>&#x1F527; Custom Tools</h3>
     <p>TealKit lets you build your own tools without writing any native code. Two wizards are available &mdash; accessible from the <strong>Tools</strong> tab in Playground settings or when editing a Task.</p>
 
     <h3>&#x1F4DC; Shell Script Wizard</h3>
-    <p>Describe what you need in plain language and the AI writes a ready-to-use shell script (<code>.sh</code> / <code>.ps1</code>). Saved scripts are auto-discovered by the SSH server and can be referenced by name in any task.</p>
+    <p>Describe what you need in plain language and the AI writes a ready-to-use shell script. The script type is chosen automatically based on the target platform:</p>
+    <ul>
+      <li><strong>Windows</strong> &mdash; generates a <code>.ps1</code> PowerShell script</li>
+      <li><strong>Linux / macOS</strong> &mdash; generates a <code>.sh</code> Bash script</li>
+    </ul>
+    <p>Saved scripts are auto-discovered by the SSH server and can be referenced by name in any task.</p>
     <p>Tips for a good shell script prompt:</p>
     <ul>
-      <li>Name the target environment: <em>&ldquo;Bash on Ubuntu&rdquo;</em>, <em>&ldquo;PowerShell on Windows Server&rdquo;</em></li>
+      <li>Name the target platform and environment: <em>&ldquo;PowerShell on Windows&rdquo;</em>, <em>&ldquo;Bash on Ubuntu&rdquo;</em>, <em>&ldquo;Bash on macOS&rdquo;</em></li>
       <li>Describe inputs and outputs: <em>&ldquo;takes a folder path as argument, writes CSV to stdout&rdquo;</em></li>
       <li>Mention error handling: <em>&ldquo;exit with code 1 on failure, print error to stderr&rdquo;</em></li>
       <li>Example: <em>&ldquo;List files modified in the last 24 hours in a given directory and save the result to report.txt&rdquo;</em></li>
@@ -915,11 +944,12 @@ Exit code 1 on error, error message to stderr.</pre>
        cost.</strong></p>
 
     <h3>&#x1F4DC; Script Generation &mdash; Shell &amp; PowerShell <span class="pro-tag">PRO</span></h3>
-    <p>Generate ready-to-run shell scripts (<code>.sh</code>) and PowerShell scripts (<code>.ps1</code>)
-       directly on your local Windows machine. Describe your task in plain language and the AI writes
-       the complete script, which you can run immediately or save to your script library.</p>
+    <p>Generate ready-to-run scripts directly on your local machine. Describe your task in plain language
+       and the AI writes the complete script, which you can run immediately or save to your script library.
+       The script type is chosen automatically based on your platform:</p>
     <ul>
-      <li>Supports Bash (<code>.sh</code>) and PowerShell (<code>.ps1</code>) targets</li>
+      <li><strong>Windows</strong> &mdash; generates a PowerShell script (<code>.ps1</code>)</li>
+      <li><strong>Linux / macOS</strong> &mdash; generates a Shell script (<code>.sh</code>)</li>
       <li>Scripts are saved locally and auto-discovered for use in Tasks and SSH sessions</li>
       <li>Tap <strong>Test Run</strong> to execute the generated script and verify the output before saving</li>
       <li>Name the target environment in your prompt: <em>&ldquo;PowerShell on Windows Server&rdquo;</em> or <em>&ldquo;Bash on Ubuntu&rdquo;</em></li>
@@ -935,10 +965,10 @@ Exit code 1 on error, error message to stderr.</pre>
       <li>Generated tools are saved and auto-discovered by TealKit</li>
       <li>Available immediately in any Playground session or Task on Windows</li>
     </ul>
-    <div class="note"><strong>Note:</strong> Node.js tool support is planned for a future release.</div>
+    <div class="note"><strong>Note:</strong> Node.js tool support is coming in the next release.</div>
     <div class="tip"><strong>Tip:</strong> Python tools are ideal for data-processing tasks that exceed the size or time limits of JavaScript tools &mdash; e.g. parsing large CSV files, multi-step numerical calculations, or calling data-processing libraries.</div>
 
-    <h3>&#x1F4E6; Import MCP Servers from Registry <span class="pro-tag">PRO</span> &nbsp;<span style="font-size:.82em;color:var(--warn);font-weight:500">(coming soon)</span></h3>
+    <h3>&#x1F4E6; Import MCP Servers from Registry <span class="pro-tag">PRO</span></h3>
     <p>Browse and install MCP servers directly from the official
        <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">MCP Servers GitHub registry</a>.
        TealKit will scan the repository index and present available servers by category &mdash;
@@ -949,7 +979,7 @@ Exit code 1 on error, error message to stderr.</pre>
       <li>Installed servers appear immediately in the External MCP Server list and tool selector</li>
       <li>Compatible with both the official <code>modelcontextprotocol/servers</code> index and community registries</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> While this feature is in development you can already add any MCP server manually via <em>Settings &rarr; External MCP Servers &rarr; + Add Server</em>. Find server URLs in the <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a> catalogue or the <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">GitHub registry</a>.</div>
+    <div class="tip"><strong>Tip:</strong> You can also add any MCP server manually via <em>Settings &rarr; External MCP Servers &rarr; + Add Server</em>. Find additional server URLs in the <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a> catalogue.</div>
   </section>
 
 </div>
