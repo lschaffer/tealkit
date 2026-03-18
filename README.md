@@ -1,7 +1,7 @@
 # 🐦‍⬛ TealKit
-### The Privacy-First Autonomous AI Powerhouse for Mobile & Desktop
+### The Privacy-First, Infinitely Extensible Agentic AI Platform for Mobile & Desktop
 
-**TealKit** turns your phone and computer into a versatile AI command center with autonomous agents and built-in tools. Provider-independent, fully customizable, and designed for privacy.
+**TealKit** turns your phone and computer into a powerful agentic AI platform with autonomous agents, built-in tools, and unlimited extensibility. Write your own tools in **JavaScript, Python, PowerShell, or Bash** — or connect any MCP server — and let the AI use them autonomously. Provider-independent, fully customizable, and designed for privacy.
 
 [**English User Guide**](https://lschaffer.github.io/tealkit-privacy/guide/) | [**Deutsches Handbuch**](https://lschaffer.github.io/tealkit-privacy/guide/de/) | [**Privacy Policy**](https://github.com/lschaffer/tealkit-privacy)
 
@@ -40,10 +40,25 @@
 
 ---
 
-## 🔌 Extensibility
-* **Cloud MCP:** Query and register servers from **Smithery** or GitHub.
-* **Custom Tools:** Create your own mini MCP tools directly on mobile using **sandboxed JavaScript**.
-* **Desktop Power:** Build **Python-based MCP servers** to bridge TealKit with any local software.
+## 🔌 Extensibility — Build Any Tool, Connect Any Service
+
+TealKit is an **open agentic platform**: every capability not built-in can be added with your own code or a third-party MCP server — no boilerplate, no backend required.
+
+### Your Own Custom Tools
+
+| Tool Type | Platform | What You Can Do |
+| :--- | :--- | :--- |
+| **JavaScript** | All (Mobile + Desktop) | Write sandboxed mini MCP tools directly in the app — no server, no install needed. |
+| **Bash / Shell Script** | Desktop — Linux & macOS | Generate and run shell scripts locally; stdout/stderr feed straight back into the agent. |
+| **PowerShell Script** | Desktop — Windows | Generate and execute PowerShell scripts for full Windows automation from a single prompt. |
+| **Python MCP Server** | Desktop — all OS | Build complete MCP servers with the built-in editor, instant reload, and full library access. |
+
+### Connect to Existing MCP Servers
+
+| Method | Platform | How It Works |
+| :--- | :--- | :--- |
+| **Import from GitHub** | Desktop | One-click install of any Node.js or Python MCP server straight from a GitHub repository URL. |
+| **Cloud MCP Servers** | All | Attach hosted servers from Smithery, Glama, or any custom URL in seconds. |
 
 ---
 
