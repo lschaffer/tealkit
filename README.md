@@ -1,6 +1,8 @@
 # 🐦‍⬛ TealKit
 ### The Privacy-First, Infinitely Extensible Agentic AI Platform for Mobile & Desktop
 
+![TealKit](https://lschaffer.github.io/tealkit-privacy/images/tealkit_promo.png)
+
 **TealKit** turns your phone and computer into a powerful agentic AI platform with autonomous agents, built-in tools, and unlimited extensibility. Write your own tools in **JavaScript, Python, PowerShell, or Bash** — or connect any MCP server — and let the AI use them autonomously. Provider-independent, fully customizable, and designed for privacy.
 
 [**English User Guide**](https://lschaffer.github.io/tealkit-privacy/guide/) | [**Deutsches Handbuch**](https://lschaffer.github.io/tealkit-privacy/guide/de/) | [**Privacy Policy**](https://github.com/lschaffer/tealkit-privacy)
