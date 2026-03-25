@@ -15,7 +15,7 @@
 * **Full Customization:** Tweak model parameters per task and keep token costs predictable.
 * **Chat-to-Task:** Test ideas in the chat interface before promoting them to automated tasks.
 
-### 🛠 Built-in Mini MCP Tools
+### 🛠 Built-in AI Skills
 * **Document Intelligence:** Local RAG using **DuckDB**. Index PDFs, Word, and Excel files for instant semantic search across your device.
 * **Digital Office:** Deep integration with **Gmail** and **Google Calendar** (free) + **Google Drive** (Pro) + universal IMAP/SMTP support.
 * **Content & Visualization:** Generate files (TXT, PDF, Excel) and create **Mermaid** diagrams/flowcharts from any data.
@@ -58,15 +58,15 @@
 
 ---
 
-## 🔌 Extensibility — Build Any Tool, Connect Any Service
+## 🔌 Extensibility — Add Any Skill, Connect Any Service
 
-TealKit is an **open agentic platform**: every capability not built-in can be added with your own code or a third-party MCP server — no boilerplate, no backend required.
+TealKit is an **open agentic platform**: every capability not built-in can be added as a custom AI skill or by connecting a third-party MCP server — no boilerplate, no backend required.
 
-### Your Own Custom Tools
+### Your Own AI Skills
 
-| Tool Type | Platform | What You Can Do |
+| Skill Type | Platform | What You Can Do |
 | :--- | :--- | :--- |
-| **JavaScript** | All (Mobile + Desktop) | Write sandboxed mini MCP tools directly in the app — no server, no install needed. |
+| **JavaScript** | All (Mobile + Desktop) | Write sandboxed custom skills directly in the app — no server, no install needed. |
 | **Bash / Shell Script** | Desktop — Linux & macOS | Generate and run shell scripts locally; stdout/stderr feed straight back into the agent. |
 | **PowerShell Script** | Desktop — Windows | Generate and execute PowerShell scripts for full Windows automation from a single prompt. |
 | **Python MCP Server** | Desktop — all OS | Build complete MCP servers with the built-in editor, instant reload, and full library access. |
