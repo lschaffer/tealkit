@@ -326,9 +326,8 @@
     <p>Der Playground ist ein interaktiver Chat, in dem du die KI und ihre Werkzeuge in Echtzeit ausprobierst.</p>
     <h3>Eine Sitzung einrichten</h3>
     <ol>
-      <li>Einen <strong>System-Prompt</strong> schreiben, der die Rolle der KI beschreibt
-          (oder &#x2728; tippen f&uuml;r automatische Generierung).</li>
-      <li><strong>Werkzeuge</strong> ausw&auml;hlen (Websuche, E-Mail, Dokumente &hellip;).</li>
+      <li><strong>Werkzeuge</strong> ausw&auml;hlen (Websuche, E-Mail, Dokumente &hellip;). Die Checkbox <strong>System-Prompt generieren</strong> aktivieren, damit die KI automatisch einen passenden System-Prompt basierend auf den gew&auml;hlten Werkzeugen erstellt.</li>
+      <li>Den <strong>System-Prompt</strong> pr&uuml;fen oder bearbeiten (oder &#x2728; tippen zum manuellen Neu-Generieren).</li>
       <li>Bei <em>Website-Suche</em> oder <em>Dokumente</em>: auf
           <strong>Indexierung starten</strong> tippen, um den lokalen Index zu erstellen.
           W&auml;hrend der Indexierung erscheint ein roter <strong>Stopp</strong>-Button &mdash; tippen zum Abbrechen.</li>
@@ -355,6 +354,7 @@
       <li>Name und Beschreibung vergeben.</li>
       <li>LLM konfigurieren (kann vom globalen Standard abweichen &mdash; oder <em>LLM 2 (aus Einstellungen)</em> w&auml;hlen, um die Aufgabe mit dem Sekund&auml;rmodell auszuf&uuml;hren).</li>
       <li>Werkzeuge ausw&auml;hlen und konfigurieren (Website-URLs, Dokumentenordner usw.).</li>
+      <li><strong>System-Prompt generieren</strong> im Bereich <em>Basis / Integrierte Werkzeuge</em> aktivieren, damit die KI automatisch einen passenden Prompt aus der Werkzeugauswahl erstellt &mdash; anschlie&szlig;end pr&uuml;fen oder anpassen.</li>
       <li>System-Prompt und erste Nachricht schreiben.</li>
       <li>Auf <strong>Speichern</strong> tippen.</li>
     </ol>
@@ -892,6 +892,7 @@ und zeige mir dann die Zusammenfassung.</pre>
       <strong>Speichern</strong> tippen &mdash; das Werkzeug ist sofort im Werkzeug-Selektor f&uuml;r jede Playground-Sitzung oder Aufgabe verf&uuml;gbar.
     </div></div>
     <div class="tip"><strong>Tipp:</strong> Auf die Schaltfl&auml;che <strong>&#x1F52C; Beispiele laden</strong> in der JS-Werkzeugbibliothek tippen, um sofort drei funktionierende Beispiele hinzuzuf&uuml;gen: <em>Zeitstempel-Konverter</em>, <em>W&auml;hrungsrechner</em> (Live-Kurse, kein API-Schl&uuml;ssel) und <em>Stadtgeolokalisierung</em> (Open-Meteo, kein API-Schl&uuml;ssel). Bereits vorhandene Werkzeuge werden nie dupliziert.</div>
+    <div class="tip"><strong>Tipp:</strong> Der Code-Editor unterst&uuml;tzt <strong>JavaScript-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
 
     <h3>Gespeicherte Werkzeuge per MCP aufrufen</h3>
     <p>Wenn der <code>js_bridge</code>-Server ausgew&auml;hlt ist, kann die KI deine Werkzeuge automatisch entdecken und aufrufen:</p>
@@ -1048,6 +1049,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li><strong>Top 10 Processes</strong> &mdash; Prozesse mit h&ouml;chstem CPU-Verbrauch</li>
     </ul>
     <div class="tip"><strong>Tipp:</strong> Beispiele k&ouml;nnen beliebig oft geladen werden &mdash; vorhandene Skripte werden nie dupliziert.</div>
+    <div class="tip"><strong>Tipp:</strong> Der Shell-Skript-Editor unterst&uuml;tzt <strong>Bash-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
 
     <h3>&#x1F40D; Python-MCP-Werkzeug-Generator <span class="pro-tag">PRO</span></h3>
     <p>Eigene MCP-Server-Werkzeuge in <strong>Python</strong> direkt in TealKit erstellen. Die KI generiert aus einer einfachen Beschreibung ein vollst&auml;ndiges, ausf&uuml;hrbares Python-MCP-Werkzeug inklusive Input-Schema und Execute-Funktion.</p>
@@ -1067,6 +1069,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li><strong>List Directory</strong> &mdash; Dateien und Ordner in einem angegebenen Pfad auflisten</li>
     </ul>
     <div class="tip"><strong>Tipp:</strong> Beispiele k&ouml;nnen beliebig oft geladen werden &mdash; vorhandene Werkzeuge werden nie dupliziert.</div>
+    <div class="tip"><strong>Tipp:</strong> Der Python-Editor unterst&uuml;tzt <strong>Python-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
 
     <h3>&#x1FA9F; PowerShell-Werkzeugbibliothek <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(nur Windows)</span></h3>
     <p>Auf Windows steht eine eigene <strong>PowerShell-Werkzeugbibliothek</strong> zur Verf&uuml;gung, mit der <code>.ps1</code>-Skripte erstellt, verwaltet und wiederverwendet werden k&ouml;nnen &mdash; die KI f&uuml;hrt sie lokal &uuml;ber den <code>ps_bridge</code>-MCP-Server aus. Auf <strong>&#x1F52C; Beispiele laden</strong> tippen, um drei einsatzbereite Beispiele hinzuzuf&uuml;gen:</p>
@@ -1076,6 +1079,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li><strong>Fetch Website Status</strong> &mdash; HTTP-Statuscode und Antwortzeit f&uuml;r eine beliebige URL</li>
     </ul>
     <div class="tip"><strong>Tipp:</strong> Der <code>ps_bridge</code>-Server steht in jeder Playground-Sitzung und Aufgabe auf Windows zur Verf&uuml;gung.</div>
+    <div class="tip"><strong>Tipp:</strong> Der PowerShell-Editor unterst&uuml;tzt <strong>PowerShell-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
 
     <h3>&#x1F4E6; Node.js-MCP-Server <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Windows-Desktop)</span></h3>
     <p>TealKit kann in <strong>Node.js</strong> geschriebene MCP-Server direkt auf dem Windows-Desktop installieren und starten &mdash; ohne manuelle npm-Konfiguration, sofern Node.js 18+ installiert ist.</p>

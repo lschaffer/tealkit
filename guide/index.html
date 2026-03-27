@@ -324,8 +324,8 @@
     <p>The Playground is an interactive chat where you experiment with the AI and its tools in real time.</p>
     <h3>Setting up a session</h3>
     <ol>
-      <li>Write a <strong>system prompt</strong> describing the AI's role (or tap &#x2728; to auto-generate).</li>
-      <li>Select <strong>tools</strong> (web search, email, documents &hellip;).</li>
+      <li>Select <strong>tools</strong> (web search, email, documents &hellip;). Enable the <strong>Generate system prompt</strong> checkbox to let the AI automatically create a tailored prompt based on your tool selection.</li>
+      <li>Review or edit the <strong>system prompt</strong> (or tap &#x2728; to regenerate it manually).</li>
       <li>If you selected <em>Website Search</em> or <em>Documents</em>, tap
           <strong>Start Indexing</strong> to build the local index.
           A red <strong>Stop</strong> button appears during indexing &mdash; tap to cancel anytime.</li>
@@ -352,6 +352,7 @@
       <li>Give it a name and description.</li>
       <li>Configure the LLM (can differ from your global default &mdash; or select <em>LLM 2 (from settings)</em> to run the task with your secondary model).</li>
       <li>Select tools and configure each one (website URLs, document folder, etc.).</li>
+      <li>Enable <strong>Generate system prompt</strong> in the <em>Basis / Built-in Tools</em> panel to let the AI auto-generate a prompt from your tool selection, then review or edit it.</li>
       <li>Write the system prompt and initial user message.</li>
       <li>Tap <strong>Save</strong>.</li>
     </ol>
@@ -884,6 +885,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
       Tap <strong>Save</strong> &mdash; the tool is now available in the tool selector for any Playground session or Task.
     </div></div>
     <div class="tip"><strong>Tip:</strong> Tap the <strong>&#x1F52C; Load Samples</strong> button in the JS Tool Library toolbar to instantly add three working examples: <em>Timestamp Converter</em>, <em>Currency Converter</em> (live exchange rates, no API key needed), and <em>City Geolocation</em> (Open-Meteo, no API key needed). Already-saved tools are never duplicated.</div>
+    <div class="tip"><strong>Tip:</strong> The code editor features <strong>JavaScript syntax highlighting</strong>. Tap the <strong>&#x26F6; expand</strong> icon to open a full-screen editor with <strong>Save</strong>, <strong>Cancel</strong>, and <strong>Copy</strong> actions &mdash; ideal for reviewing or tweaking generated code.</div>
 
     <h3>Calling saved tools via MCP</h3>
     <p>When the <code>js_bridge</code> server is selected, the AI can discover and call your tools automatically:</p>
@@ -1040,6 +1042,7 @@ Exit code 1 on error, error message to stderr.</pre>
       <li><strong>Top 10 Processes</strong> &mdash; highest CPU-consuming processes</li>
     </ul>
     <div class="tip"><strong>Tip:</strong> Samples are safe to load multiple times &mdash; existing scripts are never duplicated.</div>
+    <div class="tip"><strong>Tip:</strong> The Shell Script editor supports <strong>Bash syntax highlighting</strong>. Tap the <strong>&#x26F6; expand</strong> icon to open a full-screen editor with <strong>Save</strong>, <strong>Cancel</strong>, and <strong>Copy</strong> actions.</div>
 
     <h3>&#x1F40D; Python MCP Tool Generator <span class="pro-tag">PRO</span></h3>
     <p>Create custom MCP server tools written in <strong>Python</strong> directly from within TealKit. Describe what you need in plain language and the AI generates a complete, runnable Python MCP tool including input schema and execute function.</p>
@@ -1060,6 +1063,7 @@ Exit code 1 on error, error message to stderr.</pre>
       <li><strong>List Directory</strong> &mdash; list files and folders in a given path</li>
     </ul>
     <div class="tip"><strong>Tip:</strong> Samples are safe to load multiple times &mdash; existing tools are never duplicated.</div>
+    <div class="tip"><strong>Tip:</strong> The Python Tool editor supports <strong>Python syntax highlighting</strong>. Tap the <strong>&#x26F6; expand</strong> icon to open a full-screen editor with <strong>Save</strong>, <strong>Cancel</strong>, and <strong>Copy</strong> actions.</div>
 
     <h3>&#x1FA9F; PowerShell Tool Library <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Windows only)</span></h3>
     <p>On Windows, a dedicated <strong>PowerShell Tool Library</strong> lets you create, manage, and reuse <code>.ps1</code> scripts executed locally by the AI via the <code>ps_bridge</code> MCP server. Tap <strong>&#x1F52C; Load Samples</strong> to add three ready-to-use examples:</p>
@@ -1069,6 +1073,7 @@ Exit code 1 on error, error message to stderr.</pre>
       <li><strong>Fetch Website Status</strong> &mdash; HTTP status code and response time for any URL</li>
     </ul>
     <div class="tip"><strong>Tip:</strong> The <code>ps_bridge</code> server is available in any Playground session or Task configured on Windows.</div>
+    <div class="tip"><strong>Tip:</strong> The PowerShell editor supports <strong>PowerShell syntax highlighting</strong>. Tap the <strong>&#x26F6; expand</strong> icon to open a full-screen editor with <strong>Save</strong>, <strong>Cancel</strong>, and <strong>Copy</strong> actions.</div>
 
     <h3>&#x1F4E6; Node.js MCP Servers <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Windows desktop)</span></h3>
     <p>TealKit can install and run MCP servers written in <strong>Node.js</strong> directly on your Windows desktop &mdash; no manual npm setup required beyond having Node.js 18+ installed.</p>
