@@ -13,6 +13,8 @@
 
 ### 🤖 AI Playground & Flexibility
 * **Provider Independent:** Use leading providers like **Google Gemini, OpenAI GPT-5, Anthropic, and Mistral**.
+* **🇪🇺 European Privacy & GDPR:** Data sovereignty matters. TealKit works fully with **Mistral AI** — a European provider headquartered in France that processes all data within the EU. Ideal for users and organisations where GDPR compliance is non-negotiable. Just enter your Mistral API key and your prompts never leave European infrastructure.
+* **Small Language Models (SLM):** Not every task needs a powerful cloud model. Run lightweight SLMs on your own hardware with **Ollama**, **LM Studio**, or any OpenAI-compatible local endpoint — zero cloud costs, zero data sharing. Every model behaves differently; use the **Playground** to test and compare prompts across models to find the best fit for each task before automating it.
 * **Local Intelligence:** Support for **Ollama** models for 100% offline processing.
 * **Full Customization:** Tweak model parameters per task and keep token costs predictable.
 * **Chat-to-Task:** Test ideas in the chat interface before promoting them to automated tasks.
@@ -136,6 +138,13 @@ TealKit is an **open agentic platform**: every capability not built-in can be ad
 | **Linux / Mac** | Coming soon |
 
 > *Pro Tip:* Unlocking Pro on Mobile also unlocks Pro features for one linked desktop version!
+
+---
+
+## 🔜 Coming Next
+
+* **Smart System Prompts per Model:** TealKit will automatically detect whether you are using a large language model (LLM) or a small language model (SLM) and generate the system prompt accordingly — so even compact models receive instructions they can reliably act on.
+* **Fully Offline with Embedded Models:** The next release will let you run TealKit without any internet connection by loading an embedded model directly from **Hugging Face**. The best-fitting model is recommended based on your device's available hardware — making powerful on-device AI accessible to everyone, no API key required.
 
 ---
 **Developed by [L. Schaffer](https://github.com/lschaffer)**
