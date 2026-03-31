@@ -343,6 +343,7 @@
       <li>Tool calls appear as collapsible cards &mdash; tap to expand inputs/outputs.</li>
       <li>Use the attachment button to add images or files to your message.</li>
       <li>Tap <strong>Reset Chat</strong> to start fresh with the same setup.</li>
+      <li><strong>Save as Task</strong> <span class="pro-tag">PRO</span> &mdash; after a successful session, use the save button to convert the current Playground configuration (tools, system prompt, LLM) into a reusable automated Task.</li>
     </ul>
     <div class="tip"><strong>Tip:</strong> Use the LLM selector to find the best model for each task before saving it as an automated Task. See <a href="#best-practices">Best Practices</a> for more guidance.</div>
   </section>
@@ -351,7 +352,8 @@
   <section id="tasks">
     <h2>5 &nbsp; Tasks</h2>
     <p>Tasks are saved automation workflows. Each task packages an LLM, tools, a system prompt,
-       and an initial message &mdash; ready to run with one tap.</p>
+       and an initial message &mdash; ready to run with one tap.
+       <strong>Free tier: up to 3 tasks.</strong> <span class="pro-tag">PRO</span> removes the limit.</p>
 
     <h3>Creating a task</h3>
     <ol>
@@ -596,32 +598,42 @@
       <tr><td><code>email</code></td><td>Read, search, and send emails via Gmail or IMAP</td></tr>
       <tr><td><code>google_drive</code></td><td>Search and read files from Google Drive</td></tr>
       <tr><td><code>toolbox</code></td><td>Current time, timezone, device location, and city geocoding</td></tr>
-      <tr><td><code>ssh</code></td><td>Run shell commands on remote SSH hosts</td></tr>
-      <tr><td><code>home_assistant</code></td><td>Control smart home devices via the Home Assistant REST API</td></tr>
+      <tr><td><code>ssh</code></td><td>Run shell commands on remote SSH hosts <span class="pro-tag">PRO</span></td></tr>
+      <tr><td><code>home_assistant</code></td><td>Control smart home devices via the Home Assistant REST API <span class="pro-tag">PRO</span></td></tr>
       <tr><td><code>weather</code></td><td>Current weather and forecast (uses location if available)</td></tr>
       <tr><td><code>file</code></td><td>Create text, Markdown, or HTML output files</td></tr>
-      <tr><td><code>excel</code></td><td>Convert CSV / JSON / text data to an Excel .xlsx file</td></tr>
-      <tr><td><code>chart</code></td><td>Generate PNG charts from numeric data series &mdash; chart types: <strong>line, bar, area, pie, scatter, histogram</strong>, and <strong>statistics_summary</strong> (4-panel dashboard). Optional parameters: title, axis labels, axis rotation, and custom line colors.</td></tr>
-      <tr><td><code>mermaid</code></td><td>Render Mermaid diagram syntax (flowcharts, sequence diagrams &hellip;) to PNG images</td></tr>
-      <tr><td><code>pdf</code></td><td>Generate PDF documents from AI-produced content</td></tr>
+      <tr><td><code>excel</code></td><td>Convert CSV / JSON / text data to an Excel .xlsx file <span class="pro-tag">PRO</span></td></tr>
+      <tr><td><code>chart</code></td><td>Generate PNG charts from numeric data series &mdash; chart types: <strong>line, bar, area, pie, scatter, histogram</strong>, and <strong>statistics_summary</strong> (4-panel dashboard). Optional parameters: title, axis labels, axis rotation, and custom line colors. <span class="pro-tag">PRO</span></td></tr>
+      <tr><td><code>mermaid</code></td><td>Render Mermaid diagram syntax (flowcharts, sequence diagrams &hellip;) to PNG images <span class="pro-tag">PRO</span></td></tr>
+      <tr><td><code>pdf</code></td><td>Generate PDF documents from AI-produced content <span class="pro-tag">PRO</span></td></tr>
     </table>
 
-    <h3>External MCP servers</h3>
-    <p>Connect to any MCP-compatible server from the ecosystem &mdash; e.g. via
-       <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a>.
-       Go to <em>Settings &rarr; External MCP Servers</em> and add a server URL or package name.
-       External servers extend the AI with calendar access, task managers, databases, and more.</p>
+    <h3>Remote MCP Servers (HTTP/SSE)</h3>
+    <p>Connect to any remote MCP-compatible server over HTTP or Server-Sent Events (SSE) &mdash; no local installation needed.
+       Go to <em>Settings &rarr; Remote MCP Servers</em> and choose a catalog source:</p>
+    <table>
+      <tr><th>Tab</th><th>Source</th><th>Notes</th></tr>
+      <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Browse &amp; connect to hosted MCP endpoints</td></tr>
+      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Optional global API key; applied to all Smithery endpoints</td></tr>
+      <tr><td><strong>Custom</strong></td><td>Any URL</td><td>Enter server URL, endpoint, and optional auth header</td></tr>
+    </table>
+    <p>Remote servers extend the AI with calendar access, task managers, databases, and more &mdash; accessible from any device without installing anything locally.</p>
 
-    <h3>&#x1F4E5; Import MCP Servers from Registry</h3>
-    <p>TealKit can import MCP servers directly from the built-in registry. Browse by category or search by name and capability:</p>
-    <ul>
-      <li><strong>Python-based MCP servers</strong> &mdash; fully implemented. Browse the registry, tap <em>Import</em>, and the server is installed and ready to use.</li>
-      <li><strong>Node.js-based MCP servers</strong> &mdash; coming in the next release.</li>
-    </ul>
+    <h3>&#x1F4E5; MCP Server Registry <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(desktop)</span></h3>
+    <p>On desktop (Windows, Linux, macOS) TealKit can <strong>download and run</strong> MCP servers directly &mdash; Python (via <code>uvx</code> / <code>pip</code>) and Node.js (via <code>npm</code> / <code>npx</code>). Go to <em>Settings &rarr; MCP Server Registry</em> and browse four catalogs:</p>
+    <table>
+      <tr><th>Tab</th><th>Source</th><th>Server types</th></tr>
+      <tr><td><strong>GitHub</strong></td><td>Hand-picked catalog maintained by TealKit (hosted on GitHub)</td><td>Python (uvx / pip) &amp; Node.js (npm / npx)</td></tr>
+      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a> &mdash; community registry</td><td>Python &amp; Node.js installable</td></tr>
+      <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Python &amp; Node.js installable</td></tr>
+      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Python &amp; Node.js installable</td></tr>
+    </table>
+    <p>All four tabs also show the full TealKit curated catalog at the top. Tap <strong>Install</strong> on any server &mdash; TealKit handles the package manager commands in the background. The server appears immediately in the tool selector after install.</p>
     <div class="tip"><strong>Tip:</strong> The registry is searchable by name, description, and capability &mdash; use it to quickly find and install community-built tools.</div>
 
-    <h3>&#x1F527; Custom Tools</h3>
-    <p>TealKit lets you build your own tools without writing any native code. Two wizards are available &mdash; accessible from the <strong>Tools</strong> tab in Playground settings or when editing a Task.</p>
+    <h3>&#x1F527; Custom Tools <span class="pro-tag">PRO</span></h3>
+    <p>TealKit lets you build your own tools without writing any native code. Two wizards are available &mdash; accessible from the <strong>Tools</strong> tab in Playground settings or when editing a Task.
+       <strong>Free tier:</strong> 1 Shell script, 1 JavaScript tool, and 1 Python tool. <span class="pro-tag">PRO</span> gives unlimited tools of each type.</p>
 
     <h3>&#x1F4DC; Shell Script Wizard</h3>
     <p>Describe what you need in plain language and the AI writes a ready-to-use shell script. The script type is chosen automatically based on the target platform:</p>
@@ -802,7 +814,8 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
     <ul>
       <li><strong>LLM Settings</strong> &mdash; AI provider, model, API key, temperature</li>
       <li><strong>Data Sources</strong> &mdash; email, search, documents, websites, location, SSH, Home Assistant, Slack, WhatsApp</li>
-      <li><strong>External MCP Servers</strong> &mdash; connect to Smithery or custom MCP servers</li>
+      <li><strong>Remote MCP Servers</strong> &mdash; connect to remote HTTP/SSE MCP servers (PulseMCP, Smithery, or Custom URL)</li>
+      <li><strong>MCP Server Registry</strong> <span class="pro-tag">PRO</span> &mdash; (desktop) browse and install local Python/Node.js MCP servers from GitHub, Glama, PulseMCP, and Smithery catalogs</li>
       <li><strong>General &rarr; Output Directory</strong> &mdash; where task output files are saved</li>
       <li><strong>General &rarr; Scripts Directory</strong> &mdash; local script library for SSH tasks</li>
       <li><strong>General &rarr; Keep files for (days)</strong> &mdash; output retention period</li>
@@ -811,6 +824,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
           A shorter interval is more responsive; a longer one saves battery.</li>
       <li><strong>Language</strong> &mdash; English or German</li>
       <li><strong>Theme</strong> &mdash; System / Light / Dark</li>
+      <li><strong>Backup &amp; Restore</strong> <span class="pro-tag">PRO</span> &mdash; export all tasks, settings, and tool configurations to an encrypted vault file; restore on any device</li>
     </ul>
   </section>
 
@@ -1115,14 +1129,16 @@ Exit code 1 on error, error message to stderr.</pre>
     <div class="tip"><strong>Tip:</strong> Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js 18 LTS</a> from nodejs.org. TealKit shows a banner in the MCP Server Registry screen if Node.js is not detected.</div>
 
     <h3>&#x1F4E6; MCP Server Registry <span class="pro-tag">PRO</span></h3>
-    <p>Discover and install MCP servers from three curated sources &mdash; all from within TealKit&rsquo;s built-in registry screen:</p>
+    <p>Discover and install MCP servers from four curated sources &mdash; all from within TealKit&rsquo;s built-in registry screen. TealKit handles the package manager commands (<code>npm install -g</code>, <code>uvx</code>, etc.) in the background:</p>
     <table>
       <tr><th>Tab</th><th>Source</th><th>Server types</th></tr>
-      <tr><td><strong>TealKit</strong></td><td>Hand-picked catalog maintained by TealKit</td><td>Python (uvx / pip) &amp; Node.js (npm / npx)</td></tr>
-      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a> &mdash; community registry</td><td>Remote (HTTP/SSE)</td></tr>
-      <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Remote (HTTP/SSE)</td></tr>
+      <tr><td><strong>GitHub</strong></td><td>Hand-picked catalog maintained by TealKit (hosted on GitHub)</td><td>Python (uvx / pip) &amp; Node.js (npm / npx)</td></tr>
+      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a> &mdash; community registry</td><td>Python &amp; Node.js installable</td></tr>
+      <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Python &amp; Node.js installable</td></tr>
+      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Python &amp; Node.js installable</td></tr>
     </table>
-    <p>The Glama and PulseMCP tabs also show the full TealKit installable catalog at the top so you can install local servers from any tab.</p>
+    <p>All four tabs also show the full TealKit curated catalog at the top so you can install local servers from any tab.</p>
+    <div class="note"><strong>Note:</strong> The MCP Server Registry (installable local servers) is separate from <em>Remote MCP Servers</em> (HTTP/SSE connections). Installable servers run locally on your machine; remote servers connect to hosted endpoints over the network.</div>
     <h3>Installing a Node.js server (example: Filesystem)</h3>
     <div class="step"><div class="step-num">1</div><div>
       Open <em>Settings &rarr; MCP Server Registry</em> (desktop only). Make sure Node.js 18+ is installed &mdash; a banner appears if it is missing.
