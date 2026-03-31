@@ -612,28 +612,58 @@
       <tr><td><code>pdf</code></td><td>PDF-Dokumente aus KI-generierten Inhalten erstellen <span class="pro-tag">PRO</span></td></tr>
     </table>
 
-    <h3>Remote MCP-Server (HTTP/SSE)</h3>
-    <p>Verbinde dich mit jedem entfernten MCP-kompatiblen Server &uuml;ber HTTP oder Server-Sent Events (SSE) &mdash; keine lokale Installation notwendig.
+    <h3>&#x1F4A1; Drei Wege, die KI mit Werkzeugen zu erweitern</h3>
+    <p>TealKit bietet drei erg&auml;nzende Wege, neue Werkzeuge hinzuzuf&uuml;gen. Das Verst&auml;ndnis der Unterschiede hilft, den besten Ansatz f&uuml;r jede Aufgabe zu w&auml;hlen:</p>
+    <table>
+      <tr><th>Ansatz</th><th>Was es ist</th><th>Plattformen</th></tr>
+      <tr><td><strong>Remote MCP-Server</strong></td><td>Cloudgehostete Server, zu denen man sich &uuml;ber HTTPS/SSE <em>verbindet</em> &mdash; keine lokale Installation</td><td>Alle (Mobil + Desktop)</td></tr>
+      <tr><td><strong>MCP-Server-Registry</strong> <span class="pro-tag">PRO</span></td><td>&Ouml;ffentliche Node.js- &amp; Python-Server, die mit einem Klick lokal <em>installiert</em> werden</td><td>Nur Desktop</td></tr>
+      <tr><td><strong>Eigene Werkzeuge / Skripte</strong> <span class="pro-tag">PRO</span></td><td>Eigene Mini-MCP-Server &mdash; Shell-Skripte, JS-Snippets oder Python-Werkzeuge, die die KI wie jeden anderen MCP-Server aufruft</td><td>Alle (Mobil + Desktop)</td></tr>
+    </table>
+
+    <h3>&#x2601;&#xFE0F; Remote MCP-Server &mdash; Cloud / gehostet <span style="font-size:.8em; color:var(--muted)">(alle Plattformen)</span></h3>
+    <p>Mit jedem MCP-kompatiblen Server in der Cloud verbinden &uuml;ber <strong>HTTP Streaming</strong> oder <strong>SSE</strong> &mdash; keine lokale Installation n&ouml;tig.
        Unter <em>Einstellungen &rarr; Remote MCP-Server</em> eine Katalogquelle w&auml;hlen:</p>
     <table>
       <tr><th>Reiter</th><th>Quelle</th><th>Hinweis</th></tr>
       <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Gehostete MCP-Endpunkte durchsuchen &amp; verbinden</td></tr>
-      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Optionaler globaler API-Key; gilt f&uuml;r alle Smithery-Endpunkte</td></tr>
-      <tr><td><strong>Benutzerdefiniert</strong></td><td>Beliebige URL</td><td>Server-URL, Endpunkt und optionalen Auth-Header eingeben</td></tr>
+      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Optionaler globaler API-Key f&uuml;r alle Smithery-Endpunkte</td></tr>
+      <tr><td><strong>Benutzerdefiniert</strong></td><td>Beliebige URL</td><td>Server-URL, Endpunkt (<code>/mcp</code>), optionaler API-Key &amp; Passwort</td></tr>
     </table>
-    <p>Remote-Server erweitern die KI um Kalender, Aufgabenmanager, Datenbanken und mehr &mdash; von jedem Ger&auml;t aus, ohne lokale Installation.</p>
+    <p>Jeder konfigurierte Server stellt seine Werkzeuge direkt im Playground und im Aufgaben-Werkzeug-Selektor bereit.
+       Remote-Server laufen auf <strong>allen Plattformen</strong> einschlie&szlig;lich Android und iOS.</p>
+    <div class="tip"><strong>Tipp:</strong> Vor dem Speichern eines benutzerdefinierten Servers auf <strong>Test</strong> tippen, um die Verbindung zu pr&uuml;fen und die zur&uuml;ckgegebene Werkzeugliste zu sehen.</div>
 
-    <h3>&#x1F4E5; MCP-Server-Registry <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Desktop)</span></h3>
-    <p>Auf dem Desktop (Windows, Linux, macOS) kann TealKit MCP-Server <strong>herunterladen und lokal ausf&uuml;hren</strong> &mdash; Python (via <code>uvx</code> / <code>pip</code>) und Node.js (via <code>npm</code> / <code>npx</code>). Unter <em>Einstellungen &rarr; MCP-Server-Registry</em> vier Kataloge durchsuchen:</p>
+    <h3>&#x1F4E5; MCP-Server-Registry &mdash; installierbare lokale Server <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(nur Desktop)</span></h3>
+    <p>Auf dem Desktop (Windows, Linux, macOS) kann TealKit MCP-Server <strong>lokal herunterladen und ausf&uuml;hren</strong>.
+       Dies sind echte Node.js- und Python-Server, die mit einem Klick auf der Maschine installiert werden &mdash; kein Terminal n&ouml;tig.
+       Unter <em>Einstellungen &rarr; MCP-Server-Registry</em> vier &ouml;ffentliche Kataloge durchsuchen:</p>
     <table>
-      <tr><th>Reiter</th><th>Quelle</th><th>Server-Typen</th></tr>
-      <tr><td><strong>GitHub</strong></td><td>Handverlesener Katalog von TealKit (auf GitHub gehostet)</td><td>Python (uvx / pip) &amp; Node.js (npm / npx)</td></tr>
-      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a> &mdash; Community-Registry</td><td>Python &amp; Node.js installierbar</td></tr>
+      <tr><th>Reiter</th><th>Quelle</th><th>Installationsmethode</th></tr>
+      <tr><td><strong>GitHub</strong></td><td>Handverlesener Katalog von TealKit</td><td>Python (<code>uvx</code> / <code>pip</code>) &amp; Node.js (<code>npm</code> / <code>npx</code>)</td></tr>
+      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a></td><td>Python &amp; Node.js installierbar</td></tr>
       <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Python &amp; Node.js installierbar</td></tr>
       <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Python &amp; Node.js installierbar</td></tr>
     </table>
-    <p>Alle vier Reiter zeigen auch den vollst&auml;ndigen TealKit-Katalog oben an. Auf <strong>Installieren</strong> tippen &mdash; TealKit f&uuml;hrt die Paketmanager-Befehle im Hintergrund aus. Der Server erscheint nach der Installation sofort im Werkzeug-Selektor.</p>
-    <div class="tip"><strong>Tipp:</strong> Die Registry ist nach Name, Beschreibung und F&auml;higkeit durchsuchbar &mdash; schnell community-entwickelte Werkzeuge finden und installieren.</div>
+    <p>Auf <strong>Installieren</strong> tippen &mdash; TealKit f&uuml;hrt <code>npm install -g</code>, <code>uvx</code> oder <code>pip</code> im Hintergrund aus.
+       Der installierte Server erscheint sofort im Werkzeug-Selektor. Deinstallation entfernt das Paket und den Eintrag.</p>
+    <div class="note"><strong>Remote MCP vs. Registry:</strong> Remote-Server laufen in der Cloud und werden &uuml;ber das Netz aufgerufen (alle Plattformen).
+       Registry-Server laufen <em>lokal auf der Maschine</em> (nur Desktop) und werden einmalig installiert, dann automatisch von TealKit gestartet.</div>
+    <div class="tip"><strong>Tipp:</strong> F&uuml;r npm/npx-Server ist Node.js 18+ erforderlich. TealKit zeigt ein Banner im Registry-Bildschirm, wenn Node.js nicht erkannt wird. <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js LTS</a> von nodejs.org installieren.</div>
+
+    <h3>&#x1F527; Skripte &amp; Werkzeuge als Mini-MCP-Server</h3>
+    <p>Jedes in TealKit erstellte Skript oder Werkzeug wird der KI als <strong>lokaler MCP-Server-Werkzeug</strong> bereitgestellt
+       &mdash; die KI ruft es auf genau die gleiche standardisierte Weise auf wie jeden Cloud-Server.
+       Das erm&ouml;glicht leistungsstarke Aufgabenautomatisierung ohne MCP-Server-Boilerplate:</p>
+    <table>
+      <tr><th>Werkzeugtyp</th><th>L&auml;uft auf</th><th>Wie die KI es aufruft</th></tr>
+      <tr><td><strong>Shell- / PowerShell-Skript</strong></td><td>SSH-Remote-Host oder lokaler Rechner</td><td>&Uuml;ber <code>ssh_bridge</code> / <code>ps_bridge</code> MCP-Server</td></tr>
+      <tr><td><strong>JavaScript-Snippet</strong></td><td>Ger&auml;teseitige sichere Sandbox</td><td>&Uuml;ber <code>js_bridge</code> MCP-Server</td></tr>
+      <tr><td><strong>Python-Werkzeug</strong></td><td>Lokale Python-Umgebung (Desktop)</td><td>&Uuml;ber <code>python_bridge</code> MCP-Server</td></tr>
+    </table>
+    <p>Das LLM sieht einen sauberen Werkzeugnamen und ein Input-Schema &mdash; es ist egal, ob das Werkzeug
+       ein Cloud-Endpunkt, ein npm-Paket oder ein selbstgeschriebenes 20-Zeilen-PowerShell-Skript ist.
+       Alle drei verwenden denselben MCP-Standard.</p>
 
     <h3>&#x1F527; Eigene Werkzeuge <span class="pro-tag">PRO</span></h3>
     <p>TealKit erm&ouml;glicht es, eigene Werkzeuge ohne nativen Code zu erstellen. Zwei Assistenten stehen zur Verf&uuml;gung &mdash; erreichbar &uuml;ber den <strong>Werkzeuge</strong>-Reiter in den Playground-Einstellungen oder beim Bearbeiten einer Aufgabe.
@@ -1023,16 +1053,16 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
     <p>Vor dem Aktivieren eines Cron-Zeitplans die Aufgabe mit dem Modus <strong>Interaktiv&nbsp;/&nbsp;Ausprobieren</strong> &ouml;ffnen. Dieser l&auml;dt die Aufgabenkonfiguration als Live-Playground-Chat, sodass Werkzeugaufrufe und Ausgaben Schritt f&uuml;r Schritt kontrolliert und der System-Prompt verfeinert werden kann &mdash; ohne Scheduling-Historie zu erzeugen.</p>
     <div class="tip"><strong>Tipp:</strong> Im interaktiven Modus iterieren, bis die Ausgabe stimmt &mdash; dann speichern und den Zeitplan aktivieren.</div>
 
-    <h3>&#x1F310; Externen MCP-Server registrieren</h3>
-    <p>Unter <em>Einstellungen &rarr; Externe MCP-Server &rarr; + Server hinzuf&uuml;gen</em> ausf&uuml;llen:</p>
+    <h3>&#x2611;&#xFE0F; Remote MCP-Server registrieren (benutzerdefiniert)</h3>
+    <p>Unter <em>Einstellungen &rarr; Remote MCP-Server &rarr; Reiter &bdquo;Benutzerdefiniert&ldquo;</em> ausf&uuml;llen:</p>
     <ul>
       <li><strong>Name</strong> &mdash; eine aussagekr&auml;ftige Bezeichnung</li>
-      <li><strong>Server-URL</strong> &mdash; die HTTP(S)-Basis-URL des MCP-Servers oder ein Smithery-Paketname (z.&nbsp;B. <code>@modelcontextprotocol/server-filesystem</code>)</li>
-      <li><strong>MCP-Endpunkt</strong> &mdash; in der Regel <code>/mcp</code> (Standard); f&uuml;r Smithery unver&auml;ndert lassen</li>
-      <li><strong>API-Schl&uuml;ssel</strong> &mdash; nur wenn der Server eine Authentifizierung erfordert</li>
+      <li><strong>Server-URL</strong> &mdash; die HTTPS-Basis-URL des Cloud-MCP-Servers</li>
+      <li><strong>MCP-Endpunkt</strong> &mdash; in der Regel <code>/mcp</code> (Standard)</li>
+      <li><strong>API-Schl&uuml;ssel / Passwort</strong> &mdash; nur wenn der Server eine Authentifizierung erfordert</li>
     </ul>
-    <p>Auf <strong>Verbindung testen</strong> tippen, um den Server erreichbar zu pr&uuml;fen, dann <strong>Speichern</strong>. Die Werkzeuge des Servers erscheinen sofort im Werkzeug-Selektor.</p>
-    <div class="tip"><strong>Tipp:</strong> Den <a href="https://smithery.ai" target="_blank" rel="noopener">Smithery.ai</a>-Katalog direkt &uuml;ber die Suchleiste im Bildschirm durchsuchen &mdash; die Ergebnisse zeigen Paketname, Beschreibung und Werkzeuganzahl.</div>
+    <p>Auf <strong>Test</strong> tippen, um die Verbindung zu pr&uuml;fen und die Werkzeugliste zu sehen, dann <strong>Hinzuf&uuml;gen</strong>. Die Werkzeuge des Servers erscheinen sofort im Werkzeug-Selektor.</p>
+    <div class="tip"><strong>Tipp:</strong> Die Reiter <strong>PulseMCP</strong> oder <strong>Smithery</strong> nutzen, um gehostete Server per Klick zu verbinden &mdash; URLs m&uuml;ssen nicht manuell eingetippt werden.</div>
 
     <h3>&#x1F4B0; Aktuelle Sitzungskosten pr&uuml;fen</h3>
     <p>Im <strong>Playground</strong>: den Token-Z&auml;hler am unteren Rand des Chats antippen &rarr; das Detailblatt zeigt die Kosten der letzten Anfrage und die kumulativen Sitzungskosten.</p>
@@ -1125,41 +1155,36 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
     <div class="tip"><strong>Tipp:</strong> Der <code>ps_bridge</code>-Server steht in jeder Playground-Sitzung und Aufgabe auf Windows zur Verf&uuml;gung.</div>
     <div class="tip"><strong>Tipp:</strong> Der PowerShell-Editor unterst&uuml;tzt <strong>PowerShell-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
 
-    <h3>&#x1F4E6; Node.js-MCP-Server <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Windows-Desktop)</span></h3>
-    <p>TealKit kann in <strong>Node.js</strong> geschriebene MCP-Server direkt auf dem Windows-Desktop installieren und starten &mdash; ohne manuelle npm-Konfiguration, sofern Node.js 18+ installiert ist.</p>
-    <ul>
-      <li><strong>npm</strong>-Server &mdash; global via <code>npm install -g</code> installiert und mit <code>npx</code> gestartet</li>
-      <li><strong>npx</strong>-Server &mdash; bei Bedarf mit <code>npx -y &lt;Paket&gt;</code> heruntergeladen und ausgef&uuml;hrt (keine dauerhafte Installation n&ouml;tig)</li>
-      <li>Server erscheinen nach der Installation sofort in der Liste externer MCP-Server und im Werkzeug-Selektor</li>
-      <li>Deinstallation entfernt das globale npm-Paket und bereinigt den Bibliothekseintrag</li>
-    </ul>
-    <div class="tip"><strong>Tipp:</strong> <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js 18 LTS</a> von nodejs.org installieren. TealKit zeigt ein Banner im MCP-Server-Registry-Bildschirm, wenn Node.js nicht erkannt wird.</div>
-
-    <h3>&#x1F4E6; MCP-Server-Registry <span class="pro-tag">PRO</span></h3>
-    <p>MCP-Server aus vier kuratierten Quellen entdecken und installieren &mdash; alles direkt im eingebauten Registry-Bildschirm von TealKit. TealKit f&uuml;hrt alle Paketmanager-Befehle im Hintergrund aus:</p>
+    <h3>&#x1F4E6; MCP-Server-Registry <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Desktop)</span></h3>
+    <p>Die MCP-Server-Registry erm&ouml;glicht das lokale <strong>Installieren von Python- und Node.js-MCP-Servern</strong> mit einem einzigen Tipp &mdash; kein Terminal, keine Paketmanager-Befehle.
+       Unter <em>Einstellungen &rarr; MCP-Server-Registry</em> &ouml;ffnen.
+       TealKit f&uuml;hrt automatisch <code>npm install -g</code>, <code>uvx</code> oder <code>pip</code> im Hintergrund aus und registriert den Server.</p>
+    <p>Installierte Server laufen <strong>lokal auf der Maschine</strong> und werden von TealKit automatisch gestartet.
+       Ihre Werkzeuge erscheinen im selben Werkzeug-Selektor wie eingebaute und Remote-Server.</p>
     <table>
-      <tr><th>Reiter</th><th>Quelle</th><th>Server-Typen</th></tr>
-      <tr><td><strong>GitHub</strong></td><td>Handverlesener Katalog von TealKit (auf GitHub gehostet)</td><td>Python (uvx / pip) &amp; Node.js (npm / npx)</td></tr>
-      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a> &mdash; Community-Registry</td><td>Python &amp; Node.js installierbar</td></tr>
-      <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td>Python &amp; Node.js installierbar</td></tr>
-      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Python &amp; Node.js installierbar</td></tr>
+      <tr><th>Reiter</th><th>Quelle</th><th>Installationsmethode</th></tr>
+      <tr><td><strong>GitHub</strong></td><td>TealKit-Katalog (handverlesen, getestet)</td><td><code>npm</code> / <code>npx</code> / <code>uvx</code></td></tr>
+      <tr><td><strong>Glama</strong></td><td><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener">glama.ai/mcp/servers</a></td><td><code>npm</code> / <code>uvx</code></td></tr>
+      <tr><td><strong>PulseMCP</strong></td><td><a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">registry.modelcontextprotocol.io</a></td><td><code>npm</code> / <code>uvx</code></td></tr>
+      <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td><code>npm</code> / <code>uvx</code></td></tr>
     </table>
-    <p>Alle vier Reiter zeigen den vollst&auml;ndigen TealKit-Katalog oben an, sodass lokale Server von jedem Reiter aus installiert werden k&ouml;nnen.</p>
-    <div class="note"><strong>Hinweis:</strong> Die MCP-Server-Registry (installierbare lokale Server) ist von <em>Remote MCP-Servern</em> (HTTP/SSE-Verbindungen) getrennt. Installierte Server laufen lokal; Remote-Server verbinden sich mit gehosteten Endpunkten &uuml;ber das Netz.</div>
-    <h3>Node.js-Server installieren (Beispiel: Filesystem)</h3>
+    <div class="note"><strong>Registry vs. Remote MCP-Server:</strong> Die Registry installiert Server, die <em>lokal auf der Maschine laufen</em> (nur Desktop).
+       <em>Remote MCP-Server</em> (Einstellungen &rarr; Remote MCP-Server) verbinden sich mit <em>cloudgehosteten</em> Endpunkten &uuml;ber das Netz &mdash; verf&uuml;gbar auf allen Plattformen inkl. Mobil.</div>
+    <div class="tip"><strong>Node.js-Anforderung:</strong> F&uuml;r npm/npx-Server <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js 18 LTS</a> installieren. TealKit zeigt ein Banner im Registry-Bildschirm, wenn Node.js fehlt. Python-Server nutzen <code>uvx</code> (in TealKit enthalten &mdash; keine zus&auml;tzliche Installation n&ouml;tig).</div>
+    <h3>Server installieren (Beispiel: Filesystem)</h3>
     <div class="step"><div class="step-num">1</div><div>
-      <em>Einstellungen &rarr; MCP-Server-Registry</em> &ouml;ffnen (nur Desktop). Node.js 18+ muss installiert sein &mdash; andernfalls erscheint ein Banner.
+      <em>Einstellungen &rarr; MCP-Server-Registry</em> &ouml;ffnen. Im GitHub-Reiter nach <strong>Filesystem</strong> suchen.
     </div></div>
     <div class="step"><div class="step-num">2</div><div>
-      Im TealKit-Reiter <strong>Filesystem</strong> suchen. Im Feld <strong>allowed_dirs</strong> das freizugebende Verzeichnis eintragen, z.&nbsp;B. <code>C:/Users/Ich/Dokumente</code> (Schr&auml;gstriche verwenden).
+      Eintrag aufklappen, im Feld <strong>allowed_dirs</strong> das freizugebende Verzeichnis eintragen, z.&nbsp;B. <code>C:/Users/Ich/Dokumente</code>.
     </div></div>
     <div class="step"><div class="step-num">3</div><div>
       <strong>Installieren</strong> tippen. TealKit f&uuml;hrt <code>npm install -g @modelcontextprotocol/server-filesystem</code> im Hintergrund aus.
     </div></div>
     <div class="step"><div class="step-num">4</div><div>
-      Server mit dem Schalter aktivieren. Die KI kann nun <code>list_directory</code>, <code>read_file</code>, <code>write_file</code> und <code>search_files</code> im konfigurierten Verzeichnis aufrufen.
+      Server-Schalter aktivieren. Die KI kann nun <code>list_directory</code>, <code>read_file</code>, <code>write_file</code> und <code>search_files</code> aufrufen.
     </div></div>
-    <div class="note"><strong>Hinweis:</strong> Das Feld <code>allowed_dirs</code> ist Pflichtfeld. Bleibt es leer, startet der Server ohne zug&auml;ngliche Verzeichnisse. Vorw&auml;rtsschr&auml;gstriche verwenden (z.&nbsp;B. <code>C:/temp</code>), um Windows-Pfad-Probleme zu vermeiden.</div>
+    <div class="note"><strong>Hinweis:</strong> <code>allowed_dirs</code> ist ein Pflichtfeld. Vorw&auml;rtsschr&auml;gstriche verwenden (z.&nbsp;B. <code>C:/temp</code>), um Windows-Pfad-Probleme zu vermeiden.</div>
   </section>
 
   <!-- 18 -->
