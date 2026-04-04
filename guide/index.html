@@ -164,7 +164,7 @@
       <li><a href="#platforms">Platform Notes</a></li>
       <li><a href="#setup">First-Time Setup</a></li>
       <li><a href="#playground">Playground</a></li>
-      <li><a href="#tasks">Tasks</a></li>
+      <li><a href="#agents">Agents</a></li>
       <li><a href="#datasources">Data Sources</a></li>
       <li><a href="#mcp">MCP Servers</a></li>
       <li><a href="#docsearch">Document Search</a></li>
@@ -188,13 +188,13 @@
       TealKit is a mobile AI agent powered by the <strong>Model Context Protocol (MCP)</strong>.
       Connect it to any compatible LLM (OpenAI, Anthropic Claude, Google Gemini, Mistral,
       Ollama &hellip;) and your own data sources &mdash; documents, emails, websites, files &mdash;
-      then let the AI work through multi-step tasks automatically.
+      then let the AI work through multi-step agents automatically.
     </p>
     <p>Everything runs on your device. No data is sent to TealKit servers.</p>
     <h3>Key concepts</h3>
     <ul>
       <li><strong>Playground</strong> &mdash; interactive chat with live tool use</li>
-      <li><strong>Tasks</strong> &mdash; saved, reusable automation workflows</li>
+      <li><strong>Agents</strong> &mdash; saved, reusable automation workflows</li>
       <li><strong>MCP Tools</strong> &mdash; capabilities the AI can call (web search, email, documents &hellip;)</li>
       <li><strong>Data Sources</strong> &mdash; your personal data connected to the agent</li>
     </ul>
@@ -209,13 +209,13 @@
         <td><strong>Android</strong></td>
         <td>Output files default to internal app storage. Set a custom path in
           <em>Settings &rarr; General &rarr; Output Directory</em> to use a visible folder (e.g. Downloads).
-          Background task scheduling uses WorkManager.</td>
+          Background agent scheduling uses WorkManager.</td>
       </tr>
       <tr>
         <td><strong>iOS</strong></td>
         <td>API keys are stored in iOS Keychain. File access via the Files app requires
           tapping <em>Choose Directory</em> &mdash; the system file picker remembers the grant.
-          Background tasks run via BGTaskScheduler.</td>
+          Background agents run via BGTaskScheduler.</td>
       </tr>
       <tr>
         <td><strong>Windows</strong></td>
@@ -292,24 +292,24 @@
     <h3>LLM Provider and Model Settings</h3>
     <p>When configuring an LLM, you will find several advanced settings. Not all parameters shown in certain models or external guides apply to TealKit, but here is a quick helper for the ones available:</p>
     <ul>
-      <li><strong>Temperature:</strong> Controls how creative or focused the AI is. Use lower values (e.g., <code>0.0 &ndash; 0.3</code>) for precise, factual tasks to avoid hallucinations. Use higher values (<code>0.7 &ndash; 1.0</code>) for more varied, natural language.</li>
+      <li><strong>Temperature:</strong> Controls how creative or focused the AI is. Use lower values (e.g., <code>0.0 &ndash; 0.3</code>) for precise, factual agents to avoid hallucinations. Use higher values (<code>0.7 &ndash; 1.0</code>) for more varied, natural language.</li>
       <li><strong>Max Tokens:</strong> The maximum length of a single AI response. Increase this if the AI cuts off long data summaries. Reduce it to save costs on simple queries.</li>
       <li><strong>Max Tool Output Size (chars):</strong> Limits how many characters a single tool result can return to the LLM. Set to <code>0</code> for unlimited. Reduce this to prevent very large tool outputs (e.g. a huge web page) from consuming the context window.</li>
       <li><strong>Token Warning Threshold:</strong> When the session token count reaches this number, TealKit suggests cleaning up the chat history to prevent context overflow. Default: <code>1,500,000</code>. Adjust based on your model's context window.</li>
     </ul>
 
     <h3>LLM 2 &mdash; Secondary Model</h3>
-    <p>TealKit lets you configure a second, independent AI model dedicated to <strong>code generation</strong>. This is useful for keeping a powerful (but more expensive) primary model for reasoning and task execution, while using a faster or cheaper model for writing shell scripts and JavaScript tools.</p>
+    <p>TealKit lets you configure a second, independent AI model dedicated to <strong>code generation</strong>. This is useful for keeping a powerful (but more expensive) primary model for reasoning and agent execution, while using a faster or cheaper model for writing shell scripts and JavaScript tools.</p>
     <p>Configure LLM 2 under <em>Settings &rarr; LLM Settings &rarr; LLM 2</em> tab. The same providers and parameters are available as for the primary model.</p>
     <ul>
       <li><strong>Shell Script Wizard</strong> &mdash; tap the model picker in the wizard to generate the script with LLM 2 instead of your primary model</li>
       <li><strong>JavaScript Tool Wizard</strong> &mdash; same: pick LLM 2 in the wizard&rsquo;s model picker</li>
-      <li><strong>Tasks</strong> &mdash; select <em>LLM 2 (from settings)</em> as the task&rsquo;s LLM provider to run an entire task with the secondary model</li>
+      <li><strong>Agents</strong> &mdash; select <em>LLM 2 (from settings)</em> as the agent&rsquo;s LLM provider to run an entire agent with the secondary model</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> A fast, low-cost model like <code>gemini-2.5-flash</code> or <code>mistral-small-latest</code> works well as LLM 2 &mdash; saving your primary model budget for complex reasoning tasks.</div>
+    <div class="tip"><strong>Tip:</strong> A fast, low-cost model like <code>gemini-2.5-flash</code> or <code>mistral-small-latest</code> works well as LLM 2 &mdash; saving your primary model budget for complex reasoning agents.</div>
 
     <h3>Use Case Examples</h3>
-    <p>Here are some examples of what you can accomplish in the Playground or build as automated Tasks:</p>
+    <p>Here are some examples of what you can accomplish in the Playground or build as automated Agents:</p>
     <ul>
       <li><strong>Semantic Document Search:</strong> <em>&ldquo;Search semantically for &lsquo;setup new sensors in wsca&rsquo; in any document files.&rdquo;</em></li>
       <li><strong>Emails:</strong> <em>&ldquo;Search my emails containing the text &lsquo;TaskAI&rsquo; from the last 24 hours, and summarize them.&rdquo;</em></li>
@@ -335,7 +335,7 @@
       <li><strong>(Optional) Chat mode</strong> &mdash; enable the orange <strong>Chat mode</strong> checkbox
           to send your message directly to the LLM with no system prompt and no tools. All tool
           checkboxes are ignored. Ideal for SLMs doing translation, formatting, summarisation, or any
-          pure text task where tool overhead adds latency without benefit.</li>
+          pure text agent where tool overhead adds latency without benefit.</li>
       <li><strong>(Optional) Stop after tool call</strong> &mdash; enable the purple
           <strong>Stop after tool call</strong> checkbox to make the session execute one tool call,
           capture the raw output, and stop immediately &mdash; no further LLM processing. The raw tool
@@ -353,23 +353,23 @@
       <li>Tool calls appear as collapsible cards &mdash; tap to expand inputs/outputs.</li>
       <li>Use the attachment button to add images or files to your message.</li>
       <li>Tap <strong>Reset Chat</strong> to start fresh with the same setup.</li>
-      <li><strong>Save as Task</strong> <span class="pro-tag">PRO</span> &mdash; after a successful session, use the save button to convert the current Playground configuration (tools, system prompt, LLM) into a reusable automated Task.</li>
+      <li><strong>Save as Agent</strong> <span class="pro-tag">PRO</span> &mdash; after a successful session, use the save button to convert the current Playground configuration (tools, system prompt, LLM) into a reusable automated Agent.</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> Use the LLM selector to find the best model for each task before saving it as an automated Task. See <a href="#best-practices">Best Practices</a> for more guidance.</div>
+    <div class="tip"><strong>Tip:</strong> Use the LLM selector to find the best model for each agent before saving it as an automated Agent. See <a href="#best-practices">Best Practices</a> for more guidance.</div>
   </section>
 
   <!-- 5 -->
-  <section id="tasks">
-    <h2>5 &nbsp; Tasks</h2>
-    <p>Tasks are saved automation workflows. Each task packages an LLM, tools, a system prompt,
+  <section id="agents">
+    <h2>5 &nbsp; Agents</h2>
+    <p>Agents are saved automation workflows. Each agent packages an LLM, tools, a system prompt,
        and an initial message &mdash; ready to run with one tap.
-       <strong>Free tier: up to 3 tasks.</strong> <span class="pro-tag">PRO</span> removes the limit.</p>
+       <strong>Free tier: up to 3 agents.</strong> <span class="pro-tag">PRO</span> removes the limit.</p>
 
-    <h3>Creating a task</h3>
+    <h3>Creating a agent</h3>
     <ol>
-      <li>Go to <strong>Tasks &rarr; + New Task</strong>.</li>
+      <li>Go to <strong>Agents &rarr; + New Agent</strong>.</li>
       <li>Give it a name and description.</li>
-      <li>Configure the LLM (can differ from your global default &mdash; or select <em>LLM 2 (from settings)</em> to run the task with your secondary model).</li>
+      <li>Configure the LLM (can differ from your global default &mdash; or select <em>LLM 2 (from settings)</em> to run the agent with your secondary model).</li>
       <li>Select tools and configure each one (website URLs, document folder, etc.).</li>
       <li>Enable <strong>Generate system prompt</strong> in the <em>Basis / Built-in Tools</em> panel to let the AI auto-generate a prompt from your tool selection, then review or edit it.</li>
       <li>Write the system prompt and initial user message.</li>
@@ -378,28 +378,28 @@
 
     <h3>Execution modes</h3>
     <ul>
-      <li><strong>&#x25B6; Run</strong> &mdash; executes the task immediately with a progress dialog.</li>
-      <li><strong>Interactive / Try-Out</strong> &mdash; opens the task's configuration as a live Playground
-          chat. Perfect for testing or refining a task interactively before scheduling it.</li>
+      <li><strong>&#x25B6; Run</strong> &mdash; executes the agent immediately with a progress dialog.</li>
+      <li><strong>Interactive / Try-Out</strong> &mdash; opens the agent's configuration as a live Playground
+          chat. Perfect for testing or refining a agent interactively before scheduling it.</li>
     </ul>
 
     <h3>Cron scheduling <span class="pro-tag">PRO</span></h3>
-    <p>Automate any task to run on a schedule:</p>
+    <p>Automate any agent to run on a schedule:</p>
     <ul>
       <li><strong>Hourly</strong> &mdash; every hour</li>
       <li><strong>Daily</strong> &mdash; once per day at a chosen time</li>
       <li><strong>Weekly</strong> &mdash; on a chosen day and time</li>
       <li><strong>Custom cron expression</strong> &mdash; full cron syntax (e.g. <code>0 8 * * 1-5</code> for weekday mornings)</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> Scheduled tasks run in the background even when the app
+    <div class="tip"><strong>Tip:</strong> Scheduled agents run in the background even when the app
       is minimised. Make sure battery optimisation settings do not kill the app.</div>
 
     <div class="note"><strong>&#x23F1; Background timing &ndash; important:</strong>
       When the app is closed, TealKit uses a periodic background wakeup (heartbeat) to check for
-      due tasks. The wakeup interval is configurable in <em>Settings &rarr; General &rarr;
+      due agents. The wakeup interval is configurable in <em>Settings &rarr; General &rarr;
       Background check interval</em> (5 / 10 / 15 min, default&nbsp;10 min).
       Due to Android Doze mode, iOS app-refresh limits, and OEM battery optimisations,
-      the exact wakeup time is controlled by the operating system &mdash; tasks may start
+      the exact wakeup time is controlled by the operating system &mdash; agents may start
       a few minutes earlier or later than their scheduled time.
       A shorter interval increases responsiveness but uses slightly more battery.
       <strong>If sub-minute precision is required, keep the app in the foreground &mdash; the
@@ -427,22 +427,22 @@
     </ul>
 
     <h3>Output channels <span class="pro-tag">PRO</span></h3>
-    <p>Task results can be delivered automatically to one or more channels when a run finishes.
+    <p>Agent results can be delivered automatically to one or more channels when a run finishes.
        Each channel has its own <em>send condition</em> and can optionally attach the output files.
        Global credentials are configured once in <em>Settings &rarr; Data Sources</em>;
-       per-task overrides are set on the task's <strong>Output</strong> tab.</p>
+       per-agent overrides are set on the agent's <strong>Output</strong> tab.</p>
     <p><strong>Any generated file can be attached</strong> &mdash; not just the Markdown log.
        This includes <code>.xlsx</code> spreadsheets (from the <code>excel</code> server),
        <code>.png</code> charts and diagrams (from <code>chart</code> / <code>mermaid</code>),
        <code>.html</code> previews, and <code>.md</code> result files.
-       Enable the <em>Include output files</em> toggle on the task's <strong>Output</strong> tab
+       Enable the <em>Include output files</em> toggle on the agent's <strong>Output</strong> tab
        to have all generated files forwarded to every active delivery channel.</p>
 
     <h3>&#x2709; Email output <span class="pro-tag">PRO</span></h3>
-    <p>Have the task result emailed automatically when done. Configure in the task's <em>Output</em> section:</p>
+    <p>Have the agent result emailed automatically when done. Configure in the agent's <em>Output</em> section:</p>
     <ul>
       <li><strong>Recipient</strong> &mdash; one or more email addresses</li>
-      <li><strong>Subject</strong> &mdash; static text or dynamic (can reference task name / date)</li>
+      <li><strong>Subject</strong> &mdash; static text or dynamic (can reference agent name / date)</li>
       <li><strong>Condition</strong> &mdash; always, only on success, or only if output is non-empty</li>
       <li><strong>Include output files</strong> &mdash; attach all generated files as email attachments:
           <code>.md</code> result, <code>.html</code> preview, <code>.xlsx</code> spreadsheets,
@@ -450,7 +450,7 @@
     </ul>
 
     <h3>&#x1F4AC; Slack output <span class="pro-tag">PRO</span></h3>
-    <p>Post the task result to a Slack channel automatically.
+    <p>Post the agent result to a Slack channel automatically.
        Creating a Slack App is <strong>free</strong> &mdash;
        <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">create one at api.slack.com</a>.
        Two auth modes are supported:</p>
@@ -476,7 +476,7 @@
         </ol>
       </li>
     </ul>
-    <p>Per-task options on the <strong>Output</strong> tab:</p>
+    <p>Per-agent options on the <strong>Output</strong> tab:</p>
     <ul>
       <li><strong>Send condition</strong> &mdash; Always / Only on success / Only on error</li>
       <li><strong>Override channel</strong> &mdash; leave blank to use the global default channel</li>
@@ -490,7 +490,7 @@
       native Slack files. A Webhook is enough for text-only notifications.</div>
 
     <h3>&#x1F4F2; WhatsApp output <span class="pro-tag">PRO</span></h3>
-    <p>Send the task result to a WhatsApp number via the <strong>Meta Business Cloud API</strong>.
+    <p>Send the agent result to a WhatsApp number via the <strong>Meta Business Cloud API</strong>.
        Registration is <strong>free</strong> and includes 1,000 conversations / month at no cost.
        Requires a Meta Business account with a verified phone number.</p>
     <ol>
@@ -501,7 +501,7 @@
           <code>whatsapp_business_messaging</code> permission.</li>
       <li>Enter both values in <em>Settings &rarr; Data Sources &rarr; WhatsApp</em>.</li>
     </ol>
-    <p>Per-task options on the <strong>Output</strong> tab:</p>
+    <p>Per-agent options on the <strong>Output</strong> tab:</p>
     <ul>
       <li><strong>Send condition</strong> &mdash; Always / Only on success / Only on error</li>
       <li><strong>Override recipient</strong> &mdash; E.164 phone number (e.g. <code>+49170…</code>);
@@ -516,11 +516,11 @@
       for first contact.</div>
 
     <h3>&#x1F4C2; SFTP output <span class="pro-tag">PRO</span></h3>
-    <p>Upload task results and generated files to a remote server automatically via SFTP when a run finishes.
+    <p>Upload agent results and generated files to a remote server automatically via SFTP when a run finishes.
        Configure SSH/SFTP credentials once in <em>Settings &rarr; Data Sources &rarr; SSH</em>.</p>
-    <p>Per-task options on the <strong>Output</strong> tab:</p>
+    <p>Per-agent options on the <strong>Output</strong> tab:</p>
     <ul>
-      <li><strong>Remote directory</strong> &mdash; defaults to the normalised task name slug; override per task if needed</li>
+      <li><strong>Remote directory</strong> &mdash; defaults to the normalised agent name slug; override per agent if needed</li>
       <li><strong>Send condition</strong> &mdash; Always / Only on success / Only on error</li>
       <li><strong>Include output files</strong> &mdash; uploads all generated files (<code>.md</code>, <code>.html</code>, <code>.xlsx</code>, <code>.png</code>, &hellip;) to the remote directory</li>
     </ul>
@@ -538,7 +538,7 @@
     <h4 style="margin-top:1rem; margin-bottom:.4rem">Following agent mode</h4>
     <p>Enable <strong>Following agent mode</strong> on an agent (Basic tab) to mark it as a chained
        follow-up. Following agents only run when triggered by another agent &mdash; they are hidden
-       from standalone task lists and scheduling.</p>
+       from standalone agent lists and scheduling.</p>
 
     <h4 style="margin-top:1rem; margin-bottom:.4rem">With condition &amp; unconditional</h4>
     <p>When setting up a trigger on an agent, choose between:</p>
@@ -573,13 +573,13 @@
        agent&rsquo;s prompt. Example: <em>&ldquo;You received the following data:
        [task_result] &mdash; identify the top 3 action items.&rdquo;</em></div>
 
-    <div class="tip"><strong>Tip:</strong> Load an example task via the <em>Examples</em> button to get started quickly.</div>
+    <div class="tip"><strong>Tip:</strong> Load an example agent via the <em>Examples</em> button to get started quickly.</div>
   </section>
 
   <!-- 6 -->
   <section id="datasources">
     <h2>6 &nbsp; Data Sources</h2>
-    <p>Configure data sources in <em>Settings &rarr; Data Sources</em>. Each source can be toggled on/off per task independently.</p>
+    <p>Configure data sources in <em>Settings &rarr; Data Sources</em>. Each source can be toggled on/off per agent independently.</p>
     <h3>&#x1F4E7; Email (Gmail / IMAP)</h3>
     <p>Connect Gmail via OAuth or configure any IMAP server. The AI can search, read, and optionally send emails.</p>
     <h3>&#x1F50D; Web Search</h3>
@@ -589,14 +589,14 @@
        using hybrid semantic + keyword search. See <a href="#docsearch">Document Search</a> for details.</p>
     <h3>&#x1F310; Website Search</h3>
     <p>Add seed URLs and let TealKit crawl and index them locally into a full-text search index.
-       Index before starting the Playground or Task &mdash; crawling can be stopped at any time.</p>
+       Index before starting the Playground or Agent &mdash; crawling can be stopped at any time.</p>
     <ul>
       <li><strong>Free tier:</strong> up to <strong>3</strong> seed URLs</li>
       <li><strong>Pro:</strong> up to <strong>10</strong> seed URLs <span class="pro-tag">PRO</span></li>
     </ul>
     <p>Indexing can be <strong>scheduled automatically</strong> on a cron schedule (minimum 1-hour intervals: hourly, daily, weekly, or monthly). A <em>Last indexed</em> timestamp is shown and a manual <em>Index Now</em> button is always available. Scheduled re-indexing runs in the background without any user interaction. <span class="pro-tag">PRO</span></p>
     <h3>&#x1F4CD; Location</h3>
-    <p>Optionally save GPS coordinates. They are injected into every task so queries like
+    <p>Optionally save GPS coordinates. They are injected into every agent so queries like
        "weather at my location" resolve automatically. Coordinates never leave your device.</p>
     <h3>&#x2601; Google Drive</h3>
     <p>Connect via OAuth to search and read files from your Drive.</p>
@@ -605,7 +605,7 @@
     <h3>&#x1F3E0; Home Assistant</h3>
     <p>Control your smart home via Home Assistant. Configure the Base URL and a Long-Lived Access Token once in <em>Settings &rarr; Data Sources &rarr; Home Assistant</em> and the AI can query and control any entity. See the <a href="#homeassistant">Home Assistant section</a> for full details.</p>
     <h3>&#x1F4AC; Slack</h3>
-    <p>Configure Slack credentials for automatic task output delivery.
+    <p>Configure Slack credentials for automatic agent output delivery.
        Creating a Slack App is <strong>free</strong> &mdash;
        <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">create one at api.slack.com</a>.
        Two modes:</p>
@@ -623,9 +623,9 @@
     <ul>
       <li><strong>Phone Number ID</strong> &mdash; from your Meta app's WhatsApp product page</li>
       <li><strong>System User Access Token</strong> &mdash; long-lived token with <code>whatsapp_business_messaging</code> permission</li>
-      <li><strong>Default Recipient</strong> &mdash; E.164 phone number used when a task does not specify one (e.g. <code>+49170123456</code>)</li>
+      <li><strong>Default Recipient</strong> &mdash; E.164 phone number used when a agent does not specify one (e.g. <code>+49170123456</code>)</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> Tap <em>Send Test Message</em> to verify your credentials before running a task.</div>
+    <div class="tip"><strong>Tip:</strong> Tap <em>Send Test Message</em> to verify your credentials before running a agent.</div>
   </section>
 
   <!-- 7 -->
@@ -654,7 +654,7 @@
 
     <h3>&#x1F4A1; Three ways to extend the AI with tools</h3>
     <p>TealKit gives you three distinct and complementary ways to add tools to the AI. Understanding the
-       difference helps you pick the right approach for each task:</p>
+       difference helps you pick the right approach for each agent:</p>
     <table>
       <tr><th>Approach</th><th>What it is</th><th>Platforms</th></tr>
       <tr><td><strong>Remote MCP Servers</strong></td><td>Cloud-hosted servers you <em>connect to</em> over HTTPS/SSE &mdash; nothing installed locally</td><td>All (mobile + desktop)</td></tr>
@@ -671,7 +671,7 @@
       <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Optional global API key applied to all Smithery endpoints</td></tr>
       <tr><td><strong>Custom</strong></td><td>Any URL</td><td>Server URL, endpoint path (<code>/mcp</code>), optional API key &amp; password</td></tr>
     </table>
-    <p>Each configured server exposes its tools directly in the Playground and Tasks tool selector.
+    <p>Each configured server exposes its tools directly in the Playground and Agents tool selector.
        Remote servers work on <strong>all platforms</strong> including Android and iOS.</p>
     <div class="tip"><strong>Tip:</strong> Tap <strong>Test</strong> before saving a custom server to verify the connection and see the tool list returned by the server.</div>
 
@@ -695,7 +695,7 @@
     <h3>&#x1F527; Scripts &amp; tools as mini MCP servers</h3>
     <p>Every script or tool you create in TealKit is exposed to the AI as a <strong>local MCP server tool</strong>
        &mdash; the AI calls it in exactly the same standardised way it calls any cloud server.
-       This means you can build powerful task automation without writing MCP server boilerplate:</p>
+       This means you can build powerful agent automation without writing MCP server boilerplate:</p>
     <table>
       <tr><th>Tool type</th><th>Runs on</th><th>How the AI calls it</th></tr>
       <tr><td><strong>Shell / PowerShell script</strong></td><td>SSH remote host or local machine</td><td>Via <code>ssh_bridge</code> / <code>ps_bridge</code> MCP server</td></tr>
@@ -707,7 +707,7 @@
        All three share the same MCP protocol.</p>
 
     <h3>&#x1F527; Custom Tools <span class="pro-tag">PRO</span></h3>
-    <p>TealKit lets you build your own tools without writing any native code. Two wizards are available &mdash; accessible from the <strong>Tools</strong> tab in Playground settings or when editing a Task.
+    <p>TealKit lets you build your own tools without writing any native code. Two wizards are available &mdash; accessible from the <strong>Tools</strong> tab in Playground settings or when editing a Agent.
        <strong>Free tier:</strong> 1 Shell script, 1 JavaScript tool, and 1 Python tool. <span class="pro-tag">PRO</span> gives unlimited tools of each type.</p>
 
     <h3>&#x1F4DC; Shell Script Wizard</h3>
@@ -716,7 +716,7 @@
       <li><strong>Windows</strong> &mdash; generates a <code>.ps1</code> PowerShell script</li>
       <li><strong>Linux / macOS</strong> &mdash; generates a <code>.sh</code> Bash script</li>
     </ul>
-    <p>Saved scripts are auto-discovered by the SSH server and can be referenced by name in any task.</p>
+    <p>Saved scripts are auto-discovered by the SSH server and can be referenced by name in any agent.</p>
     <p>Tips for a good shell script prompt:</p>
     <ul>
       <li>Name the target platform and environment: <em>&ldquo;PowerShell on Windows&rdquo;</em>, <em>&ldquo;Bash on Ubuntu&rdquo;</em>, <em>&ldquo;Bash on macOS&rdquo;</em></li>
@@ -728,7 +728,7 @@
     <div class="tip"><strong>Tip:</strong> Use the model picker at the top of the wizard dialog to switch to <strong>LLM 2</strong> for script generation &mdash; keep your main model for reasoning and use a cheaper model for code generation.</div>
 
     <h3>&#x1F9E9; JavaScript Tool Wizard</h3>
-    <p>Write a custom MCP tool as a small JavaScript snippet. The snippet runs in a secure on-device sandbox and can call REST APIs with <code>fetch()</code>. Saved tools appear immediately in the tool selector for Playground and Tasks.</p>
+    <p>Write a custom MCP tool as a small JavaScript snippet. The snippet runs in a secure on-device sandbox and can call REST APIs with <code>fetch()</code>. Saved tools appear immediately in the tool selector for Playground and Agents.</p>
     <p>Tips for a good JavaScript tool prompt:</p>
     <ul>
       <li>Define input schema and output clearly: <em>&ldquo;input: { from, to, amount }, output: { rate, converted }&rdquo;</em></li>
@@ -796,7 +796,7 @@
     <p>Ask the AI to write and immediately execute a script. Example prompt:</p>
     <pre>Connect to the server, write a bash script that gathers CPU usage every 5 seconds
 for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summary.</pre>
-    <p>The AI writes the script, uploads it via SSH, executes it, and returns the full output &mdash; all in one task run.</p>
+    <p>The AI writes the script, uploads it via SSH, executes it, and returns the full output &mdash; all in one agent run.</p>
 
     <h3>Stored local scripts</h3>
     <p>Place your own <code>.sh</code> or <code>.ps1</code> scripts in the
@@ -830,7 +830,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
           In Home Assistant open your <em>Profile</em> (bottom-left avatar) &rarr; scroll to <em>Long-Lived Access Tokens</em> &rarr; tap <em>Create Token</em>, give it a name (e.g. &ldquo;TealKit&rdquo;), and copy the token.</li>
       <li>Paste the token into the <em>Long-Lived Access Token</em> field and tap <strong>Save</strong>.</li>
     </ol>
-    <div class="tip"><strong>Tip:</strong> No per-task configuration is needed &mdash; once the global credentials are saved the <code>home_assistant</code> server is ready to use in any Playground session or Task.</div>
+    <div class="tip"><strong>Tip:</strong> No per-agent configuration is needed &mdash; once the global credentials are saved the <code>home_assistant</code> server is ready to use in any Playground session or Agent.</div>
 
     <h3>What the AI can do</h3>
     <ul>
@@ -848,14 +848,14 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
     <pre>What is the current temperature in the bedroom?</pre>
     <pre>Set the thermostat to 21 degrees and lock the front door.</pre>
     <pre>Which lights are currently on?</pre>
-    <div class="tip"><strong>Tip:</strong> You can combine Home Assistant with other servers in one task &mdash;
+    <div class="tip"><strong>Tip:</strong> You can combine Home Assistant with other servers in one agent &mdash;
       e.g. <em>&ldquo;Check the temperature sensors, generate a chart of today&rsquo;s readings, and email it to me.&rdquo;</em></div>
   </section>
 
   <!-- 11 -->
   <section id="output">
     <h2>11 &nbsp; Output Files</h2>
-    <p>TealKit saves core files per task run to a timestamped subfolder:</p>
+    <p>TealKit saves core files per agent run to a timestamped subfolder:</p>
     <ul>
       <li><code>output_log.md</code> &mdash; the main result in Markdown</li>
       <li><code>execution_log.md</code> &mdash; step-by-step tool call log</li>
@@ -871,7 +871,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
           the AI writes via the <code>file</code> server</li>
     </ul>
     <div class="tip"><strong>Tip: Forward files to Email / Slack / WhatsApp.</strong>
-      Enable <em>Include output files</em> on the task&rsquo;s <strong>Output</strong> tab to have
+      Enable <em>Include output files</em> on the agent&rsquo;s <strong>Output</strong> tab to have
       all generated files (xlsx, png, md, html &hellip;) delivered automatically via every active
       output channel &mdash; as email attachments, native Slack file uploads (Bot Token required),
       or WhatsApp document messages (Meta Cloud API).</div>
@@ -891,15 +891,15 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
       <li><strong>Data Sources</strong> &mdash; email, search, documents, websites, location, SSH, Home Assistant, Slack, WhatsApp</li>
       <li><strong>Remote MCP Servers</strong> &mdash; connect to remote HTTP/SSE MCP servers (PulseMCP, Smithery, or Custom URL)</li>
       <li><strong>MCP Server Registry</strong> <span class="pro-tag">PRO</span> &mdash; (desktop) browse and install local Python/Node.js MCP servers from GitHub, Glama, PulseMCP, and Smithery catalogs</li>
-      <li><strong>General &rarr; Output Directory</strong> &mdash; where task output files are saved</li>
-      <li><strong>General &rarr; Scripts Directory</strong> &mdash; local script library for SSH tasks</li>
+      <li><strong>General &rarr; Output Directory</strong> &mdash; where agent output files are saved</li>
+      <li><strong>General &rarr; Scripts Directory</strong> &mdash; local script library for SSH agents</li>
       <li><strong>General &rarr; Keep files for (days)</strong> &mdash; output retention period</li>
       <li><strong>General &rarr; Background check interval</strong> &mdash; how often the app wakes up
-          in the background to check for due tasks (5 / 10 / 15&nbsp;min; default&nbsp;10&nbsp;min).
+          in the background to check for due agents (5 / 10 / 15&nbsp;min; default&nbsp;10&nbsp;min).
           A shorter interval is more responsive; a longer one saves battery.</li>
       <li><strong>Language</strong> &mdash; English or German</li>
       <li><strong>Theme</strong> &mdash; System / Light / Dark</li>
-      <li><strong>Backup &amp; Restore</strong> <span class="pro-tag">PRO</span> &mdash; export all tasks, settings, and tool configurations to an encrypted vault file; restore on any device</li>
+      <li><strong>Backup &amp; Restore</strong> <span class="pro-tag">PRO</span> &mdash; export all agents, settings, and tool configurations to an encrypted vault file; restore on any device</li>
     </ul>
   </section>
 
@@ -927,9 +927,9 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
        Enable <strong>Stop after tool call</strong> on an agent to capture the raw tool output
        directly as <code>[task_result]</code> without further LLM processing.</p>
     <h3>What is the difference between Run and Interactive mode?</h3>
-    <p><strong>Run</strong> executes the task autonomously and saves the result to disk.
+    <p><strong>Run</strong> executes the agent autonomously and saves the result to disk.
        <strong>Interactive</strong> opens a full chat with the same LLM and tools, so you can
-       guide the AI step by step &mdash; useful for exploration or debugging a task.</p>
+       guide the AI step by step &mdash; useful for exploration or debugging a agent.</p>
     <h3>What is the advantage of using a European AI provider?</h3>
     <p>If GDPR compliance or data sovereignty is important to you &mdash; for example in a business
        or regulated environment &mdash; choose <strong>Mistral AI</strong>, a provider headquartered
@@ -943,7 +943,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
        no data sent externally. Keep in mind that every model has different strengths: a prompt
        that works perfectly with one model may need adjustment for another. Use the
        <strong>Playground</strong> to experiment with prompts across different models and find
-       the best fit for each task before turning it into an automated workflow. For pure text tasks
+       the best fit for each agent before turning it into an automated workflow. For pure text agents
        (translation, formatting, summarisation) enable <strong>Chat mode</strong> in Playground or
        agent settings to skip all tool overhead and send your prompt directly to the LLM &mdash;
        the fastest path from prompt to response for SLMs.</p>
@@ -952,7 +952,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
   <!-- 14 -->
   <section id="jstool">
     <h2>14 &nbsp; JavaScript Tool <span class="pro-tag">PRO</span></h2>
-    <p>The JavaScript Tool Wizard lets you create lightweight custom MCP tools using pure JavaScript &mdash; no native code or external packages required. Tools run in a secure on-device sandbox (QuickJS&nbsp;/&nbsp;JavaScriptCore) and are available immediately in Playground and Tasks after saving.</p>
+    <p>The JavaScript Tool Wizard lets you create lightweight custom MCP tools using pure JavaScript &mdash; no native code or external packages required. Tools run in a secure on-device sandbox (QuickJS&nbsp;/&nbsp;JavaScriptCore) and are available immediately in Playground and Agents after saving.</p>
 
     <h3>Tool structure</h3>
     <p>Every generated tool must define exactly one object named <code>generatedTool</code>:</p>
@@ -990,7 +990,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
 
     <h3>Creating a tool step by step</h3>
     <div class="step"><div class="step-num">1</div><div>
-      Open <strong>Playground</strong> or a <strong>Task</strong>, tap the <strong>Tools</strong> tab, then tap <strong>+ New JS Tool</strong> (or <em>JS Tool Library</em> from Settings).
+      Open <strong>Playground</strong> or a <strong>Agent</strong>, tap the <strong>Tools</strong> tab, then tap <strong>+ New JS Tool</strong> (or <em>JS Tool Library</em> from Settings).
     </div></div>
     <div class="step"><div class="step-num">2</div><div>
       Type a description of what the tool should do. The AI generates the full <code>generatedTool</code> snippet including schema.
@@ -999,7 +999,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
       Review the generated code. Tap <strong>Test Run</strong> to execute it in the sandbox with sample arguments and see the output and any console logs.
     </div></div>
     <div class="step"><div class="step-num">4</div><div>
-      Tap <strong>Save</strong> &mdash; the tool is now available in the tool selector for any Playground session or Task.
+      Tap <strong>Save</strong> &mdash; the tool is now available in the tool selector for any Playground session or Agent.
     </div></div>
     <div class="tip"><strong>Tip:</strong> Tap the <strong>&#x1F52C; Load Samples</strong> button in the JS Tool Library toolbar to instantly add three working examples: <em>Timestamp Converter</em>, <em>Currency Converter</em> (live exchange rates, no API key needed), and <em>City Geolocation</em> (Open-Meteo, no API key needed). Already-saved tools are never duplicated.</div>
     <div class="tip"><strong>Tip:</strong> The code editor features <strong>JavaScript syntax highlighting</strong>. Tap the <strong>&#x26F6; expand</strong> icon to open a full-screen editor with <strong>Save</strong>, <strong>Cancel</strong>, and <strong>Copy</strong> actions &mdash; ideal for reviewing or tweaking generated code.</div>
@@ -1024,7 +1024,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
   <!-- 15 -->
   <section id="tokenstats">
     <h2>15 &nbsp; Token &amp; Cost Statistics</h2>
-    <p>TealKit tracks token consumption and estimates API cost per session and per task run. No data is sent to TealKit &mdash; all calculations use built-in pricing tables on your device.</p>
+    <p>TealKit tracks token consumption and estimates API cost per session and per agent run. No data is sent to TealKit &mdash; all calculations use built-in pricing tables on your device.</p>
 
     <h3>Playground &mdash; live session stats</h3>
     <p>During a Playground chat, a token counter appears at the bottom of the chat area showing the cumulative tokens consumed and characters sent in the current session. The counter turns amber when approaching the model&rsquo;s configured token warning threshold.</p>
@@ -1041,8 +1041,8 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
     </table>
     <div class="tip"><strong>Tip:</strong> Tap the &#x21BA; <strong>Reset Chat</strong> button to start a fresh session &mdash; this clears all conversation history and resets the token counters to zero.</div>
 
-    <h3>Tasks &mdash; run statistics</h3>
-    <p>Every completed task run records full statistics. Tap any run entry in the task history to view:</p>
+    <h3>Agents &mdash; run statistics</h3>
+    <p>Every completed agent run records full statistics. Tap any run entry in the agent history to view:</p>
     <table>
       <tr><th>Metric</th><th>Description</th></tr>
       <tr><td>Duration</td><td>Total wall-clock time for the run</td></tr>
@@ -1093,9 +1093,9 @@ and prints a summary (count and freed space) to stdout.
 Exit code 1 on error, error message to stderr.</pre>
     <p>After generation, tap <strong>Test Run</strong> to execute via SSH and verify the output before saving to the script library.</p>
 
-    <h3>&#x25B6; Test a task before scheduling</h3>
-    <p>Before activating a cron schedule, open the task with <strong>Interactive&nbsp;/&nbsp;Try-Out</strong> mode. This loads the task&rsquo;s configuration into a live Playground chat so you can step through the AI&rsquo;s tool calls and refine the system prompt &mdash; without creating any scheduled run history.</p>
-    <div class="tip"><strong>Tip:</strong> Use Interactive mode to iterate on the prompt and tool selection until the output looks right, then save the task and enable the schedule.</div>
+    <h3>&#x25B6; Test a agent before scheduling</h3>
+    <p>Before activating a cron schedule, open the agent with <strong>Interactive&nbsp;/&nbsp;Try-Out</strong> mode. This loads the agent&rsquo;s configuration into a live Playground chat so you can step through the AI&rsquo;s tool calls and refine the system prompt &mdash; without creating any scheduled run history.</p>
+    <div class="tip"><strong>Tip:</strong> Use Interactive mode to iterate on the prompt and tool selection until the output looks right, then save the agent and enable the schedule.</div>
 
     <h3>&#x2611;&#xFE0F; Register a remote MCP server (custom)</h3>
     <p>Go to <em>Settings &rarr; Remote MCP Servers &rarr; Custom tab</em> and fill in:</p>
@@ -1110,7 +1110,7 @@ Exit code 1 on error, error message to stderr.</pre>
 
     <h3>&#x1F4B0; Check current session costs</h3>
     <p>In the <strong>Playground</strong>: tap the token counter at the bottom of the chat &rarr; the detail sheet shows last-request cost and cumulative session cost.</p>
-    <p>For <strong>Tasks</strong>: open the task &rarr; tap a completed run entry &rarr; the <em>Last Run Statistics</em> card shows <em>Last price</em> and <em>Total price</em>.</p>
+    <p>For <strong>Agents</strong>: open the agent &rarr; tap a completed run entry &rarr; the <em>Last Run Statistics</em> card shows <em>Last price</em> and <em>Total price</em>.</p>
 
     <h3>&#x21BA; Reset a session (cleanup)</h3>
     <p>Tap the <strong>Reset Chat</strong> button (&#x21BA; icon in the toolbar, or the button below the last message) to:</p>
@@ -1147,13 +1147,13 @@ Exit code 1 on error, error message to stderr.</pre>
        <code>gnome-keyring</code> if it is not present on your system.</div>
 
     <h3>&#x1F4DC; Script Generation &mdash; Shell &amp; PowerShell <span class="pro-tag">PRO</span></h3>
-    <p>Generate ready-to-run scripts directly on your local machine. Describe your task in plain language
+    <p>Generate ready-to-run scripts directly on your local machine. Describe your agent in plain language
        and the AI writes the complete script, which you can run immediately or save to your script library.
        The script type is chosen automatically based on your platform:</p>
     <ul>
       <li><strong>Windows</strong> &mdash; generates a PowerShell script (<code>.ps1</code>)</li>
       <li><strong>Linux / macOS</strong> &mdash; generates a Shell script (<code>.sh</code>)</li>
-      <li>Scripts are saved locally and auto-discovered for use in Tasks and SSH sessions</li>
+      <li>Scripts are saved locally and auto-discovered for use in Agents and SSH sessions</li>
       <li>Tap <strong>Test Run</strong> to execute the generated script and verify the output before saving</li>
       <li>Name the target environment in your prompt: <em>&ldquo;PowerShell on Windows Server&rdquo;</em> or <em>&ldquo;Bash on Ubuntu&rdquo;</em></li>
     </ul>
@@ -1176,9 +1176,9 @@ Exit code 1 on error, error message to stderr.</pre>
       <li>Full access to standard Python libraries (<code>json</code>, <code>datetime</code>, <code>math</code>, <code>re</code>, <code>urllib</code> &hellip;)</li>
       <li>HTTP calls via <code>urllib.request</code> or the bundled <code>requests</code> library</li>
       <li>Generated tools are saved and auto-discovered by TealKit</li>
-      <li>Available immediately in any Playground session or Task on Windows</li>
+      <li>Available immediately in any Playground session or Agent on Windows</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> Python tools are ideal for data-processing tasks that exceed the size or time limits of JavaScript tools &mdash; e.g. parsing large CSV files, multi-step numerical calculations, or calling data-processing libraries.</div>
+    <div class="tip"><strong>Tip:</strong> Python tools are ideal for data-processing agents that exceed the size or time limits of JavaScript tools &mdash; e.g. parsing large CSV files, multi-step numerical calculations, or calling data-processing libraries.</div>
 
     <h3>&#x1F9EA; Python Tool Library &mdash; built-in samples <span class="pro-tag">PRO</span></h3>
     <p>The Python Tool Library keeps all your generated Python MCP tools. Tap <strong>&#x1F52C; Load Samples</strong> to add three starter examples:</p>
@@ -1197,7 +1197,7 @@ Exit code 1 on error, error message to stderr.</pre>
       <li><strong>Last Windows Updates</strong> &mdash; 10 most recently installed Windows Updates</li>
       <li><strong>Fetch Website Status</strong> &mdash; HTTP status code and response time for any URL</li>
     </ul>
-    <div class="tip"><strong>Tip:</strong> The <code>ps_bridge</code> server is available in any Playground session or Task configured on Windows.</div>
+    <div class="tip"><strong>Tip:</strong> The <code>ps_bridge</code> server is available in any Playground session or Agent configured on Windows.</div>
     <div class="tip"><strong>Tip:</strong> The PowerShell editor supports <strong>PowerShell syntax highlighting</strong>. Tap the <strong>&#x26F6; expand</strong> icon to open a full-screen editor with <strong>Save</strong>, <strong>Cancel</strong>, and <strong>Copy</strong> actions.</div>
 
     <h3>&#x1F4E6; MCP Server Registry <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(desktop)</span></h3>
@@ -1238,7 +1238,7 @@ Exit code 1 on error, error message to stderr.</pre>
 
     <h3>&#x1F4B8; 1 &nbsp; Reduce tokens, network calls, and cost</h3>
     <p>
-      The most expensive part of any automated task is the back-and-forth between the LLM and the
+      The most expensive part of any automated agent is the back-and-forth between the LLM and the
       outside world. Every tool call round-trip uses tokens and time. A simple optimisation:
       <strong>delegate the heavy lifting to a script or MCP tool</strong> and let the LLM only
       interpret the final result.
@@ -1247,7 +1247,7 @@ Exit code 1 on error, error message to stderr.</pre>
     <p>Instead of asking the LLM to run multiple SSH commands to filter files by date, format
        sizes, and build a table, create a single shell script in the
        <em>Script Library</em> (e.g. <code>check_uploads</code>) that does all of that and
-       returns a clean CSV with column headers. Your task prompt then becomes simply:</p>
+       returns a clean CSV with column headers. Your agent prompt then becomes simply:</p>
     <pre>Call script check_uploads /uploads 48
 Create an Excel file from the returned CSV list.</pre>
     <p>The LLM makes <strong>two tool calls</strong> (run script, create file) instead of ten.
@@ -1267,7 +1267,7 @@ Create an Excel file from the returned CSV list.</pre>
       <li>For code generation, <strong>small models</strong> (Ollama / LM Studio running locally, or
           Ollama on your own server) are often sufficient and cost nothing. Configure them as
           <strong>LLM 2</strong> and use the Playground LLM selector to run code-generation prompts
-          through LLM 2 while keeping your main tasks on LLM 1.</li>
+          through LLM 2 while keeping your main agents on LLM 1.</li>
       <li>In a future release, embedded models will be downloadable directly inside TealKit and
           executed without any external server.</li>
     </ul>
@@ -1288,7 +1288,7 @@ Create an Excel file from the returned CSV list.</pre>
       <tr>
         <td><strong>Linux / macOS</strong></td>
         <td><code>.sh</code> Bash / zsh</td>
-        <td><em>Shell Script Wizard</em><br><span style="font-size:.85em;color:var(--muted)">Playground Tools tab or Task editor</span></td>
+        <td><em>Shell Script Wizard</em><br><span style="font-size:.85em;color:var(--muted)">Playground Tools tab or Agent editor</span></td>
         <td>File system operations, log parsing, cron helpers, remote SSH commands, package management</td>
       </tr>
       <tr>
@@ -1317,9 +1317,9 @@ Create an Excel file from the returned CSV list.</pre>
     </ul>
     <div class="tip"><strong>Tip:</strong> Use the <strong>Load Samples</strong> button in the Python Tool Library (System Info, Fetch Web Page, List Directory) to see the expected tool structure before writing your first tool.</div>
 
-    <h3>&#x1F9E0; 3 &nbsp; Match model to task complexity</h3>
+    <h3>&#x1F9E0; 3 &nbsp; Match model to agent complexity</h3>
     <p>
-      Not every task needs the same model. As a rough guide:
+      Not every agent needs the same model. As a rough guide:
     </p>
     <ul>
       <li><strong>Complex reasoning, multi-step planning, long documents</strong> &rarr; use a
@@ -1329,7 +1329,7 @@ Create an Excel file from the returned CSV list.</pre>
           Enable the <strong>SLM mode</strong> checkbox in <em>LLM Settings</em> to activate a
           compact system prompt that makes small models call tools immediately rather than
           explaining their plan.</li>
-      <li>Keep in mind that SLMs may not complete complex tasks reliably on every run, or may
+      <li>Keep in mind that SLMs may not complete complex agents reliably on every run, or may
           take several minutes. Test thoroughly in the Playground before scheduling.</li>
     </ul>
     <p>
@@ -1337,11 +1337,11 @@ Create an Excel file from the returned CSV list.</pre>
       through different models side-by-side. Also experiment with the <strong>Temperature</strong>
       setting &mdash; lower values (e.g. 0.1&ndash;0.2) produce more deterministic,
       reproducible tool calls; higher values add creativity but reduce reliability for
-      automation tasks.
+      automation agents.
     </p>
-    <div class="tip"><strong>Workflow:</strong> Design task in Playground with LLM 1 &rarr;
+    <div class="tip"><strong>Workflow:</strong> Design agent in Playground with LLM 1 &rarr;
       try the same prompt with LLM 2 (SLM) &rarr; if it works reliably, switch the saved
-      task to LLM 2 to save cost and latency.</div>
+      agent to LLM 2 to save cost and latency.</div>
   </section>
 
 </div>

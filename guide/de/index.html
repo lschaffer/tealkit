@@ -164,7 +164,7 @@
       <li><a href="#platforms">Plattform-Hinweise</a></li>
       <li><a href="#setup">Ersteinrichtung</a></li>
       <li><a href="#playground">Playground</a></li>
-      <li><a href="#tasks">Aufgaben</a></li>
+      <li><a href="#agents">Agenten</a></li>
       <li><a href="#datasources">Datenquellen</a></li>
       <li><a href="#mcp">MCP-Server</a></li>
       <li><a href="#docsearch">Dokumentensuche</a></li>
@@ -188,14 +188,14 @@
       TealKit ist ein mobiler KI-Agent auf Basis des <strong>Model Context Protocol (MCP)</strong>.
       Verbinde ihn mit einem beliebigen kompatiblen Sprachmodell (OpenAI, Anthropic Claude,
       Google Gemini, Mistral, Ollama &hellip;) und deinen eigenen Datenquellen &mdash;
-      Dokumente, E-Mails, Webseiten, Dateien &mdash; und lass die KI mehrstufige Aufgaben
+      Dokumente, E-Mails, Webseiten, Dateien &mdash; und lass die KI mehrstufige Agenten
       vollautomatisch abarbeiten.
     </p>
     <p>Alles l&auml;uft auf deinem Ger&auml;t. Es werden keine Daten an TealKit-Server gesendet.</p>
     <h3>Schl&uuml;sselbegriffe</h3>
     <ul>
       <li><strong>Playground</strong> &mdash; interaktiver Chat mit Live-Werkzeugnutzung</li>
-      <li><strong>Aufgaben</strong> &mdash; gespeicherte, wiederverwendbare Automatisierungsabl&auml;ufe</li>
+      <li><strong>Agenten</strong> &mdash; gespeicherte, wiederverwendbare Automatisierungsabl&auml;ufe</li>
       <li><strong>MCP-Werkzeuge</strong> &mdash; F&auml;higkeiten, die die KI aufrufen kann (Websuche, E-Mail, Dokumentensuche &hellip;)</li>
       <li><strong>Datenquellen</strong> &mdash; deine pers&ouml;nlichen Daten, die dem Agenten zur Verf&uuml;gung stehen</li>
     </ul>
@@ -294,24 +294,24 @@
     <h3>LLM-Anbieter und Modelleinstellungen</h3>
     <p>Bei der Konfiguration eines LLM finden Sie verschiedene erweiterte Einstellungen. Beachten Sie, dass nicht jeder Parameter bei jedem Anbieter in TealKit verf&uuml;gbar ist. Hier ist eine kurze Hilfe zu den wichtigsten Optionen:</p>
     <ul>
-      <li><strong>Temperature:</strong> Steuert, wie kreativ oder fokussiert die KI ist. Nutzen Sie niedrigere Werte (z.&nbsp;B. <code>0.0 &ndash; 0.3</code>) f&uuml;r pr&auml;zise, faktenbasierte Aufgaben, um Halluzinationen zu vermeiden. H&ouml;here Werte (<code>0.7 &ndash; 1.0</code>) sorgen f&uuml;r variablere oder nat&uuml;rlichere Sprache.</li>
+      <li><strong>Temperature:</strong> Steuert, wie kreativ oder fokussiert die KI ist. Nutzen Sie niedrigere Werte (z.&nbsp;B. <code>0.0 &ndash; 0.3</code>) f&uuml;r pr&auml;zise, faktenbasierte Agenten, um Halluzinationen zu vermeiden. H&ouml;here Werte (<code>0.7 &ndash; 1.0</code>) sorgen f&uuml;r variablere oder nat&uuml;rlichere Sprache.</li>
       <li><strong>Max Tokens:</strong> Die maximale L&auml;nge einer einzelnen KI-Antwort. Erh&ouml;hen Sie diesen Wert, wenn lange Datenzusammenfassungen abgeschnitten werden. Verringern Sie ihn, um bei einfachen Abfragen Kosten zu sparen.</li>
       <li><strong>Max. Werkzeugausgabe (Zeichen):</strong> Begrenzt, wie viele Zeichen ein einzelnes Werkzeugergebnis an das LLM zur&uuml;ckgeben kann. Auf <code>0</code> setzen f&uuml;r unbegrenzt. Verringern, um zu verhindern, dass sehr gro&szlig;e Werkzeugausgaben (z.&nbsp;B. eine riesige Webseite) das Kontextfenster belegen.</li>
       <li><strong>Token-Warnschwellenwert:</strong> Wenn die Sitzungs-Tokenanzahl diesen Wert erreicht, schl&auml;gt TealKit vor, die Gespr&auml;chshistorie aufzur&auml;umen, um einen Kontext&uuml;berlauf zu vermeiden. Standard: <code>1.500.000</code>. An das Kontextfenster des verwendeten Modells anpassen.</li>
     </ul>
 
     <h3>LLM 2 &mdash; Sekund&auml;res Modell</h3>
-    <p>TealKit erm&ouml;glicht die Konfiguration eines zweiten, unabh&auml;ngigen KI-Modells f&uuml;r <strong>Code-Generierung</strong>. So l&auml;sst sich ein leistungsstarkes (aber teureres) Prim&auml;rmodell f&uuml;r komplexe Aufgaben einsetzen, w&auml;hrend ein schnelleres oder g&uuml;nstigeres Modell Shell-Skripte und JavaScript-Werkzeuge schreibt.</p>
+    <p>TealKit erm&ouml;glicht die Konfiguration eines zweiten, unabh&auml;ngigen KI-Modells f&uuml;r <strong>Code-Generierung</strong>. So l&auml;sst sich ein leistungsstarkes (aber teureres) Prim&auml;rmodell f&uuml;r komplexe Agenten einsetzen, w&auml;hrend ein schnelleres oder g&uuml;nstigeres Modell Shell-Skripte und JavaScript-Werkzeuge schreibt.</p>
     <p>LLM 2 konfigurieren unter <em>Einstellungen &rarr; LLM-Einstellungen &rarr; LLM 2</em>-Reiter. Dieselben Anbieter und Parameter wie f&uuml;r das Prim&auml;rmodell stehen zur Verf&uuml;gung.</p>
     <ul>
       <li><strong>Shell-Skript-Assistent</strong> &mdash; im Assistenten den Modell-Picker nutzen, um das Skript mit LLM 2 statt dem Prim&auml;rmodell zu generieren</li>
       <li><strong>JavaScript-Werkzeug-Assistent</strong> &mdash; ebenso: LLM 2 im Modell-Picker des Assistenten w&auml;hlen</li>
-      <li><strong>Aufgaben</strong> &mdash; <em>LLM 2 (aus Einstellungen)</em> als Aufgaben-LLM-Anbieter w&auml;hlen, um eine gesamte Aufgabe mit dem Sekund&auml;rmodell auszuf&uuml;hren</li>
+      <li><strong>Agenten</strong> &mdash; <em>LLM 2 (aus Einstellungen)</em> als Agenten-LLM-Anbieter w&auml;hlen, um eine gesamte Agent mit dem Sekund&auml;rmodell auszuf&uuml;hren</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> Ein schnelles, g&uuml;nstiges Modell wie <code>gemini-2.5-flash</code> oder <code>mistral-small-latest</code> eignet sich gut als LLM 2 &mdash; so bleibt das Prim&auml;rmodell-Budget f&uuml;r komplexe Aufgaben erhalten.</div>
+    <div class="tip"><strong>Tipp:</strong> Ein schnelles, g&uuml;nstiges Modell wie <code>gemini-2.5-flash</code> oder <code>mistral-small-latest</code> eignet sich gut als LLM 2 &mdash; so bleibt das Prim&auml;rmodell-Budget f&uuml;r komplexe Agenten erhalten.</div>
 
     <h3>Anwendungsbeispiele</h3>
-    <p>Hier sind einige Beispiele, die Sie im Playground ausprobieren oder als automatisierte Aufgabe (Task) anlegen k&ouml;nnen:</p>
+    <p>Hier sind einige Beispiele, die Sie im Playground ausprobieren oder als automatisierte Agent (Agent) anlegen k&ouml;nnen:</p>
     <ul>
       <li><strong>Semantische Dokumentensuche:</strong> <em>&bdquo;Suche semantisch nach &lsquo;setup new sensors in wsca&rsquo; in allen Dokumentendateien.&ldquo;</em></li>
       <li><strong>E-Mails:</strong> <em>&bdquo;Durchsuche E-Mails der letzten 24 Stunden nach dem Text &lsquo;TaskAI&rsquo; und fasse diese zusammen.&ldquo;</em></li>
@@ -354,23 +354,23 @@
       <li>Werkzeugaufrufe erscheinen als aufklappbare Karten &mdash; tippen zum Anzeigen von Ein-/Ausgaben.</li>
       <li>Mit der Anhang-Schaltfl&auml;che lassen sich Bilder oder Dateien hinzuf&uuml;gen.</li>
       <li><strong>Chat zur&uuml;cksetzen</strong> startet ein neues Gespr&auml;ch mit derselben Konfiguration.</li>
-      <li><strong>Als Aufgabe speichern</strong> <span class="pro-tag">PRO</span> &mdash; nach einer erfolgreichen Sitzung kann die aktuelle Playground-Konfiguration (Werkzeuge, System-Prompt, LLM) als wiederverwendbare automatisierte Aufgabe gespeichert werden.</li>
+      <li><strong>Als Agent speichern</strong> <span class="pro-tag">PRO</span> &mdash; nach einer erfolgreichen Sitzung kann die aktuelle Playground-Konfiguration (Werkzeuge, System-Prompt, LLM) als wiederverwendbare automatisierte Agent gespeichert werden.</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> Mit dem LLM-Selektor das beste Modell f&uuml;r jede Aufgabe finden, bevor sie als automatisierte Task gespeichert wird. Weitere Hinweise in den <a href="#best-practices">Best Practices</a>.</div>
+    <div class="tip"><strong>Tipp:</strong> Mit dem LLM-Selektor das beste Modell f&uuml;r jede Agent finden, bevor sie als automatisierte Agent gespeichert wird. Weitere Hinweise in den <a href="#best-practices">Best Practices</a>.</div>
   </section>
 
   <!-- 5 -->
-  <section id="tasks">
-    <h2>5 &nbsp; Aufgaben</h2>
-    <p>Aufgaben sind gespeicherte Automatisierungsabl&auml;ufe. Jede Aufgabe enth&auml;lt ein Sprachmodell,
+  <section id="agents">
+    <h2>5 &nbsp; Agenten</h2>
+    <p>Agenten sind gespeicherte Automatisierungsabl&auml;ufe. Jede Agent enth&auml;lt ein Sprachmodell,
        Werkzeuge, einen System-Prompt und eine Startnachricht &mdash; mit einem Tipp ausf&uuml;hrbar.
-       <strong>Kostenloser Tarif: maximal 3 Aufgaben.</strong> <span class="pro-tag">PRO</span> hebt das Limit auf.</p>
+       <strong>Kostenloser Tarif: maximal 3 Agenten.</strong> <span class="pro-tag">PRO</span> hebt das Limit auf.</p>
 
-    <h3>Aufgabe erstellen</h3>
+    <h3>Agent erstellen</h3>
     <ol>
-      <li>Zu <strong>Aufgaben &rarr; + Neue Aufgabe</strong> gehen.</li>
+      <li>Zu <strong>Agenten &rarr; + Neue Agent</strong> gehen.</li>
       <li>Name und Beschreibung vergeben.</li>
-      <li>LLM konfigurieren (kann vom globalen Standard abweichen &mdash; oder <em>LLM 2 (aus Einstellungen)</em> w&auml;hlen, um die Aufgabe mit dem Sekund&auml;rmodell auszuf&uuml;hren).</li>
+      <li>LLM konfigurieren (kann vom globalen Standard abweichen &mdash; oder <em>LLM 2 (aus Einstellungen)</em> w&auml;hlen, um die Agent mit dem Sekund&auml;rmodell auszuf&uuml;hren).</li>
       <li>Werkzeuge ausw&auml;hlen und konfigurieren (Website-URLs, Dokumentenordner usw.).</li>
       <li><strong>System-Prompt generieren</strong> im Bereich <em>Basis / Integrierte Werkzeuge</em> aktivieren, damit die KI automatisch einen passenden Prompt aus der Werkzeugauswahl erstellt &mdash; anschlie&szlig;end pr&uuml;fen oder anpassen.</li>
       <li>System-Prompt und erste Nachricht schreiben.</li>
@@ -379,13 +379,13 @@
 
     <h3>Ausf&uuml;hrungsmodi</h3>
     <ul>
-      <li><strong>&#x25B6; Starten</strong> &mdash; f&uuml;hrt die Aufgabe sofort mit Fortschrittsdialog aus.</li>
-      <li><strong>Interaktiv / Ausprobieren</strong> &mdash; &ouml;ffnet die Aufgabenkonfiguration als Playground-Chat.
-          Ideal zum Testen oder Verfeinern einer Aufgabe vor dem Planen.</li>
+      <li><strong>&#x25B6; Starten</strong> &mdash; f&uuml;hrt die Agent sofort mit Fortschrittsdialog aus.</li>
+      <li><strong>Interaktiv / Ausprobieren</strong> &mdash; &ouml;ffnet die Agentenkonfiguration als Playground-Chat.
+          Ideal zum Testen oder Verfeinern einer Agent vor dem Planen.</li>
     </ul>
 
     <h3>Cron-Planung <span class="pro-tag">PRO</span></h3>
-    <p>Aufgaben k&ouml;nnen automatisch nach einem Zeitplan ausgef&uuml;hrt werden:</p>
+    <p>Agenten k&ouml;nnen automatisch nach einem Zeitplan ausgef&uuml;hrt werden:</p>
     <ul>
       <li><strong>St&uuml;ndlich</strong> &mdash; jede Stunde</li>
       <li><strong>T&auml;glich</strong> &mdash; einmal pro Tag zur gew&auml;hlten Uhrzeit</li>
@@ -393,17 +393,17 @@
       <li><strong>Benutzerdefinierter Cron-Ausdruck</strong> &mdash; vollst&auml;ndige Cron-Syntax
           (z.&nbsp;B. <code>0 8 * * 1-5</code> f&uuml;r werkt&auml;gliche Morgen)</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> Geplante Aufgaben laufen auch im Hintergrund, wenn die App minimiert ist.
+    <div class="tip"><strong>Tipp:</strong> Geplante Agenten laufen auch im Hintergrund, wenn die App minimiert ist.
       Stelle sicher, dass die Akku-Optimierung die App nicht beendet.</div>
 
     <div class="note"><strong>&#x23F1; Hintergrund-Timing &ndash; wichtiger Hinweis:</strong>
       Wenn die App geschlossen ist, verwendet TealKit einen periodischen Hintergrund-Weckruf
-      (Heartbeat), um f&auml;llige Aufgaben zu pr&uuml;fen. Das Weckintervall ist in
+      (Heartbeat), um f&auml;llige Agenten zu pr&uuml;fen. Das Weckintervall ist in
       <em>Einstellungen &rarr; Allgemein &rarr; Hintergrund-Pr&uuml;fintervall</em> einstellbar
       (5 / 10 / 15 Min., Standard&nbsp;10 Min.).
       Der genaue Aufwachzeitpunkt wird vom Betriebssystem gesteuert &mdash; Android Doze-Modus,
       iOS App-Refresh-Limits und herstellerspezifische Akku-Optimierungen k&ouml;nnen dazu f&uuml;hren,
-      dass Aufgaben einige Minuten fr&uuml;her oder sp&auml;ter als geplant starten.
+      dass Agenten einige Minuten fr&uuml;her oder sp&auml;ter als geplant starten.
       Ein k&uuml;rzeres Intervall erh&ouml;ht die Reaktionsgeschwindigkeit, verbraucht aber etwas mehr Akku.
       <strong>Bei Minuten-genauer Ausf&uuml;hrung die App im Vordergrund lassen &mdash; der
       Vordergrund-Scheduler f&uuml;hrt zur exakten Cron-Zeit aus.</strong></div>
@@ -430,23 +430,23 @@
     </ul>
 
     <h3>Ausgabekan&auml;le <span class="pro-tag">PRO</span></h3>
-    <p>Aufgabenergebnisse k&ouml;nnen nach Abschluss automatisch an einen oder mehrere Kan&auml;le geliefert werden.
+    <p>Agentenergebnisse k&ouml;nnen nach Abschluss automatisch an einen oder mehrere Kan&auml;le geliefert werden.
        Jeder Kanal besitzt eine eigene <em>Sendebedingung</em> und kann optional die Ausgabedateien
        anh&auml;ngen. Globale Zugangsdaten werden einmalig unter <em>Einstellungen &rarr; Datenquellen</em>
-       konfiguriert; aufgabenspezifische &Uuml;berschreibungen im Reiter <strong>Ausgabe</strong>.</p>
+       konfiguriert; agentenspezifische &Uuml;berschreibungen im Reiter <strong>Ausgabe</strong>.</p>
     <p><strong>Jede generierte Datei kann angeh&auml;ngt werden</strong> &mdash; nicht nur das Markdown-Protokoll:
        <code>.xlsx</code>-Tabellen (vom <code>excel</code>-Server),
        <code>.png</code>-Diagramme (<code>chart</code>&nbsp;/&nbsp;<code>mermaid</code>),
        <code>.html</code>-Vorschauen und <code>.md</code>-Ergebnisdateien.
-       Die Option <em>Ausgabedateien anh&auml;ngen</em> im Reiter <strong>Ausgabe</strong> der Aufgabe
+       Die Option <em>Ausgabedateien anh&auml;ngen</em> im Reiter <strong>Ausgabe</strong> der Agent
        leitet alle erzeugten Dateien an jeden aktiven Zustellkanal weiter.</p>
 
     <h3>&#x2709; E-Mail-Ausgabe <span class="pro-tag">PRO</span></h3>
     <p>Das Ergebnis nach Abschluss automatisch per E-Mail verschicken.
-       Im Bereich <em>Ausgabe</em> der Aufgabe konfigurieren:</p>
+       Im Bereich <em>Ausgabe</em> der Agent konfigurieren:</p>
     <ul>
       <li><strong>Empf&auml;nger</strong> &mdash; eine oder mehrere E-Mail-Adressen</li>
-      <li><strong>Betreff</strong> &mdash; statischer Text oder dynamisch (Aufgabenname / Datum)</li>
+      <li><strong>Betreff</strong> &mdash; statischer Text oder dynamisch (Agentenname / Datum)</li>
       <li><strong>Bedingung</strong> &mdash; immer, nur bei Erfolg, oder nur bei nicht-leerer Ausgabe</li>
       <li><strong>Ausgabedateien anh&auml;ngen</strong> &mdash; alle generierten Dateien als E-Mail-Anh&auml;nge:
           <code>.md</code>-Ergebnis, <code>.html</code>-Vorschau, <code>.xlsx</code>-Tabellen,
@@ -454,7 +454,7 @@
     </ul>
 
     <h3>&#x1F4AC; Slack-Ausgabe <span class="pro-tag">PRO</span></h3>
-    <p>Das Aufgabenergebnis automatisch in einen Slack-Kanal posten.
+    <p>Das Agentenergebnis automatisch in einen Slack-Kanal posten.
        Eine Slack-App zu erstellen ist <strong>kostenlos</strong> &mdash;
        <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">app erstellen auf api.slack.com</a>.
        Zwei Authentifizierungsmodi werden unterst&uuml;tzt:</p>
@@ -478,7 +478,7 @@
         </ol>
       </li>
     </ul>
-    <p>Aufgabenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
+    <p>Agentenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
     <ul>
       <li><strong>Sendebedingung</strong> &mdash; Immer / Nur bei Erfolg / Nur bei Fehler</li>
       <li><strong>Kanal &uuml;berschreiben</strong> &mdash; leer lassen f&uuml;r Standardkanal</li>
@@ -490,7 +490,7 @@
       als native Slack-Dateien hochgeladen werden sollen. Ein Webhook gen&uuml;gt f&uuml;r Textnachrichten.</div>
 
     <h3>&#x1F4F2; WhatsApp-Ausgabe <span class="pro-tag">PRO</span></h3>
-    <p>Das Aufgabenergebnis automatisch an eine WhatsApp-Nummer senden. Unterst&uuml;tzte Modi:</p>
+    <p>Das Agentenergebnis automatisch an eine WhatsApp-Nummer senden. Unterst&uuml;tzte Modi:</p>
     <ul>
       <li><strong>Meta Business Cloud API</strong> &mdash; kostenloses Konto inklusive 1&nbsp;000 Gespr&auml;che/Monat.
           Dateien (<code>.xlsx</code>, <code>.png</code>, <code>.md</code> &hellip;) werden &uuml;ber die
@@ -498,7 +498,7 @@
       <li><strong>CallMeBot</strong> &mdash; Textnachrichten an eine private Nummer ohne Meta-Konto.
           Dateinamen werden im Text erw&auml;hnt; kein Datei-Upload m&ouml;glich.</li>
     </ul>
-    <p>Aufgabenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
+    <p>Agentenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
     <ul>
       <li><strong>Sendebedingung</strong> &mdash; Immer / Nur bei Erfolg / Nur bei Fehler</li>
       <li><strong>Empf&auml;nger &uuml;berschreiben</strong> &mdash; E.164-Nummer (z.&nbsp;B. <code>+49170&hellip;</code>)</li>
@@ -509,11 +509,11 @@
       Empf&auml;nger m&uuml;ssen zugestimmt haben oder ein genehmigtes Template ist f&uuml;r Erstkontakt erforderlich.</div>
 
     <h3>&#x1F4C2; SFTP-Ausgabe <span class="pro-tag">PRO</span></h3>
-    <p>Aufgabenergebnisse und generierte Dateien werden nach einem Durchlauf automatisch per SFTP auf einen Remote-Server hochgeladen.
+    <p>Agentenergebnisse und generierte Dateien werden nach einem Durchlauf automatisch per SFTP auf einen Remote-Server hochgeladen.
        SSH/SFTP-Zugangsdaten einmalig unter <em>Einstellungen &rarr; Datenquellen &rarr; SSH</em> konfigurieren.</p>
-    <p>Aufgabenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
+    <p>Agentenspezifische Optionen im Reiter <strong>Ausgabe</strong>:</p>
     <ul>
-      <li><strong>Remote-Verzeichnis</strong> &mdash; standardm&auml;&szlig;ig der normalisierte Aufgaben-Name-Slug; aufgabenweise &uuml;berschreibbar</li>
+      <li><strong>Remote-Verzeichnis</strong> &mdash; standardm&auml;&szlig;ig der normalisierte Agenten-Name-Slug; aufgabenweise &uuml;berschreibbar</li>
       <li><strong>Sendebedingung</strong> &mdash; Immer / Nur bei Erfolg / Nur bei Fehler</li>
       <li><strong>Ausgabedateien anh&auml;ngen</strong> &mdash; l&auml;dt alle generierten Dateien (<code>.md</code>, <code>.html</code>, <code>.xlsx</code>, <code>.png</code>, &hellip;) in das Remote-Verzeichnis hoch</li>
     </ul>
@@ -531,7 +531,7 @@
     <h4 style="margin-top:1rem; margin-bottom:.4rem">Folgeagent-Modus</h4>
     <p>Den <strong>Folgeagent-Modus</strong> auf einem Agenten (Basis-Tab) aktivieren, um ihn als
        verketteten Folge-Agenten zu markieren. Folgeagenten laufen nur, wenn sie von einem anderen
-       Agenten ausgel&ouml;st werden &mdash; sie erscheinen nicht in der normalen Aufgabenliste
+       Agenten ausgel&ouml;st werden &mdash; sie erscheinen nicht in der normalen Agentenliste
        und k&ouml;nnen nicht direkt geplant werden.</p>
 
     <h4 style="margin-top:1rem; margin-bottom:.4rem">Mit Bedingung &amp; ohne Bedingung</h4>
@@ -576,7 +576,7 @@
   <section id="datasources">
     <h2>6 &nbsp; Datenquellen</h2>
     <p>Datenquellen werden unter <em>Einstellungen &rarr; Datenquellen</em> konfiguriert.
-       Jede Quelle kann pro Aufgabe unabh&auml;ngig ein-/ausgeschaltet werden.</p>
+       Jede Quelle kann pro Agent unabh&auml;ngig ein-/ausgeschaltet werden.</p>
     <h3>&#x1F4E7; E-Mail (Gmail / IMAP)</h3>
     <p>Gmail per OAuth verbinden oder beliebigen IMAP-Server konfigurieren. Die KI kann E-Mails suchen, lesen und optional senden.</p>
     <h3>&#x1F50D; Websuche</h3>
@@ -586,14 +586,14 @@
        mit hybrider semantischer + Schl&uuml;sselwortsuche. Siehe <a href="#docsearch">Dokumentensuche</a> f&uuml;r Details.</p>
     <h3>&#x1F310; Website-Suche</h3>
     <p>Start-URLs hinzuf&uuml;gen und TealKit crawlt und indexiert diese lokal in einen Volltextsuchindex.
-       Vor dem Start des Playgrounds oder der Aufgabe indexieren &mdash; das Crawling kann jederzeit gestoppt werden.</p>
+       Vor dem Start des Playgrounds oder der Agent indexieren &mdash; das Crawling kann jederzeit gestoppt werden.</p>
     <ul>
       <li><strong>Kostenlos:</strong> bis zu <strong>3</strong> Start-URLs</li>
       <li><strong>Pro:</strong> bis zu <strong>10</strong> Start-URLs <span class="pro-tag">PRO</span></li>
     </ul>
     <p>Die Indexierung kann <strong>automatisch geplant</strong> werden nach einem Cron-Zeitplan (Mindestintervall 1 Stunde: st&uuml;ndlich, t&auml;glich, w&ouml;chentlich oder monatlich). Ein <em>Zuletzt indexiert</em>-Zeitstempel wird angezeigt und eine manuelle Schaltfl&auml;che <em>Jetzt indexieren</em> ist jederzeit verf&uuml;gbar. Geplante Neu-Indexierungen laufen automatisch im Hintergrund. <span class="pro-tag">PRO</span></p>
     <h3>&#x1F4CD; Standort</h3>
-    <p>Optional GPS-Koordinaten speichern. Diese werden in jede Aufgabe eingebettet, damit
+    <p>Optional GPS-Koordinaten speichern. Diese werden in jede Agent eingebettet, damit
        Anfragen wie &bdquo;Wetter an meinem Standort&ldquo; automatisch aufgel&ouml;st werden.
        Koordinaten verlassen das Ger&auml;t nie.</p>
     <h3>&#x2601; Google Drive</h3>
@@ -630,7 +630,7 @@
       <li><strong>System User Access Token</strong> &mdash; langlebiger Token mit <code>whatsapp_business_messaging</code>-Berechtigung</li>
       <li><strong>Standardempf&auml;nger</strong> &mdash; E.164-Telefonnummer (z.&nbsp;B. <code>+49170123456</code>)</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> &Uuml;ber <em>Testnachricht senden</em> die Zugangsdaten vor dem Ausf&uuml;hren einer Aufgabe pr&uuml;fen.</div>
+    <div class="tip"><strong>Tipp:</strong> &Uuml;ber <em>Testnachricht senden</em> die Zugangsdaten vor dem Ausf&uuml;hren einer Agent pr&uuml;fen.</div>
   </section>
 
   <!-- 7 -->
@@ -658,7 +658,7 @@
     </table>
 
     <h3>&#x1F4A1; Drei Wege, die KI mit Werkzeugen zu erweitern</h3>
-    <p>TealKit bietet drei erg&auml;nzende Wege, neue Werkzeuge hinzuzuf&uuml;gen. Das Verst&auml;ndnis der Unterschiede hilft, den besten Ansatz f&uuml;r jede Aufgabe zu w&auml;hlen:</p>
+    <p>TealKit bietet drei erg&auml;nzende Wege, neue Werkzeuge hinzuzuf&uuml;gen. Das Verst&auml;ndnis der Unterschiede hilft, den besten Ansatz f&uuml;r jede Agent zu w&auml;hlen:</p>
     <table>
       <tr><th>Ansatz</th><th>Was es ist</th><th>Plattformen</th></tr>
       <tr><td><strong>Remote MCP-Server</strong></td><td>Cloudgehostete Server, zu denen man sich &uuml;ber HTTPS/SSE <em>verbindet</em> &mdash; keine lokale Installation</td><td>Alle (Mobil + Desktop)</td></tr>
@@ -675,7 +675,7 @@
       <tr><td><strong>Smithery</strong></td><td><a href="https://smithery.ai" target="_blank" rel="noopener">smithery.ai</a></td><td>Optionaler globaler API-Key f&uuml;r alle Smithery-Endpunkte</td></tr>
       <tr><td><strong>Benutzerdefiniert</strong></td><td>Beliebige URL</td><td>Server-URL, Endpunkt (<code>/mcp</code>), optionaler API-Key &amp; Passwort</td></tr>
     </table>
-    <p>Jeder konfigurierte Server stellt seine Werkzeuge direkt im Playground und im Aufgaben-Werkzeug-Selektor bereit.
+    <p>Jeder konfigurierte Server stellt seine Werkzeuge direkt im Playground und im Agenten-Werkzeug-Selektor bereit.
        Remote-Server laufen auf <strong>allen Plattformen</strong> einschlie&szlig;lich Android und iOS.</p>
     <div class="tip"><strong>Tipp:</strong> Vor dem Speichern eines benutzerdefinierten Servers auf <strong>Test</strong> tippen, um die Verbindung zu pr&uuml;fen und die zur&uuml;ckgegebene Werkzeugliste zu sehen.</div>
 
@@ -699,7 +699,7 @@
     <h3>&#x1F527; Skripte &amp; Werkzeuge als Mini-MCP-Server</h3>
     <p>Jedes in TealKit erstellte Skript oder Werkzeug wird der KI als <strong>lokaler MCP-Server-Werkzeug</strong> bereitgestellt
        &mdash; die KI ruft es auf genau die gleiche standardisierte Weise auf wie jeden Cloud-Server.
-       Das erm&ouml;glicht leistungsstarke Aufgabenautomatisierung ohne MCP-Server-Boilerplate:</p>
+       Das erm&ouml;glicht leistungsstarke Agentenautomatisierung ohne MCP-Server-Boilerplate:</p>
     <table>
       <tr><th>Werkzeugtyp</th><th>L&auml;uft auf</th><th>Wie die KI es aufruft</th></tr>
       <tr><td><strong>Shell- / PowerShell-Skript</strong></td><td>SSH-Remote-Host oder lokaler Rechner</td><td>&Uuml;ber <code>ssh_bridge</code> / <code>ps_bridge</code> MCP-Server</td></tr>
@@ -711,7 +711,7 @@
        Alle drei verwenden denselben MCP-Standard.</p>
 
     <h3>&#x1F527; Eigene Werkzeuge <span class="pro-tag">PRO</span></h3>
-    <p>TealKit erm&ouml;glicht es, eigene Werkzeuge ohne nativen Code zu erstellen. Zwei Assistenten stehen zur Verf&uuml;gung &mdash; erreichbar &uuml;ber den <strong>Werkzeuge</strong>-Reiter in den Playground-Einstellungen oder beim Bearbeiten einer Aufgabe.
+    <p>TealKit erm&ouml;glicht es, eigene Werkzeuge ohne nativen Code zu erstellen. Zwei Assistenten stehen zur Verf&uuml;gung &mdash; erreichbar &uuml;ber den <strong>Werkzeuge</strong>-Reiter in den Playground-Einstellungen oder beim Bearbeiten einer Agent.
        <strong>Kostenloser Tarif:</strong> je 1 Shell-Skript, 1 JavaScript- und 1 Python-Werkzeug. <span class="pro-tag">PRO</span> hebt alle Limits auf.</p>
 
     <h3>&#x1F4DC; Shell-Skript-Assistent</h3>
@@ -720,7 +720,7 @@
       <li><strong>Windows</strong> &mdash; erzeugt ein <code>.ps1</code>-PowerShell-Skript</li>
       <li><strong>Linux / macOS</strong> &mdash; erzeugt ein <code>.sh</code>-Bash-Skript</li>
     </ul>
-    <p>Gespeicherte Skripte werden automatisch vom SSH-Server erkannt und k&ouml;nnen in Aufgaben beim Namen referenziert werden.</p>
+    <p>Gespeicherte Skripte werden automatisch vom SSH-Server erkannt und k&ouml;nnen in Agenten beim Namen referenziert werden.</p>
     <p>Tipps f&uuml;r einen guten Skript-Prompt:</p>
     <ul>
       <li>Zielplattform und -umgebung nennen: <em>&bdquo;PowerShell auf Windows&ldquo;</em>, <em>&bdquo;Bash auf Ubuntu&ldquo;</em>, <em>&bdquo;Bash auf macOS&ldquo;</em></li>
@@ -729,10 +729,10 @@
       <li>Beispiel: <em>&bdquo;Listet Dateien, die in den letzten 24 Stunden ge&auml;ndert wurden, und speichert das Ergebnis in report.txt&ldquo;</em></li>
     </ul>
     <div class="tip"><strong>Tipp:</strong> Nach dem Generieren das Skript mit dem <strong>Test-Ausf&uuml;hrung</strong>-Button direkt via SSH testen (mit optionalen Parametern) und stdout/stderr ansehen &mdash; alles ohne den Editor zu verlassen.</div>
-    <div class="tip"><strong>Tipp:</strong> Den Modell-Picker oben im Assistenten-Dialog nutzen, um f&uuml;r die Skript-Generierung zu <strong>LLM 2</strong> zu wechseln &mdash; das Prim&auml;rmodell bleibt so f&uuml;r komplexe Aufgaben reserviert.</div>
+    <div class="tip"><strong>Tipp:</strong> Den Modell-Picker oben im Assistenten-Dialog nutzen, um f&uuml;r die Skript-Generierung zu <strong>LLM 2</strong> zu wechseln &mdash; das Prim&auml;rmodell bleibt so f&uuml;r komplexe Agenten reserviert.</div>
 
     <h3>&#x1F9E9; JavaScript-Werkzeug-Assistent</h3>
-    <p>Ein benutzerdefiniertes MCP-Werkzeug als kleines JavaScript-Snippet schreiben. Das Snippet l&auml;uft in einer sicheren On-Device-Sandbox und kann REST-APIs mit <code>fetch()</code> aufrufen. Gespeicherte Werkzeuge erscheinen sofort im Werkzeug-Selektor f&uuml;r Playground und Aufgaben.</p>
+    <p>Ein benutzerdefiniertes MCP-Werkzeug als kleines JavaScript-Snippet schreiben. Das Snippet l&auml;uft in einer sicheren On-Device-Sandbox und kann REST-APIs mit <code>fetch()</code> aufrufen. Gespeicherte Werkzeuge erscheinen sofort im Werkzeug-Selektor f&uuml;r Playground und Agenten.</p>
     <p>Tipps f&uuml;r einen guten JavaScript-Werkzeug-Prompt:</p>
     <ul>
       <li>Input-Schema und Ausgabe klar definieren: <em>&bdquo;input: { from, to, amount }, output: { rate, converted}&ldquo;</em></li>
@@ -801,7 +801,7 @@
     <pre>Verbinde dich mit dem Server, schreibe ein Bash-Skript, das die CPU-Auslastung
 jede 5 Sekunden f&uuml;r 1 Minute erfasst und in /tmp/cpu_bericht.txt speichert,
 und zeige mir dann die Zusammenfassung.</pre>
-    <p>Die KI schreibt das Skript, l&auml;dt es per SSH hoch, f&uuml;hrt es aus und gibt die vollst&auml;ndige Ausgabe zur&uuml;ck &mdash; alles in einem Aufgabendurchlauf.</p>
+    <p>Die KI schreibt das Skript, l&auml;dt es per SSH hoch, f&uuml;hrt es aus und gibt die vollst&auml;ndige Ausgabe zur&uuml;ck &mdash; alles in einem Agentendurchlauf.</p>
 
     <h3>Gespeicherte lokale Skripte</h3>
     <p>Eigene <code>.sh</code>- oder <code>.ps1</code>-Skripte in das konfigurierte
@@ -835,7 +835,7 @@ und zeige mir dann die Zusammenfassung.</pre>
           In Home Assistant das eigene <em>Profil</em> &ouml;ffnen (Avatar unten links) &rarr; zu <em>Long-Lived Access Tokens</em> scrollen &rarr; <em>Token erstellen</em> antippen, einen Namen vergeben (z.&nbsp;B. &bdquo;TealKit&ldquo;) und den Token kopieren.</li>
       <li>Den Token in das Feld <em>Long-Lived Access Token</em> einf&uuml;gen und <strong>Speichern</strong> antippen.</li>
     </ol>
-    <div class="tip"><strong>Tipp:</strong> Es ist keine aufgabenspezifische Konfiguration erforderlich &mdash; sobald die globalen Zugangsdaten gespeichert sind, steht der <code>home_assistant</code>-Server in jeder Playground-Sitzung und Aufgabe zur Verf&uuml;gung.</div>
+    <div class="tip"><strong>Tipp:</strong> Es ist keine agentenspezifische Konfiguration erforderlich &mdash; sobald die globalen Zugangsdaten gespeichert sind, steht der <code>home_assistant</code>-Server in jeder Playground-Sitzung und Agent zur Verf&uuml;gung.</div>
 
     <h3>Was die KI tun kann</h3>
     <ul>
@@ -853,14 +853,14 @@ und zeige mir dann die Zusammenfassung.</pre>
     <pre>Wie hoch ist die aktuelle Temperatur im Schlafzimmer?</pre>
     <pre>Setze den Thermostat auf 21 Grad und sperre die Haust&uuml;r.</pre>
     <pre>Welche Lichter sind gerade eingeschaltet?</pre>
-    <div class="tip"><strong>Tipp:</strong> Home Assistant l&auml;sst sich mit anderen Servern in einer Aufgabe kombinieren &mdash;
+    <div class="tip"><strong>Tipp:</strong> Home Assistant l&auml;sst sich mit anderen Servern in einer Agent kombinieren &mdash;
       z.&nbsp;B. <em>&bdquo;Temperatursensoren auslesen, ein Diagramm der heutigen Messwerte erstellen und per E-Mail senden.&ldquo;</em></div>
   </section>
 
   <!-- 11 -->
   <section id="output">
     <h2>11 &nbsp; Ausgabedateien</h2>
-    <p>TealKit speichert Kerndateien pro Aufgabendurchlauf in einem Unterordner mit Zeitstempel:</p>
+    <p>TealKit speichert Kerndateien pro Agentendurchlauf in einem Unterordner mit Zeitstempel:</p>
     <ul>
       <li><code>output_log.md</code> &mdash; das Hauptergebnis als Markdown</li>
       <li><code>execution_log.md</code> &mdash; schrittweises Werkzeugaufruf-Protokoll</li>
@@ -876,7 +876,7 @@ und zeige mir dann die Zusammenfassung.</pre>
           die die KI &uuml;ber den <code>file</code>-Server schreibt</li>
     </ul>
     <div class="tip"><strong>Tipp: Dateien an E-Mail / Slack / WhatsApp weiterleiten.</strong>
-      Die Option <em>Ausgabedateien anh&auml;ngen</em> im Reiter <strong>Ausgabe</strong> der Aufgabe
+      Die Option <em>Ausgabedateien anh&auml;ngen</em> im Reiter <strong>Ausgabe</strong> der Agent
       leitet alle erzeugten Dateien (xlsx, png, md, html &hellip;) automatisch &uuml;ber jeden aktiven
       Zustellkanal weiter &mdash; als E-Mail-Anh&auml;nge, native Slack-Datei-Uploads (Bot-Token erforderlich)
       oder WhatsApp-Dokumentnachrichten (Meta Cloud API).</div>
@@ -897,14 +897,14 @@ und zeige mir dann die Zusammenfassung.</pre>
       <li><strong>Externe MCP-Server / Remote MCP-Server</strong> &mdash; Verbindung zu entfernten HTTP/SSE-MCP-Servern (PulseMCP, Smithery oder eigene URL)</li>
       <li><strong>MCP-Server-Registry</strong> <span class="pro-tag">PRO</span> &mdash; (Desktop) Python/Node.js-MCP-Server aus GitHub-, Glama-, PulseMCP- und Smithery-Katalogen durchsuchen und installieren</li>
       <li><strong>Allgemein &rarr; Ausgabeverzeichnis</strong> &mdash; Speicherort f&uuml;r Ausgabedateien</li>
-      <li><strong>Allgemein &rarr; Skriptverzeichnis</strong> &mdash; lokale Skriptbibliothek f&uuml;r SSH-Aufgaben</li>
+      <li><strong>Allgemein &rarr; Skriptverzeichnis</strong> &mdash; lokale Skriptbibliothek f&uuml;r SSH-Agenten</li>
       <li><strong>Allgemein &rarr; Dateien behalten (Tage)</strong> &mdash; Aufbewahrungsdauer der Ausgaben</li>
       <li><strong>Allgemein &rarr; Hintergrund-Pr&uuml;fintervall</strong> &mdash; Wie oft die App im Hintergrund
-          aufwacht, um f&auml;llige Aufgaben zu pr&uuml;fen (5 / 10 / 15&nbsp;Min.; Standard&nbsp;10&nbsp;Min.).
+          aufwacht, um f&auml;llige Agenten zu pr&uuml;fen (5 / 10 / 15&nbsp;Min.; Standard&nbsp;10&nbsp;Min.).
           Ein k&uuml;rzeres Intervall ist reaktionsschneller; ein l&auml;ngeres schont den Akku.</li>
       <li><strong>Sprache</strong> &mdash; Englisch oder Deutsch</li>
       <li><strong>Design</strong> &mdash; System / Hell / Dunkel</li>
-      <li><strong>Sicherung &amp; Wiederherstellung</strong> <span class="pro-tag">PRO</span> &mdash; alle Aufgaben, Einstellungen und Werkzeugkonfigurationen in eine verschl&uuml;sselte Vault-Datei exportieren; auf jedem Ger&auml;t wiederherstellen</li>
+      <li><strong>Sicherung &amp; Wiederherstellung</strong> <span class="pro-tag">PRO</span> &mdash; alle Agenten, Einstellungen und Werkzeugkonfigurationen in eine verschl&uuml;sselte Vault-Datei exportieren; auf jedem Ger&auml;t wiederherstellen</li>
     </ul>
   </section>
 
@@ -934,9 +934,9 @@ und zeige mir dann die Zusammenfassung.</pre>
        auf einem Agenten aktivieren, um die rohe Werkzeugausgabe direkt als <code>[task_result]</code>
        zu &uuml;bergeben &mdash; ohne weitere LLM-Verarbeitung.</p>
     <h3>Was ist der Unterschied zwischen Starten und Interaktiv?</h3>
-    <p><strong>Starten</strong> f&uuml;hrt die Aufgabe autonom aus und speichert das Ergebnis.
+    <p><strong>Starten</strong> f&uuml;hrt die Agent autonom aus und speichert das Ergebnis.
        <strong>Interaktiv</strong> &ouml;ffnet einen vollst&auml;ndigen Chat mit demselben LLM und denselben
-       Werkzeugen &mdash; ideal zum schrittweisen Steuern der KI oder zum Debuggen einer Aufgabe.</p>
+       Werkzeugen &mdash; ideal zum schrittweisen Steuern der KI oder zum Debuggen einer Agent.</p>
     <h3>Was ist der Vorteil eines europ&auml;ischen KI-Anbieters?</h3>
     <p>F&uuml;r alle, denen DSGVO-Konformit&auml;t oder Datenhoheit wichtig ist &mdash; etwa im
        gesch&auml;ftlichen oder regulierten Umfeld &mdash; empfiehlt sich <strong>Mistral AI</strong>,
@@ -951,7 +951,7 @@ und zeige mir dann die Zusammenfassung.</pre>
        Modell hat andere St&auml;rken und Schw&auml;chen &mdash; ein Prompt, der mit einem Modell
        perfekt funktioniert, muss f&uuml;r ein anderes angepasst werden. Den <strong>Playground</strong>
        nutzen, um Prompts mit verschiedenen Modellen auszuprobieren und den besten Ansatz
-       f&uuml;r jede Aufgabe zu finden, bevor daraus ein automatisierter Workflow wird. F&uuml;r reine
+       f&uuml;r jede Agent zu finden, bevor daraus ein automatisierter Workflow wird. F&uuml;r reine
        Textaufgaben (Übersetzen, Formatieren, Zusammenfassen) den <strong>Chat-Modus</strong> im
        Playground oder in den Agenten-Einstellungen aktivieren, um den gesamten Werkzeug-Overhead
        zu &uuml;berspringen und den Prompt direkt an das LLM zu senden &mdash; der schnellste Weg vom
@@ -961,7 +961,7 @@ und zeige mir dann die Zusammenfassung.</pre>
   <!-- 14 -->
   <section id="jstool">
     <h2>14 &nbsp; JavaScript-Werkzeug <span class="pro-tag">PRO</span></h2>
-    <p>Der JavaScript-Werkzeug-Assistent erm&ouml;glicht es, leichtgewichtige eigene MCP-Werkzeuge in reinem JavaScript zu erstellen &mdash; ohne nativen Code oder externe Pakete. Werkzeuge laufen in einer sicheren On-Device-Sandbox (QuickJS&nbsp;/&nbsp;JavaScriptCore) und stehen nach dem Speichern sofort im Playground und in Aufgaben zur Verf&uuml;gung.</p>
+    <p>Der JavaScript-Werkzeug-Assistent erm&ouml;glicht es, leichtgewichtige eigene MCP-Werkzeuge in reinem JavaScript zu erstellen &mdash; ohne nativen Code oder externe Pakete. Werkzeuge laufen in einer sicheren On-Device-Sandbox (QuickJS&nbsp;/&nbsp;JavaScriptCore) und stehen nach dem Speichern sofort im Playground und in Agenten zur Verf&uuml;gung.</p>
 
     <h3>Werkzeugstruktur</h3>
     <p>Jedes generierte Werkzeug muss genau ein Objekt namens <code>generatedTool</code> definieren:</p>
@@ -999,7 +999,7 @@ und zeige mir dann die Zusammenfassung.</pre>
 
     <h3>Werkzeug Schritt f&uuml;r Schritt erstellen</h3>
     <div class="step"><div class="step-num">1</div><div>
-      <strong>Playground</strong> oder eine <strong>Aufgabe</strong> &ouml;ffnen, auf den Reiter <strong>Werkzeuge</strong> tippen und dann auf <strong>+ Neues JS-Werkzeug</strong> (oder &uuml;ber <em>Einstellungen &rarr; JS-Werkzeugbibliothek</em>).
+      <strong>Playground</strong> oder eine <strong>Agent</strong> &ouml;ffnen, auf den Reiter <strong>Werkzeuge</strong> tippen und dann auf <strong>+ Neues JS-Werkzeug</strong> (oder &uuml;ber <em>Einstellungen &rarr; JS-Werkzeugbibliothek</em>).
     </div></div>
     <div class="step"><div class="step-num">2</div><div>
       Eine Beschreibung eingeben, was das Werkzeug tun soll. Die KI generiert das vollst&auml;ndige <code>generatedTool</code>-Snippet inklusive Schema.
@@ -1008,7 +1008,7 @@ und zeige mir dann die Zusammenfassung.</pre>
       Den generierten Code pr&uuml;fen. <strong>Test-Ausf&uuml;hrung</strong> tippen, um das Werkzeug in der Sandbox mit Beispielargumenten zu starten und die Ausgabe sowie Console-Logs zu sehen.
     </div></div>
     <div class="step"><div class="step-num">4</div><div>
-      <strong>Speichern</strong> tippen &mdash; das Werkzeug ist sofort im Werkzeug-Selektor f&uuml;r jede Playground-Sitzung oder Aufgabe verf&uuml;gbar.
+      <strong>Speichern</strong> tippen &mdash; das Werkzeug ist sofort im Werkzeug-Selektor f&uuml;r jede Playground-Sitzung oder Agent verf&uuml;gbar.
     </div></div>
     <div class="tip"><strong>Tipp:</strong> Auf die Schaltfl&auml;che <strong>&#x1F52C; Beispiele laden</strong> in der JS-Werkzeugbibliothek tippen, um sofort drei funktionierende Beispiele hinzuzuf&uuml;gen: <em>Zeitstempel-Konverter</em>, <em>W&auml;hrungsrechner</em> (Live-Kurse, kein API-Schl&uuml;ssel) und <em>Stadtgeolokalisierung</em> (Open-Meteo, kein API-Schl&uuml;ssel). Bereits vorhandene Werkzeuge werden nie dupliziert.</div>
     <div class="tip"><strong>Tipp:</strong> Der Code-Editor unterst&uuml;tzt <strong>JavaScript-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
@@ -1033,7 +1033,7 @@ und zeige mir dann die Zusammenfassung.</pre>
   <!-- 15 -->
   <section id="tokenstats">
     <h2>15 &nbsp; Token- &amp; Kostenstatistik</h2>
-    <p>TealKit erfasst den Token-Verbrauch und sch&auml;tzt die API-Kosten pro Sitzung und Aufgabendurchlauf. Keine Daten werden an TealKit &uuml;bertragen &mdash; s&auml;mtliche Berechnungen erfolgen anhand integrierter Preistabellen auf dem Ger&auml;t.</p>
+    <p>TealKit erfasst den Token-Verbrauch und sch&auml;tzt die API-Kosten pro Sitzung und Agentendurchlauf. Keine Daten werden an TealKit &uuml;bertragen &mdash; s&auml;mtliche Berechnungen erfolgen anhand integrierter Preistabellen auf dem Ger&auml;t.</p>
 
     <h3>Playground &mdash; Live-Sitzungsstatistik</h3>
     <p>W&auml;hrend eines Playground-Chats erscheint am unteren Rand der Chat-Fl&auml;che ein Token-Z&auml;hler mit den kumulativen Tokens und gesendeten Zeichen der aktuellen Sitzung. Der Z&auml;hler f&auml;rbt sich amber, wenn der konfigurierte Token-Warnschwellenwert des Modells n&auml;her r&uuml;ckt.</p>
@@ -1050,8 +1050,8 @@ und zeige mir dann die Zusammenfassung.</pre>
     </table>
     <div class="tip"><strong>Tipp:</strong> Die Schaltfl&auml;che &#x21BA; <strong>Chat zur&uuml;cksetzen</strong> startet eine neue Sitzung &mdash; die Gespr&auml;chshistorie und der Token-Z&auml;hler werden vollst&auml;ndig zur&uuml;ckgesetzt.</div>
 
-    <h3>Aufgaben &mdash; Ausf&uuml;hrungsstatistiken</h3>
-    <p>Jeder abgeschlossene Aufgabendurchlauf zeichnet vollst&auml;ndige Statistiken auf. Einen Eintrag in der Aufgabenhistorie antippen:</p>
+    <h3>Agenten &mdash; Ausf&uuml;hrungsstatistiken</h3>
+    <p>Jeder abgeschlossene Agentendurchlauf zeichnet vollst&auml;ndige Statistiken auf. Einen Eintrag in der Agentenhistorie antippen:</p>
     <table>
       <tr><th>Kennzahl</th><th>Beschreibung</th></tr>
       <tr><td>Dauer</td><td>Gesamte Laufzeit des Durchlaufs</td></tr>
@@ -1102,8 +1102,8 @@ und gibt eine Zusammenfassung (Anzahl und freigewordener Speicher)
 nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
     <p>Nach der Generierung <strong>Test-Ausf&uuml;hrung</strong> tippen, um das Skript via SSH auszuf&uuml;hren und die Ausgabe zu pr&uuml;fen, bevor es in der Skriptbibliothek gespeichert wird.</p>
 
-    <h3>&#x25B6; Aufgabe vor der Planung testen</h3>
-    <p>Vor dem Aktivieren eines Cron-Zeitplans die Aufgabe mit dem Modus <strong>Interaktiv&nbsp;/&nbsp;Ausprobieren</strong> &ouml;ffnen. Dieser l&auml;dt die Aufgabenkonfiguration als Live-Playground-Chat, sodass Werkzeugaufrufe und Ausgaben Schritt f&uuml;r Schritt kontrolliert und der System-Prompt verfeinert werden kann &mdash; ohne Scheduling-Historie zu erzeugen.</p>
+    <h3>&#x25B6; Agent vor der Planung testen</h3>
+    <p>Vor dem Aktivieren eines Cron-Zeitplans die Agent mit dem Modus <strong>Interaktiv&nbsp;/&nbsp;Ausprobieren</strong> &ouml;ffnen. Dieser l&auml;dt die Agentenkonfiguration als Live-Playground-Chat, sodass Werkzeugaufrufe und Ausgaben Schritt f&uuml;r Schritt kontrolliert und der System-Prompt verfeinert werden kann &mdash; ohne Scheduling-Historie zu erzeugen.</p>
     <div class="tip"><strong>Tipp:</strong> Im interaktiven Modus iterieren, bis die Ausgabe stimmt &mdash; dann speichern und den Zeitplan aktivieren.</div>
 
     <h3>&#x2611;&#xFE0F; Remote MCP-Server registrieren (benutzerdefiniert)</h3>
@@ -1119,7 +1119,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
 
     <h3>&#x1F4B0; Aktuelle Sitzungskosten pr&uuml;fen</h3>
     <p>Im <strong>Playground</strong>: den Token-Z&auml;hler am unteren Rand des Chats antippen &rarr; das Detailblatt zeigt die Kosten der letzten Anfrage und die kumulativen Sitzungskosten.</p>
-    <p>F&uuml;r <strong>Aufgaben</strong>: Aufgabe &ouml;ffnen &rarr; abgeschlossenen Eintrag antippen &rarr; die Karte <em>Ausf&uuml;hrungsstatistiken</em> zeigt <em>Letzter Preis</em> und <em>Gesamtpreis</em>.</p>
+    <p>F&uuml;r <strong>Agenten</strong>: Agent &ouml;ffnen &rarr; abgeschlossenen Eintrag antippen &rarr; die Karte <em>Ausf&uuml;hrungsstatistiken</em> zeigt <em>Letzter Preis</em> und <em>Gesamtpreis</em>.</p>
 
     <h3>&#x21BA; Sitzung zur&uuml;cksetzen (Aufr&auml;umen)</h3>
     <p>Die Schaltfl&auml;che <strong>Chat zur&uuml;cksetzen</strong> (&#x21BA;-Symbol in der Toolbar oder unter der letzten Nachricht) tippen, um:</p>
@@ -1156,13 +1156,13 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
        Falls <code>gnome-keyring</code> nicht installiert ist, bitte &uuml;ber den Paketmanager nachinstallieren.</div>
 
     <h3>&#x1F4DC; Skript-Generierung &mdash; Shell &amp; PowerShell <span class="pro-tag">PRO</span></h3>
-    <p>Fertige Skripte direkt auf dem lokalen Rechner generieren. Die Aufgabe in nat&uuml;rlicher Sprache
+    <p>Fertige Skripte direkt auf dem lokalen Rechner generieren. Die Agent in nat&uuml;rlicher Sprache
        beschreiben &mdash; die KI schreibt das vollst&auml;ndige Skript, das sofort ausgef&uuml;hrt oder in der
        Skriptbibliothek gespeichert werden kann. Der Skripttyp wird automatisch anhand der Plattform gew&auml;hlt:</p>
     <ul>
       <li><strong>Windows</strong> &mdash; generiert ein PowerShell-Skript (<code>.ps1</code>)</li>
       <li><strong>Linux / macOS</strong> &mdash; generiert ein Shell-Skript (<code>.sh</code>)</li>
-      <li>Skripte werden lokal gespeichert und automatisch f&uuml;r Aufgaben und SSH-Sitzungen erkannt</li>
+      <li>Skripte werden lokal gespeichert und automatisch f&uuml;r Agenten und SSH-Sitzungen erkannt</li>
       <li><strong>Test-Ausf&uuml;hrung</strong> tippen, um das generierte Skript zu testen, bevor es gespeichert wird</li>
       <li>Die Zielumgebung im Prompt nennen: <em>&bdquo;PowerShell auf Windows Server&ldquo;</em> oder <em>&bdquo;Bash auf Ubuntu&ldquo;</em></li>
     </ul>
@@ -1186,7 +1186,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li>HTTP-Aufrufe via <code>urllib.request</code> oder der mitgelieferten <code>requests</code>-Bibliothek</li>
       <li>Gespeicherte Werkzeuge werden automatisch erkannt und stehen sofort zur Verf&uuml;gung</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> Python-Werkzeuge eignen sich besonders f&uuml;r datenintensive Aufgaben, die die Gr&ouml;&szlig;en- oder Zeit-Limits von JavaScript-Werkzeugen &uuml;berschreiten &mdash; z.&nbsp;B. gro&szlig;e CSV-Dateien verarbeiten oder mehrstufige numerische Berechnungen.</div>
+    <div class="tip"><strong>Tipp:</strong> Python-Werkzeuge eignen sich besonders f&uuml;r datenintensive Agenten, die die Gr&ouml;&szlig;en- oder Zeit-Limits von JavaScript-Werkzeugen &uuml;berschreiten &mdash; z.&nbsp;B. gro&szlig;e CSV-Dateien verarbeiten oder mehrstufige numerische Berechnungen.</div>
 
     <h3>&#x1F9EA; Python-Werkzeugbibliothek &mdash; integrierte Beispiele <span class="pro-tag">PRO</span></h3>
     <p>Die Python-Werkzeugbibliothek speichert alle erzeugten MCP-Werkzeuge. Auf <strong>&#x1F52C; Beispiele laden</strong> tippen, um drei Starter-Beispiele hinzuzuf&uuml;gen:</p>
@@ -1205,7 +1205,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
       <li><strong>Last Windows Updates</strong> &mdash; die 10 zuletzt installierten Windows-Updates</li>
       <li><strong>Fetch Website Status</strong> &mdash; HTTP-Statuscode und Antwortzeit f&uuml;r eine beliebige URL</li>
     </ul>
-    <div class="tip"><strong>Tipp:</strong> Der <code>ps_bridge</code>-Server steht in jeder Playground-Sitzung und Aufgabe auf Windows zur Verf&uuml;gung.</div>
+    <div class="tip"><strong>Tipp:</strong> Der <code>ps_bridge</code>-Server steht in jeder Playground-Sitzung und Agent auf Windows zur Verf&uuml;gung.</div>
     <div class="tip"><strong>Tipp:</strong> Der PowerShell-Editor unterst&uuml;tzt <strong>PowerShell-Syntaxhervorhebung</strong>. Auf das <strong>&#x26F6; Vollbild</strong>-Symbol tippen, um den Editor im Vollbild-Modus mit <strong>Speichern</strong>, <strong>Abbrechen</strong> und <strong>Kopieren</strong> zu &ouml;ffnen.</div>
 
     <h3>&#x1F4E6; MCP-Server-Registry <span class="pro-tag">PRO</span> <span style="font-size:.8em; color:var(--muted)">(Desktop)</span></h3>
@@ -1246,7 +1246,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
 
     <h3>&#x1F4B8; 1 &nbsp; Tokens, Netzwerkaufrufe und Kosten reduzieren</h3>
     <p>
-      Der teuerste Teil jeder automatisierten Aufgabe ist das Hin-und-Her zwischen dem LLM und
+      Der teuerste Teil jeder automatisierten Agent ist das Hin-und-Her zwischen dem LLM und
       der Au&szlig;enwelt. Jeder Werkzeugaufruf kostet Tokens und Zeit. Eine einfache Optimierung:
       <strong>die eigentliche Arbeit an ein Skript oder MCP-Werkzeug delegieren</strong> und das
       LLM nur das Ergebnis interpretieren lassen.
@@ -1255,7 +1255,7 @@ nach stdout aus. Exit-Code 1 bei Fehler, Fehlermeldung nach stderr.</pre>
     <p>Statt das LLM mehrere SSH-Befehle ausf&uuml;hren zu lassen, um Dateien nach Datum zu filtern,
        Gr&ouml;&szlig;en zu formatieren und eine Tabelle zu erstellen: ein einziges Shell-Skript in der
        <em>Skript-Bibliothek</em> anlegen (z.&nbsp;B. <code>check_uploads</code>), das all das erledigt
-       und eine saubere CSV-Liste mit Spalten&uuml;berschriften zur&uuml;ckgibt. Der Aufgaben-Prompt lautet dann einfach:</p>
+       und eine saubere CSV-Liste mit Spalten&uuml;berschriften zur&uuml;ckgibt. Der Agenten-Prompt lautet dann einfach:</p>
     <pre>Skript check_uploads /uploads 48 aufrufen
 Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
     <p>Das LLM macht <strong>zwei Werkzeugaufrufe</strong> (Skript ausf&uuml;hren, Datei erstellen)
@@ -1277,7 +1277,7 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
       <li>F&uuml;r die Code-Generierung reichen <strong>kleine Modelle</strong> (Ollama / LM Studio lokal
           oder Ollama auf eigenem Server) oft aus und kosten nichts. Als <strong>LLM 2</strong>
           konfigurieren und den Playground-LLM-Selektor nutzen, um Code-Generierungs-Prompts
-          &uuml;ber LLM 2 auszuf&uuml;hren, w&auml;hrend Haupt-Aufgaben auf LLM 1 bleiben.</li>
+          &uuml;ber LLM 2 auszuf&uuml;hren, w&auml;hrend Haupt-Agenten auf LLM 1 bleiben.</li>
       <li>In einer zuk&uuml;nftigen Version werden eingebettete Modelle direkt in TealKit
           herunterladbar und ohne externen Server ausf&uuml;hrbar sein.</li>
     </ul>
@@ -1298,7 +1298,7 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
       <tr>
         <td><strong>Linux / macOS</strong></td>
         <td><code>.sh</code> Bash / zsh</td>
-        <td><em>Shell-Skript-Assistent</em><br><span style="font-size:.85em;color:var(--muted)">Playground-Tools-Reiter oder Aufgaben-Editor</span></td>
+        <td><em>Shell-Skript-Assistent</em><br><span style="font-size:.85em;color:var(--muted)">Playground-Tools-Reiter oder Agenten-Editor</span></td>
         <td>Dateisystem-Operationen, Log-Analyse, Cron-Helfer, SSH-Befehle, Paketverwaltung</td>
       </tr>
       <tr>
@@ -1327,9 +1327,9 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
     </ul>
     <div class="tip"><strong>Tipp:</strong> Den Button <strong>Beispiele laden</strong> in der Python-Tool-Bibliothek nutzen (Systeminfo, Webseite abrufen, Verzeichnis auflisten), um die erwartete Tool-Struktur vor dem ersten eigenen Tool kennenzulernen.</div>
 
-    <h3>&#x1F9E0; 3 &nbsp; Modell zur Aufgabenkomplexit&auml;t passend w&auml;hlen</h3>
+    <h3>&#x1F9E0; 3 &nbsp; Modell zur Agentenkomplexit&auml;t passend w&auml;hlen</h3>
     <p>
-      Nicht jede Aufgabe ben&ouml;tigt dasselbe Modell. Als grobe Richtlinie:
+      Nicht jede Agent ben&ouml;tigt dasselbe Modell. Als grobe Richtlinie:
     </p>
     <ul>
       <li><strong>Komplexe Schlussfolgerungen, mehrstufige Planung, lange Dokumente</strong> &rarr;
@@ -1339,7 +1339,7 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
           erledigen. Checkbox <strong>SLM-Modus</strong> in den <em>LLM-Einstellungen</em> aktivieren,
           um einen kompakten System-Prompt zu erhalten, der kleine Modelle sofort Werkzeuge aufrufen
           l&auml;sst, statt ihre Planung zu beschreiben.</li>
-      <li>SLMs k&ouml;nnen komplexe Aufgaben m&ouml;glicherweise nicht immer zuverl&auml;ssig abschlie&szlig;en
+      <li>SLMs k&ouml;nnen komplexe Agenten m&ouml;glicherweise nicht immer zuverl&auml;ssig abschlie&szlig;en
           oder ben&ouml;tigen mehrere Minuten. Vor dem Einplanen gr&uuml;ndlich im Playground testen.</li>
     </ul>
     <p>
@@ -1349,9 +1349,9 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
       reproduzierbarere Werkzeugaufrufe; h&ouml;here Werte erh&ouml;hen die Kreativit&auml;t, reduzieren
       aber die Zuverl&auml;ssigkeit bei Automatisierungsaufgaben.
     </p>
-    <div class="tip"><strong>Workflow:</strong> Aufgabe im Playground mit LLM 1 entwerfen &rarr;
+    <div class="tip"><strong>Workflow:</strong> Agent im Playground mit LLM 1 entwerfen &rarr;
       denselben Prompt mit LLM 2 (SLM) ausprobieren &rarr; wenn es zuverl&auml;ssig funktioniert,
-      die gespeicherte Aufgabe auf LLM 2 umstellen, um Kosten und Latenz zu sparen.</div>
+      die gespeicherte Agent auf LLM 2 umstellen, um Kosten und Latenz zu sparen.</div>
   </section>
 
 </div>
