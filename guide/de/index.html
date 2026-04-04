@@ -318,7 +318,7 @@
       <li><strong>Kalender:</strong> <em>&bdquo;Hole alle anstehenden Kalendereintr&auml;ge f&uuml;r die n&auml;chste 1 Woche und speichere sie in ein PDF-Dokument.&ldquo;</em></li>
       <li><strong>Shell-Skripte:</strong> <em>&bdquo;Erstelle ein Shell-Skript, das ein Verzeichnis als Eingabe nimmt und die 20 gr&ouml;&szlig;ten Dateien auflistet.&ldquo;</em></li>
       <li><strong>Wetter + Diagramm:</strong> <em>&bdquo;Hole die Wettervorhersage f&uuml;r meinen Standort f&uuml;r die n&auml;chsten 24 Stunden und erstelle ein Statistik-&Uuml;bersichtsdiagramm aus den Temperaturdaten.&ldquo;</em></li>
-      <li><strong>Aufgaben-Verkettung (Task Chaining):</strong> F&uuml;hre die Festplattennutzung aus, speichere nur den Prozentsatz von <code>/dev/sda1</code> in das Aufgabenergebnis. Setze die Bedingung: <em>Task-Ergebnis &gt; 65%</em> &rarr; Aktion: Rufe Unteraufgabe <code>diskusage_alert</code> auf.</li>
+      <li><strong>Agenten-Verkettung:</strong> Einen SSH-Agenten mit aktiviertem <strong>Nach Tool-Aufruf stoppen</strong> erstellen &mdash; er f&uuml;hrt das Skript <code>disk_usage</code> aus und die rohe Ausgabe wird <code>[task_result]</code>. Einen bedingten Trigger hinzuf&uuml;gen: <em>&#x201E;wenn [task_result] &gt; 65&nbsp;%&#x201C;</em> &rarr; Folgeagent <code>diskusage_alert</code> aufrufen.</li>
     </ul>
   </section>
 
@@ -334,6 +334,15 @@
           <strong>Indexierung starten</strong> tippen, um den lokalen Index zu erstellen.
           W&auml;hrend der Indexierung erscheint ein roter <strong>Stopp</strong>-Button &mdash; tippen zum Abbrechen.</li>
       <li>Optional eine <strong>Erste Nachricht</strong> eingeben &mdash; automatisch beim Start gesendet.</li>
+      <li><strong>(Optional) Chat-Modus</strong> &mdash; das orange Kontrollk&auml;stchen <strong>Chat-Modus</strong>
+          aktivieren, um die Nachricht direkt an das LLM zu senden &mdash; ohne System-Prompt und ohne
+          Werkzeuge. Ideal f&uuml;r SLMs bei reinen Textaufgaben wie &Uuml;bersetzen, Formatieren oder
+          Zusammenfassen, wo Werkzeugaufrufe nur Latenzen verursachen w&uuml;rden.</li>
+      <li><strong>(Optional) Nach Tool-Aufruf stoppen</strong> &mdash; das violette Kontrollk&auml;stchen
+          <strong>Nach Tool-Aufruf stoppen</strong> aktivieren, damit die Sitzung genau einen
+          Werkzeugaufruf ausf&uuml;hrt, die rohe Ausgabe erfasst und sofort stoppt &mdash; ohne weitere
+          LLM-Verarbeitung. Die rohe Werkzeugausgabe wird als <code>[task_result]</code> an den
+          n&auml;chsten verketteten Agenten weitergegeben.</li>
       <li>Falls ein zweites LLM konfiguriert ist (<em>Einstellungen &rarr; LLM-Einstellungen &rarr; LLM 2</em>),
           erscheint oberhalb des Start-Buttons ein <strong>LLM 1 / LLM 2</strong>-Selektor.
           Damit l&auml;sst sich das Modell direkt im Playground wechseln &mdash; ideal, um ein
@@ -514,14 +523,50 @@
     <p>Den vollst&auml;ndigen Ausgabeordner (Ergebnis + Protokolle + Anh&auml;nge) als ZIP-Datei b&uuml;ndeln.
        Kombiniert mit E-Mail-Ausgabe kommt das Archiv nach jedem Durchlauf per Mail.</p>
 
-    <h3>Aufgabenverkettung <span class="pro-tag">PRO</span></h3>
-    <p>Mehrere Aufgaben verketten, sodass die Ausgabe einer Aufgabe in die n&auml;chste einflie&szlig;t.
-       Jedes Glied kann eine <em>Bedingung</em> haben, die vom LLM ausgewertet wird &mdash;
-       z.&nbsp;B. <em>&#x201E;Nur fortsetzen, wenn der Bericht dringende Probleme erw&auml;hnt.&#x201C;</em>
-       Im Unteraufgaben-Modus wird die Ausgabe der &uuml;bergeordneten Aufgabe als Kontext &uuml;bergeben.</p>
+    <h3>Agenten-Verkettung <span class="pro-tag">PRO</span></h3>
+    <p>Agenten verketten, sodass die Ausgabe eines Agenten in den n&auml;chsten flie&szlig;t. &Uuml;berall, wo
+       <code>[task_result]</code> im System-Prompt oder der Startnachricht eines verketteten Agenten
+       vorkommt, wird es durch die Ausgabe des ausl&ouml;senden Agenten ersetzt.</p>
+
+    <h4 style="margin-top:1rem; margin-bottom:.4rem">Folgeagent-Modus</h4>
+    <p>Den <strong>Folgeagent-Modus</strong> auf einem Agenten (Basis-Tab) aktivieren, um ihn als
+       verketteten Folge-Agenten zu markieren. Folgeagenten laufen nur, wenn sie von einem anderen
+       Agenten ausgel&ouml;st werden &mdash; sie erscheinen nicht in der normalen Aufgabenliste
+       und k&ouml;nnen nicht direkt geplant werden.</p>
+
+    <h4 style="margin-top:1rem; margin-bottom:.4rem">Mit Bedingung &amp; ohne Bedingung</h4>
+    <p>Beim Einrichten eines Triggers auf einem Agenten stehen zwei Modi zur Verf&uuml;gung:</p>
+    <ul>
+      <li><strong>Mit Bedingung</strong> &mdash; das LLM wertet einen Bedingungsausdruck aus
+          (z.&nbsp;B. <em>&#x201E;Festplattennutzung &uuml;berschreitet 80&nbsp;%&#x201C;</em>). Bei
+          &Uuml;bereinstimmung wird der <em>Treffer</em>-Folgeagent ausgef&uuml;hrt; bei
+          Nicht-&Uuml;bereinstimmung kann optional ein separater <em>Kein-Treffer</em>-Agent folgen.</li>
+      <li><strong>Ohne Bedingung (bedingungslos)</strong> &mdash; das Ergebnis wird immer an einen
+          einzigen Folgeagenten weitergeleitet &mdash; keine LLM-Auswertung, geringere Latenz.</li>
+    </ul>
+
+    <h4 style="margin-top:1rem; margin-bottom:.4rem">Nach Tool-Aufruf stoppen</h4>
+    <p>Den <strong>Nach Tool-Aufruf stoppen</strong>-Schalter auf einem Agenten (Basis-Tab) oder im
+       Playground-Setup aktivieren. Wenn gesetzt, f&uuml;hrt der Agent genau einen Werkzeugaufruf aus,
+       erfasst die rohe Ausgabe und stoppt sofort &mdash; die rohe Werkzeugausgabe wird ohne weitere
+       LLM-Verarbeitung als <code>[task_result]</code> an den n&auml;chsten verketteten Agenten
+       &uuml;bergeben. Ideal f&uuml;r Datenextraktions-Agenten, bei denen die exakte, unver&auml;nderte
+       Werkzeugausgabe (z.&nbsp;B. SSH-Output, Suchergebnis, Dokumentausschnitt) in einen
+       nachgelagerten Agenten flie&szlig;en soll.</p>
+
     <div class="note"><strong>Beispiel-Kette:</strong>
-       E-Mails abrufen &amp; zusammenfassen &rarr; Wenn Zusammenfassung &#x201E;Rechnung&#x201C; enth&auml;lt &rarr;
-       Buchhaltungsaufgabe ausf&uuml;hren &rarr; ZIP-Ergebnis per E-Mail senden.</div>
+       <em>Agent A</em> (SSH + Nach&nbsp;Tool-Aufruf&nbsp;stoppen) f&uuml;hrt Skript
+       <code>disk_usage</code> aus &rarr; rohe Ausgabe wird <code>[task_result]</code> &rarr;
+       <em>Agent B</em> pr&uuml;ft Bedingung <em>&#x201E;Nutzung &gt; 80&nbsp;%&#x201C;</em> &rarr;
+       bei Treffer: <em>Agent C</em> (E-Mail) sendet Alarm &rarr;
+       bei keinem Treffer: Kette endet.<br>
+       <br>
+       <strong>Bedingungsloses Beispiel:</strong>
+       <em>Agent A</em> ruft E-Mails ab &amp; fasst sie zusammen &rarr;
+       <em>Agent B</em> formatiert und sendet die Zusammenfassung immer &uuml;ber Slack.</div>
+    <div class="tip"><strong>Tipp:</strong> <code>[task_result]</code> &uuml;berall im Prompt des
+       verketteten Agenten verwenden. Beispiel: <em>&#x201E;Du hast folgende Daten erhalten:
+       [task_result] &mdash; identifiziere die 3 wichtigsten Ma&szlig;nahmen.&#x201C;</em></div>
 
     <div class="tip"><strong>Tipp:</strong> &Uuml;ber den <em>Beispiele</em>-Button eine Beispielaufgabe laden,
       um schnell einzusteigen.</div>
@@ -880,10 +925,14 @@ und zeige mir dann die Zusammenfassung.</pre>
     <p>Standardm&auml;&szlig;ig im internen App-Speicher. Unter
        <em>Einstellungen &rarr; Allgemein &rarr; Ausgabeverzeichnis</em> einen sichtbaren Ordner
        (z.&nbsp;B. Downloads) ausw&auml;hlen.</p>
-    <h3>Wie funktioniert Aufgabenverkettung genau?</h3>
-    <p>Jede verkettete Aufgabe startet, nachdem die vorherige abgeschlossen ist. Eine optionale,
-       LLM-ausgewertete Bedingungszeichenkette steuert, ob die Kette fortgesetzt oder gestoppt wird.
-       Die Ausgabe der vorherigen Aufgabe wird als Kontext an die n&auml;chste &uuml;bergeben.</p>
+    <h3>Wie funktioniert Agenten-Verkettung?</h3>
+    <p>Jeder verkettete Agent startet, nachdem der vorherige abgeschlossen ist. Die Ausgabe des
+       Vorg&auml;ngers wird als <code>[task_result]</code> in den Prompt des verketteten Agenten
+       eingef&uuml;gt. Die Verkettung kann <strong>bedingungslos</strong> (l&auml;uft immer) oder
+       <strong>bedingt</strong> sein (das LLM wertet einen Ausdruck aus und leitet je nach Ergebnis
+       an unterschiedliche Agenten weiter). Den Schalter <strong>Nach Tool-Aufruf stoppen</strong>
+       auf einem Agenten aktivieren, um die rohe Werkzeugausgabe direkt als <code>[task_result]</code>
+       zu &uuml;bergeben &mdash; ohne weitere LLM-Verarbeitung.</p>
     <h3>Was ist der Unterschied zwischen Starten und Interaktiv?</h3>
     <p><strong>Starten</strong> f&uuml;hrt die Aufgabe autonom aus und speichert das Ergebnis.
        <strong>Interaktiv</strong> &ouml;ffnet einen vollst&auml;ndigen Chat mit demselben LLM und denselben
@@ -902,7 +951,11 @@ und zeige mir dann die Zusammenfassung.</pre>
        Modell hat andere St&auml;rken und Schw&auml;chen &mdash; ein Prompt, der mit einem Modell
        perfekt funktioniert, muss f&uuml;r ein anderes angepasst werden. Den <strong>Playground</strong>
        nutzen, um Prompts mit verschiedenen Modellen auszuprobieren und den besten Ansatz
-       f&uuml;r jede Aufgabe zu finden, bevor daraus ein automatisierter Workflow wird.</p>
+       f&uuml;r jede Aufgabe zu finden, bevor daraus ein automatisierter Workflow wird. F&uuml;r reine
+       Textaufgaben (Übersetzen, Formatieren, Zusammenfassen) den <strong>Chat-Modus</strong> im
+       Playground oder in den Agenten-Einstellungen aktivieren, um den gesamten Werkzeug-Overhead
+       zu &uuml;berspringen und den Prompt direkt an das LLM zu senden &mdash; der schnellste Weg vom
+       Prompt zur Antwort f&uuml;r SLMs.</p>
   </section>
 
   <!-- 14 -->

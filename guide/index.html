@@ -316,7 +316,7 @@
       <li><strong>Calendar:</strong> <em>&ldquo;Fetch each next calendar events for the next 1 week and save them into the PDF document.&rdquo;</em></li>
       <li><strong>Shell Script:</strong> <em>&ldquo;Generate a shell script that inputs a directory and lists the 20 biggest files.&rdquo;</em></li>
       <li><strong>Weather + Chart:</strong> <em>&ldquo;Get the weather forecast for my location for the next 24 hours, then create a statistics summary chart from the temperature data.&rdquo;</em></li>
-      <li><strong>Task Chaining / Automation:</strong> Call disk usage tools, put only the <code>/dev/sda1</code> percentage in the task result... Add a condition: if <code>task result &gt; 65%</code> ... Action: call subtask <code>diskusage_alert</code>.</li>
+      <li><strong>Agent Chaining / Automation:</strong> Create an SSH agent with <strong>Stop after tool call</strong> enabled &mdash; it runs script <code>disk_usage</code> and the raw output becomes <code>[task_result]</code>. Add a conditional trigger: <em>&ldquo;if [task_result] &gt; 65&nbsp;%&rdquo;</em> &rarr; route to following agent <code>diskusage_alert</code>.</li>
     </ul>
   </section>
 
@@ -332,6 +332,16 @@
           <strong>Start Indexing</strong> to build the local index.
           A red <strong>Stop</strong> button appears during indexing &mdash; tap to cancel anytime.</li>
       <li>Optionally set an <strong>initial message</strong> sent automatically on start.</li>
+      <li><strong>(Optional) Chat mode</strong> &mdash; enable the orange <strong>Chat mode</strong> checkbox
+          to send your message directly to the LLM with no system prompt and no tools. All tool
+          checkboxes are ignored. Ideal for SLMs doing translation, formatting, summarisation, or any
+          pure text task where tool overhead adds latency without benefit.</li>
+      <li><strong>(Optional) Stop after tool call</strong> &mdash; enable the purple
+          <strong>Stop after tool call</strong> checkbox to make the session execute one tool call,
+          capture the raw output, and stop immediately &mdash; no further LLM processing. The raw tool
+          output becomes <code>[task_result]</code> for a chained agent. Useful when you want
+          unmodified tool output (e.g. SSH command result, web scrape, document search) to flow
+          directly into a downstream agent.</li>
       <li>If you have configured a second LLM (<em>Settings &rarr; LLM Settings &rarr; LLM 2</em>), a
           <strong>LLM 1 / LLM 2</strong> selector appears above the Start button. Use it to switch
           models without leaving the Playground &mdash; ideal for comparing a powerful cloud model
@@ -520,14 +530,48 @@
     <p>Bundle the full output folder (result + logs + attachments) into a single ZIP file.
        Combine with Email output to receive the archive by mail after every run.</p>
 
-    <h3>Task chaining <span class="pro-tag">PRO</span></h3>
-    <p>Chain multiple tasks so the output of one feeds into the next. Each link can have a
-       <em>condition</em> evaluated by the LLM &mdash; e.g. <em>"only continue if the report
-       mentions urgent issues"</em>. Subtask mode passes the parent run's output as additional
-       context to the child task.</p>
+    <h3>Agent chaining <span class="pro-tag">PRO</span></h3>
+    <p>Chain agents so the output of one feeds into the next. Wherever <code>[task_result]</code>
+       appears in a chained agent&rsquo;s system prompt or initial message, it is replaced with the
+       triggering agent&rsquo;s output.</p>
+
+    <h4 style="margin-top:1rem; margin-bottom:.4rem">Following agent mode</h4>
+    <p>Enable <strong>Following agent mode</strong> on an agent (Basic tab) to mark it as a chained
+       follow-up. Following agents only run when triggered by another agent &mdash; they are hidden
+       from standalone task lists and scheduling.</p>
+
+    <h4 style="margin-top:1rem; margin-bottom:.4rem">With condition &amp; unconditional</h4>
+    <p>When setting up a trigger on an agent, choose between:</p>
+    <ul>
+      <li><strong>With condition</strong> &mdash; the LLM evaluates a condition expression (e.g.
+          <em>&ldquo;disk usage exceeds 80&nbsp;%&rdquo;</em>). A match routes to the
+          <em>on-match</em> following agent; a non-match can optionally route to a separate
+          <em>on-no-match</em> agent.</li>
+      <li><strong>Unconditional</strong> (no condition) &mdash; the result is always forwarded to a
+          single following agent &mdash; no LLM evaluation, lower latency.</li>
+    </ul>
+
+    <h4 style="margin-top:1rem; margin-bottom:.4rem">Stop after tool call</h4>
+    <p>Enable <strong>Stop after tool call</strong> on an agent (Basic tab) or in Playground setup.
+       When set, the agent executes one tool call, captures the raw output, and stops immediately
+       &mdash; the raw tool output becomes <code>[task_result]</code> for the next chained agent with
+       no further LLM processing. Ideal for data-extraction agents where you need the exact,
+       unmodified tool response (e.g. SSH output, search result, document snippet) to flow into a
+       downstream agent.</p>
+
     <div class="note"><strong>Example chain:</strong>
-       Fetch &amp; summarise emails &rarr; If summary contains "invoice" &rarr;
-       Run accounting task &rarr; Send result ZIP by email.</div>
+       <em>Agent A</em> (SSH + Stop&nbsp;after&nbsp;tool&nbsp;call) runs script
+       <code>disk_usage</code> &rarr; raw output becomes <code>[task_result]</code> &rarr;
+       <em>Agent B</em> checks condition <em>&ldquo;usage &gt; 80&nbsp;%&rdquo;</em> &rarr;
+       on match: <em>Agent C</em> (Email) sends an alert &rarr;
+       on no match: silent &mdash; chain ends.<br>
+       <br>
+       <strong>Unconditional example:</strong>
+       <em>Agent A</em> fetches &amp; summarises emails &rarr; <em>Agent B</em> always formats and
+       sends the summary via Slack.</div>
+    <div class="tip"><strong>Tip:</strong> Use <code>[task_result]</code> anywhere in the chained
+       agent&rsquo;s prompt. Example: <em>&ldquo;You received the following data:
+       [task_result] &mdash; identify the top 3 action items.&rdquo;</em></div>
 
     <div class="tip"><strong>Tip:</strong> Load an example task via the <em>Examples</em> button to get started quickly.</div>
   </section>
@@ -875,9 +919,13 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
     <h3>Where is the output folder on Android?</h3>
     <p>By default, files go to internal app storage. Set a custom path in
        <em>Settings &rarr; General &rarr; Output Directory</em> to use a visible folder (e.g. Downloads).</p>
-    <h3>How does task chaining work?</h3>
-    <p>Each chained task starts after its predecessor finishes. An optional LLM-evaluated condition
-       controls whether to continue the chain. The previous task's output is passed as context to the next task.</p>
+    <h3>How does agent chaining work?</h3>
+    <p>Each chained agent starts after its predecessor finishes. The predecessor&rsquo;s output is
+       injected as <code>[task_result]</code> into the chained agent&rsquo;s prompt. Chaining can be
+       <strong>unconditional</strong> (always runs the next agent) or <strong>conditional</strong>
+       (the LLM evaluates an expression and routes to different agents depending on the outcome).
+       Enable <strong>Stop after tool call</strong> on an agent to capture the raw tool output
+       directly as <code>[task_result]</code> without further LLM processing.</p>
     <h3>What is the difference between Run and Interactive mode?</h3>
     <p><strong>Run</strong> executes the task autonomously and saves the result to disk.
        <strong>Interactive</strong> opens a full chat with the same LLM and tools, so you can
@@ -895,7 +943,10 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
        no data sent externally. Keep in mind that every model has different strengths: a prompt
        that works perfectly with one model may need adjustment for another. Use the
        <strong>Playground</strong> to experiment with prompts across different models and find
-       the best fit for each task before turning it into an automated workflow.</p>
+       the best fit for each task before turning it into an automated workflow. For pure text tasks
+       (translation, formatting, summarisation) enable <strong>Chat mode</strong> in Playground or
+       agent settings to skip all tool overhead and send your prompt directly to the LLM &mdash;
+       the fastest path from prompt to response for SLMs.</p>
   </section>
 
   <!-- 14 -->

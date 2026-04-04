@@ -9,12 +9,20 @@
 
 ---
 
+## 🆕 What's New
+
+* **Chat Mode** — A new toggle in Playground and agent settings (Basic tab) that bypasses the system prompt and all tools, forwarding your message directly to the LLM. Perfect for SLMs doing pure text work — translations, formatting, summarisation — where tool overhead adds latency without benefit.
+* **Agent Chaining (conditional & unconditional)** — Chain agents with or without an LLM-evaluated condition. Unconditional chaining always passes the result to the next agent. Conditional chaining evaluates an expression and routes to different follow-up agents depending on the outcome. The triggering agent's output is injected at the `[task_result]` placeholder in the chained agent's prompt.
+* **Stop After Tool Call** — New option in agent and Playground settings. When enabled the agent runs exactly one tool call, then stops — handing the raw tool output directly as `[task_result]` to the next chained agent without any further LLM processing. Ideal for data-extraction pipelines where you want unmodified tool output to flow into a downstream agent.
+
+---
+
 ## 🚀 Core Capabilities
 
 ### 🤖 AI Playground & Flexibility
 * **Provider Independent:** Use leading providers like **Google Gemini, OpenAI GPT-5, Anthropic, and Mistral**.
 * **🇪🇺 European Privacy & GDPR:** Data sovereignty matters. TealKit works fully with **Mistral AI** — a European provider headquartered in France that processes all data within the EU. Ideal for users and organisations where GDPR compliance is non-negotiable. Just enter your Mistral API key and your prompts never leave European infrastructure.
-* **Small Language Models (SLM):** Not every task needs a powerful cloud model. Run lightweight SLMs on your own hardware with **Ollama**, **LM Studio**, or any OpenAI-compatible local endpoint — zero cloud costs, zero data sharing. Mark a model as **SLM** in LLM Settings to get a compact, action-focused system prompt that forces the model to call tools immediately instead of explaining its plan.
+* **Small Language Models (SLM):** Not every task needs a powerful cloud model. Run lightweight SLMs on your own hardware with **Ollama**, **LM Studio**, or any OpenAI-compatible local endpoint — zero cloud costs, zero data sharing. Mark a model as **SLM** in LLM Settings to get a compact, action-focused system prompt that forces the model to call tools immediately instead of explaining its plan. For pure text tasks (translation, formatting, summarisation) enable **Chat Mode** to skip all tools and system prompt overhead entirely — the fastest path from prompt to response for SLMs.
 * **Dual-LLM Setup:** Configure a secondary LLM (LLM 2) — for example a fast SLM for code tasks — and switch between them directly in the **Playground** with the LLM 1 / LLM 2 selector. Every model behaves differently; use the Playground to compare prompts across models and find the best fit for each task before automating it.
 * **Local Intelligence:** Support for **Ollama** models for 100% offline processing.
 * **Full Customization:** Tweak model parameters per task and keep token costs predictable.
@@ -30,7 +38,7 @@
 
 ### ⚙️ Agentic Workflows & Automation
 * **Autonomous Execution:** Schedule **cron-based** tasks that run in the background, even when the app is closed.
-* **Task Chaining:** Build complex pipelines with conditional logic (e.g., "If X is found, do Y, then email Z").
+* **Agent Chaining:** Build multi-agent pipelines — with or without conditions. Chain agents unconditionally to always pass results forward, or add an LLM-evaluated condition (e.g., "If X is found, escalate, otherwise archive"). The triggering agent's output is available as `[task_result]` in the chained agent's prompt. Combine with **Stop After Tool Call** to pass raw tool output (e.g., SSH command result, web scrape) directly to the next agent without LLM reformatting.
 * **Multi-Channel Output:** Save results to local storage, or send them via **Email, Slack, or WhatsApp** (with attachments).
 
 ---
@@ -47,7 +55,6 @@
 | **The Assistant** | Gmail + Calendar | Scan Gmail for invoices, automatically create a Calendar entry. [▶ Watch demo](https://lschaffer.github.io/tealkit-privacy/videos/tealkit_android_gmail_calendar.mp4) |
 | **The Cost Analyst** | Gmail + Charts | Search Gmail for all invoices from your mobile provider this year, summarize the actual monthly costs, generate a pie chart from the data, and email you the chart and summary. [▶ Watch demo](https://lschaffer.github.io/tealkit-privacy/videos/tealkit_android_web_search.mp4) |
 | **The Disk Watcher** | SSH + Email | In the **Shell Script Library**, generate a script named `disku` with prompt *"list disk usage of all mount points in MB, one per line"*. Create a task using the **SSH** tool: *"Call script disku, format the result as a modern styled HTML table with a color-coded status bar"*, output channel **Email**, scheduled **daily at 16:00**. |
-| **The Smart Disk Guardian** | SLM + LLM + SSH + Email | Use **Task Chaining** with two different models to balance cost and quality. **Task 1 (SLM / Ollama):** Uses a lightweight local model — zero token cost. Runs 4× per day via SSH, calls the `disku` script, checks if `/dev/sda1` exceeds a usage threshold. If yes, it triggers **Task 2** and passes the raw disk data as `${task_result}`. **Task 2 (LLM):** Takes the output from the parent task, generates a beautifully styled HTML page with a **pie chart** showing disk usage per mount point, and emails it immediately. Result: smart alerting that only costs tokens when something is actually wrong. [▶ Watch demo](https://lschaffer.github.io/tealkit-privacy/videos/tealkit_2task_with_slm.mp4) |
 | **The Smart Home Assistant** | Weather + Home Assistant MCP | Enable the built-in **Home Assistant** skill and connect it to your local HA instance. Create a task: *"Get the next 12-hour weather forecast for my location. If the avg temperature is above 15 degree, adjust target temperature of climate.ecobee between 19 and 22 otherwise between 20 and 23."* Schedule it **hourly** to keep your thermostat in sync with the outdoor forecast automatically. [▶ Watch demo](https://lschaffer.github.io/tealkit-privacy/videos/tealkit_desktop_smarth_1.mp4) · [▶ Demo 2](https://lschaffer.github.io/tealkit-privacy/videos/tealkit_desktop_smarth_2.mp4) |
 
 ### 🖥 Desktop Only
@@ -62,7 +69,7 @@
 
 | Scenario | Tools | The Workflow |
 | :--- | :---: | :--- |
-| **The Downloads Janitor** | PowerShell + Email | **Step 1 — Script:** In the **PowerShell Script Library**, generate a script named `old_files` with prompt *"Accept a parameter DaysOld. Scan the current user's Downloads folder for files older than DaysOld days. Output each file as: path \| modified date \| size in KB. Sort ascending by modified date."* **Step 2 — Subtask:** Create a subtask named `old_files_alert` with prompt *"You receive a list of old files. Send an email with subject 'Old files in Downloads' and the list formatted as an HTML table."* **Step 3 — Main task:** Create a task using the **PowerShell** tool, prompt *"Call old_files 30. Format the output as a Markdown list."*, enable **Task Chaining**, condition *"list count > 10"*, chained subtask `old_files_alert`, scheduled **daily at 07:00**. |
+| **The Downloads Janitor** | PowerShell + Email | **Step 1 — Script:** In the **PowerShell Script Library**, generate a script named `old_files` with prompt *"Accept a parameter DaysOld. Scan the current user's Downloads folder for files older than DaysOld days. Output each file as: path \| modified date \| size in KB. Sort ascending by modified date."* **Step 2 — Following agent:** Create an agent named `old_files_alert` with **Following agent mode** enabled and prompt *"You receive a list of old files. Send an email with subject 'Old files in Downloads' and the list formatted as an HTML table."* **Step 3 — Main agent:** Create a task using the **PowerShell** tool, prompt *"Call old_files 30. Format the output as a Markdown list."*, enable **Agent Chaining** with condition *"list count > 10"*, link to following agent `old_files_alert`, scheduled **daily at 07:00**. |
 
 ---
 
@@ -120,7 +127,7 @@ TealKit is an **open agentic platform**: every capability not built-in can be ad
 | Home Assistant integration | — | ✅ |
 | Google Drive | — | ✅ |
 | Backup & restore vault | — | ✅ |
-| Task chaining / conditional logic | — | ✅ |
+| Agent chaining (conditional & unconditional) + Stop After Tool Call | — | ✅ |
 | Save playground chat as task | — | ✅ |
 
 ---
