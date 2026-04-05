@@ -296,6 +296,10 @@
       <li><strong>Max Tokens:</strong> The maximum length of a single AI response. Increase this if the AI cuts off long data summaries. Reduce it to save costs on simple queries.</li>
       <li><strong>Max Tool Output Size (chars):</strong> Limits how many characters a single tool result can return to the LLM. Set to <code>0</code> for unlimited. Reduce this to prevent very large tool outputs (e.g. a huge web page) from consuming the context window.</li>
       <li><strong>Token Warning Threshold:</strong> When the session token count reaches this number, TealKit suggests cleaning up the chat history to prevent context overflow. Default: <code>1,500,000</code>. Adjust based on your model's context window.</li>
+      <li><strong>Top-K:</strong> Limits the AI to choosing from the top K most likely next tokens. Lower values (e.g., <code>10&ndash;40</code>) make output more focused; higher values allow more variety. Leave blank to use the provider&rsquo;s default. Most effective with Ollama and local models.</li>
+      <li><strong>Top-P (nucleus sampling):</strong> The AI picks tokens whose cumulative probability reaches P. Values like <code>0.9</code> keep output diverse but coherent. Set to <code>1.0</code> to disable. Leave blank for provider default.</li>
+      <li><strong>Repeat Penalty:</strong> Penalises the model for repeating tokens it has already used. Values above <code>1.0</code> (e.g., <code>1.1</code>) reduce repetition; <code>1.0</code> means no penalty. Useful for long-form outputs. Leave blank for provider default.</li>
+      <li><strong>Seed:</strong> A fixed integer that makes generation deterministic &mdash; the same prompt and seed will produce the same output. Useful for reproducible test runs. Leave blank for random / provider default.</li>
     </ul>
 
     <h3>LLM 2 &mdash; Secondary Model</h3>
@@ -887,7 +891,7 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
   <section id="settings">
     <h2>12 &nbsp; Settings</h2>
     <ul>
-      <li><strong>LLM Settings</strong> &mdash; AI provider, model, API key, temperature</li>
+      <li><strong>LLM Settings</strong> &mdash; AI provider, model, API key, temperature, and advanced parameters (top-k, top-p, repeat penalty, seed)</li>
       <li><strong>Data Sources</strong> &mdash; email, search, documents, websites, location, SSH, Home Assistant, Slack, WhatsApp</li>
       <li><strong>Remote MCP Servers</strong> &mdash; connect to remote HTTP/SSE MCP servers (PulseMCP, Smithery, or Custom URL)</li>
       <li><strong>MCP Server Registry</strong> <span class="pro-tag">PRO</span> &mdash; (desktop) browse and install local Python/Node.js MCP servers from GitHub, Glama, PulseMCP, and Smithery catalogs</li>

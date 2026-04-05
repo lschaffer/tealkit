@@ -11,6 +11,7 @@
 
 ## 🆕 What's New
 
+* **Advanced LLM Parameters** — Top-k, top-p, repeat penalty and seed are now configurable in the global LLM Settings dialog (both LLM 1 and LLM 2 tabs) and in the per-task editor. Leave any field blank to use the provider's built-in default. Useful for fine-tuning output diversity and reproducibility — especially with local Ollama models where these parameters have a direct impact on generation quality.
 * **Chat Mode** — A new toggle in Playground and agent settings (Basic tab) that bypasses the system prompt and all tools, forwarding your message directly to the LLM. Perfect for SLMs doing pure text work — translations, formatting, summarisation — where tool overhead adds latency without benefit.
 * **Agent Chaining (conditional & unconditional)** — Chain agents with or without an LLM-evaluated condition. Unconditional chaining always passes the result to the next agent. Conditional chaining evaluates an expression and routes to different follow-up agents depending on the outcome. The triggering agent's output is injected at the `[task_result]` placeholder in the chained agent's prompt.
 * **Stop After Tool Call** — New option in agent and Playground settings. When enabled the agent runs exactly one tool call, then stops — handing the raw tool output directly as `[task_result]` to the next chained agent without any further LLM processing. Ideal for data-extraction pipelines where you want unmodified tool output to flow into a downstream agent.

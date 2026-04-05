@@ -298,6 +298,10 @@
       <li><strong>Max Tokens:</strong> Die maximale L&auml;nge einer einzelnen KI-Antwort. Erh&ouml;hen Sie diesen Wert, wenn lange Datenzusammenfassungen abgeschnitten werden. Verringern Sie ihn, um bei einfachen Abfragen Kosten zu sparen.</li>
       <li><strong>Max. Werkzeugausgabe (Zeichen):</strong> Begrenzt, wie viele Zeichen ein einzelnes Werkzeugergebnis an das LLM zur&uuml;ckgeben kann. Auf <code>0</code> setzen f&uuml;r unbegrenzt. Verringern, um zu verhindern, dass sehr gro&szlig;e Werkzeugausgaben (z.&nbsp;B. eine riesige Webseite) das Kontextfenster belegen.</li>
       <li><strong>Token-Warnschwellenwert:</strong> Wenn die Sitzungs-Tokenanzahl diesen Wert erreicht, schl&auml;gt TealKit vor, die Gespr&auml;chshistorie aufzur&auml;umen, um einen Kontext&uuml;berlauf zu vermeiden. Standard: <code>1.500.000</code>. An das Kontextfenster des verwendeten Modells anpassen.</li>
+      <li><strong>Top-K:</strong> Begrenzt die KI auf die K wahrscheinlichsten n&auml;chsten Token. Niedrigere Werte (z.&nbsp;B. <code>10&ndash;40</code>) machen die Ausgabe fokussierter; h&ouml;here erlauben mehr Variation. Leer lassen, um den Anbieter-Standard zu verwenden. Besonders wirksam bei Ollama und lokalen Modellen.</li>
+      <li><strong>Top-P (Nucleus Sampling):</strong> Die KI w&auml;hlt Token, deren kumulative Wahrscheinlichkeit P erreicht. Werte wie <code>0.9</code> sorgen f&uuml;r abwechslungsreiche, aber koh&auml;rente Ausgaben. Auf <code>1.0</code> setzen zum Deaktivieren. Leer lassen f&uuml;r Anbieter-Standard.</li>
+      <li><strong>Repeat Penalty:</strong> Bestraft das Modell f&uuml;r Wiederholungen bereits verwendeter Token. Werte &uuml;ber <code>1.0</code> (z.&nbsp;B. <code>1.1</code>) reduzieren Wiederholungen; <code>1.0</code> bedeutet keine Bestrafung. N&uuml;tzlich bei l&auml;ngeren Ausgaben. Leer lassen f&uuml;r Anbieter-Standard.</li>
+      <li><strong>Seed:</strong> Eine feste Ganzzahl, die die Generierung deterministisch macht &mdash; dasselbe Prompt mit demselben Seed liefert dieselbe Ausgabe. N&uuml;tzlich f&uuml;r reproduzierbare Tests. Leer lassen f&uuml;r zuf&auml;lligen / Anbieter-Standard.</li>
     </ul>
 
     <h3>LLM 2 &mdash; Sekund&auml;res Modell</h3>
@@ -892,7 +896,7 @@ und zeige mir dann die Zusammenfassung.</pre>
   <section id="settings">
     <h2>12 &nbsp; Einstellungen</h2>
     <ul>
-      <li><strong>LLM-Einstellungen</strong> &mdash; KI-Anbieter, Modell, API-Schl&uuml;ssel, Temperatur</li>
+      <li><strong>LLM-Einstellungen</strong> &mdash; KI-Anbieter, Modell, API-Schl&uuml;ssel, Temperatur und erweiterte Parameter (Top-K, Top-P, Repeat Penalty, Seed)</li>
       <li><strong>Datenquellen</strong> &mdash; E-Mail, Suche, Dokumente, Webseiten, Standort, SSH, Home Assistant, Slack, WhatsApp</li>
       <li><strong>Externe MCP-Server / Remote MCP-Server</strong> &mdash; Verbindung zu entfernten HTTP/SSE-MCP-Servern (PulseMCP, Smithery oder eigene URL)</li>
       <li><strong>MCP-Server-Registry</strong> <span class="pro-tag">PRO</span> &mdash; (Desktop) Python/Node.js-MCP-Server aus GitHub-, Glama-, PulseMCP- und Smithery-Katalogen durchsuchen und installieren</li>
