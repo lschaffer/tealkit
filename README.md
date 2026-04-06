@@ -156,7 +156,7 @@ TealKit is an **open agentic platform**: every capability not built-in can be ad
 
 Run TealKit without any internet connection by loading a GGUF model directly on your device — no API key required. Browse the built-in **HuggingFace catalog**, paste any direct GGUF download URL, choose **CPU / Partial GPU / Full GPU** offloading per model, and chat entirely on-device.
 
-Go to *Settings → On-device models* to download and activate a model. See the [**Embedded Models**](https://lschaffer.github.io/tealkit-privacy/guide/#embedded-models) section in the User Guide for hardware requirements and recommended models.
+Go to *Settings → On-device models* to download and activate a model. See the [**Embedded Models**](https://lschaffer.github.io/tealkit-privacy/guide/#embedded) section in the User Guide for hardware requirements and recommended models.
 
 ---
 
