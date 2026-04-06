@@ -742,6 +742,25 @@
     </ul>
     <div class="tip"><strong>Tip:</strong> Use the <em>Browse Example Prompts</em> button in the JS Tool editor to load working examples (calculator, currency converter, city geocoding) and see the expected tool structure.</div>
     <div class="tip"><strong>Tip:</strong> Use the model picker in the JS Tool wizard to switch to <strong>LLM 2</strong> for code generation &mdash; a lightweight model is often sufficient for JavaScript tool scaffolding.</div>
+
+    <h3>&#x1F9E0; Tool List Export for Model Training</h3>
+    <p>Export the complete tool list of any MCP server in a machine-readable format &mdash; ideal for fine-tuning LLMs on tool-use data or for documenting your available tools.</p>
+    <p>The export icon (<strong>&#x1F9E0; model_training</strong>) appears in multiple places:</p>
+    <ul>
+      <li><strong>Playground</strong> &mdash; tap the icon on any internal MCP server chip in the tools selector</li>
+      <li><strong>Agent editor</strong> &mdash; tap the icon next to the tool count chip on any server tile</li>
+      <li><strong>Available Tools viewer</strong> &mdash; tap the icon in the viewer header (opened from Settings &rarr; Remote MCP Servers)</li>
+      <li><strong>Discover Tools sheet</strong> &mdash; tap the icon in the sheet header when browsing a server's tool list</li>
+    </ul>
+    <p>Choose from four export formats:</p>
+    <table>
+      <tr><th>Format</th><th>Use case</th></tr>
+      <tr><td><strong>OpenAI Functions</strong></td><td>JSON array in OpenAI <code>tools</code> schema (function calling)</td></tr>
+      <tr><td><strong>Anthropic Tools</strong></td><td>JSON array in Anthropic <code>tools</code> schema</td></tr>
+      <tr><td><strong>Markdown</strong></td><td>Human-readable documentation with tool names, descriptions, and parameters</td></tr>
+      <tr><td><strong>JSONL Fine-tuning</strong></td><td>One JSON object per line, formatted for LLM fine-tuning datasets</td></tr>
+    </table>
+    <p>Tap <strong>Copy</strong> to copy the output to the clipboard, or <strong>Save to file</strong> to write it directly to disk (desktop platforms).</p>
   </section>
 
   <!-- 8 -->

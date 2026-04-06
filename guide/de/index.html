@@ -746,6 +746,25 @@
     </ul>
     <div class="tip"><strong>Tipp:</strong> Unter <em>Beispiel-Prompts durchsuchen</em> im JS-Werkzeug-Editor funktionierende Beispiele laden (Rechner, W&auml;hrungsrechner, Geocodierung), um die Werkzeugstruktur zu sehen.</div>
     <div class="tip"><strong>Tipp:</strong> Den Modell-Picker im JS-Werkzeug-Assistenten nutzen, um f&uuml;r die Code-Generierung zu <strong>LLM 2</strong> zu wechseln &mdash; ein einfaches Modell gen&uuml;gt h&auml;ufig f&uuml;r JavaScript-Werkzeug-Vorlagen.</div>
+
+    <h3>&#x1F9E0; Werkzeuglisten-Export f&uuml;r Modell-Training</h3>
+    <p>Die vollst&auml;ndige Werkzeugliste eines MCP-Servers in einem maschinenlesbaren Format exportieren &mdash; ideal f&uuml;r das Fine-Tuning von LLMs auf Werkzeugnutzungsdaten oder zur Dokumentation verf&uuml;gbarer Werkzeuge.</p>
+    <p>Das Export-Symbol (<strong>&#x1F9E0; Modell-Training</strong>) erscheint an mehreren Stellen:</p>
+    <ul>
+      <li><strong>Playground</strong> &mdash; Symbol am MCP-Server-Chip im Werkzeug-Selektor antippen</li>
+      <li><strong>Agenten-Editor</strong> &mdash; Symbol neben dem Werkzeuganzahl-Chip auf einer Server-Kachel antippen</li>
+      <li><strong>Verf&uuml;gbare Werkzeuge-Anzeige</strong> &mdash; Symbol im Viewer-Header antippen (ge&ouml;ffnet &uuml;ber Einstellungen &rarr; Remote MCP-Server)</li>
+      <li><strong>Werkzeuge entdecken</strong> &mdash; Symbol im Sheet-Header antippen, wenn die Werkzeugliste eines Servers durchsucht wird</li>
+    </ul>
+    <p>Vier Exportformate stehen zur Auswahl:</p>
+    <table>
+      <tr><th>Format</th><th>Verwendungszweck</th></tr>
+      <tr><td><strong>OpenAI Functions</strong></td><td>JSON-Array im OpenAI <code>tools</code>-Schema (Function Calling)</td></tr>
+      <tr><td><strong>Anthropic Tools</strong></td><td>JSON-Array im Anthropic <code>tools</code>-Schema</td></tr>
+      <tr><td><strong>Markdown</strong></td><td>Menschenlesbare Dokumentation mit Werkzeugnamen, Beschreibungen und Parametern</td></tr>
+      <tr><td><strong>JSONL Fine-tuning</strong></td><td>Ein JSON-Objekt pro Zeile, formatiert f&uuml;r LLM-Fine-Tuning-Datens&auml;tze</td></tr>
+    </table>
+    <p><strong>Kopieren</strong> tippen, um die Ausgabe in die Zwischenablage zu kopieren, oder <strong>Als Datei speichern</strong>, um sie direkt auf dem Desktop zu speichern.</p>
   </section>
 
   <!-- 8 -->
