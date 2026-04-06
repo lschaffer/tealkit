@@ -178,6 +178,7 @@
       <li><a href="#tips">Useful Tips</a></li>
       <li><a href="#desktop">Desktop Features</a></li>
       <li><a href="#best-practices">Best Practices</a></li>
+      <li><a href="#embedded">Embedded Models</a></li>
     </ol>
   </nav>
 
@@ -960,6 +961,16 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
        with Mistral out of the box: enter your API key under <em>Settings &rarr; LLM 1</em> and
        select <em>Mistral AI</em> as the provider. Your prompts and data stay in EU infrastructure
        at all times.</p>
+    <h3>Can I run models directly on my device without the internet?</h3>
+    <p>Yes. Go to <em>Settings &rarr; Embedded Models</em> to download GGUF models and run
+       inference fully on-device &mdash; no API key, no cloud connection. Browse the built-in
+       HuggingFace catalog or paste any direct GGUF URL. Choose CPU-only, partial GPU, or full
+       GPU offloading per model. Embedded models work best for text formatting, translation,
+       and summarisation in <strong>Chat Mode</strong>. For agentic tool calling you need both
+       a model explicitly trained for function calling (e.g. Qwen2.5-3B-Instruct) <em>and</em>
+       enough GPU VRAM to load it fully &mdash; otherwise inference is too slow or tool schemas
+       are ignored. See <a href="#embedded">Section&nbsp;19 &mdash; Embedded Models</a> for the
+       full hardware and capability guide.</p>
     <h3>Can TealKit run with smaller models on limited hardware?</h3>
     <p>Yes. TealKit supports <strong>Small Language Models (SLMs)</strong> through <strong>Ollama</strong>,
        <strong>LM Studio</strong>, or any OpenAI-compatible local endpoint &mdash; no cloud costs,
@@ -1291,8 +1302,11 @@ Create an Excel file from the returned CSV list.</pre>
           Ollama on your own server) are often sufficient and cost nothing. Configure them as
           <strong>LLM 2</strong> and use the Playground LLM selector to run code-generation prompts
           through LLM 2 while keeping your main agents on LLM 1.</li>
-      <li>In a future release, embedded models will be downloadable directly inside TealKit and
-          executed without any external server.</li>
+      <li><strong>Embedded models</strong> are now available: go to <em>Settings &rarr; Embedded Models</em>
+          to download GGUF models and run inference directly on your device &mdash; no external server
+          or API key required. Select CPU&nbsp;/ Partial GPU&nbsp;/ Full GPU offloading per model.
+          Best for simple text tasks (Chat Mode); see <a href="#embedded">Section&nbsp;19</a> for
+          hardware and tool-calling limitations.</li>
     </ul>
     <div class="tip"><strong>Tip:</strong> Write the script description as precisely as you would
       a unit test: inputs, expected output format, error behaviour, and the target shell environment
@@ -1354,6 +1368,12 @@ Create an Excel file from the returned CSV list.</pre>
           explaining their plan.</li>
       <li>Keep in mind that SLMs may not complete complex agents reliably on every run, or may
           take several minutes. Test thoroughly in the Playground before scheduling.</li>
+      <li><strong>Embedded (on-device) models</strong> follow the same rules as SLMs but with
+          additional hardware requirements &mdash; see <a href="#embedded">Section&nbsp;19</a>
+          for a full guide. Short version: without a dedicated GPU, CPU-only inference on a
+          3&nbsp;B+ model can take minutes per response; most small GGUF models were not
+          fine-tuned for tool calling and will ignore or hallucinate tool schemas even with
+          GPU acceleration.</li>
     </ul>
     <p>
       Use the <strong>LLM 1 / LLM 2 selector</strong> in the Playground to run the same prompt
@@ -1368,6 +1388,80 @@ Create an Excel file from the returned CSV list.</pre>
   </section>
 
 </div>
+
+  <!-- 19 -->
+  <section id="embedded">
+    <h2>19 &nbsp; Embedded (On-Device) Models</h2>
+    <p>Embedded models let you download GGUF model files and run inference entirely on your device &mdash;
+       no API key, no internet connection, no external server required. Go to
+       <em>Settings &rarr; Embedded Models</em> to get started.</p>
+
+    <h3>Downloading a model</h3>
+    <div class="step"><div class="step-num">1</div><div>
+      Open <em>Settings &rarr; Embedded Models</em>. Browse the built-in <strong>HuggingFace catalog</strong>
+      or tap <strong>+ Add custom URL</strong> to paste a direct <code>.gguf</code> download link.
+    </div></div>
+    <div class="step"><div class="step-num">2</div><div>
+      Select a <strong>GPU offload mode</strong> for the model: <strong>CPU only</strong>,
+      <strong>Partial GPU</strong> (layers split across CPU + GPU), or <strong>Full GPU</strong>
+      (all layers in VRAM). Models requiring more VRAM than available are filtered out automatically.
+    </div></div>
+    <div class="step"><div class="step-num">3</div><div>
+      Tap <strong>Download</strong>. A progress bar tracks the download. Once complete, tap
+      <strong>Load</strong> to load the model into memory, or it loads automatically when
+      first used.
+    </div></div>
+    <div class="step"><div class="step-num">4</div><div>
+      In the <strong>Playground</strong> or any <strong>Agent</strong>, select the embedded
+      model from the LLM selector (&ldquo;On-Device&rdquo; group). Enable
+      <strong>Chat Mode</strong> for simple text tasks to bypass tools and system-prompt overhead.
+    </div></div>
+
+    <h3>&#x26A0;&#xFE0F; Hardware &amp; capability requirements</h3>
+    <div class="note"><strong>Important &mdash; read before building agentic workflows with embedded models.</strong>
+      Embedded models are most practical for <strong>text formatting, translation, summarisation,
+      and classification</strong> tasks where no tool calls are needed (use Chat Mode).
+      For <strong>agentic tool calling</strong>, two conditions must both be met:
+      <ol>
+        <li><strong>GPU hardware:</strong> Without a dedicated GPU (e.g. Apple Silicon M-series,
+            Snapdragon 8 Elite, or a discrete GPU), models run on CPU only. Inference on a
+            3&nbsp;B+ parameter model can take <em>minutes per response</em>, making interactive
+            agents impractical. On mobile, this means a current-generation flagship device
+            (e.g. Samsung Galaxy S25 Ultra, Apple iPhone 16 Pro).</li>
+        <li><strong>Tool-calling training:</strong> Most small GGUF models were <em>not</em>
+            fine-tuned for function/tool calling. Even with full GPU acceleration they may
+            hallucinate tool names, repeat tokens, or ignore tool schemas entirely. Only models
+            explicitly trained for tool use are reliable &mdash; examples include
+            <strong>Qwen2.5-3B-Instruct</strong> and <strong>Ministral-3B</strong> in their
+            GGUF variants.</li>
+      </ol>
+      If either condition is not met, use <strong>Ollama</strong> (local server on a capable
+      machine) or a <strong>cloud provider</strong> instead.
+    </div>
+
+    <h3>Recommended use cases</h3>
+    <table>
+      <tr><th>Task</th><th>Mode</th><th>Notes</th></tr>
+      <tr><td>Text formatting / clean-up</td><td>Chat Mode</td><td>Fast; no tools needed</td></tr>
+      <tr><td>Translation</td><td>Chat Mode</td><td>Even 1&ndash;3&nbsp;B models are capable</td></tr>
+      <tr><td>Summarisation</td><td>Chat Mode</td><td>Keep context short for small models</td></tr>
+      <tr><td>Classification / tagging</td><td>Chat Mode</td><td>Simple structured output</td></tr>
+      <tr><td>Tool calling / agents</td><td>Agent mode</td><td>Requires GPU + tool-trained model (see note above)</td></tr>
+    </table>
+
+    <h3>Managing models</h3>
+    <ul>
+      <li>Tap the <strong>Unload</strong> button to free GPU/RAM without deleting the file.</li>
+      <li>Tap the <strong>Remove</strong> (&times;) button on a custom model to delete it from
+          the list. Built-in catalog models can be re-downloaded at any time.</li>
+      <li>Only one model is loaded at a time; loading a second model automatically unloads
+          the previous one.</li>
+    </ul>
+    <div class="tip"><strong>Tip:</strong> Use the <strong>LLM 1 / LLM 2 selector</strong> in
+      the Playground to compare an embedded model against a cloud model side-by-side for
+      the same prompt &mdash; a quick way to validate that the smaller model's output meets
+      your requirements before committing to it in a scheduled agent.</div>
+  </section>
 
 <footer>
   <div class="container">

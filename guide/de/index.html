@@ -178,6 +178,7 @@
       <li><a href="#tips">N&uuml;tzliche Tipps</a></li>
       <li><a href="#desktop">Desktop-Funktionen</a></li>
       <li><a href="#best-practices">Best Practices</a></li>
+      <li><a href="#embedded">Eingebettete Modelle</a></li>
     </ol>
   </nav>
 
@@ -967,6 +968,17 @@ und zeige mir dann die Zusammenfassung.</pre>
        verarbeitet. TealKit ist vollst&auml;ndig mit Mistral kompatibel: den API-Schl&uuml;ssel unter
        <em>Einstellungen &rarr; LLM 1</em> eintragen und <em>Mistral AI</em> als Anbieter ausw&auml;hlen.
        Prompts und Daten verlassen die EU-Infrastruktur zu keiner Zeit.</p>
+    <h3>Kann ich Modelle direkt auf meinem Ger&auml;t ohne Internet ausf&uuml;hren?</h3>
+    <p>Ja. Unter <em>Einstellungen &rarr; Eingebettete Modelle</em> GGUF-Modelle herunterladen
+       und vollst&auml;ndig auf dem Ger&auml;t ausf&uuml;hren &mdash; kein API-Schl&uuml;ssel, keine Cloud-Verbindung.
+       Den integrierten HuggingFace-Katalog durchsuchen oder eine direkte GGUF-URL einf&uuml;gen.
+       CPU-only, Partial GPU oder Full GPU Offloading pro Modell ausw&auml;hlbar. Eingebettete Modelle
+       eignen sich am besten f&uuml;r Textformatierung, &Uuml;bersetzung und Zusammenfassung im
+       <strong>Chat-Modus</strong>. F&uuml;r agentische Werkzeugaufrufe werden sowohl ein f&uuml;r
+       Funktionsaufrufe trainiertes Modell (z.&nbsp;B. Qwen2.5-3B-Instruct) als auch
+       ausreichend GPU-VRAM ben&ouml;tigt &mdash; sonst ist die Inferenz zu langsam oder Tool-Schemas
+       werden ignoriert. Siehe <a href="#embedded">Abschnitt&nbsp;19 &mdash; Eingebettete Modelle</a>
+       f&uuml;r die vollst&auml;ndige Hardware- und F&auml;higkeitsanleitung.</p>
     <h3>Funktioniert TealKit auch mit kleineren Modellen auf schwacher Hardware?</h3>
     <p>Ja. TealKit unterst&uuml;tzt <strong>Small Language Models (SLMs)</strong> &uuml;ber
        <strong>Ollama</strong>, <strong>LM Studio</strong> oder jeden OpenAI-kompatiblen lokalen
@@ -1301,8 +1313,11 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
           oder Ollama auf eigenem Server) oft aus und kosten nichts. Als <strong>LLM 2</strong>
           konfigurieren und den Playground-LLM-Selektor nutzen, um Code-Generierungs-Prompts
           &uuml;ber LLM 2 auszuf&uuml;hren, w&auml;hrend Haupt-Agenten auf LLM 1 bleiben.</li>
-      <li>In einer zuk&uuml;nftigen Version werden eingebettete Modelle direkt in TealKit
-          herunterladbar und ohne externen Server ausf&uuml;hrbar sein.</li>
+      <li><strong>Eingebettete Modelle</strong> sind jetzt verf&uuml;gbar: unter <em>Einstellungen &rarr; Eingebettete Modelle</em>
+          GGUF-Modelle herunterladen und Inferenz direkt auf dem Ger&auml;t ausf&uuml;hren &mdash; kein externer Server,
+          kein API-Schl&uuml;ssel erforderlich. CPU&nbsp;/ Partial GPU&nbsp;/ Full GPU Offloading pro Modell einstellbar.
+          Am besten f&uuml;r einfache Textaufgaben (Chat-Modus); Hardware- und Werkzeugaufruf-Einschr&auml;nkungen
+          sind in <a href="#embedded">Abschnitt&nbsp;19</a> beschrieben.</li>
     </ul>
     <div class="tip"><strong>Tipp:</strong> Die Skript-Beschreibung so pr&auml;zise schreiben wie
       einen Unit-Test: Eingaben, erwartetes Ausgabeformat, Fehlerverhalten und Zielumgebung
@@ -1364,6 +1379,13 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
           l&auml;sst, statt ihre Planung zu beschreiben.</li>
       <li>SLMs k&ouml;nnen komplexe Agenten m&ouml;glicherweise nicht immer zuverl&auml;ssig abschlie&szlig;en
           oder ben&ouml;tigen mehrere Minuten. Vor dem Einplanen gr&uuml;ndlich im Playground testen.</li>
+      <li><strong>Eingebettete (On-Device-) Modelle</strong> unterliegen denselben Regeln wie SLMs,
+          haben aber zus&auml;tzliche Hardwareanforderungen &mdash; eine vollst&auml;ndige Anleitung
+          findet sich in <a href="#embedded">Abschnitt&nbsp;19</a>. Kurzbeschreibung: Ohne
+          dedizierten GPU (z.&nbsp;B. Apple Silicon, Snapdragon 8 Elite) l&auml;uft die Inferenz
+          rein auf der CPU &mdash; bei einem 3&nbsp;B+-Modell kann das <em>Minuten pro Antwort</em>
+          dauern. Die meisten kleinen GGUF-Modelle wurden nicht f&uuml;r Werkzeugaufrufe trainiert
+          und ignorieren oder halluzinieren Tool-Schemas auch mit GPU-Beschleunigung.</li>
     </ul>
     <p>
       Den <strong>LLM 1 / LLM 2-Selektor</strong> im Playground nutzen, um denselben Prompt
@@ -1378,6 +1400,86 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
   </section>
 
 </div>
+
+  <!-- 19 -->
+  <section id="embedded">
+    <h2>19 &nbsp; Eingebettete (On-Device-) Modelle</h2>
+    <p>Eingebettete Modelle erm&ouml;glichen das Herunterladen von GGUF-Modelldateien und die vollst&auml;ndige
+       Inferenz auf dem Ger&auml;t &mdash; kein API-Schl&uuml;ssel, keine Internetverbindung, kein externer
+       Server erforderlich. Unter <em>Einstellungen &rarr; Eingebettete Modelle</em> starten.</p>
+
+    <h3>Modell herunterladen</h3>
+    <div class="step"><div class="step-num">1</div><div>
+      <em>Einstellungen &rarr; Eingebettete Modelle</em> &ouml;ffnen. Den integrierten
+      <strong>HuggingFace-Katalog</strong> durchsuchen oder auf <strong>+ Benutzerdefinierte URL</strong>
+      tippen und einen direkten <code>.gguf</code>-Downloadlink einf&uuml;gen.
+    </div></div>
+    <div class="step"><div class="step-num">2</div><div>
+      Einen <strong>GPU-Offload-Modus</strong> f&uuml;r das Modell w&auml;hlen: <strong>Nur CPU</strong>,
+      <strong>Partial GPU</strong> (Schichten auf CPU + GPU verteilt) oder <strong>Full GPU</strong>
+      (alle Schichten im VRAM). Modelle, die mehr VRAM ben&ouml;tigen als verf&uuml;gbar ist, werden
+      automatisch ausgefiltert.
+    </div></div>
+    <div class="step"><div class="step-num">3</div><div>
+      Auf <strong>Herunterladen</strong> tippen. Ein Fortschrittsbalken verfolgt den Download.
+      Nach Abschluss auf <strong>Laden</strong> tippen, um das Modell in den Speicher zu laden,
+      oder es wird beim ersten Verwenden automatisch geladen.
+    </div></div>
+    <div class="step"><div class="step-num">4</div><div>
+      Im <strong>Playground</strong> oder in einer <strong>Agent</strong> das eingebettete
+      Modell aus dem LLM-Selektor (Gruppe &bdquo;On-Device&ldquo;) ausw&auml;hlen.
+      F&uuml;r einfache Textaufgaben den <strong>Chat-Modus</strong> aktivieren, um Werkzeuge
+      und System-Prompt-Overhead zu umgehen.
+    </div></div>
+
+    <h3>&#x26A0;&#xFE0F; Hardware- &amp; F&auml;higkeitsanforderungen</h3>
+    <div class="note"><strong>Wichtig &mdash; vor dem Aufbau agentischer Workflows mit eingebetteten Modellen lesen.</strong>
+      Eingebettete Modelle sind am praktischsten f&uuml;r <strong>Textformatierung, &Uuml;bersetzung,
+      Zusammenfassung und Klassifizierung</strong> ohne Werkzeugaufrufe (Chat-Modus verwenden).
+      F&uuml;r <strong>agentische Werkzeugaufrufe</strong> m&uuml;ssen beide Bedingungen erf&uuml;llt sein:
+      <ol>
+        <li><strong>GPU-Hardware:</strong> Ohne dedizierten GPU (z.&nbsp;B. Apple Silicon M-Serie,
+            Snapdragon 8 Elite oder eine diskrete GPU) l&auml;uft die Inferenz rein auf der CPU.
+            Bei einem Modell mit 3&nbsp;B+ Parametern kann ein einzelner Response
+            <em>Minuten dauern</em>, was interaktive Agenten unpraktisch macht. Auf Mobilger&auml;ten
+            bedeutet das ein aktuelles Flaggschiff-Ger&auml;t (z.&nbsp;B. Samsung Galaxy S25 Ultra,
+            Apple iPhone 16 Pro).</li>
+        <li><strong>Tool-Calling-Training:</strong> Die meisten kleinen GGUF-Modelle wurden
+            <em>nicht</em> f&uuml;r Funktion-/Werkzeugaufrufe feinjustiert. Selbst mit voller
+            GPU-Beschleunigung k&ouml;nnen sie Werkzeugnamen halluzinieren, Tokens wiederholen
+            oder Tool-Schemas vollst&auml;ndig ignorieren. Nur explizit daf&uuml;r trainierte Modelle
+            sind zuverl&auml;ssig &mdash; Beispiele sind <strong>Qwen2.5-3B-Instruct</strong> und
+            <strong>Ministral-3B</strong> als GGUF-Varianten.</li>
+      </ol>
+      Wenn eine der Bedingungen nicht erf&uuml;llt ist, stattdessen <strong>Ollama</strong>
+      (lokaler Server auf einem leistungsf&auml;higen Rechner) oder einen
+      <strong>Cloud-Anbieter</strong> verwenden.
+    </div>
+
+    <h3>Empfohlene Anwendungsf&auml;lle</h3>
+    <table>
+      <tr><th>Aufgabe</th><th>Modus</th><th>Hinweis</th></tr>
+      <tr><td>Textformatierung / Bereinigung</td><td>Chat-Modus</td><td>Schnell; keine Werkzeuge n&ouml;tig</td></tr>
+      <tr><td>&Uuml;bersetzung</td><td>Chat-Modus</td><td>Selbst 1&ndash;3&nbsp;B-Modelle reichen aus</td></tr>
+      <tr><td>Zusammenfassung</td><td>Chat-Modus</td><td>Kontext f&uuml;r kleine Modelle kurz halten</td></tr>
+      <tr><td>Klassifizierung / Tagging</td><td>Chat-Modus</td><td>Einfache strukturierte Ausgabe</td></tr>
+      <tr><td>Werkzeugaufrufe / Agenten</td><td>Agenten-Modus</td><td>GPU + Tool-trainiertes Modell erforderlich (siehe oben)</td></tr>
+    </table>
+
+    <h3>Modelle verwalten</h3>
+    <ul>
+      <li>Auf <strong>Entladen</strong> tippen, um GPU/RAM freizugeben, ohne die Datei zu l&ouml;schen.</li>
+      <li>Auf die <strong>Entfernen</strong>-Schaltfl&auml;che (&times;) eines benutzerdefinierten Modells
+          tippen, um es aus der Liste zu l&ouml;schen. Integrierte Katalogmodelle k&ouml;nnen jederzeit
+          neu heruntergeladen werden.</li>
+      <li>Es kann immer nur ein Modell gleichzeitig geladen sein; beim Laden eines zweiten Modells
+          wird das vorherige automatisch entladen.</li>
+    </ul>
+    <div class="tip"><strong>Tipp:</strong> Den <strong>LLM 1 / LLM 2-Selektor</strong> im Playground
+      nutzen, um ein eingebettetes Modell direkt mit einem Cloud-Modell f&uuml;r denselben Prompt
+      zu vergleichen &mdash; eine schnelle M&ouml;glichkeit, die Ausgabequalit&auml;t zu validieren,
+      bevor das kleinere Modell f&uuml;r eine geplante Agent eingesetzt wird.</div>
+  </section>
 
 <footer>
   <div class="container">
