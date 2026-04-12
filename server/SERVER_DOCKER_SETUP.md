@@ -1,4 +1,4 @@
-# TealKit Server — Docker Setup Guide
+﻿# TealKit Server — Docker Setup Guide
 
 Run TealKit as a headless server on any always-on Linux machine (Raspberry Pi, NVIDIA Jetson Nano, Mac Mini, home-lab VM, VPS) so that your scheduled agents run 24/7 and your mobile/desktop app connects remotely.
 
@@ -19,7 +19,7 @@ Run TealKit as a headless server on any always-on Linux machine (Raspberry Pi, N
 
 ## Installation
 
-Download two files from the [releases page](https://github.com/lschaffer/tealkit-privacy/releases):
+Download two files from the [releases page](https://github.com/lschaffer/tealkit/releases):
 
 - `tealkit_server_<version>.tar.gz` — the Docker image archive
 - `install-server.sh` — the one-command setup script

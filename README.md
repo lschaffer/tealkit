@@ -1,11 +1,11 @@
-# 🐦‍⬛ TealKit
+﻿# 🐦‍⬛ TealKit
 ### The Privacy-First, Infinitely Extensible Agentic AI Platform for Mobile & Desktop
 
-![TealKit](https://lschaffer.github.io/tealkit-privacy/images/tealkit_promo.png)
+![TealKit](https://lschaffer.github.io/tealkit/images/tealkit_promo.png)
 
 **TealKit** turns your phone and computer into a powerful agentic AI platform with autonomous agents, built-in tools, and unlimited extensibility. Write your own tools in **JavaScript, Python, PowerShell, or Bash** — or connect any MCP server — and let the AI use them autonomously. Provider-independent, fully customizable, and designed for privacy.
 
-[**English User Guide**](https://lschaffer.github.io/tealkit-privacy/guide/) | [**Deutsches Handbuch**](https://lschaffer.github.io/tealkit-privacy/guide/de/) | [**Privacy Policy**](https://github.com/lschaffer/tealkit-privacy)
+[**English User Guide**](https://lschaffer.github.io/tealkit/guide/) | [**Deutsches Handbuch**](https://lschaffer.github.io/tealkit/guide/de/) | [**Privacy Policy**](https://github.com/lschaffer/tealkit)
 
 ---
 
@@ -157,13 +157,13 @@ TealKit is an **open agentic platform**: every capability not built-in can be ad
 
 Run TealKit without any internet connection by loading a GGUF model directly on your device — no API key required. Browse the built-in **HuggingFace catalog**, paste any direct GGUF download URL, choose **CPU / Partial GPU / Full GPU** offloading per model, and chat entirely on-device.
 
-Go to *Settings → On-device models* to download and activate a model. See the [**Embedded Models**](https://lschaffer.github.io/tealkit-privacy/guide/#embedded) section in the User Guide for hardware requirements and recommended models.
+Go to *Settings → On-device models* to download and activate a model. See the [**Embedded Models**](https://lschaffer.github.io/tealkit/guide/#embedded) section in the User Guide for hardware requirements and recommended models.
 
 ---
 
 ## 📖 Best Practices
 
-See the [**Best Practices**](https://lschaffer.github.io/tealkit-privacy/guide/#best-practices) section in the User Guide for tips on reducing token costs, using the script wizards effectively, and choosing the right model for each task.
+See the [**Best Practices**](https://lschaffer.github.io/tealkit/guide/#best-practices) section in the User Guide for tips on reducing token costs, using the script wizards effectively, and choosing the right model for each task.
 
 ---
 **Developed by [L. Schaffer](https://github.com/lschaffer)**
