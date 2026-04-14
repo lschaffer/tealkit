@@ -991,6 +991,32 @@ und zeige mir dann die Zusammenfassung.</pre>
        Playground oder in den Agenten-Einstellungen aktivieren, um den gesamten Werkzeug-Overhead
        zu &uuml;berspringen und den Prompt direkt an das LLM zu senden &mdash; der schnellste Weg vom
        Prompt zur Antwort f&uuml;r SLMs.</p>
+    <h3>Mein geplanter Agent mit einem eingebetteten Modell wurde unter Android nicht ausgef&uuml;hrt, als die App geschlossen war</h3>
+    <p>Das ist das erwartete Verhalten. Eingebettete (On-Device-)GGUF-Modelle erfordern, dass die
+       App ge&ouml;ffnet ist (Vordergrund oder im Hintergrund aktiv). Wenn Android die App vollst&auml;ndig
+       beendet, weckt der Hintergrund-Alarm einen leichtgewichtigen Isolate, der das On-Device-Modell
+       <strong>nicht laden kann</strong> &mdash; andernfalls droht ein Absturz oder ein OOM-Kill.
+       TealKit &uuml;berspringt die Aufgabe und sendet stattdessen eine
+       <strong>&#x1F4F1;&nbsp;&bdquo;TealKit &ouml;ffnen, um &lsquo;&hellip;&rsquo; auszuf&uuml;hren&ldquo;</strong>-Benachrichtigung.
+       Beim Antippen der Benachrichtigung &ouml;ffnet sich die App und der verpasste Durchlauf
+       wird automatisch nachgeholt.</p>
+    <p>F&uuml;r zuverl&auml;ssige unbeaufsichtigte Ausf&uuml;hrung den LLM der Agent auf einen Cloud-Anbieter
+       umstellen (Gemini, OpenAI, Anthropic, Mistral) oder einen eigenen <strong>Ollama</strong>-Server
+       verwenden. Cloud- und Ollama-Agenten laufen vollst&auml;ndig im Hintergrund, unabh&auml;ngig davon,
+       ob die App ge&ouml;ffnet ist. Auf dem <strong>Desktop (Windows, Linux, macOS)</strong> ist die
+       App immer aktiv (im System-Tray), sodass Agenten mit eingebetteten Modellen dort normal
+       ausgef&uuml;hrt werden. Der kommende <strong>Server-Modus</strong> h&auml;lt ebenfalls einen
+       dauerhaften Scheduler rund um die Uhr am Laufen, ohne die mobile App offen halten zu
+       m&uuml;ssen.</p>
+    <h3>Geplante Agenten laufen auf iOS / iPad nicht zuverl&auml;ssig</h3>
+    <p>Unter iOS steuert Apples <strong>BGAppRefreshTask</strong>-System, wann Hintergrundarbeit
+       erlaubt ist. Im Gegensatz zu Androids exaktem AlarmManager-Weckruf entscheidet iOS das
+       Timing selbst &mdash; abh&auml;ngig von Akku, Netzwerk und Nutzungsmustern. Aufgaben k&ouml;nnen
+       um Minuten bis mehrere Stunden verz&ouml;gert werden und laufen gar nicht, wenn der
+       Energiesparmodus aktiv ist oder die App zuletzt selten benutzt wurde. TealKit registriert
+       eine Best-Effort-Hintergrundaufgabe; f&uuml;r m&ouml;glichst zuverl&auml;ssige geplante Ausf&uuml;hrung
+       die App im Vordergrund oder Hintergrund lassen &mdash; nicht vollst&auml;ndig schlie&szlig;en
+       bzw. per Force-Quit beenden.</p>
   </section>
 
   <!-- 14 -->
@@ -1386,6 +1412,12 @@ Aus der zur&uuml;ckgegebenen CSV-Liste eine Excel-Datei erstellen.</pre>
           rein auf der CPU &mdash; bei einem 3&nbsp;B+-Modell kann das <em>Minuten pro Antwort</em>
           dauern. Die meisten kleinen GGUF-Modelle wurden nicht f&uuml;r Werkzeugaufrufe trainiert
           und ignorieren oder halluzinieren Tool-Schemas auch mit GPU-Beschleunigung.</li>
+      <li><strong>Android Hintergrundbeschr&auml;nkung:</strong> Agenten mit eingebettetem Modell
+          ben&ouml;tigen eine ge&ouml;ffnete App. Wenn Android die App beendet, &uuml;berspringt der
+          Hintergrund-Alarm Aufgaben mit eingebettetem Modell und sendet eine Tap-to-open-Benachrichtigung
+          (der Durchlauf wird beim n&auml;chsten &Ouml;ffnen der App nachgeholt). F&uuml;r unbeaufsichtigte
+          Ausf&uuml;hrung einen Cloud- oder Ollama-Anbieter verwenden. Auf Desktop und im Server-Modus
+          gilt diese Einschr&auml;nkung nicht.</li>
     </ul>
     <p>
       Den <strong>LLM 1 / LLM 2-Selektor</strong> im Playground nutzen, um denselben Prompt

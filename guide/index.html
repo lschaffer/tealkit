@@ -981,6 +981,29 @@ for 1 minute and saves the results to /tmp/cpu_report.txt, then show me the summ
        (translation, formatting, summarisation) enable <strong>Chat mode</strong> in Playground or
        agent settings to skip all tool overhead and send your prompt directly to the LLM &mdash;
        the fastest path from prompt to response for SLMs.</p>
+    <h3>My scheduled agent with an embedded model did not run on Android when the app was closed</h3>
+    <p>This is expected behaviour. Embedded (on-device) GGUF models require the app to be open
+       (foreground or background-alive). When Android fully kills the app, the background alarm
+       wakes a lightweight isolate that <strong>cannot load the on-device model</strong> &mdash;
+       doing so would risk a crash or out-of-memory kill. TealKit skips the task and sends a
+       <strong>&#x1F4F1;&nbsp;&ldquo;Open TealKit to run &lsquo;&hellip;&rsquo;&rdquo;</strong>
+       notification instead. Tapping the notification opens the app and the missed run is caught
+       up automatically.</p>
+    <p>For reliable unattended execution, switch the agent&rsquo;s LLM to a cloud provider
+       (Gemini, OpenAI, Anthropic, Mistral) or your own <strong>Ollama</strong> server. Cloud- and
+       Ollama-based agents run fully in the background regardless of whether the app is open.
+       On <strong>Desktop (Windows, Linux, macOS)</strong> the app always stays alive in the system
+       tray, so embedded-model agents run normally there. The upcoming
+       <strong>Server Mode</strong> also keeps a persistent scheduler running 24/7 without the
+       mobile app needing to be open.</p>
+    <h3>Scheduled agents don&rsquo;t run reliably on iOS / iPad</h3>
+    <p>On iOS, Apple&rsquo;s <strong>BGAppRefreshTask</strong> system controls when background work
+       is allowed. Unlike Android&rsquo;s exact AlarmManager wakeup, iOS decides the timing itself
+       based on battery level, network conditions, and recent app-usage patterns. Tasks may be
+       delayed by minutes to several hours and will not fire at all when Low Power Mode is on or
+       the app has not been used recently. TealKit registers a best-effort periodic background task;
+       keep the app in the foreground or background (not fully closed / force-quit) for the most
+       reliable scheduled execution on iOS.</p>
   </section>
 
   <!-- 14 -->
@@ -1374,6 +1397,11 @@ Create an Excel file from the returned CSV list.</pre>
           3&nbsp;B+ model can take minutes per response; most small GGUF models were not
           fine-tuned for tool calling and will ignore or hallucinate tool schemas even with
           GPU acceleration.</li>
+      <li><strong>Android background limit:</strong> Embedded-model agents require the app to
+          be open. If Android kills the app, the background alarm skips embedded tasks and sends a
+          tap-to-open notification (the run is caught up when you reopen the app). Use a cloud or
+          Ollama provider for agents that must run fully unattended. On Desktop and in Server Mode
+          this limitation does not apply.</li>
     </ul>
     <p>
       Use the <strong>LLM 1 / LLM 2 selector</strong> in the Playground to run the same prompt
