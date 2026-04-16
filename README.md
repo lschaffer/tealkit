@@ -105,34 +105,29 @@ TealKit is an **open agentic platform**: every capability not built-in can be ad
 
 ---
 
-## 🆓 Free vs Pro
+## 🆓 Free Forever vs Pro (After Trial)
 
-| Feature | Free | Pro |
+TealKit includes a full trial. After the trial expires without Pro, core local/manual functionality remains free forever. Pro unlocks automation, remote integrations, advanced outputs, and premium tools.
+
+| Feature | Free forever (after trial) | Pro |
 | :--- | :---: | :---: |
-| AI Playground (chat) | ✅ | ✅ |
-| Global LLM 1 & 2 config | ✅ | ✅ |
-| SSH server config & 1 script | ✅ | ✅ Unlimited |
-| 1 JavaScript MCP tool | ✅ | ✅ Unlimited |
-| 1 remote MCP server (Smithery / Glama / PulseMCP) | ✅ | ✅ Unlimited |
-| Web search (SerpDev / SerpAPI / DuckDuckGo) | ✅ | ✅ |
-| Gmail & Google Calendar | ✅ | ✅ |
-| IMAP email | ✅ | ✅ |
-| Interactive charts | ✅ | ✅ |
-| File output, Calculator, Weather, Geolocation | ✅ | ✅ |
-| 1 website to index (no auto-schedule) | ✅ | ✅ Up to 10 + auto-schedule |
-| 1 document folder + 3 files to index (no schedule) | ✅ | ✅ Unlimited + schedule |
-| 3 tasks | ✅ | ✅ Unlimited |
-| **Desktop:** 1 Python MCP tool | ✅ | ✅ Unlimited |
-| **Desktop:** 1 PowerShell script | ✅ | ✅ Unlimited |
-| **Desktop:** Install 1 Python or Node.js MCP server | ✅ | ✅ Unlimited |
+| AI Playground chat | ✅ | ✅ |
+| Manual agents with local file output | ✅ | ✅ |
+| Basic local tools: File, Toolbox, JS bridge, Python bridge, PowerShell bridge | ✅ | ✅ |
+| Global LLM configuration | ✅ LLM 1 only | ✅ |
+| SSH server configuration | ✅ | ✅ |
+| Remote MCP servers (Smithery / Glama / PulseMCP / custom URL) | — | ✅ |
+| Scheduled agents & recurring background runs | — | ✅ |
+| Website auto-index schedules | — | ✅ |
+| Document auto-index schedules | — | ✅ |
+| Email, Slack, WhatsApp and SFTP outputs | — | ✅ |
 | PDF writer & generation | — | ✅ |
 | Mermaid diagram PNG generator | — | ✅ |
 | Excel export tool | — | ✅ |
 | SFTP explorer | — | ✅ |
 | Home Assistant integration | — | ✅ |
-| Google Drive | — | ✅ |
 | Backup & restore vault | — | ✅ |
-| Agent chaining (conditional & unconditional) + Stop After Tool Call | — | ✅ |
+| Agent chaining and follow-up agents | — | ✅ |
 | Save playground chat as task | — | ✅ |
 
 ---
