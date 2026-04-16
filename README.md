@@ -5,12 +5,13 @@
 
 **TealKit** turns your phone and computer into a powerful agentic AI platform with autonomous agents, built-in tools, and unlimited extensibility. Write your own tools in **JavaScript, Python, PowerShell, or Bash** — or connect any MCP server — and let the AI use them autonomously. Provider-independent, fully customizable, and designed for privacy.
 
-[**English User Guide**](https://lschaffer.github.io/tealkit/guide/) | [**Deutsches Handbuch**](https://lschaffer.github.io/tealkit/guide/de/) | [**Privacy Policy**](https://github.com/lschaffer/tealkit)
+[**English User Guide**](https://lschaffer.github.io/tealkit/guide/) | [**Deutsches Handbuch**](https://lschaffer.github.io/tealkit/guide/de/) | [**Privacy Policy**](https://lschaffer.github.io/tealkit/)
 
 ---
 
 ## 🆕 What's New
 
+* **7-day free trial** — all Pro features are included on first launch with no credit card required. After the trial, manual agents with local file output remain free; upgrade to Pro to keep scheduled agents, Email/Slack/WhatsApp/SFTP output, remote MCP servers, agent chaining, and more.
 * **Server Mode *(coming in next release)*** — run the TealKit Server as a headless daemon on any always-on Linux device: an NVIDIA Jetson Nano Super, a Mac Mini M4 Pro, a Raspberry Pi, a home-lab VM, or a cheap VPS. Your phone or desktop app connects remotely via a secure API key while all scheduled tasks, automations, and pipelines run 24/7 without the app being open. The server talks to any LLM on a separate GPU-capable machine over the local network — keeps your data home and your compute yours. Ideal for Home Assistant control, server monitoring, daily report generation, or any long-running headless pipeline. A ready-to-deploy, security-hardened Docker image and a one-command setup script will be available to download and install directly on your local device — no registry login required, just download, `docker load`, and run.
 * **Embedded (on-device) models** — download and run GGUF models directly on your device with zero cloud dependency. Browse the HuggingFace catalog or add any GGUF URL, select CPU / Partial GPU / Full GPU offloading per model, and run inference without an API key or internet connection. Best suited for formatting, translation, and summarisation in **Chat Mode**; tool calling requires a model trained for function calling **and** sufficient GPU VRAM to load it fully. Go to *Settings → Embedded Models* to get started.
 * **Advanced LLM Parameters** — Top-k, top-p, repeat penalty and seed are now configurable in the global LLM Settings dialog (both LLM 1 and LLM 2 tabs) and in the per-task editor. Leave any field blank to use the provider's built-in default. Useful for fine-tuning output diversity and reproducibility — especially with local Ollama models where these parameters have a direct impact on generation quality.
