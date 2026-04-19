@@ -143,7 +143,7 @@ TealKit includes a full trial. After the trial expires without Pro, core local/m
 | :--- | :--- |
 | **Android** | [<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="40" alt="Get it on Google Play"/>](https://play.google.com/store/apps/details?id=at.ls.gr.tealkit) |
 | **Windows** | [<img src="https://get.microsoft.com/images/en-us%20dark.svg" height="40" alt="Get it from Microsoft"/>](https://apps.microsoft.com/detail/9nb8trlrgwr2) |
-| **iOS** | Coming soon |
+| **iOS** | [![Download on the App Store](https://img.shields.io/badge/App%20Store-iOS-black?logo=apple)](https://apps.apple.com/us/app/tealkit-private-ai-agents/id6760420939) |
 | **Linux / Mac** | Coming soon |
 
 > *Pro Tip:* Unlocking Pro on Mobile also unlocks Pro features for one linked desktop version!
