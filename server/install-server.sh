@@ -153,7 +153,12 @@ else
 fi
 
 echo "  Loading image into Docker..."
-docker load < "$TAR_FILE"
+LOAD_OUTPUT=$(docker load < "$TAR_FILE")
+echo "$LOAD_OUTPUT"
+LOADED_IMAGE=$(printf '%s\n' "$LOAD_OUTPUT" | awk -F': ' '/Loaded image:/ {print $2}' | tail -1)
+if [ -n "$LOADED_IMAGE" ]; then
+  IMAGE_NAME="$LOADED_IMAGE"
+fi
 ok "Image loaded"
 
 # Remove the unzipped .tar (keep the original .tar.gz)
@@ -224,7 +229,7 @@ services:
       - ./data:/data
     env_file: .env
     healthcheck:
-      test: ["/usr/bin/wget", "-qO-", "http://localhost:7771/health"]
+      test: ["CMD", "/usr/bin/wget", "-qO-", "http://localhost:7771/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -232,6 +237,7 @@ services:
 EOF
 
 ok "Config written to $INSTALL_DIR/"
+ok "Compose will use image $IMAGE_NAME"
 
 # ---------------------------------------------------------------------------
 # 6. Start the container
