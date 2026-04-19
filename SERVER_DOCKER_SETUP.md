@@ -73,11 +73,60 @@ Use absolute paths in app server mode, for example:
 
 ---
 
-## Secure Internet Exposure (HTTPS Proxy)
+## Option A: Local Network / Intranet (HTTP, no reverse proxy)
 
-If server should be reachable from the internet, place TealKit behind an HTTPS reverse proxy.
+Best for: Raspberry Pi, NVIDIA Jetson, local Mac, NAS, or any edge device on a trusted LAN.
+No certificates required — connect directly over HTTP on port 7771.
 
-### Small docker-compose.yml example (nginx + tealkit_server)
+### docker-compose.yml (HTTP only)
+
+```yaml
+services:
+  tealkit_server:
+    image: tealkit_server:prod-full
+    container_name: tealkit_server
+    restart: unless-stopped
+    ports:
+      - "7771:7771"          # directly exposed on LAN
+    environment:
+      - TZ=UTC
+      - TEALKIT_API_KEY=change_me
+    volumes:
+      - ./data:/data
+      - ./tealkit:/tealkit
+      - ./files:/tealkit/files
+      - ./upload:/home/tealkit/upload:ro
+```
+
+Start:
+
+```bash
+docker compose up -d
+```
+
+Health check:
+
+```bash
+curl http://<device-ip>:7771/tealkitserver/health
+```
+
+App server URL in TealKit (use device LAN IP or hostname):
+
+```text
+http://192.168.x.x:7771/tealkitserver
+```
+
+> **Security note:** Keep `TEALKIT_API_KEY` set even on a LAN.
+> Do not expose port 7771 to the internet without a reverse proxy and TLS.
+
+---
+
+## Option B: Internet / Cloud (HTTPS Reverse Proxy)
+
+Best for: cloud VPS, home server with a public domain, or any host exposed to the internet.
+Place TealKit behind an HTTPS reverse proxy (nginx + Let's Encrypt).
+
+### docker-compose.yml (nginx + tealkit_server)
 
 ```yaml
 services:
