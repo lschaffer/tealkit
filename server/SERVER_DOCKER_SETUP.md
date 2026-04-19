@@ -11,7 +11,7 @@ For GitHub release distribution, publish only:
 
 1. `tealkit_server_<version>.tar.gz` (server Docker image archive)
 2. `install-server.sh` (install helper script)
-3. `SERVER_INSTALLATION.md` (this file)
+3. `SERVER_DOCKER_SETUP.md` (this file)
 
 No Docker build files are required for end users.
 
@@ -36,17 +36,24 @@ Prerequisites:
 Install:
 
 ```bash
-# 1) Load image from release archive
-docker load < tealkit_server_<version>.tar.gz
+# 1) Download the installer from GitHub
+curl -fsSLO https://raw.githubusercontent.com/lschaffer/tealkit/master/server/install-server.sh
+chmod +x install-server.sh
 
-# 2) Run installer (creates runtime compose and starts server)
-bash install-server.sh tealkit_server_<version>.tar.gz
+# 2) Run it; the image archive is downloaded automatically from tealkit.dev
+bash install-server.sh --api-key YOUR_SERVER_API_KEY
+```
+
+Optional: use a local archive instead of downloading it again.
+
+```bash
+bash install-server.sh ./tealkit_server_<version>.tar.gz --api-key YOUR_SERVER_API_KEY
 ```
 
 Health check:
 
 ```bash
-curl http://localhost:7771/tealkitserver/health
+curl http://localhost:7771/health
 ```
 
 ---
@@ -83,7 +90,7 @@ No certificates required — connect directly over HTTP on port 7771.
 ```yaml
 services:
   tealkit_server:
-    image: tealkit_server:prod-full
+    image: tealkit_server:latest
     container_name: tealkit_server
     restart: unless-stopped
     ports:
@@ -107,13 +114,13 @@ docker compose up -d
 Health check:
 
 ```bash
-curl http://<device-ip>:7771/tealkitserver/health
+curl http://<device-ip>:7771/health
 ```
 
 App server URL in TealKit (use device LAN IP or hostname):
 
 ```text
-http://192.168.x.x:7771/tealkitserver
+http://192.168.x.x:7771
 ```
 
 > **Security note:** Keep `TEALKIT_API_KEY` set even on a LAN.
@@ -131,7 +138,7 @@ Place TealKit behind an HTTPS reverse proxy (nginx + Let's Encrypt).
 ```yaml
 services:
   tealkit_server:
-    image: tealkit_server:prod-full
+    image: tealkit_server:latest
     container_name: tealkit_server
     restart: unless-stopped
     expose:
