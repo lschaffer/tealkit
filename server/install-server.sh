@@ -172,7 +172,8 @@ fi
 INSTALL_DIR="$HOME/tealkit-server"
 ENV_FILE="$INSTALL_DIR/.env"
 
-mkdir -p "$INSTALL_DIR/data"
+mkdir -p "$INSTALL_DIR/data/db" "$INSTALL_DIR/data/output" "$INSTALL_DIR/data/logs"
+chmod 0777 "$INSTALL_DIR/data" "$INSTALL_DIR/data/db" "$INSTALL_DIR/data/output" "$INSTALL_DIR/data/logs"
 
 API_KEY=""
 
