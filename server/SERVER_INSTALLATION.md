@@ -17,15 +17,6 @@ No Docker build files are required for end users.
 
 ---
 
-## Download (Available now)
-
-Use these direct links:
-
-1. Server image archive: https://tealkit.dev/download/tealkit_server_deploy.tar.gz
-2. Installer script: https://raw.githubusercontent.com/lschaffer/tealkit/master/server/install-server.sh
-
-Then continue with quick install.
-
 ## Quick Install
 
 Prerequisites:

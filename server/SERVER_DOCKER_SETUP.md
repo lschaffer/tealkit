@@ -1,205 +1,162 @@
-﻿# TealKit Server — Docker Setup Guide
+# TealKit Server - Installation Guide
 
-Run TealKit as a headless server on any always-on Linux machine (Raspberry Pi, NVIDIA Jetson Nano, Mac Mini, home-lab VM, VPS) so that your scheduled agents run 24/7 and your mobile/desktop app connects remotely.
-
----
-
-## Prerequisites
-
-| Requirement | Minimum version | Notes |
-|---|---|---|
-| **Docker Engine** | **24.0** | Compose V2 (`docker compose`) is built in from Docker 23+. Docker Desktop 4.x on macOS/Windows is fine. |
-| **Docker Compose** | **2.20** | Bundled with Docker Engine 24. Check with `docker compose version`. |
-| **OS / architecture** | Linux x86-64 (amd64) | ARM64 (Raspberry Pi 4/5, Jetson Nano) support coming with next release. |
-| **RAM** | 256 MB free | The server binary is lean; add more if you run large Ollama models alongside it. |
-| **Disk** | 500 MB | For the image layers + your data volume. |
-| **Open port** | 7771 (TCP) | Reachable from the app. Open this port in your firewall / router NAT if accessing from outside your LAN. |
+This document is intentionally focused on **server deployment only**.
+It does **not** explain rebuilding Docker images from source.
 
 ---
 
-## Installation
+## Release Package Contents (only)
 
-Download two files from the [releases page](https://github.com/lschaffer/tealkit/releases):
+For GitHub release distribution, publish only:
 
-- `tealkit_server_<version>.tar.gz` — the Docker image archive
-- `install-server.sh` — the one-command setup script
+1. `tealkit_server_<version>.tar.gz` (server Docker image archive)
+2. `install-server.sh` (install helper script)
+3. `SERVER_INSTALLATION.md` (this file)
 
-No build toolchain or source code needed — just Docker.
+No Docker build files are required for end users.
 
-The image is a security-hardened, distroless container with zero CVEs. It ships only the AOT-compiled server binary and the DuckDB library — no Dart runtime, no shell, no package manager.
+---
 
-### Quick install (one command)
+## Download (Available now)
 
-```bash
-bash install-server.sh tealkit_server_1.1.7.tar.gz --api-key YOUR_KEY_FROM_APP
-```
+Use these direct links:
 
-> **Where is the API key?**  
-> Open the TealKit app → **Settings → Server Mode**. The key is shown in the **Server API Key** section — tap the copy icon. The app owns the key; you paste it into the server config, not the other way around.
+1. Server image archive: https://tealkit.dev/download/tealkit_server_deploy.tar.gz
+2. Installer script: https://raw.githubusercontent.com/lschaffer/tealkit/master/server/install-server.sh
 
-The script:
-1. Verifies Docker 24+ and Compose 2.20+ are installed
-2. Loads the image from the archive
-3. Asks you to paste the API key that the TealKit app generated
-4. Writes `docker-compose.yml` and `.env` into `~/tealkit-server/`
-5. Starts the container and confirms the health endpoint is responding
-6. Prints the server URL to enter in the app
+Then continue with quick install.
 
-### Manual steps
+## Quick Install
 
-```bash
-# Linux / macOS
-gunzip -c tealkit_server_1.1.7.tar.gz | docker load
+Prerequisites:
 
-# or
-docker load < tealkit_server_1.1.7.tar.gz
-```
+1. Docker 24+ with Compose V2
+2. Linux x86-64 or ARM64 host
 
-#### 2. Run with a single command
+Install:
 
 ```bash
-docker run -d \
-  --name tealkit_server \
-  --restart unless-stopped \
-  -p 7771:7771 \
-  -v tealkit_data:/data \
-  -e TEALKIT_API_KEY="YOUR_API_KEY" \
-  ghcr.io/lschaffer/tealkit-server:latest
+# 1) Load image from release archive
+docker load < tealkit_server_<version>.tar.gz
+
+# 2) Run installer (creates runtime compose and starts server)
+bash install-server.sh tealkit_server_<version>.tar.gz
 ```
 
-#### 3. Or use Docker Compose
-
-Download the provided `docker-compose.yml` setup file (included in the release), place it in an empty folder and run:
+Health check:
 
 ```bash
-docker compose up -d
+curl http://localhost:7771/tealkitserver/health
 ```
 
-**docker-compose.yml:**
+---
+
+## Required/Optional Runtime Mappings
+
+Typical runtime mounts:
+
+1. Required: `/data`
+2. Recommended: `/tealkit`
+3. Recommended: `/tealkit/files`
+4. Optional external docs (read-only): `/home/tealkit/upload`
+
+If you use optional external document indexing, map host folder to:
+
+```text
+/home/tealkit/upload
+```
+
+Use absolute paths in app server mode, for example:
+
+1. `/home/tealkit/upload`
+2. `/home/tealkit/upload/doc`
+
+---
+
+## Secure Internet Exposure (HTTPS Proxy)
+
+If server should be reachable from the internet, place TealKit behind an HTTPS reverse proxy.
+
+### Small docker-compose.yml example (nginx + tealkit_server)
 
 ```yaml
 services:
   tealkit_server:
-    image: ghcr.io/lschaffer/tealkit-server:latest
+    image: tealkit_server:prod-full
     container_name: tealkit_server
     restart: unless-stopped
-    ports:
-      - "7771:7771"
-    volumes:
-      - ./data:/data               # persistent data: DB, outputs, logs
+    expose:
+      - "7771"
     environment:
-      TEALKIT_DATA_DIR: /data
-      TEALKIT_PORT: "7771"
-      TEALKIT_HOST: "0.0.0.0"
-      TEALKIT_API_KEY: "replace-with-your-secret-key"
+      - TZ=UTC
+      - TEALKIT_API_KEY=change_me
+    volumes:
+      - /apps/containers/vol/tealkit_server/data:/data
+      - /apps/containers/vol/tealkit_server/tealkit:/tealkit
+      - /apps/containers/vol/tealkit_server/files:/tealkit/files
+      - /apps/containers/vol/tealkit_server/upload:/home/tealkit/upload:ro
+    networks:
+      - tealkit_net
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tealkit_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - tealkit_server
+    networks:
+      - tealkit_net
+
+networks:
+  tealkit_net:
+    driver: bridge
 ```
 
-Start / stop:
+### Matching nginx config example (`nginx/conf.d/default.conf`)
 
-```bash
-docker compose -f server/docker-compose.yml up -d      # start in background
-docker compose -f server/docker-compose.yml logs -f    # follow logs
-docker compose -f server/docker-compose.yml down       # stop and remove container
+```nginx
+server {
+    listen 80;
+    server_name your.domain.tld;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your.domain.tld;
+
+    ssl_certificate /etc/letsencrypt/live/your.domain.tld/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your.domain.tld/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location /tealkitserver/ {
+        proxy_pass http://tealkit_server:7771/tealkitserver/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
----
+App server URL in TealKit:
 
-## Environment variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `TEALKIT_PORT` | `7771` | HTTP port the server listens on. |
-| `TEALKIT_HOST` | `0.0.0.0` | Bind address. Use `0.0.0.0` to accept connections from outside the container. |
-| `TEALKIT_DATA_DIR` | `/data` | Root data directory inside the container (DB, output files, logs). |
-| `TEALKIT_API_KEY` | *(unset)* | Bearer token required on all non-`/health` endpoints. **Copy this from the TealKit app** (Settings → Server Mode → Server API Key). The app generates and stores the key — set the same value here so the app can authenticate. |
-
-### Where does the API key come from?
-
-The TealKit app auto-generates a unique API key when you first open **Settings → Server Mode**. The key is displayed (and can be copied) in the **Server API Key** section — it is read-only in the app.
-
-Paste that key into your `.env` file or `docker-compose.yml` on the server:
-
-```bash
-# .env
-TEALKIT_API_KEY=ffb97913-9062-4c2d-8299-8bcbd074f88f  # example — use your own
-```
-
-Or pass it directly to `install-server.sh`:
-
-```bash
-bash install-server.sh tealkit_server_1.1.7.tar.gz --api-key ffb97913-9062-4c2d-8299-8bcbd074f88f
-```
-
----
-
-## Verifying the server is running
-
-```bash
-# Health check (no API key required)
-curl http://<server-ip>:7771/health
-
-# Expected response
-{"status":"ok","version":"..."}
-```
-
----
-
-## Connecting from the TealKit app
-
-1. Open **Settings → Server Mode**.
-2. Toggle **Remote Server**.
-3. Enter `http://<server-ip>:7771` in the **Server URL** field.
-4. The **API Key** is already stored in the app — make sure the `TEALKIT_API_KEY` on the server matches exactly the key shown in the app's **Server API Key** section.
-5. Tap **Test Connection** — you should see a success message.
-
-For HTTPS (recommended over the public internet) put a reverse proxy such as Nginx or Caddy in front of the container and update the URL to `https://`.
-
----
-
-## Data persistence
-
-All server data lives in the `/data` volume:
-
-```
-/data/
-  db/        ← DuckDB database files (tasks, schedules, documents)
-  output/    ← task output files written by agents
-  logs/      ← server log files
-```
-
-The bind-mount in `docker-compose.yml` (`./data:/data`) keeps this data on the host even if the container is rebuilt or replaced.
-
-**Backup:**
-
-```bash
-# Stop the container, archive the data directory, restart
-docker compose stop
-tar czf tealkit_backup_$(date +%Y%m%d).tar.gz data/
-docker compose start
+```text
+https://your.domain.tld/tealkitserver
 ```
 
 ---
 
-## Updating the server
+## Notes
 
-Download the new `tealkit_server_<version>.tar.gz` from the releases page, then:
-
-```bash
-# Load the new image
-gunzip -c tealkit_server_<version>.tar.gz | docker load
-
-# Recreate the container with the new image
-docker compose up -d --force-recreate
-```
-
----
-
-## Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `connection refused` on port 7771 | Container not running or wrong IP | Run `docker ps` to confirm; check logs with `docker logs tealkit_server`. |
-| `401 Unauthorized` from app | API key mismatch | Copy the key shown in the app's **Settings → Server Mode → Server API Key** section and set it as `TEALKIT_API_KEY` in `.env` on the server, then restart the container. |
-| Tasks fail with "No LLM configured" | No LLM set up on the server side | Open the app, connect to the server, go to Settings → LLM and configure a provider. |
-| Container exits immediately | Port already in use | Change the host port mapping, e.g. `7772:7771`. |
-| Health check failing | Server still starting | Increase `start_period` in the healthcheck config or wait a few seconds after `docker compose up`. |
+1. Keep `TEALKIT_API_KEY` set when exposed publicly.
+2. Do not expose raw `7771` publicly if using reverse proxy.
+3. Keep certificates auto-renewed (certbot).

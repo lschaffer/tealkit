@@ -163,4 +163,23 @@ Go to *Settings → On-device models* to download and activate a model. See the 
 See the [**Best Practices**](https://lschaffer.github.io/tealkit/guide/#best-practices) section in the User Guide for tips on reducing token costs, using the script wizards effectively, and choosing the right model for each task.
 
 ---
+
+## Server App Available Now
+
+TealKit Server is now available as a downloadable Docker image archive.
+
+- Setup guide: [Server Docker Setup](server/SERVER_DOCKER_SETUP.md)
+- Download archive: https://tealkit.dev/download/tealkit_server_deploy.tar.gz
+- Installer script: [server/install-server.sh](server/install-server.sh)
+
+### Local Mode vs Server Mode
+
+| Capability | Local mode (App) | Server mode (TealKit Server) |
+| :--- | :--- | :--- |
+| Embedded on-device models (GGUF) | Supported | Not supported yet |
+| Scheduled tasks while app is closed | Limited by mobile/desktop OS background rules | Designed for 24/7 headless execution |
+| File/document paths | Local device/desktop paths | Server host paths mounted into container |
+| API/provider credentials | Stored on device | Stored on server configuration |
+| LLM endpoint location | Device-local (embedded/Ollama) or cloud | Server-side providers/endpoints (no embedded runtime) |
+
 **Developed by [L. Schaffer](https://github.com/lschaffer)**
