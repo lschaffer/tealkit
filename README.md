@@ -11,9 +11,8 @@
 
 ## 🆕 What's New
 
-* **7-day free trial** — all Pro features are included on first launch with no credit card required. After the trial, manual agents with local file output remain free; upgrade to Pro to keep scheduled agents, Email/Slack/WhatsApp/SFTP output, remote MCP servers, agent chaining, and more.
 * **Server Mode** — run the TealKit Server as a headless daemon on any always-on Linux device: an NVIDIA Jetson Nano Super, a Mac Mini M4 Pro, a Raspberry Pi, a home-lab VM, or a cheap VPS. Your phone or desktop app connects remotely via a secure API key while all scheduled tasks, automations, and pipelines run 24/7 without the app being open. The server talks to any LLM on a separate GPU-capable machine over the local network — keeps your data home and your compute yours. Ideal for Home Assistant control, server monitoring, daily report generation, or any long-running headless pipeline. A ready-to-deploy, security-hardened Docker image and a one-command setup script will be available to download and install directly on your local device — no registry login required, just download, `docker load`, and run.
-* **Embedded (on-device) models** — download and run GGUF models directly on your device with zero cloud dependency. Browse the HuggingFace catalog or add any GGUF URL, select CPU / Partial GPU / Full GPU offloading per model, and run inference without an API key or internet connection. Best suited for formatting, translation, and summarisation in **Chat Mode**; tool calling requires a model trained for function calling **and** sufficient GPU VRAM to load it fully. Go to *Settings → Embedded Models* to get started.
+* **Embedded (on-device) models** — download and run GGUF models directly on your device with zero cloud dependency, and now also **fully supported inside the TealKit Server app**. Browse the HuggingFace catalog or add any GGUF URL, select CPU / Partial GPU / Full GPU offloading per model, and run inference without an API key or internet connection. Best suited for formatting, translation, and summarisation in **Chat Mode**; tool calling requires a model trained for function calling **and** sufficient GPU VRAM to load it fully. Go to *Settings → Embedded Models* to get started.
 * **Advanced LLM Parameters** — Top-k, top-p, repeat penalty and seed are now configurable in the global LLM Settings dialog (both LLM 1 and LLM 2 tabs) and in the per-task editor. Leave any field blank to use the provider's built-in default. Useful for fine-tuning output diversity and reproducibility — especially with local Ollama models where these parameters have a direct impact on generation quality.
 * **Chat Mode** — A new toggle in Playground and agent settings (Basic tab) that bypasses the system prompt and all tools, forwarding your message directly to the LLM. Perfect for SLMs doing pure text work — translations, formatting, summarisation — where tool overhead adds latency without benefit.
 * **Agent Chaining (conditional & unconditional)** — Chain agents with or without an LLM-evaluated condition. Unconditional chaining always passes the result to the next agent. Conditional chaining evaluates an expression and routes to different follow-up agents depending on the outcome. The triggering agent's output is injected at the `[task_result]` placeholder in the chained agent's prompt.
@@ -60,7 +59,7 @@
 | **The Travel Planner** | Weather + Web Search | Checks the 2-day weather forecast for a destination. If the average temperature exceeds 12°C, the agent searches for cheap flight and train tickets — combining forecast data with live web results in one prompt. [▶ Watch demo](https://youtube.com/shorts/hArRzLPjHTM) |
 | **The Smart Home Assistant** | Weather + Home Assistant MCP | Fetches the 12-hour weather forecast for your location. If the average temperature is above 14°C, sets the Ecobee target range to 18–22°C; otherwise 21–23°C. Runs hourly to keep your thermostat automatically in sync with outdoor conditions. [▶ Watch demo](https://youtu.be/9skCLFxj1w8) |
 | **The Cost Analyst** | IMAP + Charts | Searches emails for mobile provider invoices from the current year, calculates monthly costs, and generates a pie chart summary. Scheduled to run on the 5th of every month at 8:00 AM — a recurring financial report delivered automatically. [▶ Watch demo](https://youtube.com/shorts/vo4KizDP0Yk) |
-| **The CPU Reporter** | SSH + Embedded + SFTP | Three chained agents running on embedded (phi-4-instruct Q6 on Android) and a local SLM (Ministral-3b via Ollama on Mac Mini M4 Pro) build a live server report with no cloud AI. Agent 1 runs a remote `cpu_usage` shell script over SSH for 20 seconds, collecting timestamped CPU samples. Agent 2 formats the raw output as a structured JSON list. Agent 3 generates an HTML line chart from the dataset and uploads the files to the Linux server via SFTP. [▶ Watch demo](https://youtube.com/shorts/9GHBSqfXGXk?feature=share) |
+| **The CPU Reporter** | SSH + Embedded + SFTP | Three chained agents running on embedded (phi-4-instruct Q6 on Android) and a local SLM (Ministral-3b via Ollama on Mac Mini M4 Pro) build a live server report with no cloud AI. Agent 1 runs a remote `cpu_usage` shell script over SSH for 20 seconds, collecting timestamped CPU samples. Agent 2 formats the raw output as a structured JSON list. Agent 3 generates an HTML line chart from the dataset and uploads the files to the Linux server via SFTP. [▶ Watch demo](https://youtube.com/shorts/Nlw16DYAfhI) |
 | **Tealkit Headless Mode: Mobile UI + Private Cloud Server + Remote MCP Automation** | Server Mode + Remote MCP + SFTP | TealKit Server runs in a private Linux mini-cloud behind a proxy while the Android app acts as the UI. A third-party remote MCP server provides weather sensor and battery data; a mobile-configured agent collects daily battery levels and uploads reports to SFTP. This demonstrates private, self-hosted automation with distributed MCP integration and a mobile-first control flow. [▶ Watch demo](https://youtu.be/AzwQqqbGTLo) |
 
 ### 🖥 Desktop Only
@@ -144,7 +143,7 @@ TealKit includes a full trial. After the trial expires without Pro, core local/m
 | :--- | :--- |
 | **Android** | [<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="40" alt="Get it on Google Play"/>](https://play.google.com/store/apps/details?id=at.ls.gr.tealkit) |
 | **Windows** | [<img src="https://get.microsoft.com/images/en-us%20dark.svg" height="40" alt="Get it from Microsoft"/>](https://apps.microsoft.com/detail/9nb8trlrgwr2) |
-| **iOS** | [![Download on the App Store](https://img.shields.io/badge/App%20Store-iOS-black?logo=apple)](https://apps.apple.com/us/app/tealkit-private-ai-agents/id6760420939) |
+| **iOS** | Coming soon |
 | **Linux / Mac** | Coming soon |
 
 > *Pro Tip:* Unlocking Pro on Mobile also unlocks Pro features for one linked desktop version!
@@ -163,24 +162,25 @@ Go to *Settings → On-device models* to download and activate a model. See the 
 
 See the [**Best Practices**](https://lschaffer.github.io/tealkit/guide/#best-practices) section in the User Guide for tips on reducing token costs, using the script wizards effectively, and choosing the right model for each task.
 
+### 🖥 Multiple Server Instances for Mixed-Frequency Agents
+
+If you run agents on very different schedules — for example a **monitoring agent that fires every few minutes** alongside agents that run once a day or weekly — operate them on **separate TealKit Server instances** (separate Docker containers).
+
+**Why this matters:**
+- Each server instance owns its own **DuckDB database**. A high-frequency agent writing metrics every few minutes will fragment and lock the database in ways that disrupt low-frequency agents that need long, consistent read windows.
+- A short-cycle agent (interval < 10 min) keeps the inference engine and tool runtime warm continuously. Sharing those resources with a heavy daily pipeline causes unpredictable latency spikes and potential queue saturation.
+- Isolating instances ensures a crashed or stuck high-frequency agent cannot block a critical daily report or scheduled summary.
+
+**Recommended split:**
+
+| Instance | Typical agents | Suggested schedule |
+|---|---|---|
+| **Server A — high-frequency** | System monitor, uptime checker, alert watchdog, live dashboard feed | Every 1 – 9 minutes |
+| **Server B — low-frequency** | Daily digest, weekly report, scheduled backup, data sync | Hourly, daily, or weekly |
+
+Each Docker container is fully independent — its own data volume, its own DuckDB state, and its own API key registered in the TealKit UI app. **Upcoming in the next UI release:** a built-in screen to configure and switch between multiple server instances directly from the app — each instance identified by its own API key.
+
+> **Tip:** Both instances can share the same Ollama / LM Studio / embedded-model endpoint if your compute host is separate. Only the TealKit Server process and its storage volume need to be duplicated — not the LLM itself.
+
 ---
-
-## Server App Available Now
-
-TealKit Server is now available as a downloadable Docker image archive.
-
-- Setup guide: [Server Docker Setup](server/SERVER_DOCKER_SETUP.md)
-- Download archive: https://tealkit.dev/download/tealkit_server_deploy.tar.gz
-- Installer script: [server/install-server.sh](server/install-server.sh)
-
-### Local Mode vs Server Mode
-
-| Capability | Local mode (App) | Server mode (TealKit Server) |
-| :--- | :--- | :--- |
-| Embedded on-device models (GGUF) | Supported | Not supported yet |
-| Scheduled tasks while app is closed | Limited by mobile/desktop OS background rules | Designed for 24/7 headless execution |
-| File/document paths | Local device/desktop paths | Server host paths mounted into container |
-| API/provider credentials | Stored on device | Stored on server configuration |
-| LLM endpoint location | Device-local (embedded/Ollama) or cloud | Server-side providers/endpoints (no embedded runtime) |
-
 **Developed by [L. Schaffer](https://github.com/lschaffer)**
