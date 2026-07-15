@@ -1,0 +1,1710 @@
+{
+  "@@locale": "en",
+  "appTitle": "TealKit",
+  "appSubtitle": "Your personal AI assistant",
+  "getStarted": "Get Started",
+  "viewLogs": "View Logs",
+  "playground": "Playground",
+  "playgroundHint": "Try out prompts, tools and system instructions here before scheduling a workflow.",
+  "tasks": "Workflows",
+  "firstStep": "First Step",
+  "settings": "Settings",
+  "configureLlmFirst": "Configure an LLM provider to unlock Playground and Workflows.",
+  "systemPrompt": "System Prompt",
+  "initialPrompt": "Initial Prompt",
+  "generatePrompt": "Generate",
+  "generateSystemPromptHint": "Enter a subject above, then tap ✦ to generate an AI-suggested system prompt.",
+  "promptSubject": "Subject (e.g. document search)",
+  "selectTools": "Select Tools",
+  "toolsSelected": "{count} tools selected",
+  "@toolsSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resetChat": "Reset Chat",
+  "gmailSearch": "Gmail (Search)",
+  "imapSend": "SMTP (Send)",
+  "testVia": "Test via",
+  "emailSearchGmail": "Use Gmail API for searching emails",
+  "emailSendImap": "Use SMTP for sending emails",
+  "taskScheduler": "Workflow Scheduler",
+  "newTask": "New Workflow",
+  "editTask": "Edit Workflow",
+  "createTask": "Create Workflow",
+  "saveAsTask": "Save as Workflow",
+  "deleteTask": "Delete Workflow",
+  "deleteTaskConfirm": "Are you sure you want to delete \"{name}\"?",
+  "@deleteTaskConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "taskCreated": "Workflow created",
+  "taskUpdated": "Workflow updated",
+  "taskDeleted": "Workflow \"{name}\" deleted",
+  "@taskDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSave": "Failed to save: {error}",
+  "@failedToSave": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToLoad": "Failed to load workflows: {error}",
+  "@failedToLoad": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "Save",
+  "cancel": "Cancel",
+  "ok": "OK",
+  "filterScheduledOnly": "Scheduled only",
+  "filterAllTasks": "All workflows",
+  "close": "Close",
+  "delete": "Delete",
+  "edit": "Edit",
+  "copy": "Copy",
+  "remove": "Remove",
+  "reload": "Reload",
+  "enable": "Enable",
+  "disable": "Disable",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "yes": "Yes",
+  "no": "No",
+  "tabBasic": "Basic",
+  "tabPrompts": "Prompts",
+  "tabSchedule": "Schedule",
+  "tabLlm": "LLM",
+  "tabMcp": "MCP",
+  "tabBuiltIn": "Tools",
+  "tabData": "Data Sources",
+  "tabNotify": "Output",
+  "sectionGeneral": "General",
+  "sectionPrompts": "Prompts",
+  "sectionSchedule": "Schedule",
+  "sectionExecution": "Execution",
+  "taskName": "Workflow Name *",
+  "taskNameHint": "e.g. Daily News Summary",
+  "nameRequired": "Name is required",
+  "description": "Description",
+  "descriptionHint": "What does this task do?",
+  "agentId": "Agent ID",
+  "agentIdHint": "Optional: link to a specific agent",
+  "tags": "Tags",
+  "tagsHint": "comma separated: news, daily, summary",
+  "taskEnabledSubtitle": "Workflow will run on schedule when enabled",
+  "systemPromptHint": "You are a helpful assistant...",
+  "taskPrompt": "Workflow Prompt *",
+  "taskPromptHint": "Summarize top AI news from the last 24h...",
+  "promptRequired": "Prompt is required",
+  "cronSchedule": "Cron Schedule",
+  "cronExpression": "Cron Expression *",
+  "cronFormat": "Format: minute hour day month weekday",
+  "cronRequired": "Cron expression required",
+  "scheduleDescription": "Schedule Description",
+  "scheduleDescriptionHint": "e.g. Every day at 8:00",
+  "cronEveryMinute": "Every minute",
+  "cronHourly": "Hourly",
+  "cronDaily8am": "Daily 8am",
+  "cronDaily6pm": "Daily 6pm",
+  "cronMonFri9am": "Mon-Fri 9am",
+  "cronWeeklyMon": "Weekly (Mon)",
+  "cronMonthly1st": "Monthly 1st",
+  "schedulePickerTitle": "Schedule",
+  "scheduleMinutes": "Minutes",
+  "scheduleHourly": "Hourly",
+  "scheduleDaily": "Daily",
+  "scheduleWeekly": "Weekly",
+  "scheduleMonthly": "Monthly",
+  "scheduleCustom": "Custom",
+  "scheduleEveryNMinutes": "Every {n} minutes",
+  "@scheduleEveryNMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduleEveryNHours": "Every {n} hours",
+  "@scheduleEveryNHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduleAtHour": "At hour",
+  "scheduleAtMinute": "At minute",
+  "scheduleOnDays": "On days",
+  "scheduleOnDayOfMonth": "On day of month",
+  "scheduleMon": "Mon",
+  "scheduleTue": "Tue",
+  "scheduleWed": "Wed",
+  "scheduleThu": "Thu",
+  "scheduleFri": "Fri",
+  "scheduleSat": "Sat",
+  "scheduleSun": "Sun",
+  "errorHandling": "Error Handling",
+  "maxRetries": "Max Retries",
+  "retryDelay": "Retry Delay (min)",
+  "timeout": "Timeout (sec)",
+  "retryOnFailure": "Retry on Failure",
+  "executeImmediately": "Execute Immediately",
+  "llmOverride": "LLM Override",
+  "overrideDefaultLlm": "Override default LLM config",
+  "overrideDefaultLlmSubtitle": "Use a specific model/provider for this task",
+  "provider": "Provider",
+  "model": "Model",
+  "modelHint": "e.g. gpt-4o, gemini-2.5-flash",
+  "apiKey": "API Key",
+  "apiKeyHint": "sk-...",
+  "apiKeyNotSet": "Not set",
+  "baseUrl": "Base URL",
+  "baseUrlHint": "http://localhost:11434 (for Ollama)",
+  "temperature": "Temperature",
+  "maxTokens": "Max Tokens",
+  "mcpServers": "MCP Servers",
+  "addServer": "Add Server",
+  "editMcpServer": "Edit MCP Server",
+  "addMcpServer": "Add MCP Server",
+  "noMcpServers": "No MCP servers configured",
+  "noMcpServersSubtitle": "Add a server to give this task access to external tools",
+  "discoverTools": "Discover tools",
+  "specUrl": "Spec URL",
+  "apiPassword": "API Password",
+  "serverUrl": "Server URL *",
+  "serverUrlHint": "https://example.com/myserver",
+  "urlRequired": "URL is required",
+  "mcpEndpoint": "MCP Endpoint",
+  "mcpEndpointHint": "/mcp",
+  "mcpEndpointHelper": "JSON-RPC endpoint path (default: /mcp)",
+  "specificationUrl": "Specification URL",
+  "specificationUrlHint": "Optional: OpenAPI/MCP spec endpoint",
+  "serverName": "Name",
+  "serverNameHint": "My MCP Server",
+  "optional": "Optional",
+  "enabledTools": "Enabled tools:",
+  "discovered": "Discovered:",
+  "toolsCount": "Tools ({count})",
+  "@toolsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "promptsCount": "Prompts ({count})",
+  "@promptsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resourcesCount": "Resources ({count})",
+  "@resourcesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolsChip": "{count} tools",
+  "@toolsChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "builtInMcpServers": "Built-in MCP Servers",
+  "builtInMcpSubtitle": "Internal tools that run locally in the app — no external server needed.",
+  "addToTask": "Add to task",
+  "tapToEnable": "Tap to enable this built-in MCP",
+  "typeLabel": "Type: {type}",
+  "@typeLabel": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "configuration": "Configuration",
+  "mcpSystemPrompt": "System Prompt",
+  "mcpSystemPromptHelper": "Instructs the LLM how to use this MCP's tools effectively.",
+  "mcpSystemPromptHint": "Enter system prompt…",
+  "resetToDefault": "Reset to default",
+  "appendMainSystemPrompt": "Append main system prompt",
+  "mainSystemPromptAppended": "Main system prompt appended",
+  "noMainSystemPrompt": "No main system prompt set for this task",
+  "availableTools": "Available Tools",
+  "noBuiltInMcp": "No built-in MCP servers available.",
+  "globalMcpServersNote": "These servers are configured globally in External Tools settings and are always available to this task.",
+  "noGlobalMcpServers": "No external MCP servers configured. Add them in External Tools settings.",
+  "defaultPrefix": "Default: {value}",
+  "@defaultPrefix": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSources": "Data Sources",
+  "dataSourcesSubtitle": "Enable or disable data sources for this task. Credentials are configured globally in the Data Sources settings on the start screen.",
+  "dataSourcesGlobalSubtitle": "Configure global credentials for data sources. These are stored securely on your device.",
+  "dataSourcesNotConfiguredHint": "Not configured – set up in Data Sources on the start screen",
+  "dataSourcesConfiguredHint": "Credentials configured globally",
+  "dataSourcesSettingsSaved": "Data source settings saved",
+  "dataSourcesSettingsSaveFailed": "Failed to save: {error}",
+  "@dataSourcesSettingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "dataSourcesSettingsCleared": "All data source settings cleared",
+  "dataSourcesClearTitle": "Clear all data source settings?",
+  "dataSourcesClearMessage": "This will remove all stored credentials. Data sources will need to be reconfigured.",
+  "dataSourcesConfigured": "{count} data source(s) configured",
+  "@dataSourcesConfigured": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataSourcesNone": "No data sources configured",
+  "emailProvider": "Email Provider",
+  "emailProviderSubtitle": "Read and search emails, send notifications",
+  "imapProvider": "IMAP (generic)",
+  "imapHost": "IMAP Host (inbound)",
+  "imapHostHint": "imap.example.com",
+  "imapPort": "Port",
+  "imapUsername": "Username",
+  "imapPassword": "Password",
+  "imapUseSsl": "Use SSL/TLS",
+  "smtpHost": "SMTP Host (outgoing)",
+  "smtpHostHint": "smtp.example.com",
+  "smtpPort": "SMTP Port",
+  "smtpSender": "Sender Email",
+  "smtpSenderHint": "your-email@example.com",
+  "notificationEmail": "Use for task notifications",
+  "notificationEmailHint": "Send task outputs via this email",
+  "googleServices": "Google Services",
+  "googleServicesSubtitle": "Gmail search and Google Drive access",
+  "imapSmtpEmail": "Email Send (SMTP)",
+  "imapSmtpEmailSubtitle": "Send emails via external mail server",
+  "cloudStorage": "Cloud Storage",
+  "cloudStorageSubtitle": "Access files from Google Drive or OneDrive",
+  "googleDrive": "Google Drive",
+  "oneDrive": "Microsoft OneDrive",
+  "oneDriveSubtitle": "Access files from Microsoft OneDrive",
+  "oneDriveClientId": "Application (Client) ID",
+  "oneDriveClientIdHint": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "oneDriveTenantId": "Directory (Tenant) ID",
+  "oneDriveTenantIdHint": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "gmail": "Google Mail (Gmail)",
+  "gmailSubtitle": "Read emails via Gmail API with OAuth2",
+  "gmailSetup": "You need a Google Cloud project with Gmail API enabled and OAuth2 credentials (Desktop app type).",
+  "oauthClientId": "OAuth2 Client ID *",
+  "oauthClientIdHint": "123456-abc.apps.googleusercontent.com",
+  "oauthClientSecret": "OAuth2 Client Secret *",
+  "oauthClientSecretHint": "GOCSPX-...",
+  "authorizeGoogle": "Authorize with Google",
+  "oauthAuthorizationCode": "Authorization Code",
+  "oauthAuthorizationCodeHint": "Paste the code or the full callback URL (http://localhost/?code=...)",
+  "exchangeAuthorizationCode": "Exchange Code",
+  "oauthOpenSuccess": "Google consent opened. After login, copy from browser URL (code=...) or paste the full callback URL here.",
+  "oauthOpenFailed": "Could not open Google consent screen.",
+  "oauthCodeRequired": "Authorization code is required.",
+  "oauthExchangeSuccess": "Google OAuth connected successfully.",
+  "oauthExchangeFailed": "Google OAuth exchange failed: {error}",
+  "@oauthExchangeFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthTokenStatusReady": "OAuth connected for {email}, token expires at {expiry}",
+  "@oauthTokenStatusReady": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      },
+      "expiry": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthTokenStatusMissing": "OAuth token not connected yet.",
+  "sendTestEmail": "Send Test Email",
+  "testEmailRecipient": "Test Recipient",
+  "testEmailRecipientRequired": "Test recipient email is required.",
+  "testEmailSent": "Test email sent successfully.",
+  "testEmailFailed": "Test email failed: {error}",
+  "@testEmailFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "oauthNotYet": "OAuth2 flow not yet implemented — save credentials first",
+  "na": "N/A",
+  "webSearch": "Web Search",
+  "webSearchSubtitle": "Search the web via Google or DuckDuckGo",
+  "searchProvider": "Search Provider",
+  "customProvider": "Custom Provider",
+  "customProviderSetup": "Custom provider setup",
+  "customProviderName": "Provider name",
+  "customProviderNameHint": "e.g. Internal Search API",
+  "customProviderEndpoint": "Provider endpoint URL",
+  "customProviderEndpointHint": "https://example.com/search",
+  "serperProvider": "Serper.dev",
+  "serperSetup": "Serper.dev setup",
+  "serperApiKeyHint": "serper_... or your API key",
+  "serpApiProvider": "SerpApi (Google Search)",
+  "serpApiSetup": "SerpApi uses the Google Search API. Requires an API key from serpapi.com.",
+  "serpApiKeyHint": "Your SerpApi API key",
+  "duckDuckGo": "DuckDuckGo (no API key needed)",
+  "googleCustomSearch": "Google Custom Search",
+  "googleSearchSetup": "Requires a Google Cloud API Key and a Programmable Search Engine ID (CSE).",
+  "searchEngineId": "Search Engine ID *",
+  "searchEngineIdHint": "a1b2c3d4e5f...",
+  "maxResults": "Max Results",
+  "testSearchQuery": "Test Search Query",
+  "testSearchQueryHint": "e.g. Flutter latest news",
+  "testSearch": "Test Search",
+  "testSearchSuccess": "Search successful — {count} results from {provider}.",
+  "@testSearchSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "testSearchFailed": "Search test failed: {error}",
+  "@testSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "testDriveConnection": "Test Connection",
+  "testDriveSuccess": "Connected — {count} items found in root folder.",
+  "@testDriveSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "testDriveFailed": "Drive test failed: {error}",
+  "@testDriveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "serverLoadingSettingsTitle": "Loading settings...",
+  "serverLoadingSettingsBody": "Server settings are being loaded into the app. Please wait.",
+  "serverSwitchTitle": "Switch To Server Mode",
+  "serverSwitchBody": "You are switching to server mode. Agents, schedules, and settings will use the remote server database. The local database stays separate and is not synchronized.",
+  "serverSwitchAction": "Switch",
+  "serverConnected": "Connected to server!",
+  "serverConnectionFailed": "Connection failed — check server URL and API key authorization.",
+  "serverNotReachable": "Server not reachable.",
+  "serverReachableAuthorized": "Server reachable and authorization is valid.",
+  "serverReachableUnauthorized": "Server reachable, but API key authorization failed.",
+  "serverSettingsTitle": "Server Mode Settings",
+  "serverSettingsError": "Error: {error}",
+  "@serverSettingsError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "serverSettingsUrlLabel": "Server URL",
+  "serverSettingsUrlHint": "http://192.168.1.100:7771",
+  "serverSettingsUrlHelper": "Include port; no trailing slash",
+  "serverSettingsUrlInvalid": "Enter a valid URL",
+  "serverTestConnectionButton": "Test Connection",
+  "serverConnecting": "Connecting...",
+  "serverConnectUseRemote": "Connect & Use Remote",
+  "serverAboutTitle": "About Server Mode",
+  "serverAboutBody": "Server Mode connects this app to a TealKit Server instance running on your home server, NAS, or Raspberry Pi.\n\nTask data will be read from and written to the remote server. Schedule execution also happens on the server — the app does not need to be open.",
+  "serverApiKeyTitle": "Server API Key",
+  "serverApiKeyBody": "This app has auto-generated a unique API key. Configure your TealKit Server with it so only this app can connect.",
+  "serverCopyFullKeyTooltip": "Copy full key",
+  "serverApiKeyCopied": "API key copied to clipboard",
+  "serverApiKeyEnvHint": "Set this as an environment variable when starting the server:\ndocker run -e TEALKIT_API_KEY=<key> ...",
+  "emailNotification": "Email Notification",
+  "sendEmailAfterTask": "Send email after task runs",
+  "toEmail": "To (email)",
+  "toEmailHint": "user@example.com",
+  "subject": "Subject",
+  "subjectHint": "Task Result: [task_name]",
+  "sendCondition": "Send Condition",
+  "always": "Always",
+  "onSuccess": "On Success",
+  "onFailure": "On Failure",
+  "onResultChange": "On Result Change",
+  "outputType": "Output Type",
+  "outputTypeEmail": "Email",
+  "outputTypeFile": "File",
+  "outputTypeSftp": "SFTP Upload",
+  "sftpUseConfiguredSshServer": "Use configured SSH server",
+  "sftpHost": "SFTP Host",
+  "sftpPort": "Port",
+  "sftpUsername": "Username",
+  "sftpPassword": "Password",
+  "sftpRemotePath": "Default Folder (Remote Path)",
+  "sftpRemotePathHint": "e.g. /uploads/tealkit",
+  "sftpNotifyByEmail": "Send notification e-mail after upload",
+  "sftpNotifyEmailAddress": "Notification e-mail address",
+  "sftpNotifyEmailSubject": "Subject",
+  "sftpNotifyEmailBody": "Body (leave blank for default template)",
+  "sftpNotifyEmailBodyHint": "Leave blank for auto-generated text",
+  "outputDirectory": "Output Directory",
+  "outputDirectoryHint": "Choose where generated files should be saved",
+  "outputDirectoryNote": "Directory picker availability depends on platform permissions.",
+  "outputFolderRequired": "An output folder must be selected when using File output type. Tap the folder icon to choose a directory.",
+  "chooseDirectory": "Choose Directory",
+  "fileNamePattern": "File Name Pattern",
+  "fileNamePatternHint": "task_result_{date}.txt",
+  "addExecutionLogToOutput": "Add execution log to output",
+  "zipOutputFiles": "Zip output files",
+  "runningTaskWithDuckdb": "Running task and indexing/searching with DuckDB...",
+  "openLatestFile": "Open latest file",
+  "pathNotFound": "Path not found",
+  "openFailed": "Open failed: {error}",
+  "@openFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "localSearchIndexDuckdb": "Local search index (DuckDB)",
+  "duckdbSizeLimitDescription": "Maximum indexed data size in GB. Indexing stops when the cap is reached.",
+  "duckdbSizeLimitGb": "DuckDB size limit (GB)",
+  "duckdbSizeLimitHint": "1.0",
+  "pushNotification": "Push Notification",
+  "sendPush": "Send push notification",
+  "title": "Title",
+  "titleHint": "Task completed",
+  "deviceToken": "Device Token",
+  "noTasksYet": "No workflows yet",
+  "createScheduledTask": "Create a scheduled workflow for your AI assistant",
+  "browseExamples": "Browse Examples",
+  "browseExamplesTooltip": "Pick a predefined example task",
+  "orStartFromExample": "or start from an example",
+  "initialMessage": "Initial Message",
+  "fieldRequired": "This field is required",
+  "invalidEmail": "Enter a valid email address",
+  "searchTasks": "Search workflows...",
+  "noMatchingTasks": "No matching workflows found",
+  "lastRun": "Last: {date}",
+  "@lastRun": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "nextRun": "Next: {date}",
+  "@nextRun": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "never": "Never",
+  "columnActions": "Actions",
+  "columnName": "Name",
+  "columnUpdated": "Updated",
+  "columnPrompt": "Prompt",
+  "columnSchedule": "Schedule",
+  "columnStatus": "Status",
+  "columnEnabled": "Enabled",
+  "columnLastRun": "Last Run",
+  "costLastShort": "Last",
+  "costTotalShort": "Total",
+  "executeNow": "Execute now",
+  "taskRunSuccess": "Workflow executed successfully",
+  "taskRunFailed": "Workflow execution finished with errors",
+  "taskRunError": "Workflow execution failed: {error}",
+  "@taskRunError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "statusDisabled": "Disabled",
+  "statusFailed": "Failed",
+  "statusFailedCount": "Failed ({count} in a row)",
+  "@statusFailedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "statusOk": "OK — {count} runs",
+  "@statusOk": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "statusPending": "Pending",
+  "statusPendingNeverRun": "Pending — never run",
+  "detailGeneral": "General",
+  "detailName": "Name",
+  "detailDescription": "Description",
+  "detailAgentId": "Agent ID",
+  "detailEnabled": "Enabled",
+  "detailTags": "Tags",
+  "detailCreated": "Created",
+  "detailUpdated": "Updated",
+  "detailPrompts": "Prompts",
+  "detailSystemPrompt": "System Prompt",
+  "detailPrompt": "Prompt",
+  "detailSchedule": "Schedule",
+  "detailCron": "Cron",
+  "detailHint": "Hint",
+  "detailMaxRetries": "Max Retries",
+  "detailRetryOnFailure": "Retry on Failure",
+  "detailRetryDelay": "Retry Delay",
+  "detailRetryDelayValue": "{minutes} min",
+  "@detailRetryDelayValue": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "detailExecuteImmediately": "Execute Immediately",
+  "detailLlmOverride": "LLM Override",
+  "detailProvider": "Provider",
+  "detailModel": "Model",
+  "detailBaseUrl": "Base URL",
+  "detailTemperature": "Temperature",
+  "detailMaxTokens": "Max Tokens",
+  "detailApiKey": "API Key",
+  "detailBuiltInTools": "Built-in Tools ({count})",
+  "@detailBuiltInTools": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "detailMcpTools": "MCP Tools ({count})",
+  "@detailMcpTools": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "detailProviders": "Providers",
+  "detailEmail": "Email",
+  "detailWebSearch": "Web Search",
+  "detailNotifications": "Notifications",
+  "detailEmailTo": "Email To",
+  "detailSubject": "Subject",
+  "detailSendWhen": "Send When",
+  "detailPush": "Push",
+  "detailPushTitle": "Push Title",
+  "detailDownload": "Download",
+  "detailDefaultDownloads": "Default downloads",
+  "detailUpload": "Upload",
+  "detailTotalRuns": "Total Runs",
+  "detailConsecutiveFailures": "Consecutive Failures",
+  "detailLastRun": "Last Run",
+  "detailNextRun": "Next Run",
+  "detailLastResult": "Last Result",
+  "detailLastError": "Last Error",
+  "userLog": "User Log",
+  "executionLog": "Execution Log",
+  "generatedFiles": "Generated Files",
+  "detailRunHistory": "Run History ({count})",
+  "@detailRunHistory": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "detailDuration": "Duration: {ms}ms",
+  "@detailDuration": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "detailDurationNA": "Duration: N/A",
+  "unknownError": "Unknown error",
+  "viewResult": "View result",
+  "runDate": "Run {date}",
+  "@runDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "result": "Result:",
+  "error": "Error:",
+  "configured": "configured",
+  "allTools": "all",
+  "webSearchMaxResults": "max {count}",
+  "@webSearchMaxResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "weatherSystemPrompt": "You are a weather assistant. Use the weather tools to answer questions about current conditions, hourly and daily forecasts. Always include temperature, wind speed, and precipitation probability. When the user mentions a city, geocode it first, then fetch weather data. Present results concisely with units (°C, km/h, %). If no location is specified, use the configured default.",
+  "weatherDisplayName": "Weather",
+  "weatherDescription": "Fetch weather forecasts using Open-Meteo (free, no API key). Provides current conditions, hourly and daily forecasts.",
+  "documentDisplayName": "Document Search",
+  "documentDescription": "Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides full-text search via DuckDB.",
+  "documentSystemPrompt": "You are a document search assistant. Use the document tools to find and search through local documents. When the user asks about document content, use search_documents to find relevant files, then get_document_content to read specific documents. Present results clearly with file names and relevant excerpts. If no matches found, suggest broadening the search terms.",
+  "reindexDocuments": "Reindex Documents",
+  "reindexDocumentsHint": "Re-scan the folder and rebuild the search index.",
+  "reindexing": "Indexing documents…",
+  "reindexComplete": "Indexing complete: {count} documents in {ms}ms (files: {fileSizeKb} KB, index: {indexSizeKb} KB)",
+  "@reindexComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      },
+      "fileSizeKb": {
+        "type": "String"
+      },
+      "indexSizeKb": {
+        "type": "String"
+      }
+    }
+  },
+  "reindexFailed": "Indexing failed: {error}",
+  "@reindexFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "indexingStart": "Start Indexing",
+  "indexingStop": "Stop",
+  "indexingProgress": "Indexing: {current}/{total}",
+  "@indexingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "indexingCurrentFile": "Current: {fileName}",
+  "@indexingCurrentFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "indexingCancelled": "Indexing cancelled after {count} documents",
+  "@indexingCancelled": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "indexingStrategyNow": "Index now (at initialization)",
+  "indexingStrategyLazy": "Index before first search",
+  "indexEachTime": "Index each time running the agent",
+  "indexFirstTime": "Index first time",
+  "paramLabelRootPath": "Root Path",
+  "paramLabelFileTypes": "File Types",
+  "paramLabelIndexingStrategy": "Indexing Strategy",
+  "paramLabelMaxDocuments": "Max Documents",
+  "paramLabelWebsiteUrls": "Website URLs",
+  "paramLabelMaxPages": "Max Pages",
+  "paramLabelMaxResults": "Max Results",
+  "paramLabelAccessToken": "Access Token",
+  "paramLabelUserId": "User ID",
+  "enumAuto": "Auto",
+  "llmSettings": "LLM Settings",
+  "llmSettingsSubtitle": "Configure your AI provider & model",
+  "llmSettingsInfo": "Configure your default LLM provider here. These settings are stored securely on your device and can be applied automatically when creating new tasks.",
+  "llmSettingsSaved": "LLM settings saved",
+  "llmSettingsSaveFailed": "Failed to save LLM settings: {error}",
+  "@llmSettingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSettingsCleared": "LLM settings cleared",
+  "llmClearSettingsTitle": "Clear LLM Settings",
+  "llmClearSettingsMessage": "This will remove all stored LLM credentials and configuration. Are you sure?",
+  "llmProviderLabel": "Provider",
+  "llmModelLabel": "Model",
+  "llmModelHint": "e.g. gemini-2.5-flash",
+  "llmModelRequired": "Model name is required",
+  "llmApiKeyLabel": "API Key",
+  "llmApiKeyRequired": "API key is required for this provider",
+  "llmApiKeyOptional": "API key (optional)",
+  "llmBaseUrlLabel": "Base URL",
+  "llmBaseUrlRequired": "Base URL is required for this provider",
+  "llmUseNativeToolCall": "Use native tool calling",
+  "llmUseNativeToolCallDescription": "Use Ollama native tool calling capabilities instead of text-based tools.",
+  "llmUseSafeToolCall": "Safe tool call mode",
+  "llmUseSafeToolCallDescription": "Use grammar-constrained decoding to prevent malformed tool calls. Works even for models without native tool calling.",
+  "llmAdvancedSettings": "Advanced Settings",
+  "llmTemperatureRange": "Must be between 0.0 and 2.0",
+  "llmMaxTokensRange": "Must be a positive number",
+  "llmConfiguredStatus": "Configured: {provider} / {model}",
+  "@llmConfiguredStatus": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmNotConfigured": "Not configured",
+  "llmApplyDefaults": "Apply default LLM settings",
+  "llmApplyDefaultsSubtitle": "Fill the fields below from your saved LLM settings",
+  "llmDefaultsApplied": "Default LLM settings applied",
+  "llmNoDefaults": "No default LLM settings configured. Open LLM Settings from the home screen first.",
+  "llmAdvancedParams": "Advanced Parameters",
+  "topK": "Top K",
+  "topKTooltip": "Limits vocabulary to the top-K tokens at each step. Lower = more deterministic. Range: 1–100.",
+  "topP": "Top P",
+  "topPTooltip": "Nucleus sampling cutoff. Lower = more focused output. Range: 0.0–1.0.",
+  "repeatPenalty": "Repeat Penalty",
+  "repeatPenaltyTooltip": "Penalizes repeating tokens. Values > 1.0 reduce repetition. Range: 0.5–2.0.",
+  "seed": "Seed",
+  "seedTooltip": "Random seed for reproducible outputs. Leave empty for random.",
+  "llm2EditableSettings": "LLM 2 settings (editable for this task)",
+  "llm2SettingsOverrideHint": "Pre-filled from your LLM 2 global settings. Changes apply only to this task.",
+  "interactiveMode": "Interactive",
+  "interactiveModeTooltip": "Test this task interactively",
+  "interactiveModeTitle": "Interactive Mode",
+  "interactiveNoLlm": "No LLM configured. Please configure LLM settings first.",
+  "interactiveConnecting": "Connecting to MCP servers…",
+  "interactiveReady": "Ready — type a message to test this task",
+  "interactiveSystemPromptLocked": "System prompt locked from task config",
+  "interactiveToolsAvailable": "{count} tools available",
+  "@interactiveToolsAvailable": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactiveNoTools": "No tools configured",
+  "interactiveDisconnect": "Disconnect & Close",
+  "sectionRawOutput": "Raw Output",
+  "sectionOutputUser": "Output User",
+  "sectionOutputFiles": "Output Files",
+  "sectionSchedulerLog": "Scheduler Log",
+  "noRawOutput": "No raw output recorded for last run",
+  "noOutputUser": "No user output recorded",
+  "noOutputFiles": "No output files found",
+  "noSchedulerLog": "No scheduler events recorded",
+  "schedulerEventScheduled": "Scheduled",
+  "schedulerEventFired": "Fired",
+  "schedulerEventStarted": "Started",
+  "schedulerEventCompleted": "Completed",
+  "schedulerEventFailed": "Failed",
+  "schedulerEventSkipped": "Skipped",
+  "schedulerEventAlarm": "Alarm",
+  "schedulerActivity": "Background Activity",
+  "schedulerActivityTitle": "Background Activity · Last 48 h",
+  "outputFileRunDir": "Run {date}",
+  "@outputFileRunDir": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "daysToLive": "Days to keep output files",
+  "copyToClipboard": "Copy to clipboard",
+  "copiedToClipboard": "Copied to clipboard",
+  "schedulerLogDetail": "Detail: {detail}",
+  "@schedulerLogDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tabChaining": "Chaining",
+  "chainThisTaskSection": "This Task",
+  "chainIsSubtask": "Following agent mode",
+  "chainIsSubtaskHint": "Only run when triggered by another agent — scheduler is ignored",
+  "chainSubtaskHint": "Tip: prefix the target agent's prompt with the placeholder [task_result] to inject the triggering agent's output.",
+  "chainTriggerSection": "Trigger Follow-up Agent",
+  "chainTriggerSectionHint": "After this agent completes, optionally run another agent based on an LLM-evaluated condition.",
+  "chainWithCondition": "With condition",
+  "chainWithConditionHint": "Evaluate an LLM condition to pick between two follow-up agents.",
+  "chainDirectFollowup": "Following agent (no condition)",
+  "chainDirectFollowupHint": "Always trigger this agent after completion, passing [task_result].",
+  "stopAfterToolCall": "Stop after tool call",
+  "stopAfterToolCallHint": "Execute the tool call but don't send the result back to the LLM. The tool output becomes [task_result] for the following agent. With multiple steps: each step stops after its first tool call and the next step starts immediately.",
+  "chainCondition": "Condition (LLM evaluated)",
+  "chainConditionHint": "e.g. temperature is below 10 degrees",
+  "chainConditionHelper": "Leave empty to always run the on-match task. In the target task's prompt, write [task_result] to inject this task's output.",
+  "chainOnMatch": "If condition matches — run agent",
+  "chainOnNoMatch": "If condition does NOT match — run agent (else)",
+  "chainTaskIdHint": "Agent ID...",
+  "chainPickTask": "Pick Following Agent",
+  "chainTaskResultHint": "In any chained agent's prompt, write [task_result] to inject this agent's output.",
+  "noTasksAvailable": "No agents available",
+  "noSubtasksAvailable": "No following agents found. Enable 'Following agent mode' on an agent first.",
+  "scheduleDisabledSubtask": "Schedule inactive — this agent runs as a following agent and is triggered by another agent.",
+  "detailChainConfig": "Agent Chaining",
+  "detailChainIsSubtask": "Following agent mode",
+  "detailChainCondition": "Condition",
+  "detailChainOnMatch": "On match → task",
+  "detailChainOnNoMatch": "On no match → task",
+  "wizardLlmDescription": "Set provider, model, and API key. This is required before running tasks.",
+  "wizardOpenLlmSettings": "Open LLM Settings",
+  "wizardDataSourcesDescription": "Set up Gmail, IMAP, web search, and cloud storage credentials.",
+  "wizardOpenDataSources": "Open Data Sources",
+  "wizardExternalToolsTitle": "Remote MCP Servers",
+  "wizardExternalToolsDescription": "Configure remote MCP servers accessible via HTTPS/SSE for use in your tasks.",
+  "wizardOpenExternalTools": "Open Remote Servers",
+  "requiredLabel": "Required",
+  "generalSection": "General",
+  "generalSectionDescription": "Theme, language, and backup settings.",
+  "themeLabel": "Theme",
+  "themeToggleTooltip": "Cycle: Dark → System → Light",
+  "languageLabel": "Language",
+  "languageToggleTooltip": "Toggle language",
+  "defaultOutputDir": "Default Output Directory",
+  "defaultOutputDirDescription": "Folder where task results, output logs and execution logs are always saved.",
+  "defaultOutputDirNotSet": "Not set — using app documents folder",
+  "outputRetentionDays": "Keep files for (days)",
+  "outputRetentionDaysDescription": "Output folders older than this are automatically deleted.",
+  "backgroundCheckInterval": "Background check interval",
+  "backgroundCheckIntervalDescription": "How often the app wakes up in the background to check for scheduled tasks. A shorter interval is more responsive but uses slightly more battery.",
+  "exportBackup": "Export",
+  "exportBackupDescription": "Tasks & MCP server definitions (no API keys)",
+  "importBackup": "Import",
+  "importBackupDescription": "Restore tasks & MCP servers from a JSON file",
+  "exportFailed": "Export failed: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportSavedToDownloads": "Saved to Downloads: {fileName}",
+  "@exportSavedToDownloads": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "exportSuccess": "Backup exported successfully",
+  "phaseConfiguringLlm": "Configuring LLM…",
+  "phaseConnectingExternalMcp": "Connecting external MCP servers…",
+  "phaseConnectingInternalMcp": "Initializing built-in tools…",
+  "chatSessionReset": "Chat session reset and reinitialized",
+  "filterToolsHint": "Filter tools…",
+  "noActiveTask": "No active task. Please select a task first.",
+  "resetChatSessionTooltip": "Reset chat session",
+  "chatStartHint": "Send a message to start…",
+  "externalToolsScreenTitle": "Remote MCP Servers",
+  "searchMcpCatalogTooltip": "Search MCP servers",
+  "catalogUrlSaved": "Catalog URL saved",
+  "failedToSaveUrl": "Failed to save URL: {error}",
+  "@failedToSaveUrl": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "testingServerMsg": "Testing {name}…",
+  "@testingServerMsg": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTestSuccessMsg": "MCP server test successful. {detail}",
+  "@mcpTestSuccessMsg": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTestFailedMsg": "MCP test failed: {error}",
+  "@mcpTestFailedMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "serverUrlRequiredForTest": "Server URL is required for test.",
+  "customServerAdded": "Custom MCP server added",
+  "failedToAddCustomServer": "Failed to add custom server: {error}",
+  "@failedToAddCustomServer": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "externalToolsGlobalInfo": "Configure remote MCP servers accessible over HTTPS/SSE. Add any server that exposes an MCP endpoint — no local installation needed.",
+  "catalogUrlLabel": "Catalog URL",
+  "saveUrlButton": "Save URL",
+  "smitheryApiKeyLabel": "Smithery API Key",
+  "smitheryApiKeyHint": "Get yours at smithery.ai/account/api-keys",
+  "smitheryApiKeyHelper": "Applied automatically to every server.smithery.ai endpoint that has no per-server key.",
+  "smitheryApiKeySaved": "Smithery API key saved",
+  "saveSmitheryKeyButton": "Save Smithery Key",
+  "addCustomMcpServerTitle": "Add custom MCP server",
+  "mcpApiKeyBearerHint": "Used as Bearer token",
+  "mcpApiKeyOptionalLabel": "API Key (optional)",
+  "apiPasswordOptionalLabel": "API Password (optional)",
+  "mcpApiKeyBearerHelper": "For Smithery.ai servers: use your Smithery API key (smithery.ai → Settings → API Keys). It is sent as Authorization: Bearer with every request.",
+  "mcpApiPasswordOptionalHint": "Optional auth fallback",
+  "testButton": "Test",
+  "addButton": "Add",
+  "selectedMcpServersTitle": "Selected MCP Servers",
+  "selectedServersCount": "{count} selected",
+  "@selectedServersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noExternalToolsYet": "No remote MCP servers configured yet. Tap + to add a server URL.",
+  "serverStatusTooltip": "Status: {status}",
+  "@serverStatusTooltip": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "statusOnline": "Online",
+  "statusOffline": "Offline",
+  "statusUnknown": "Unknown",
+  "cloudMcpStatusLabel": "Cloud MCP · {status}",
+  "@cloudMcpStatusLabel": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "apiKeyConfiguredLabel": "API key configured",
+  "apiKeyMissingLabel": "API key missing",
+  "startPlayground": "Start Playground",
+  "initialPromptHint": "Optional first message — pre-filled in the chat input when Playground starts.",
+  "scriptLibraryTooltip": "Script Library",
+  "scriptLibraryUpdated": "Script library updated",
+  "toolboxChangesWarning": "Changes will reset the current session",
+  "toolSelectionBuiltIn": "Built-in",
+  "toolSelectionExternal": "External MCP Servers",
+  "chatSendHint": "Send a message to start…",
+  "systemPromptTapToEdit": "{label} (tap to edit)",
+  "@systemPromptTapToEdit": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "websiteUrlLabel": "Website URL",
+  "maxPagesLabel": "Max pages",
+  "websiteUrlInvalid": "Typed URL is invalid.",
+  "websiteUrlReady": "Ready to add and index this URL.",
+  "websiteUrlAlreadyAdded": "URL already selected or max websites reached.",
+  "websiteUrlLimitHint": "Add up to 3 sites. Indexed pages are stored in DuckDB. Max pages: {maxPages}.",
+  "@websiteUrlLimitHint": {
+    "placeholders": {
+      "maxPages": {
+        "type": "int"
+      }
+    }
+  },
+  "addUrlButton": "Add URL",
+  "noWebsitesSelected": "No websites selected",
+  "websitesSelectedCount": "{count} website(s) selected",
+  "@websitesSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "indexingActive": "Indexing…",
+  "deleteScriptTitle": "Delete script?",
+  "deleteScriptConfirm": "Delete \"{name}\"? This cannot be undone.",
+  "@deleteScriptConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shellScriptLibraryTitle": "Shell Script Library",
+  "newScriptTooltip": "New script",
+  "noScriptsYet": "No scripts yet.",
+  "createFirstScriptHint": "Tap + to create a new shell script.",
+  "createScriptButton": "Create Script",
+  "scriptDeletedMsg": "Deleted \"{name}\"",
+  "@scriptDeletedMsg": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editScriptTooltip": "Edit",
+  "deleteScriptTooltip": "Delete",
+  "newShellScriptTitle": "New Shell Script",
+  "editScriptDialogTitle": "Edit Script",
+  "scriptNameLabel": "Script name",
+  "scriptNameHint": "e.g. disk_cleanup.sh",
+  "scriptDescriptionHint": "What does this script do?",
+  "generateWithAiLabel": "Generate with AI",
+  "generateScriptHint": "Describe what the script should do…",
+  "describeForGeneration": "Describe what the script should do.",
+  "withCommentsLabel": "With comments",
+  "generateButton": "Generate",
+  "noLlmForScript": "No LLM configured. Set one in Settings or open a chat task first.",
+  "scriptContentLabel": "Script content",
+  "insertIntoPromptButton": "Insert into task prompt",
+  "insertedIntoPromptMsg": "Inserted into task prompt.",
+  "scriptNameRequiredMsg": "Script name is required.",
+  "scriptSaveFailed": "Save failed: {error}",
+  "@scriptSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scriptGenerationFailed": "Generation failed: {error}",
+  "@scriptGenerationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sshScriptLibraryNote": "Scripts for SSH can be added or generated in the script library.",
+  "openButtonLabel": "Open",
+  "externalMcpGlobalTitle": "External MCP Servers (global)",
+  "externalMcpGlobalSubtitle": "Toggle which global servers are active for this task.",
+  "browseDriveTooltip": "Browse Drive",
+  "googleDriveLabel": "Google Drive",
+  "noSubfoldersLabel": "No subfolders",
+  "addGoogleDriveFolder": "Add folder",
+  "selectRootLabel": "Select root",
+  "selectHereLabel": "Select here",
+  "generatePromptTopicHint": "Topic (e.g. document search...)",
+  "generateLabel": "Generate",
+  "applyLabel": "Apply",
+  "systemPromptTitleLabel": "System Prompt",
+  "taskPromptTitleLabel": "Task Prompt",
+  "clear": "Clear",
+  "execInitializing": "Initializing task…",
+  "execSendingPrompt": "Sending prompt to AI…",
+  "execAiError": "AI error: {error}",
+  "@execAiError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "execNoResponse": "No response from LLM received.",
+  "execNoLlmResponse": "Empty LLM response",
+  "execEmailSent": "Email sent",
+  "execEmailSentWithMsg": "Email sent: {message}",
+  "@execEmailSentWithMsg": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "execEmailError": "Email error: {error}",
+  "@execEmailError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "execCompleted": "Execution completed.",
+  "execError": "Error: {error}",
+  "@execError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "execNotReady": "Task runtime not ready. LLM configured?",
+  "execCheckChain": "Checking chain condition…",
+  "execChainDone": "Chain task executed.",
+  "execChainError": "Chain error: {error}",
+  "@execChainError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "applyAndReset": "Apply & Reset",
+  "noToolsAvailable": "No tools available",
+  "websiteIndexComplete": "Website index complete: {count} pages in {ms}ms",
+  "@websiteIndexComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "invalidWebsiteUrl": "Invalid website URL",
+  "maxWebsitesReached": "Maximum 3 websites allowed.",
+  "aboutTitle": "About TealKit",
+  "userGuide": "User Guide",
+  "privacyPolicy": "Privacy Policy",
+  "psScriptLibraryTitle": "PowerShell Script Library",
+  "psNewScriptTooltip": "New PowerShell Script",
+  "psDeleteScriptTitle": "Delete PowerShell Script",
+  "psDeleteScriptConfirm": "Delete \"{name}\"?",
+  "@psDeleteScriptConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "psScriptDeleted": "Deleted: {name}",
+  "@psScriptDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "psNoScriptsYet": "No PowerShell scripts yet",
+  "psCreateFirstScriptHint": "Create your first PowerShell script.",
+  "psCreateScriptButton": "Create PowerShell Script",
+  "psNewScriptDialogTitle": "New PowerShell Script",
+  "psEditScriptDialogTitle": "Edit PowerShell Script",
+  "psScriptNameRequired": "Script name is required.",
+  "psSaveFailed": "Save failed: {error}",
+  "@psSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "psNoScriptContent": "No script content to test.",
+  "psWindowsOnlyTest": "PowerShell test is only available on Windows.",
+  "psTestRunTitle": "Test Run",
+  "psTestRunParams": "Parameters (optional args passed to the script):",
+  "psTestRunFailed": "Test Run Failed",
+  "psTestOutput": "Test Output (exit code: {code})",
+  "@psTestOutput": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "psRunsLocally": "Runs locally on this Windows machine",
+  "psNoLlmConfigured": "No LLM configured.",
+  "psGenerationFailed": "Generation failed: {error}",
+  "@psGenerationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "psLoadSamplesTooltip": "Load sample scripts",
+  "psSamplesLoadedMsg": "{count} sample scripts added.",
+  "@psSamplesLoadedMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultTitle": "Settings Vault",
+  "vaultSubtitle": "Export & import all settings, scripts and tasks — encrypted (.tkv)",
+  "vaultScreenTitle": "Encrypted Settings Backup",
+  "vaultScreenDesc": "Save all API keys, credentials and integrations to an AES-256 encrypted file.",
+  "vaultIncludedLabel": "Included (selectable per export)",
+  "vaultIncludedText": "Configuration: LLM / API keys / email / SSH / integrations\nScripts: JS  •  PowerShell  •  Python  •  SSH scripts\nTasks: all tasks with custom LLM, SSH settings & credentials",
+  "vaultExcludedLabel": "Never included",
+  "vaultExcludedText": "Conversation history  •  DuckDB document index",
+  "vaultExportSection": "Export vault",
+  "vaultExportHint": "Choose a folder, then set filename, password and which sections to include.",
+  "vaultChooseFolderExport": "Choose Folder & Export",
+  "vaultEncrypting": "Encrypting...",
+  "vaultSaved": "Vault saved: {name}",
+  "@vaultSaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultExportFailed": "Export failed: {error}",
+  "@vaultExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultImportSection": "Import vault",
+  "vaultImportHint": "Select a .tkv file to restore credentials and settings.",
+  "vaultPickFileImport": "Pick File & Restore",
+  "vaultDecrypting": "Decrypting...",
+  "vaultRestored": "Vault restored from {name}",
+  "@vaultRestored": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultImportFailed": "Import failed: {error}",
+  "@vaultImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultDialogExportTitle": "Export Vault",
+  "vaultDialogImportTitle": "Import Vault",
+  "vaultDialogPassword": "Password",
+  "vaultDialogPasswordMin": "Min. 8 characters",
+  "vaultDialogPasswordHint": "Vault password",
+  "vaultDialogPasswordLabel": "Password (min. 8 chars)",
+  "vaultDialogConfirmPassword": "Confirm password",
+  "vaultDialogEnterVaultPassword": "Enter vault password",
+  "vaultDialogPasswordShort": "At least 8 characters",
+  "vaultPasswordMismatch": "Passwords do not match",
+  "vaultDialogFilenameLabel": "Filename (.tkv)",
+  "vaultDialogEnterFilename": "Enter a filename",
+  "vaultDialogIncludeLabel": "Include in vault:",
+  "vaultDialogSelectRestore": "Select what to restore:",
+  "vaultDialogFrom": "From: {name}",
+  "@vaultDialogFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultSectionConfiguration": "Configuration",
+  "vaultSectionConfigurationDesc": "LLM, API keys, email, SSH, integrations, all settings",
+  "vaultSectionScripts": "Scripts",
+  "vaultSectionScriptsDesc": "JS, PowerShell, Python, SSH scripts",
+  "vaultSectionScriptsMobileDesc": "JS & SSH scripts (PowerShell/Python skipped on mobile)",
+  "vaultSectionTasks": "Tasks",
+  "vaultSectionTasksDesc": "All tasks with custom LLM, SSH settings & API keys",
+  "vaultSectionSessions": "Playground Setups",
+  "vaultSectionSessionsDesc": "Saved playground configurations (tools & prompts)",
+  "vaultSectionSkills": "Tool Skills",
+  "vaultSectionSkillsDesc": "LLM-generated procedural skill guides for MCP tools",
+  "vaultGreyedNotice": "Greyed items are not present in this vault file.",
+  "vaultExportButton": "Export",
+  "vaultRestoreButton": "Restore",
+  "skillsScreenTitle": "Tool Skills",
+  "skillsScreenSubtitle": "{count} skills — enabled skills are injected into system prompts for tasks that use those tools.",
+  "@skillsScreenSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsEmptyHint": "No skills yet.\nStart a chat to trigger auto-generation.",
+  "skillsFilterHint": "Filter by tool or server…",
+  "skillsCustomBadge": "Custom (manually edited)",
+  "skillsMenuRegenerate": "Regenerate non-custom",
+  "skillsMenuRegenerateDesc": "Re-generate auto skills, keep custom ones",
+  "skillsMenuRebuild": "Rebuild (scan all tools)",
+  "skillsMenuRebuildDesc": "Overwrite all  •  or  •  add missing only",
+  "skillsRebuildDialogTitle": "Rebuild skills",
+  "skillsRebuildDialogDesc": "Choose how to rebuild skills for all registered MCP tools.",
+  "skillsRebuildOverwriteTitle": "Overwrite all skills",
+  "skillsRebuildOverwriteDesc": "Delete every skill (including custom ones) and regenerate all from scratch.",
+  "skillsRebuildAddMissingTitle": "Add missing skills only",
+  "skillsRebuildAddMissingDesc": "Keep existing skills. Generate only for tools that have no skill yet.",
+  "skillsEditDialogTitle": "Edit skill: {toolName}",
+  "@skillsEditDialogTitle": {
+    "placeholders": {
+      "toolName": {
+        "type": "String"
+      }
+    }
+  },
+  "skillsFullSkillLabel": "Full skill (large models)",
+  "skillsSlmSkillLabel": "SLM skill (small / embedded models)",
+  "docFileTypesLabel": "File types to index",
+  "docFileTypesReset": "Reset",
+  "docFileTypesAll": "All",
+  "loadModelIntoApp": "Load into app",
+  "unloadModel": "Unload",
+  "modelLoadedInApp": "In memory",
+  "loadingModelIntoApp": "Loading into app…",
+  "loadingModelProgress": "Loading model… {percent}%",
+  "@loadingModelProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "loadModelFailed": "Failed to load model",
+  "execLoadingEmbeddedModel": "Loading embedded model…",
+  "mcpRegistryInstallManuallyTooltip": "Install manually",
+  "mcpManualInstallDialogTitle": "Install MCP Server Manually",
+  "mcpManualInstallDialogSubtitle": "Install an MCP server that is not listed in any registry.",
+  "mcpManualInstallNameLabel": "Name",
+  "mcpManualInstallNameHint": "e.g. Puppeteer MCP",
+  "mcpManualInstallUrlLabel": "URL (optional)",
+  "mcpManualInstallUrlHint": "https://github.com/…",
+  "mcpManualInstallTypeLabel": "Type",
+  "mcpManualInstallMethodLabel": "Method",
+  "mcpManualInstallTypeNodejs": "Node.js",
+  "mcpManualInstallTypePython": "Python",
+  "mcpManualInstallMethodNpm": "npm install -g",
+  "mcpManualInstallMethodNpx": "npx (on-demand)",
+  "mcpManualInstallMethodUvx": "uvx (recommended)",
+  "mcpManualInstallMethodPip": "pip install",
+  "mcpManualInstallPackageLabel": "Package / server name",
+  "mcpManualInstallPackageHint": "e.g. puppeteer-mcp-server",
+  "mcpManualInstallCommandLabel": "Install command(s)",
+  "mcpManualInstallCommandHint": "One command per line. Lines starting with # are comments.",
+  "mcpManualInstallRegenerateTooltip": "Re-generate command",
+  "mcpManualInstallExecuteSaveButton": "Execute & Save",
+  "mcpManualInstallRunningButton": "Running…",
+  "mcpManualInstallDoneButton": "Done",
+  "mcpManualInstallNoCommandsMsg": "No install commands to run (on-demand launcher). Registering server…",
+  "mcpManualInstallSuccessMsg": "✓ Install succeeded. Saving server…",
+  "mcpManualInstallSaveFailedPrefix": "Save failed: ",
+  "mcpManualInstallCloseButton": "Close",
+  "tooltipCopyMessage": "Copy message",
+  "tooltipDownloadFile": "Download file",
+  "tooltipCopyResult": "Copy result",
+  "tooltipViewAllEmails": "View all emails",
+  "tooltipViewAllFiles": "View all files",
+  "tooltipViewFullScreen": "View full screen",
+  "tooltipExportToPdf": "Export to PDF",
+  "tooltipDownloadImage": "Download image",
+  "tooltipShareFile": "Share file",
+  "tooltipCopyFolderPath": "Copy folder path",
+  "tooltipFileDetails": "File details",
+  "tooltipCopyAll": "Copy all",
+  "tooltipReadResource": "Read resource",
+  "tooltipCopySchema": "Copy schema",
+  "tooltipRefresh": "Refresh",
+  "tooltipNewFolder": "New folder",
+  "tooltipUploadFile": "Upload file",
+  "tooltipUploadEnterPath": "Upload (enter source path)",
+  "tooltipNoChanges": "No changes",
+  "tooltipUploadToServer": "Upload to server",
+  "tooltipRename": "Rename",
+  "tooltipDeleteFile": "Delete file",
+  "tooltipStopProcessing": "Stop processing",
+  "tooltipExportToolList": "Export tool list for model training",
+  "tooltipDiscoverTools": "Discover tools",
+  "labelImageNotAvailable": "Image not available",
+  "labelExcelFile": "Excel file",
+  "labelWordDocument": "Word document",
+  "labelNoContent": "No content",
+  "labelNoResultYet": "No result yet",
+  "labelNoMatchingEmails": "No matching emails.",
+  "labelFilterEmails": "Filter emails…",
+  "labelFileNotFound": "File not found at this path",
+  "labelToolNoResultData": "Tool executed but no result data available",
+  "labelToolCalledNoData": "Tool called but no result data available",
+  "labelEmptyToolResult": "[Empty tool result]",
+  "labelEmailBodyEmpty": "Email body is empty.",
+  "labelFailedParseEmail": "Failed to parse email response.",
+  "labelShowingEmailsOf": "Showing {count} of {total} emails",
+  "@labelShowingEmailsOf": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "labelEmailsCount": "Emails ({count})",
+  "@labelEmailsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dialogNewFolder": "New folder",
+  "dialogDeleteEmptyFolder": "Delete empty folder",
+  "dialogDeleteFile": "Delete file",
+  "dialogRenameFile": "Rename file",
+  "dialogUploadFile": "Upload file",
+  "dialogEditView": "Edit / View",
+  "dialogDeleteConfirmPermanent": "Permanently delete ",
+  "dialogSaveFile": "Save File",
+  "dialogSaveToolList": "Save tool list",
+  "msgFileSaved": "File saved: {path}",
+  "@msgFileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedDownload": "Failed to download file: {error}",
+  "@msgFailedDownload": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgSavedToDownloads": "File saved to Downloads: {fileName}",
+  "@msgSavedToDownloads": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedSaveFile": "Failed to save file",
+  "msgSavedToPath": "Saved to {path}",
+  "@msgSavedToPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "msgCopiedToClipboard": "Copied to clipboard",
+  "msgToolResultCopied": "Tool result copied to clipboard",
+  "msgToolCallCopied": "Tool call copied to clipboard",
+  "msgPathCopied": "Path copied",
+  "msgConversationReset": "Conversation reset successfully",
+  "msgImageSavedDownloads": "Image saved to Downloads: {fileName}",
+  "@msgImageSavedDownloads": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedSaveImage": "Failed to save image",
+  "msgExportCancelled": "Export cancelled",
+  "msgExportFailed": "Export failed: {error}",
+  "@msgExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgSplitPromptInfo": "Split into sub-prompts — separated by ++#++",
+  "msgFailedAttachFile": "Failed to attach file: {error}",
+  "@msgFailedAttachFile": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedAttachImage": "Failed to attach image: {error}",
+  "@msgFailedAttachImage": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgOfficeDocNotSupported": "Office documents ({name}) are not supported by the AI.\n\nSupported formats:\n• Images (PNG, JPG, GIF, WebP)\n• PDF files\n• Text files\n\nPlease convert your Office document to PDF or copy the text content.",
+  "@msgOfficeDocNotSupported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "msgEnterFilename": "Please enter a filename",
+  "msgFailedGeneratePdf": "Failed to generate PDF: {error}",
+  "@msgFailedGeneratePdf": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgNetworkImageExportNotSupported": "Network image export not supported yet",
+  "labelFolderName": "Folder name",
+  "labelSourcePath": "Source path",
+  "labelNewName": "New name",
+  "labelRemoteTarget": "Remote target",
+  "labelSearchFiles": "Search files...",
+  "labelNoFilesFound": "No files found",
+  "labelFileName": "Filename",
+  "labelEnterFilename": "Enter filename",
+  "hintTypeMessage": "Type a message...",
+  "hintAddCaption": "Add a caption...",
+  "hintEnterSourcePath": "/home/user/file.txt",
+  "statusNoActiveTask": "No active task",
+  "statusSelectTaskToSeeTools": "Select a task to see\navailable tools",
+  "statusNoToolsAvailable": "No tools available",
+  "statusNoResourcesAvailable": "No resources available",
+  "statusLoadingTools": "Loading tools...",
+  "statusConnectToSeeTools": "Connect to MCP servers\nto see available tools",
+  "statusNoToolsForServer": "No tools available for {server}",
+  "@statusNoToolsForServer": {
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "placeholderAllServers": "All servers",
+  "labelIncludeServerTag": "Include server tag",
+  "labelAllSelected": "All selected",
+  "labelSelectAll": "Select all",
+  "splitPromptInstruction": "Split the user request into sequential sub-prompts. Join them with the separator ++#++ on its own line between steps. Each sub-prompt is a complete standalone instruction. Output ONLY the sub-prompts with the separator between them. No extra text.",
+  "splitPromptHint": "Split prompt into sub-prompts\n\nTap to split:\n• Lines with \\n → split instantly\n• Tap ✦ to AI-split\n\nSeparator: ++#++ (on its own line)\nInject previous tool output: ${tool_result}",
+  "labelSplitFailed": "Split failed: {error}",
+  "@labelSplitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "renameAgentTitle": "Rename Agent",
+  "agentNameLabel": "Name",
+  "renameLabel": "Rename",
+  "nextStepRoutingTitle": "Next Step Routing",
+  "routingModeSequential": "Sequential (Next agent)",
+  "routingModeConditional": "Conditional (Branch)",
+  "routingModeScheduled": "Scheduled (Independent)",
+  "agentScheduleTitle": "Agent Schedule",
+  "schedulingDisabledWarning": "Scheduling is disabled because this agent is called sequentially or conditionally by a previous one.",
+  "tagsLabel": "Tags (comma separated)",
+  "removeAgentTooltip": "Remove agent",
+  "addAgentTooltip": "Add agent",
+  "routingModeLabel": "Routing Mode",
+  "conditionRuleHeader": "Condition Rule #{index}",
+  "@conditionRuleHeader": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "removeConditionRuleTooltip": "Remove condition rule",
+  "targetAgentLabel": "Target Agent",
+  "addRoutingRuleLabel": "Add Routing Rule",
+  "addAgentFirstWarning": "Add another agent first to configure conditional routing.",
+  "operatorLabel": "Operator",
+  "customExpressionLabel": "Custom Expression",
+  "customExpressionHint": "e.g. avg value > 5",
+  "valueLabel": "Value",
+  "valueHint": "Value to compare",
+  "agentScheduleHeader": "Agent Schedule",
+  "operatorLess": "Less (<)",
+  "operatorLessOrEquals": "Less or Equals (<=)",
+  "operatorEquals": "Equals (==)",
+  "operatorNotEqual": "Not Equal (!=)",
+  "operatorGreaterThan": "More (>)",
+  "operatorGreaterOrEquals": "More or Equals (>=)",
+  "operatorContains": "Contains",
+  "operatorNotContains": "Not Contains",
+  "operatorCustom": "Custom Expression",
+  "operatorLlmEval": "Evaluated by LLM",
+  "llmConditionLabel": "Condition to evaluate",
+  "llmConditionHint": "e.g. battery voltage > 5",
+  "cancelExecution": "Cancel execution",
+  "inactive": "Inactive",
+  "noAgentLogs": "No execution logs recorded for this workflow.",
+  "agentLogsTitle": "Execution Logs: {name}",
+  "@agentLogsTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+name: tealkit_server
+description: "TealKit Server — headless Docker/Linux daemon with REST API"
+publish_to: 'none'
+version: 1.0.159
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  # HTTP server
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  tealkit_api:
+    path: ../api
+
+  # JSON / utilities
+  path: ^1.9.0
+  uuid: ^4.1.0
+  crypto: ^3.0.6
+
+  # AES encryption (credential cipher, API key protection)
+  pointycastle: ^4.0.0
+
+  # DuckDB — pinned to same version as main app
+  dart_duckdb: 1.4.2
+
+  # HTTP client (for LLM API calls + MCP client)
+  http: ^1.2.1
+
+  # SMTP email delivery
+  mailer: ^6.4.1
+
+  # WebSocket (for external MCP servers)
+  web_socket_channel: ^3.0.2
+
+  # LLM providers (same as main app)
+  googleai_dart: ^8.0.0
+  openai_dart: ^7.0.0
+  anthropic_sdk_dart: ^5.0.0
+  ollama_dart: ^2.3.0
+
+  # SSH / SFTP
+  dartssh2: ^2.18.0
+    #path: ../third_party/dartssh2
+
+  # IMAP email (pure Dart — used by ServerImapMcp)
+  enough_mail: ^2.1.7
+
+  # Archive (zip for SFTP output)
+  archive: ^4.0.0
+
+  # Embedded GGUF inference via llama.cpp
+  llamadart: ^0.8.10
+
+dependency_overrides:
+  dart_duckdb:
+    path: ../third_party/dart_duckdb
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.25.0

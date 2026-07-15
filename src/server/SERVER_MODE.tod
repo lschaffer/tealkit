@@ -1,0 +1,321 @@
+# TealKit Server Mode — Task Tracker
+# File: server/SERVER_MODE.tod
+# Updated: 2026-04-08
+#
+# Tracks all remaining work to bring the headless server mode to a
+# deployable state.  Each phase builds on the previous one.
+# Status tags: [TODO] [IN-PROGRESS] [DONE] [SKIP]
+
+================================================================================
+PHASE 1 — Foundation (standalone Dart package)                         [DONE]
+================================================================================
+
+  [DONE] server/pubspec.yaml — no Flutter SDK, shelf + shelf_router + langchain
+  [DONE] server/lib/utils/server_logger.dart
+  [DONE] server/lib/utils/server_credential_cipher.dart  (AES-256-GCM)
+  [DONE] server/lib/utils/cron_utils.dart
+  [DONE] server/lib/models/mcp_models.dart
+  [DONE] server/lib/models/github_mcp_server_definition.dart
+  [DONE] server/lib/models/agentic_task.dart
+  [DONE] server/lib/database/server_duckdb_service.dart
+           — tables: tasks, internal_mcp_configs, document_index,
+             website_index, py_tools, github_mcp_servers, scheduler_log
+           — full CRUD; uses fetchAll() on ResultSet (dart_duckdb API)
+  [DONE] server/lib/config/server_config_service.dart
+           — config.json (plain) + secrets.enc (AES-GCM encrypted)
+  [DONE] server/lib/services/server_llm_settings_service.dart
+  [DONE] server/lib/services/server_data_sources_service.dart
+  [DONE] server/lib/services/server_external_tools_service.dart
+  [DONE] server/lib/services/server_preferences_service.dart
+  [DONE] server/bin/tealkit_server.dart
+           — Bootstrap → Shelf router → /health /status /api/v1/tasks (GET/DELETE stubs)
+           — TEALKIT_PORT (default 7771), TEALKIT_HOST (default localhost)
+           — CORS middleware, inline JSON encoder
+  [DONE] Fix avoid_relative_lib_imports lint
+           — all bin/ imports use package:tealkit_server/ (not ../lib/)
+  [DONE] dart analyze → 0 issues
+
+================================================================================
+PHASE 2 — Task Runner (headless AgentRunner / TaskExecutor port)          [DONE]
+================================================================================
+
+  Goal: execute AgenticTask objects inside the server with no Flutter/UI
+        dependencies.  Mirror lib/services/task_runner_service.dart logic
+        but use server-side services only.
+
+  [DONE] server/lib/runner/server_task_runner.dart
+        - runTask(AgenticTask task) → TaskRunResult
+        - Progress via structured log lines (ServerLogger), NOT ChangeNotifier
+        - Abort support: CancellationToken pattern (Completer<void> cancelToken)
+        - On finish: update task row (last_run, next_run, status) via
+          ServerDuckDbService
+        - Write output text to $TEALKIT_DATA_DIR/output/<task_id>/<timestamp>.txt
+          (mirrors TaskOutputFileService)
+
+  [DONE] server/lib/runner/server_llm_runner.dart
+        - Wrap LangChain chain construction; support all providers defined in
+          ServerLlmSettingsService (OpenAI, Anthropic, Gemini, Ollama, Azure)
+        - Use secondary provider fallback (provider2/model2) on 429/503
+        - Fixed: HumanChatMessage content wrapped with ChatMessageContent.text()
+        - Fixed: response.usage?.inputTokens / outputTokens null-safe access
+        - Fixed: removed unsupported httpClient param from ChatOpenAI
+        - dart analyze → 0 issues
+
+  [DONE] server/lib/runner/server_tool_registry.dart
+        - Register MCP tools available on server (internal_mcp_configs +
+          github_mcp_servers from DB)
+        - Spawn/manage child processes for MCP stdio servers
+        - HTTP/SSE client for remote MCP servers
+        - Fixed: McpToolConfig.url → serverUrl, id → serverUrl key, name null-safe
+
+  [DONE] server/lib/runner/server_mcp_client.dart
+        - Port of lib/services/mcp_client.dart without dart:ui
+        - JSON-RPC over stdio or HTTP/SSE
+
+  NOTE: Do NOT import anything from lib/ (main app).  All types must be
+        re-implemented or copied into server/lib/.
+        dart analyze → 0 issues (verified 2026-04-09)
+
+================================================================================
+PHASE 3 — REST API (full CRUD + settings PUT/POST)                         [DONE]
+================================================================================
+
+  Goal: complete the stub handlers in tealkit_server.dart and add write
+        endpoints so the Flutter GUI can manage tasks and settings via HTTP.
+
+  [DONE] POST /api/v1/tasks
+        - Parse JSON body, validate required fields (title, cron_expression,
+          llm_prompt), return created task as JSON
+        - Use uuid for new task ID
+
+  [DONE] PUT /api/v1/tasks/<id>
+        - Partial update; only fields present in body are overwritten
+
+  [DONE] POST /api/v1/tasks/<id>/run
+        - Trigger immediate one-off run; returns 202 Accepted with run_id
+        - Runs via ServerTaskRunner.runTask() in an unawaited Future
+
+  [DONE] POST /api/v1/tasks/<id>/cancel
+        - Signal cancellation token for in-progress run
+
+  [DONE] GET /api/v1/tasks/<id>/output
+        - Return last output file content as {run_id, text, timestamp}
+
+  [DONE] PUT /api/v1/settings/llm
+        - Accept JSON, save via ServerLlmSettingsService.save()
+
+  [DONE] PUT /api/v1/settings/data-sources
+        - Accept JSON, save via ServerDataSourcesService.save()
+
+  [DONE] PUT /api/v1/settings/preferences
+        - Accept JSON, save via ServerPreferencesService.save()
+
+  [DONE] GET /api/v1/settings/external-tools
+  [DONE] PUT /api/v1/settings/external-tools
+
+  [DONE] GET /api/v1/scheduler/log?limit=50&offset=0
+        - Paginated read of scheduler_log table
+
+  [DONE] Shared helpers:
+        - _parseJsonBody(Request) → Map<String, dynamic>
+        - _jsonError(String msg, {int status}) → Response
+        - Input validation + 400 responses
+
+  [DONE] dart:convert jsonEncode() replacing hand-rolled _toJsonString
+
+================================================================================
+PHASE 4 — MCP Proxy Routes                                                 [DONE]
+================================================================================
+
+  Goal: expose MCP tool calls over REST so the GUI (or external scripts) can
+        invoke tools through the server without spawning their own child
+        processes.
+
+  [DONE] GET  /api/v1/mcp/servers
+        - Lists GitHub MCP servers (DB) + selected external tool servers
+        - Includes status (running/stopped), transport (http/stdio), tool_count
+
+  [DONE] POST /api/v1/mcp/servers/<server_id>/start
+        - GitHub MCP: HTTP or stdio transport auto-detected from envVars
+        - External: ServerMcpClient over HTTP
+        - Caches client/process in _mcpProxyClients / _mcpProxyProcesses
+
+  [DONE] POST /api/v1/mcp/servers/<server_id>/stop
+        - Disposes and removes client/process from cache
+
+  [DONE] GET  /api/v1/mcp/servers/<server_id>/tools
+        - Returns MCPTool list from running client or cached stdio tools
+
+  [DONE] POST /api/v1/mcp/servers/<server_id>/tools/<tool_name>/call
+        - Body: { "arguments": { ... } }
+        - Routes to HTTP client or stdio process; returns MCPToolResult JSON
+
+  [DONE] GET  /api/v1/mcp/servers/<server_id>/events (stdio only)
+        - SSE stream forwarding stdout lines from child process
+        - Returns 400 for HTTP-based servers
+
+================================================================================
+PHASE 5 — Scheduler                                                        [DONE]
+================================================================================
+
+  Goal: background cron-style scheduler that checks due tasks every minute
+        and triggers ServerTaskRunner.
+
+  [DONE] server/lib/scheduler/server_scheduler.dart
+        - Timer.periodic(Duration(minutes: 1), _tick)
+        - _tick: query all enabled tasks where next_run <= now()
+        - For each due task: unawaited ServerTaskRunner.runTask(task)
+        - After run: db.updateExecution (recordRun success/failure)
+        - Avoid concurrent runs of the same task (track in-progress set)
+
+  [DONE] Wire scheduler into serverBootstrap() in tealkit_server.dart
+        - Start after all services ready
+        - Graceful shutdown on SIGINT/SIGTERM
+
+  [DONE] cron_utils.dart (already exists)
+        - Verified nextCronFire() correct for all supported expressions
+        - Unit tests: server/test/cron_utils_test.dart (12/12 passing)
+
+  [DONE] Retry logic
+        - Exponential backoff (4 << attempt, clamped to 120s)
+        - recordRun(success: false) on permanent failure
+
+================================================================================
+PHASE 6 — Docker / Linux Deployment                                        [DONE]
+================================================================================
+
+  [DONE] server/Dockerfile
+        - Multi-stage: dart:3.10 sdk → AOT compile → debian:bookworm-slim
+        - Copies libduckdb.so into /usr/local/lib + ldconfig
+        - EXPOSE 7771, VOLUME ["/data"]
+        - ENV TEALKIT_DATA_DIR, TEALKIT_PORT, TEALKIT_HOST
+
+  [DONE] server/docker-compose.yml
+        - Service: tealkit_server; volume ./data:/data; port 7771:7771
+        - restart: unless-stopped; healthcheck via wget /health
+
+  [DONE] server/entrypoint.sh
+        - mkdir -p $TEALKIT_DATA_DIR/{db,output,logs}
+        - exec /app/tealkit_server
+
+  [DONE] CI: scripts/build-server.sh
+        - dart pub get && dart compile exe
+        - --docker flag to also build Docker image
+
+  [DONE] README update: server/README.md
+        - Quick-start with docker-compose and bare-metal
+        - Env vars reference table
+        - Full API summary table
+
+================================================================================
+PHASE 7 — Flutter GUI Integration                                          [TODO]
+================================================================================
+
+  Goal: let the Flutter app connect to a remote server instead of running
+        tasks locally.
+
+  [ ] lib/providers/server_mode_provider.dart
+        - ServerMode enum { local, remote }
+        - serverUrl, apiKey (for future auth)
+        - ping(): GET /health → sets isConnected
+        - Persisted in SharedPreferences
+
+  [ ] lib/services/server_api_client.dart
+        - HTTP wrapper around all /api/v1/* endpoints
+        - Uses http package; throws typed ApiException on 4xx/5xx
+        - Reads serverUrl from ServerModeProvider
+
+  [ ] lib/screens/server_connect_screen.dart
+        - URL + optional API key fields
+        - "Test connection" button (calls ping())
+        - Teal themed
+
+  [ ] lib/widgets/server_status_banner.dart
+        - Shown at top of TaskListScreen when in remote mode
+        - Green dot = connected, red dot = disconnected
+        - Tap → ServerConnectScreen
+
+  [ ] Route all task CRUD through ServerApiClient when in remote mode
+        - Adapter pattern: ITaskRepository (local DB vs. HTTP)
+        - lib/repositories/local_task_repository.dart (existing logic)
+        - lib/repositories/remote_task_repository.dart (→ ServerApiClient)
+        - Switch in database_providers.dart based on ServerModeProvider
+
+  [ ] Settings sync: PUT /api/v1/settings/* when user saves settings in GUI
+        while in remote mode
+
+================================================================================
+PHASE 8 — Client → Server Sync                                             [TODO]
+================================================================================
+
+  Goal: one-way push so existing local tasks and settings can be migrated to
+        the server without manual re-entry.
+
+  [DONE] POST /api/v1/sync/tasks  (server side — Phase 3)
+        - Body: { "tasks": [ <AgenticTask JSON>, ... ] }
+        - Upsert all tasks (insert or replace by id)
+
+  [DONE] POST /api/v1/sync/settings  (server side — Phase 3)
+        - Body: full settings payload (llm + data-sources + preferences +
+          external-tools)
+        - Bulk save via each settings service
+
+  [ ] lib/services/server_sync_service.dart (Flutter-side)
+        - pushAllToServer(): serialise all tasks from local DB + all settings,
+          POST to sync endpoints
+        - Triggered from ServerConnectScreen after successful connection test
+
+================================================================================
+PHASE 9 — Auth / Security (optional but recommended before LAN exposure)   [TODO]
+================================================================================
+
+  [ ] API key auth middleware (Bearer token)
+        - TEALKIT_API_KEY env var; if set, all non-/health requests require
+          Authorization: Bearer <key>
+        - Return 401 if missing/wrong
+
+  [ ] Rate limiting (simple token bucket, in-memory)
+        - Max 60 requests / minute per IP
+
+  [ ] HTTPS / TLS
+        - Option A: reverse-proxy (nginx/caddy) — document in README
+        - Option B: dart:io SecureServerSocket with cert path env vars
+
+================================================================================
+PHASE 10 — Testing & Polish                                                [TODO]
+================================================================================
+
+  [DONE] server/test/cron_utils_test.dart — 12/12 passing
+  [ ] server/test/server_duckdb_service_test.dart (in-memory DuckDB)
+  [ ] server/test/server_task_runner_test.dart (mock LLM + MCP)
+  [ ] server/test/api_integration_test.dart
+        - Spin up server on random port, exercise all REST endpoints
+
+  [ ] End-to-end smoke test script: scripts/smoke_test_server.sh
+        - docker compose up -d
+        - curl /health, POST task, trigger run, poll until done, assert output
+
+  [ ] dart analyze --fatal-infos (zero issues)
+  [ ] Update PROJECT_PLAN.md to reflect server mode milestone
+
+================================================================================
+NOTES / KNOWN CONSTRAINTS
+================================================================================
+
+  * dart_duckdb ResultSet: always call .fetchAll() before iterating.
+    Do NOT use .map() / .isEmpty / .first directly on ResultSet.
+
+  * No flutter/foundation.dart in server/ package — use dart:core only.
+    ChangeNotifier → plain callbacks or StreamControllers.
+
+  * MCP child processes: use dart:io Process.start() with stdio pipes.
+    On Linux/Docker, PATH must include npx / python3 / uvx as needed.
+
+  * LangChain: langchain_community is NOT in pubspec yet. Add if needed
+    for document loaders / web search tools.
+
+  * AES key bootstrap: if $dataDir/master.key is missing on first run,
+    ServerCredentialCipher generates and saves it automatically.
+
+  * All phases assume Linux/Docker as target runtime.
+    Windows paths / PowerShell are irrelevant for server/ package.

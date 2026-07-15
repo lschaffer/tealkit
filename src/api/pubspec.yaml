@@ -1,0 +1,12 @@
+name: tealkit_api
+description: "Shared REST API Client and Unified Data Models for TealKit"
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  http: ^1.2.2
+  uuid: ^4.5.3
+  path: ^1.9.0

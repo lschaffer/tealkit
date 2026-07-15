@@ -1,0 +1,20 @@
+# WSL2 development override for tealkit_server
+#
+# Mounts the DuckDB data directory from the Windows filesystem via the WSL2
+# mount point, so data survives container restarts and is accessible from
+# both Windows and WSL2.
+#
+# Usage (from the repo root inside WSL2):
+#   docker compose -f server/docker-compose.yml \
+#                  -f server/docker-compose.wsl2.yml \
+#                  up --build
+#
+# Or use the helper script:
+#   bash scripts/test-docker-wsl2.sh
+
+services:
+  tealkit_server:
+    volumes:
+      # Bind-mount the Windows-side DuckDB directory via WSL2.
+      # Equivalent Windows path: C:\projects\ls\mobile_ai_agent\test\duckdb
+      - /mnt/c/projects/ls/mobile_ai_agent/test/duckdb:/data

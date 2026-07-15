@@ -1,0 +1,1440 @@
+{
+  "@@locale": "de",
+  "appTitle": "TealKit",
+  "appSubtitle": "Dein persönlicher KI-Assistent",
+  "getStarted": "Loslegen",
+  "viewLogs": "Protokolle",
+  "playground": "Playground",
+  "playgroundHint": "Probiere Prompts, Tools und Systemanweisungen hier aus, bevor du einen Workflow planst.",
+  "tasks": "Workflows",
+  "firstStep": "Erster Schritt",
+  "settings": "Einstellungen",
+  "configureLlmFirst": "Konfiguriere einen LLM-Anbieter, um Playground und Workflows freizuschalten.",
+  "generatePrompt": "Generieren",
+  "generateSystemPromptHint": "Thema eingeben und ✦ tippen, um einen KI-generierten System Prompt zu erstellen.",
+  "promptSubject": "Thema (z.B. Dokumentensuche)",
+  "selectTools": "Tools auswählen",
+  "toolsSelected": "{count} Tools ausgewählt",
+  "@toolsSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resetChat": "Chat zurücksetzen",
+  "gmailSearch": "Gmail (Suche)",
+  "imapSend": "SMTP (Senden)",
+  "testVia": "Testen über",
+  "emailSearchGmail": "Gmail API für E-Mail-Suche verwenden",
+  "emailSendImap": "SMTP zum Senden von E-Mails verwenden",
+  "taskScheduler": "Workflow-Zeitplaner",
+  "newTask": "Neuer Workflow",
+  "editTask": "Workflow bearbeiten",
+  "createTask": "Workflow erstellen",
+  "saveAsTask": "Als Workflow speichern",
+  "deleteTask": "Workflow löschen",
+  "deleteTaskConfirm": "Bist du sicher, dass du \"{name}\" löschen möchtest?",
+  "taskCreated": "Workflow erstellt",
+  "taskUpdated": "Workflow aktualisiert",
+  "taskDeleted": "Workflow \"{name}\" gelöscht",
+  "failedToSave": "Speichern fehlgeschlagen: {error}",
+  "failedToLoad": "Laden der Workflows fehlgeschlagen: {error}",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "ok": "OK",
+  "filterScheduledOnly": "Nur geplant",
+  "filterAllTasks": "Alle Workflows",
+  "close": "Schließen",
+  "delete": "Löschen",
+  "edit": "Bearbeiten",
+  "copy": "Kopieren",
+  "remove": "Entfernen",
+  "reload": "Aktualisieren",
+  "enable": "Aktivieren",
+  "disable": "Deaktivieren",
+  "enabled": "Aktiviert",
+  "disabled": "Deaktiviert",
+  "yes": "Ja",
+  "no": "Nein",
+  "tabBasic": "Basis",
+  "tabPrompts": "Prompts",
+  "tabSchedule": "Zeitplan",
+  "tabLlm": "LLM",
+  "tabMcp": "MCP",
+  "tabBuiltIn": "Tools",
+  "tabData": "Datenquellen",
+  "tabNotify": "Ausgabe",
+  "sectionGeneral": "Allgemein",
+  "sectionPrompts": "Prompts",
+  "sectionSchedule": "Zeitplan",
+  "sectionExecution": "Ausführung",
+  "taskName": "Workflow-Name *",
+  "taskNameHint": "z. B. Tägliche Nachrichtenzusammenfassung",
+  "nameRequired": "Name ist erforderlich",
+  "description": "Beschreibung",
+  "descriptionHint": "Was macht diese Aufgabe?",
+  "agentId": "Agent-ID",
+  "agentIdHint": "Optional: mit einem bestimmten Agenten verknüpfen",
+  "tags": "Tags",
+  "tagsHint": "kommagetrennt: nachrichten, täglich, zusammenfassung",
+  "taskEnabledSubtitle": "Workflow wird nach Zeitplan ausgeführt, wenn er aktiviert ist",
+  "systemPrompt": "System-Prompt",
+  "systemPromptHint": "Du bist ein hilfreicher Assistent...",
+  "taskPrompt": "Workflow-Prompt *",
+  "taskPromptHint": "Fasse die wichtigsten KI-Nachrichten der letzten 24 Stunden zusammen...",
+  "promptRequired": "Prompt ist erforderlich",
+  "cronSchedule": "Cron-Zeitplan",
+  "cronExpression": "Cron-Ausdruck *",
+  "cronFormat": "Format: Minute Stunde Tag Monat Wochentag",
+  "cronRequired": "Cron-Ausdruck erforderlich",
+  "scheduleDescription": "Zeitplanbeschreibung",
+  "scheduleDescriptionHint": "z. B. Täglich um 8:00",
+  "cronEveryMinute": "Jede Minute",
+  "cronHourly": "Stündlich",
+  "cronDaily8am": "Täglich 8 Uhr",
+  "cronDaily6pm": "Täglich 18 Uhr",
+  "cronMonFri9am": "Mo–Fr 9 Uhr",
+  "cronWeeklyMon": "Wöchentlich (Mo)",
+  "cronMonthly1st": "Monatlich 1.",
+  "schedulePickerTitle": "Zeitplan",
+  "scheduleMinutes": "Minuten",
+  "scheduleHourly": "Stündlich",
+  "scheduleDaily": "Täglich",
+  "scheduleWeekly": "Wöchentlich",
+  "scheduleMonthly": "Monatlich",
+  "scheduleCustom": "Benutzerdefiniert",
+  "scheduleEveryNMinutes": "Alle {n} Minuten",
+  "scheduleEveryNHours": "Alle {n} Stunden",
+  "scheduleAtHour": "Um Stunde",
+  "scheduleAtMinute": "Um Minute",
+  "scheduleOnDays": "An Tagen",
+  "scheduleOnDayOfMonth": "Am Tag des Monats",
+  "scheduleMon": "Mo",
+  "scheduleTue": "Di",
+  "scheduleWed": "Mi",
+  "scheduleThu": "Do",
+  "scheduleFri": "Fr",
+  "scheduleSat": "Sa",
+  "scheduleSun": "So",
+  "errorHandling": "Fehlerbehandlung",
+  "maxRetries": "Max. Wiederholungen",
+  "retryDelay": "Wiederholungsverzögerung (Min.)",
+  "timeout": "Zeitüberschreitung (Sek.)",
+  "retryOnFailure": "Bei Fehler wiederholen",
+  "executeImmediately": "Sofort ausführen",
+  "llmOverride": "LLM-Konfiguration",
+  "overrideDefaultLlm": "Standard-LLM überschreiben",
+  "overrideDefaultLlmSubtitle": "Bestimmtes Modell/Anbieter für diese Aufgabe verwenden",
+  "provider": "Anbieter",
+  "model": "Modell",
+  "modelHint": "z. B. gpt-4o, gemini-2.5-flash",
+  "apiKey": "API-Schlüssel",
+  "apiKeyHint": "sk-...",
+  "apiKeyNotSet": "Nicht gesetzt",
+  "baseUrl": "Basis-URL",
+  "baseUrlHint": "http://localhost:11434 (für Ollama)",
+  "temperature": "Temperatur",
+  "maxTokens": "Max. Token",
+  "mcpServers": "MCP-Server",
+  "addServer": "Server hinzufügen",
+  "editMcpServer": "MCP-Server bearbeiten",
+  "addMcpServer": "MCP-Server hinzufügen",
+  "noMcpServers": "Keine MCP-Server konfiguriert",
+  "noMcpServersSubtitle": "Füge einen Server hinzu, um externe Tools zu nutzen",
+  "discoverTools": "Tools entdecken",
+  "specUrl": "Spec-URL",
+  "apiPassword": "API-Passwort",
+  "serverUrl": "Server-URL *",
+  "serverUrlHint": "https://example.com/myserver",
+  "urlRequired": "URL ist erforderlich",
+  "mcpEndpoint": "MCP-Endpunkt",
+  "mcpEndpointHint": "/mcp",
+  "mcpEndpointHelper": "JSON-RPC-Endpunktpfad (Standard: /mcp)",
+  "specificationUrl": "Spezifikations-URL",
+  "specificationUrlHint": "Optional: OpenAPI/MCP-Spezifikationsendpunkt",
+  "serverName": "Name",
+  "serverNameHint": "Mein MCP-Server",
+  "optional": "Optional",
+  "enabledTools": "Aktivierte Tools:",
+  "discovered": "Entdeckt:",
+  "toolsCount": "Tools ({count})",
+  "promptsCount": "Prompts ({count})",
+  "resourcesCount": "Ressourcen ({count})",
+  "toolsChip": "{count} Tools",
+  "builtInMcpServers": "Integrierte MCP-Server",
+  "builtInMcpSubtitle": "Interne Tools, die lokal in der App laufen — kein externer Server nötig.",
+  "addToTask": "Zur Aufgabe hinzufügen",
+  "tapToEnable": "Tippe, um dieses integrierte MCP zu aktivieren",
+  "typeLabel": "Typ: {type}",
+  "configuration": "Konfiguration",
+  "mcpSystemPrompt": "System-Prompt",
+  "mcpSystemPromptHelper": "Weist das LLM an, die Tools dieses MCPs effektiv zu nutzen.",
+  "mcpSystemPromptHint": "System-Prompt eingeben…",
+  "resetToDefault": "Auf Standard zurücksetzen",
+  "appendMainSystemPrompt": "Haupt-System-Prompt anhängen",
+  "mainSystemPromptAppended": "Haupt-System-Prompt angehängt",
+  "noMainSystemPrompt": "Kein Haupt-System-Prompt für diese Aufgabe gesetzt",
+  "availableTools": "Verfügbare Tools",
+  "noBuiltInMcp": "Keine integrierten MCP-Server verfügbar.",
+  "globalMcpServersNote": "Diese Server sind global in den Extern-Tools-Einstellungen konfiguriert und stehen dieser Aufgabe immer zur Verfügung.",
+  "noGlobalMcpServers": "Keine externen MCP-Server konfiguriert. In den Extern-Tools-Einstellungen hinzufügen.",
+  "defaultPrefix": "Standard: {value}",
+  "dataSources": "Datenquellen",
+  "dataSourcesSubtitle": "Datenquellen für diese Aufgabe aktivieren oder deaktivieren. Zugangsdaten werden global in den Datenquellen-Einstellungen auf dem Startbildschirm konfiguriert.",
+  "dataSourcesGlobalSubtitle": "Globale Zugangsdaten für Datenquellen konfigurieren. Diese werden sicher auf Ihrem Gerät gespeichert.",
+  "dataSourcesNotConfiguredHint": "Nicht konfiguriert – in Datenquellen auf dem Startbildschirm einrichten",
+  "dataSourcesConfiguredHint": "Zugangsdaten global konfiguriert",
+  "dataSourcesSettingsSaved": "Datenquellen-Einstellungen gespeichert",
+  "dataSourcesSettingsSaveFailed": "Speichern fehlgeschlagen: {error}",
+  "dataSourcesSettingsCleared": "Alle Datenquellen-Einstellungen gelöscht",
+  "dataSourcesClearTitle": "Alle Datenquellen-Einstellungen löschen?",
+  "dataSourcesClearMessage": "Alle gespeicherten Zugangsdaten werden entfernt. Datenquellen müssen neu konfiguriert werden.",
+  "dataSourcesConfigured": "{count} Datenquelle(n) konfiguriert",
+  "dataSourcesNone": "Keine Datenquellen konfiguriert",
+  "emailProvider": "E-Mail-Anbieter",
+  "emailProviderSubtitle": "E-Mails lesen, suchen und Benachrichtigungen senden",
+  "imapProvider": "IMAP (allgemein)",
+  "imapHost": "IMAP-Host (eingehend)",
+  "imapHostHint": "imap.beispiel.de",
+  "imapPort": "Port",
+  "imapUsername": "Benutzername",
+  "imapPassword": "Passwort",
+  "imapUseSsl": "SSL/TLS verwenden",
+  "smtpHost": "SMTP-Host (ausgehend)",
+  "smtpHostHint": "smtp.beispiel.de",
+  "smtpPort": "SMTP-Port",
+  "smtpSender": "Absender E-Mail",
+  "smtpSenderHint": "ihre-email@beispiel.de",
+  "notificationEmail": "Für Aufgaben-Benachrichtigungen verwenden",
+  "notificationEmailHint": "Aufgabenergebnisse per E-Mail senden",
+  "googleServices": "Google-Dienste",
+  "googleServicesSubtitle": "Gmail-Suche und Google Drive-Zugriff",
+  "imapSmtpEmail": "E-Mail-Versand (SMTP)",
+  "imapSmtpEmailSubtitle": "E-Mails über externen Mailserver senden",
+  "cloudStorage": "Cloud-Speicher",
+  "cloudStorageSubtitle": "Dateien von Google Drive oder OneDrive abrufen",
+  "googleDrive": "Google Drive",
+  "oneDrive": "Microsoft OneDrive",
+  "oneDriveSubtitle": "Auf Dateien aus Microsoft OneDrive zugreifen",
+  "oneDriveClientId": "Anwendungs-ID (Client-ID)",
+  "oneDriveClientIdHint": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "oneDriveTenantId": "Verzeichnis-ID (Mandanten-ID)",
+  "oneDriveTenantIdHint": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "gmail": "Google Mail (Gmail)",
+  "gmailSubtitle": "E-Mails über die Gmail API mit OAuth2 lesen",
+  "gmailSetup": "Du benötigst ein Google Cloud-Projekt mit aktivierter Gmail API und OAuth2-Anmeldedaten (Desktop-App-Typ).",
+  "oauthClientId": "OAuth2 Client-ID *",
+  "oauthClientIdHint": "123456-abc.apps.googleusercontent.com",
+  "oauthClientSecret": "OAuth2 Client-Geheimnis *",
+  "oauthClientSecretHint": "GOCSPX-...",
+  "authorizeGoogle": "Mit Google autorisieren",
+  "oauthAuthorizationCode": "Autorisierungscode",
+  "oauthAuthorizationCodeHint": "Code oder vollständige Callback-URL einfügen (http://localhost/?code=...)",
+  "exchangeAuthorizationCode": "Code austauschen",
+  "oauthOpenSuccess": "Google-Zustimmung geöffnet. Nach dem Login den code=... aus der Browser-URL kopieren oder die vollständige Callback-URL hier einfügen.",
+  "oauthOpenFailed": "Google-Zustimmungsbildschirm konnte nicht geöffnet werden.",
+  "oauthCodeRequired": "Autorisierungscode ist erforderlich.",
+  "oauthExchangeSuccess": "Google OAuth erfolgreich verbunden.",
+  "oauthExchangeFailed": "Google OAuth-Austausch fehlgeschlagen: {error}",
+  "oauthTokenStatusReady": "OAuth verbunden für {email}, Token läuft ab um {expiry}",
+  "oauthTokenStatusMissing": "OAuth-Token noch nicht verbunden.",
+  "sendTestEmail": "Test-E-Mail senden",
+  "testEmailRecipient": "Test-Empfänger",
+  "testEmailRecipientRequired": "Test-Empfänger-E-Mail ist erforderlich.",
+  "testEmailSent": "Test-E-Mail erfolgreich gesendet.",
+  "testEmailFailed": "Test-E-Mail fehlgeschlagen: {error}",
+  "oauthNotYet": "OAuth2-Ablauf noch nicht implementiert — speichere zuerst die Anmeldedaten",
+  "na": "k. A.",
+  "webSearch": "Websuche",
+  "webSearchSubtitle": "Im Web über Google oder DuckDuckGo suchen",
+  "searchProvider": "Suchanbieter",
+  "customProvider": "Benutzerdefinierter Anbieter",
+  "customProviderSetup": "Benutzerdefinierte Anbieterkonfiguration",
+  "customProviderName": "Anbietername",
+  "customProviderNameHint": "z. B. Internal Search API",
+  "customProviderEndpoint": "Anbieter-Endpunkt-URL",
+  "customProviderEndpointHint": "https://example.com/search",
+  "serperProvider": "Serper.dev",
+  "serperSetup": "Serper.dev-Einrichtung",
+  "serperApiKeyHint": "serper_... oder Ihr API-Schlüssel",
+  "serpApiProvider": "SerpApi (Google-Suche)",
+  "serpApiSetup": "SerpApi verwendet die Google Search API. Benötigt einen API-Schlüssel von serpapi.com.",
+  "serpApiKeyHint": "Ihr SerpApi API-Schlüssel",
+  "duckDuckGo": "DuckDuckGo (kein API-Schlüssel nötig)",
+  "googleCustomSearch": "Google Custom Search",
+  "googleSearchSetup": "Benötigt einen Google Cloud API-Schlüssel und eine Programmable Search Engine-ID (CSE).",
+  "searchEngineId": "Suchmaschinen-ID *",
+  "searchEngineIdHint": "a1b2c3d4e5f...",
+  "maxResults": "Max. Ergebnisse",
+  "testSearchQuery": "Test-Suchanfrage",
+  "testSearchQueryHint": "z.B. Flutter aktuelle Nachrichten",
+  "testSearch": "Suche testen",
+  "testSearchSuccess": "Suche erfolgreich — {count} Ergebnisse von {provider}.",
+  "@testSearchSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "testSearchFailed": "Suchtest fehlgeschlagen: {error}",
+  "@testSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "testDriveConnection": "Verbindung testen",
+  "testDriveSuccess": "Verbunden — {count} Elemente im Stammordner gefunden.",
+  "@testDriveSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "testDriveFailed": "Drive-Test fehlgeschlagen: {error}",
+  "@testDriveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "serverLoadingSettingsTitle": "Einstellungen werden geladen...",
+  "serverLoadingSettingsBody": "Server-Einstellungen werden in die App geladen. Bitte warten.",
+  "serverSwitchTitle": "Zu Server-Modus wechseln",
+  "serverSwitchBody": "Du wechselst in den Server-Modus. Agenten, Zeitpläne und Einstellungen verwenden die Remote-Server-Datenbank. Die lokale Datenbank bleibt getrennt und wird nicht synchronisiert.",
+  "serverSwitchAction": "Wechseln",
+  "serverConnected": "Mit Server verbunden!",
+  "serverConnectionFailed": "Verbindung fehlgeschlagen — Server-URL und API-Key-Autorisierung prüfen.",
+  "serverNotReachable": "Server nicht erreichbar.",
+  "serverReachableAuthorized": "Server erreichbar und Autorisierung gültig.",
+  "serverReachableUnauthorized": "Server erreichbar, aber API-Key-Autorisierung fehlgeschlagen.",
+  "serverSettingsTitle": "Server-Modus-Einstellungen",
+  "serverSettingsError": "Fehler: {error}",
+  "@serverSettingsError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "serverSettingsUrlLabel": "Server-URL",
+  "serverSettingsUrlHint": "http://192.168.1.100:7771",
+  "serverSettingsUrlHelper": "Port angeben; kein abschließender Schrägstrich",
+  "serverSettingsUrlInvalid": "Gib eine gültige URL ein",
+  "serverTestConnectionButton": "Verbindung testen",
+  "serverConnecting": "Verbinde...",
+  "serverConnectUseRemote": "Verbinden & Remote nutzen",
+  "serverAboutTitle": "Über den Server-Modus",
+  "serverAboutBody": "Der Server-Modus verbindet diese App mit einer TealKit-Server-Instanz auf Ihrem Heimserver, NAS oder Raspberry Pi.\n\nAufgabendaten werden vom Remote-Server gelesen und geschrieben. Die Zeitplanausführung erfolgt ebenfalls auf dem Server — die App muss nicht geöffnet sein.",
+  "serverApiKeyTitle": "Server-API-Key",
+  "serverApiKeyBody": "Diese App hat einen eindeutigen API-Key automatisch generiert. Konfiguriere deinen TealKit-Server damit, sodass nur diese App eine Verbindung herstellen kann.",
+  "serverCopyFullKeyTooltip": "Vollständigen Key kopieren",
+  "serverApiKeyCopied": "API-Key in die Zwischenablage kopiert",
+  "serverApiKeyEnvHint": "Als Umgebungsvariable beim Serverstart setzen:\ndocker run -e TEALKIT_API_KEY=<key> ...",
+  "emailNotification": "E-Mail-Benachrichtigung",
+  "sendEmailAfterTask": "E-Mail nach Aufgabenausführung senden",
+  "toEmail": "An (E-Mail)",
+  "toEmailHint": "benutzer@example.com",
+  "subject": "Betreff",
+  "subjectHint": "Aufgabenergebnis: [task_name]",
+  "sendCondition": "Sendebedingung",
+  "always": "Immer",
+  "onSuccess": "Bei Erfolg",
+  "onFailure": "Bei Fehler",
+  "onResultChange": "Bei Ergebnisänderung",
+  "outputType": "Ausgabetyp",
+  "outputTypeEmail": "E-Mail",
+  "outputTypeFile": "Datei",
+  "outputTypeSftp": "SFTP-Upload",
+  "sftpUseConfiguredSshServer": "Konfigurierten SSH-Server verwenden",
+  "sftpHost": "SFTP-Host",
+  "sftpPort": "Port",
+  "sftpUsername": "Benutzername",
+  "sftpPassword": "Passwort",
+  "sftpRemotePath": "Standardordner (Remotepfad)",
+  "sftpRemotePathHint": "z. B. /uploads/tealkit",
+  "sftpNotifyByEmail": "Benachrichtigungs-E-Mail nach Upload senden",
+  "sftpNotifyEmailAddress": "Benachrichtigungs-E-Mail-Adresse",
+  "sftpNotifyEmailSubject": "Betreff",
+  "sftpNotifyEmailBody": "Text (leer lassen für Standardvorlage)",
+  "sftpNotifyEmailBodyHint": "Leer lassen für automatischen Text",
+  "outputDirectory": "Ausgabeverzeichnis",
+  "outputDirectoryHint": "Wähle, wo erzeugte Dateien gespeichert werden",
+  "outputDirectoryNote": "Die Verzeichnisauswahl hängt von Plattformberechtigungen ab.",
+  "outputFolderRequired": "Für den Ausgabetyp \"Datei\" muss ein Ausgabeordner ausgewählt werden. Tippen Sie auf das Ordnersymbol.",
+  "chooseDirectory": "Verzeichnis wählen",
+  "fileNamePattern": "Dateinamenmuster",
+  "fileNamePatternHint": "task_result_{date}.txt",
+  "addExecutionLogToOutput": "Ausführungsprotokoll zur Ausgabe hinzufügen",
+  "zipOutputFiles": "Ausgabedateien zippen",
+  "runningTaskWithDuckdb": "Aufgabe läuft und indiziert/sucht mit DuckDB...",
+  "openLatestFile": "Neueste Datei öffnen",
+  "pathNotFound": "Pfad nicht gefunden",
+  "openFailed": "Öffnen fehlgeschlagen: {error}",
+  "@openFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "localSearchIndexDuckdb": "Lokaler Suchindex (DuckDB)",
+  "duckdbSizeLimitDescription": "Maximale indexierte Datenmenge in GB. Die Indexierung stoppt, wenn das Limit erreicht ist.",
+  "duckdbSizeLimitGb": "DuckDB-Limit (GB)",
+  "duckdbSizeLimitHint": "1.0",
+  "pushNotification": "Push-Benachrichtigung",
+  "sendPush": "Push-Benachrichtigung senden",
+  "title": "Titel",
+  "titleHint": "Aufgabe abgeschlossen",
+  "deviceToken": "Geräte-Token",
+  "noTasksYet": "Noch keine Workflows",
+  "createScheduledTask": "Erstelle einen geplanten Workflow für deinen KI-Assistenten",
+  "browseExamples": "Beispiele durchsuchen",
+  "browseExamplesTooltip": "Vordefinierte Beispielaufgabe auswählen",
+  "orStartFromExample": "oder mit einem Beispiel starten",
+  "initialMessage": "Erste Nachricht",
+  "initialPrompt": "Anfangseingabe",
+  "fieldRequired": "Dieses Feld ist erforderlich",
+  "invalidEmail": "Gib eine gültige E-Mail-Adresse ein",
+  "searchTasks": "Workflows suchen...",
+  "noMatchingTasks": "Keine passenden Workflows gefunden",
+  "lastRun": "Zuletzt: {date}",
+  "nextRun": "Nächste: {date}",
+  "never": "Nie",
+  "columnActions": "Aktionen",
+  "columnName": "Name",
+  "columnUpdated": "Aktualisiert",
+  "columnPrompt": "Prompt",
+  "columnSchedule": "Zeitplan",
+  "columnStatus": "Status",
+  "columnEnabled": "Aktiviert",
+  "columnLastRun": "Letzter Lauf",
+  "costLastShort": "Zuletzt",
+  "costTotalShort": "Gesamt",
+  "executeNow": "Jetzt ausführen",
+  "taskRunSuccess": "Workflow erfolgreich ausgeführt",
+  "taskRunFailed": "Workflow-Ausführung mit Fehlern beendet",
+  "taskRunError": "Workflow-Ausführung fehlgeschlagen: {error}",
+  "statusDisabled": "Deaktiviert",
+  "statusFailed": "Fehlgeschlagen",
+  "statusFailedCount": "Fehlgeschlagen ({count} in Folge)",
+  "statusOk": "OK — {count} Läufe",
+  "statusPending": "Ausstehend",
+  "statusPendingNeverRun": "Ausstehend — nie ausgeführt",
+  "detailGeneral": "Allgemein",
+  "detailName": "Name",
+  "detailDescription": "Beschreibung",
+  "detailAgentId": "Agent-ID",
+  "detailEnabled": "Aktiviert",
+  "detailTags": "Tags",
+  "detailCreated": "Erstellt",
+  "detailUpdated": "Aktualisiert",
+  "detailPrompts": "Prompts",
+  "detailSystemPrompt": "System-Prompt",
+  "detailPrompt": "Prompt",
+  "detailSchedule": "Zeitplan",
+  "detailCron": "Cron",
+  "detailHint": "Hinweis",
+  "detailMaxRetries": "Max. Wiederholungen",
+  "detailRetryOnFailure": "Bei Fehler wiederholen",
+  "detailRetryDelay": "Wiederholungsverzögerung",
+  "detailRetryDelayValue": "{minutes} Min.",
+  "detailExecuteImmediately": "Sofort ausführen",
+  "detailLlmOverride": "LLM-Konfiguration",
+  "detailProvider": "Anbieter",
+  "detailModel": "Modell",
+  "detailBaseUrl": "Basis-URL",
+  "detailTemperature": "Temperatur",
+  "detailMaxTokens": "Max. Token",
+  "detailApiKey": "API-Schlüssel",
+  "detailBuiltInTools": "Integrierte Tools ({count})",
+  "detailMcpTools": "MCP-Tools ({count})",
+  "detailProviders": "Anbieter",
+  "detailEmail": "E-Mail",
+  "detailWebSearch": "Websuche",
+  "detailNotifications": "Benachrichtigungen",
+  "detailEmailTo": "E-Mail an",
+  "detailSubject": "Betreff",
+  "detailSendWhen": "Senden bei",
+  "detailPush": "Push",
+  "detailPushTitle": "Push-Titel",
+  "detailDownload": "Download",
+  "detailDefaultDownloads": "Standard-Downloads",
+  "detailUpload": "Upload",
+  "detailTotalRuns": "Gesamtläufe",
+  "detailConsecutiveFailures": "Fehler in Folge",
+  "detailLastRun": "Letzter Lauf",
+  "detailNextRun": "Nächster Lauf",
+  "detailLastResult": "Letztes Ergebnis",
+  "detailLastError": "Letzter Fehler",
+  "userLog": "Benutzerprotokoll",
+  "executionLog": "Ausführungsprotokoll",
+  "generatedFiles": "Erzeugte Dateien",
+  "detailRunHistory": "Laufhistorie ({count})",
+  "detailDuration": "Dauer: {ms} ms",
+  "detailDurationNA": "Dauer: k. A.",
+  "unknownError": "Unbekannter Fehler",
+  "viewResult": "Ergebnis anzeigen",
+  "runDate": "Lauf {date}",
+  "result": "Ergebnis:",
+  "error": "Fehler:",
+  "configured": "konfiguriert",
+  "allTools": "alle",
+  "webSearchMaxResults": "max. {count}",
+  "weatherSystemPrompt": "Du bist ein Wetterassistent. Nutze die Wetter-Tools, um Fragen zu aktuellen Bedingungen, Stunden- und Tagesprognosen zu beantworten. Gib immer Temperatur, Windgeschwindigkeit und Niederschlagswahrscheinlichkeit an. Wenn der Nutzer eine Stadt erwähnt, führe zuerst die Geokodierung durch und rufe dann die Wetterdaten ab. Präsentiere die Ergebnisse knapp mit Einheiten (°C, km/h, %). Wenn kein Standort angegeben ist, verwende den konfigurierten Standard.",
+  "weatherDisplayName": "Wetter",
+  "weatherDescription": "Wettervorhersagen über Open-Meteo abrufen (kostenlos, kein API-Schlüssel). Bietet aktuelle Bedingungen, Stunden- und Tagesprognosen.",
+  "documentDisplayName": "Dokumentensuche",
+  "documentDescription": "Lokale Dokumente durchsuchen und indexieren (TXT, MD, DOCX, XLSX, PDF, CSV). Extrahiert Textinhalte und bietet Volltextsuche über DuckDB.",
+  "documentSystemPrompt": "Du bist ein Dokumenten-Suchassistent. Nutze die Dokument-Tools, um lokale Dokumente zu finden und zu durchsuchen. Wenn der Nutzer nach Dokumenteninhalten fragt, verwende search_documents um relevante Dateien zu finden und dann get_document_content um bestimmte Dokumente zu lesen. Präsentiere Ergebnisse klar mit Dateinamen und relevanten Auszügen. Falls keine Treffer gefunden werden, schlage breitere Suchbegriffe vor.",
+  "reindexDocuments": "Dokumente neu indexieren",
+  "reindexDocumentsHint": "Ordner erneut scannen und Suchindex neu aufbauen.",
+  "reindexing": "Dokumente werden indexiert…",
+  "reindexComplete": "Indexierung abgeschlossen: {count} Dokumente in {ms} ms (Dateien: {fileSizeKb} KB, Index: {indexSizeKb} KB)",
+  "reindexFailed": "Indexierung fehlgeschlagen: {error}",
+  "indexingStart": "Indexierung starten",
+  "indexingStop": "Stopp",
+  "indexingProgress": "Indexierung: {current}/{total}",
+  "indexingCurrentFile": "Aktuell: {fileName}",
+  "indexingCancelled": "Indexierung abgebrochen nach {count} Dokumenten",
+  "indexingStrategyNow": "Jetzt indexieren (bei Initialisierung)",
+  "indexingStrategyLazy": "Vor erster Suche indexieren",
+  "indexEachTime": "Bei jedem Agentenlauf indexieren",
+  "indexFirstTime": "Nur beim ersten Mal indexieren",
+  "paramLabelRootPath": "Stammverzeichnis",
+  "paramLabelFileTypes": "Dateitypen",
+  "paramLabelIndexingStrategy": "Indexierungsstrategie",
+  "paramLabelMaxDocuments": "Max. Dokumente",
+  "paramLabelWebsiteUrls": "Website-URLs",
+  "paramLabelMaxPages": "Max. Seiten",
+  "paramLabelMaxResults": "Max. Ergebnisse",
+  "paramLabelAccessToken": "Access-Token",
+  "paramLabelUserId": "Benutzer-ID",
+  "enumAuto": "Automatisch",
+  "llmSettings": "LLM-Einstellungen",
+  "llmSettingsSubtitle": "KI-Anbieter & Modell konfigurieren",
+  "llmSettingsInfo": "Konfigurieren Sie hier Ihren Standard-LLM-Anbieter. Diese Einstellungen werden sicher auf Ihrem Gerät gespeichert und können automatisch beim Erstellen neuer Aufgaben übernommen werden.",
+  "llmSettingsSaved": "LLM-Einstellungen gespeichert",
+  "llmSettingsSaveFailed": "LLM-Einstellungen konnten nicht gespeichert werden: {error}",
+  "llmSettingsCleared": "LLM-Einstellungen gelöscht",
+  "llmClearSettingsTitle": "LLM-Einstellungen löschen",
+  "llmClearSettingsMessage": "Dadurch werden alle gespeicherten LLM-Zugangsdaten und Konfigurationen entfernt. Sind Sie sicher?",
+  "llmProviderLabel": "Anbieter",
+  "llmModelLabel": "Modell",
+  "llmModelHint": "z.B. gemini-2.5-flash",
+  "llmModelRequired": "Modellname ist erforderlich",
+  "llmApiKeyLabel": "API-Schlüssel",
+  "llmApiKeyRequired": "API-Schlüssel ist für diesen Anbieter erforderlich",
+  "llmApiKeyOptional": "API-Schlüssel (optional)",
+  "llmBaseUrlLabel": "Basis-URL",
+  "llmBaseUrlRequired": "Basis-URL ist für diesen Anbieter erforderlich",
+  "llmUseNativeToolCall": "Native Werkzeugaufrufe nutzen",
+  "llmUseNativeToolCallDescription": "Nutzt die nativen Tool-Call-Fähigkeiten von Ollama, anstatt Tools als Text in den Prompt einzufügen.",
+  "llmUseSafeToolCall": "Sicherer Werkzeugaufruf-Modus",
+  "llmUseSafeToolCallDescription": "Nutzt grammatik-beschränkte Dekodierung, um fehlerhafte Werkzeugaufrufe zu verhindern. Funktioniert auch für Modelle ohne nativen Werkzeugaufruf.",
+  "llmAdvancedSettings": "Erweiterte Einstellungen",
+  "llmTemperatureRange": "Muss zwischen 0,0 und 2,0 liegen",
+  "llmMaxTokensRange": "Muss eine positive Zahl sein",
+  "llmConfiguredStatus": "Konfiguriert: {provider} / {model}",
+  "llmNotConfigured": "Nicht konfiguriert",
+  "llmApplyDefaults": "Standard-LLM-Einstellungen anwenden",
+  "llmApplyDefaultsSubtitle": "Felder unten mit Ihren gespeicherten LLM-Einstellungen füllen",
+  "llmDefaultsApplied": "Standard-LLM-Einstellungen angewendet",
+  "llmNoDefaults": "Keine Standard-LLM-Einstellungen konfiguriert. Öffnen Sie zuerst die LLM-Einstellungen auf dem Startbildschirm.",
+  "llmAdvancedParams": "Erweiterte Parameter",
+  "topK": "Top K",
+  "topKTooltip": "Begrenzt Vokabular auf Top-K-Token. Niedriger = deterministischer. Bereich: 1–100.",
+  "topP": "Top P",
+  "topPTooltip": "Nucleus-Sampling-Grenzwert. Niedriger = fokussiertere Ausgabe. Bereich: 0,0–1,0.",
+  "repeatPenalty": "Wiederholungsstrafe",
+  "repeatPenaltyTooltip": "Bestraft Wiederholungen (>1,0 reduziert Wiederholungen). Bereich: 0,5–2,0.",
+  "seed": "Seed",
+  "seedTooltip": "Zufalls-Seed für reproduzierbare Ausgaben. Leer lassen für zufällig.",
+  "llm2EditableSettings": "LLM 2 Einstellungen (für diese Aufgabe änderbar)",
+  "llm2SettingsOverrideHint": "Aus globalen LLM 2 Einstellungen vorbelegt. Änderungen gelten nur für diese Aufgabe.",
+  "interactiveMode": "Interaktiv",
+  "interactiveModeTooltip": "Diese Aufgabe interaktiv testen",
+  "interactiveModeTitle": "Interaktiver Modus",
+  "interactiveNoLlm": "Kein LLM konfiguriert. Bitte zuerst LLM-Einstellungen konfigurieren.",
+  "interactiveConnecting": "Verbindung zu MCP-Servern wird hergestellt…",
+  "interactiveReady": "Bereit — geben Sie eine Nachricht ein, um diese Aufgabe zu testen",
+  "interactiveSystemPromptLocked": "System-Prompt aus Aufgabenkonfiguration gesperrt",
+  "interactiveToolsAvailable": "{count} Tools verfügbar",
+  "@interactiveToolsAvailable": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactiveNoTools": "Keine Tools konfiguriert",
+  "interactiveDisconnect": "Trennen & Schließen",
+  "sectionRawOutput": "Rohausgabe",
+  "sectionOutputUser": "Benutzerausgabe",
+  "sectionOutputFiles": "Ausgabedateien",
+  "sectionSchedulerLog": "Planer-Protokoll",
+  "noRawOutput": "Keine Rohausgabe für den letzten Lauf aufgezeichnet",
+  "noOutputUser": "Keine Benutzerausgabe aufgezeichnet",
+  "noOutputFiles": "Keine Ausgabedateien gefunden",
+  "noSchedulerLog": "Keine Planer-Ereignisse aufgezeichnet",
+  "schedulerEventScheduled": "Geplant",
+  "schedulerEventFired": "Ausgelöst",
+  "schedulerEventStarted": "Gestartet",
+  "schedulerEventCompleted": "Abgeschlossen",
+  "schedulerEventFailed": "Fehlgeschlagen",
+  "schedulerEventSkipped": "Übersprungen",
+  "schedulerEventAlarm": "Alarm",
+  "schedulerActivity": "Hintergrundaktivität",
+  "schedulerActivityTitle": "Hintergrundaktivität · Letzte 48 Std.",
+  "outputFileRunDir": "Lauf {date}",
+  "@outputFileRunDir": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "daysToLive": "Tage für Ausgabedateien aufbewahren",
+  "copyToClipboard": "In Zwischenablage kopieren",
+  "copiedToClipboard": "In Zwischenablage kopiert",
+  "schedulerLogDetail": "Detail: {detail}",
+  "@schedulerLogDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tabChaining": "Verkettung",
+  "chainThisTaskSection": "Dieser Agent",
+  "chainIsSubtask": "Folgeagent-Modus",
+  "chainIsSubtaskHint": "Nur ausführen, wenn von einem anderen Agenten ausgelöst — Scheduler wird ignoriert",
+  "chainSubtaskHint": "Tipp: Verwende [task_result] im Prompt dieses Agenten, um die Ausgabe des auslösenden Agenten einzufügen.",
+  "chainTriggerSection": "Folgeagenten auslösen",
+  "chainTriggerSectionHint": "Nach Abschluss dieses Agenten optional einen weiteren Agenten anhand einer LLM-Bedingung ausführen.",
+  "chainWithCondition": "Mit Bedingung",
+  "chainWithConditionHint": "Eine LLM-Bedingung auswerten, um zwischen zwei Folgeagenten zu wählen.",
+  "chainDirectFollowup": "Folgeagent (ohne Bedingung)",
+  "chainDirectFollowupHint": "Diesen Agenten nach Abschluss immer auslösen und [task_result] weitergeben.",
+  "stopAfterToolCall": "Nach Tool-Aufruf stoppen",
+  "stopAfterToolCallHint": "Tool-Aufruf ausführen, aber das Ergebnis nicht an das LLM zurücksenden. Die Tool-Ausgabe wird als [task_result] an den Folgeagenten weitergegeben. Bei mehreren Schritten: Jeder Schritt stoppt nach dem ersten Tool-Aufruf, danach startet der nächste Schritt sofort.",
+  "chainCondition": "Bedingung (LLM-Auswertung)",
+  "chainConditionHint": "z. B. Temperatur liegt unter 10 Grad",
+  "chainConditionHelper": "Leer lassen, um die \"bei Übereinstimmung\"- Aufgabe immer auszuführen. [task_result] bezieht sich auf die Ausgabe dieser Aufgabe.",
+  "chainOnMatch": "Bei Bedingungserfüllung — Agenten ausführen",
+  "chainOnNoMatch": "Bei Nicht-Erfüllung — Agenten ausführen (sonst)",
+  "chainTaskIdHint": "Agenten-ID...",
+  "chainPickTask": "Folgeagenten auswählen",
+  "chainTaskResultHint": "Schreibe [task_result] im Prompt eines verketteten Agenten, um die Ausgabe dieses Agenten einzufügen.",
+  "noTasksAvailable": "Keine Agenten verfügbar",
+  "noSubtasksAvailable": "Keine Folgeagenten gefunden. Aktiviere zunächst den 'Folgeagent-Modus' bei einem Agenten.",
+  "scheduleDisabledSubtask": "Zeitplan inaktiv — dieser Agent läuft als Folgeagent und wird durch einen anderen Agenten gestartet.",
+  "detailChainConfig": "Agenten-Verkettung",
+  "detailChainIsSubtask": "Folgeagent-Modus",
+  "detailChainCondition": "Bedingung",
+  "detailChainOnMatch": "Bei Erfüllung → Aufgabe",
+  "detailChainOnNoMatch": "Bei Nicht-Erfüllung → Aufgabe",
+  "wizardLlmDescription": "Anbieter, Modell und API-Schlüssel einrichten. Erforderlich vor dem Ausführen von Aufgaben.",
+  "wizardOpenLlmSettings": "LLM-Einstellungen öffnen",
+  "wizardDataSourcesDescription": "Gmail, IMAP, Websuche und Cloud-Speicher konfigurieren.",
+  "wizardOpenDataSources": "Datenquellen öffnen",
+  "wizardExternalToolsTitle": "Remote MCP-Server",
+  "wizardExternalToolsDescription": "Remote MCP-Server konfigurieren, die über HTTPS/SSE erreichbar sind.",
+  "wizardOpenExternalTools": "Remote Server öffnen",
+  "requiredLabel": "Erforderlich",
+  "generalSection": "Allgemein",
+  "generalSectionDescription": "Theme, Sprache und Backup-Einstellungen.",
+  "themeLabel": "Theme",
+  "themeToggleTooltip": "Wechseln: Dunkel → System → Hell",
+  "languageLabel": "Sprache",
+  "languageToggleTooltip": "Sprache wechseln",
+  "defaultOutputDir": "Standard-Ausgabeverzeichnis",
+  "defaultOutputDirDescription": "Ordner, in dem Aufgabenergebnisse, Ausgabe- und Ausführungsprotokolle gespeichert werden.",
+  "defaultOutputDirNotSet": "Nicht gesetzt – App-Dokumentenordner wird verwendet",
+  "outputRetentionDays": "Dateien behalten (Tage)",
+  "outputRetentionDaysDescription": "Ausgabeordner die älter als dieser Wert sind werden automatisch gelöscht.",
+  "backgroundCheckInterval": "Hintergrund-Prüfintervall",
+  "backgroundCheckIntervalDescription": "Wie oft die App im Hintergrund aufwacht, um geplante Aufgaben zu prüfen. Ein kürzeres Intervall ist reaktionsschneller, verbraucht aber etwas mehr Akku.",
+  "exportBackup": "Export",
+  "exportBackupDescription": "Aufgaben & MCP-Server-Definitionen (ohne API-Schlüssel)",
+  "importBackup": "Import",
+  "importBackupDescription": "Aufgaben & MCP-Server aus einer JSON-Datei wiederherstellen",
+  "exportFailed": "Export fehlgeschlagen: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportSavedToDownloads": "In Downloads gespeichert: {fileName}",
+  "@exportSavedToDownloads": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "exportSuccess": "Backup erfolgreich exportiert",
+  "phaseConfiguringLlm": "LLM wird konfiguriert…",
+  "phaseConnectingExternalMcp": "Verbinde externe MCP-Server…",
+  "phaseConnectingInternalMcp": "Initialisiere integrierte Tools…",
+  "chatSessionReset": "Chat-Sitzung zurückgesetzt und neu initialisiert",
+  "filterToolsHint": "Tools filtern…",
+  "noActiveTask": "Keine aktive Aufgabe. Bitte zuerst eine Aufgabe auswählen.",
+  "resetChatSessionTooltip": "Chat-Sitzung zurücksetzen",
+  "chatStartHint": "Nachricht senden, um zu beginnen…",
+  "externalToolsScreenTitle": "Remote MCP-Server",
+  "searchMcpCatalogTooltip": "MCP-Server suchen",
+  "catalogUrlSaved": "Katalog-URL gespeichert",
+  "failedToSaveUrl": "Speichern der URL fehlgeschlagen: {error}",
+  "@failedToSaveUrl": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "testingServerMsg": "Teste {name}…",
+  "@testingServerMsg": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTestSuccessMsg": "MCP-Server-Test erfolgreich. {detail}",
+  "@mcpTestSuccessMsg": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTestFailedMsg": "MCP-Test fehlgeschlagen: {error}",
+  "@mcpTestFailedMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "serverUrlRequiredForTest": "Server-URL ist für den Test erforderlich.",
+  "customServerAdded": "Benutzerdefinierter MCP-Server hinzugefügt",
+  "failedToAddCustomServer": "Fehler beim Hinzufügen des Servers: {error}",
+  "@failedToAddCustomServer": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "externalToolsGlobalInfo": "Remote MCP-Server konfigurieren, die über HTTPS/SSE erreichbar sind. Beliebige Server mit MCP-Endpunkt hinzufügen — keine lokale Installation nötig.",
+  "catalogUrlLabel": "Katalog-URL",
+  "saveUrlButton": "URL speichern",
+  "smitheryApiKeyLabel": "Smithery API-Schlüssel",
+  "smitheryApiKeyHint": "Erhalte deinen auf smithery.ai/account/api-keys",
+  "smitheryApiKeyHelper": "Wird automatisch für jeden server.smithery.ai-Endpunkt ohne eigenen Schlüssel verwendet.",
+  "smitheryApiKeySaved": "Smithery API-Schlüssel gespeichert",
+  "saveSmitheryKeyButton": "Smithery-Schlüssel speichern",
+  "addCustomMcpServerTitle": "Benutzerdefinierten MCP-Server hinzufügen",
+  "mcpApiKeyBearerHint": "Wird als Bearer-Token verwendet",
+  "mcpApiKeyOptionalLabel": "API-Schlüssel (optional)",
+  "apiPasswordOptionalLabel": "API-Passwort (optional)",
+  "mcpApiKeyBearerHelper": "Für Smithery.ai-Server: Smithery API-Schlüssel verwenden (smithery.ai → Einstellungen → API-Schlüssel). Wird als Authorization: Bearer gesendet.",
+  "mcpApiPasswordOptionalHint": "Optionaler Auth-Fallback",
+  "testButton": "Testen",
+  "addButton": "Hinzufügen",
+  "selectedMcpServersTitle": "Ausgewählte MCP-Server",
+  "selectedServersCount": "{count} ausgewählt",
+  "@selectedServersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noExternalToolsYet": "Noch keine Remote MCP-Server konfiguriert. + tippen zum Hinzufügen.",
+  "serverStatusTooltip": "Status: {status}",
+  "@serverStatusTooltip": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "statusOnline": "Online",
+  "statusOffline": "Offline",
+  "statusUnknown": "Unbekannt",
+  "cloudMcpStatusLabel": "Cloud MCP · {status}",
+  "@cloudMcpStatusLabel": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "apiKeyConfiguredLabel": "API-Schlüssel konfiguriert",
+  "apiKeyMissingLabel": "API-Schlüssel fehlt",
+  "startPlayground": "Playground starten",
+  "initialPromptHint": "Optionale erste Nachricht – wird beim Start in das Eingabefeld vorausgefüllt.",
+  "scriptLibraryTooltip": "Skriptbibliothek",
+  "scriptLibraryUpdated": "Skriptbibliothek aktualisiert",
+  "toolboxChangesWarning": "Änderungen setzen die aktuelle Sitzung zurück",
+  "toolSelectionBuiltIn": "Integriert",
+  "toolSelectionExternal": "Externe MCP-Server",
+  "chatSendHint": "Nachricht senden, um zu beginnen…",
+  "systemPromptTapToEdit": "{label} (tippen zum Bearbeiten)",
+  "@systemPromptTapToEdit": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "websiteUrlLabel": "Website-URL",
+  "maxPagesLabel": "Max. Seiten",
+  "websiteUrlInvalid": "Eingegebene URL ist ungültig.",
+  "websiteUrlReady": "Bereit zum Hinzufügen und Indexieren dieser URL.",
+  "websiteUrlAlreadyAdded": "URL bereits ausgewählt oder max. Websites erreicht.",
+  "websiteUrlLimitHint": "Bis zu 3 Seiten. Indexierte Seiten werden in DuckDB gespeichert. Max. Seiten: {maxPages}.",
+  "@websiteUrlLimitHint": {
+    "placeholders": {
+      "maxPages": {
+        "type": "int"
+      }
+    }
+  },
+  "addUrlButton": "URL hinzufügen",
+  "noWebsitesSelected": "Keine Websites ausgewählt",
+  "websitesSelectedCount": "{count} Website(s) ausgewählt",
+  "@websitesSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "indexingActive": "Indexierung…",
+  "deleteScriptTitle": "Skript löschen?",
+  "deleteScriptConfirm": "{name}\" löschen? Dies kann nicht rückgängig gemacht werden.",
+  "@deleteScriptConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shellScriptLibraryTitle": "Shell-Skriptbibliothek",
+  "newScriptTooltip": "Neues Skript",
+  "noScriptsYet": "Noch keine Skripte.",
+  "createFirstScriptHint": "Tippe +, um ein neues Shell-Skript zu erstellen.",
+  "createScriptButton": "Skript erstellen",
+  "scriptDeletedMsg": "{name}\" gelöscht",
+  "@scriptDeletedMsg": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editScriptTooltip": "Bearbeiten",
+  "deleteScriptTooltip": "Löschen",
+  "newShellScriptTitle": "Neues Shell-Skript",
+  "editScriptDialogTitle": "Skript bearbeiten",
+  "scriptNameLabel": "Skriptname",
+  "scriptNameHint": "z. B. disk_cleanup.sh",
+  "scriptDescriptionHint": "Was macht dieses Skript?",
+  "generateWithAiLabel": "Mit KI generieren",
+  "generateScriptHint": "Beschreibe, was das Skript tun soll…",
+  "describeForGeneration": "Beschreibe, was das Skript tun soll.",
+  "withCommentsLabel": "Mit Kommentaren",
+  "generateButton": "Generieren",
+  "noLlmForScript": "Kein LLM konfiguriert. In Einstellungen einrichten oder zuerst eine Chat-Aufgabe öffnen.",
+  "scriptContentLabel": "Skriptinhalt",
+  "insertIntoPromptButton": "In Aufgaben-Prompt einfügen",
+  "insertedIntoPromptMsg": "In Aufgaben-Prompt eingefügt.",
+  "scriptNameRequiredMsg": "Skriptname ist erforderlich.",
+  "scriptSaveFailed": "Speichern fehlgeschlagen: {error}",
+  "@scriptSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scriptGenerationFailed": "Generierung fehlgeschlagen: {error}",
+  "@scriptGenerationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sshScriptLibraryNote": "Skripte für SSH können in der Skriptbibliothek hinzugefügt oder generiert werden.",
+  "openButtonLabel": "Öffnen",
+  "externalMcpGlobalTitle": "Externe MCP-Server (global)",
+  "externalMcpGlobalSubtitle": "Umschalten, welche globalen Server für diese Aufgabe aktiv sind.",
+  "browseDriveTooltip": "Drive durchsuchen",
+  "googleDriveLabel": "Google Drive",
+  "noSubfoldersLabel": "Keine Unterordner",
+  "addGoogleDriveFolder": "Ordner hinzufügen",
+  "selectRootLabel": "Stammordner wählen",
+  "selectHereLabel": "Hier auswählen",
+  "generatePromptTopicHint": "Thema (z.B. Dokumentensuche...)",
+  "generateLabel": "Generieren",
+  "applyLabel": "Übernehmen",
+  "systemPromptTitleLabel": "System-Prompt",
+  "taskPromptTitleLabel": "Aufgaben-Prompt",
+  "clear": "Löschen",
+  "execInitializing": "Initialisiere Aufgabe…",
+  "execSendingPrompt": "Sende Prompt an KI…",
+  "execAiError": "KI-Fehler: {error}",
+  "@execAiError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "execNoResponse": "Keine Antwort vom LLM erhalten.",
+  "execNoLlmResponse": "Leere LLM-Antwort",
+  "execEmailSent": "E-Mail gesendet",
+  "execEmailSentWithMsg": "E-Mail gesendet: {message}",
+  "@execEmailSentWithMsg": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "execEmailError": "E-Mail Fehler: {error}",
+  "@execEmailError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "execCompleted": "Ausführung abgeschlossen.",
+  "execError": "Fehler: {error}",
+  "@execError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "execNotReady": "Task-Laufzeit nicht bereit. LLM konfiguriert?",
+  "execCheckChain": "Prüfe Chain-Bedingung…",
+  "execChainDone": "Chain-Aufgabe ausgeführt.",
+  "execChainError": "Chain-Fehler: {error}",
+  "@execChainError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "applyAndReset": "Anwenden & Zurücksetzen",
+  "noToolsAvailable": "Keine Tools verfügbar",
+  "websiteIndexComplete": "Website-Index fertig: {count} Seiten in {ms}ms",
+  "@websiteIndexComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "invalidWebsiteUrl": "Ungültige Website-URL",
+  "maxWebsitesReached": "Maximal 3 Websites erlaubt.",
+  "aboutTitle": "Über TealKit",
+  "userGuide": "Benutzerhandbuch",
+  "privacyPolicy": "Datenschutzerklärung",
+  "psScriptLibraryTitle": "PowerShell-Skriptbibliothek",
+  "psNewScriptTooltip": "Neues PowerShell-Skript",
+  "psDeleteScriptTitle": "PowerShell-Skript löschen",
+  "psDeleteScriptConfirm": "\"{name}\" löschen?",
+  "@psDeleteScriptConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "psScriptDeleted": "Gelöscht: {name}",
+  "@psScriptDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "psNoScriptsYet": "Noch keine PowerShell-Skripte",
+  "psCreateFirstScriptHint": "Erstelle dein erstes PowerShell-Skript.",
+  "psCreateScriptButton": "PowerShell-Skript erstellen",
+  "psNewScriptDialogTitle": "Neues PowerShell-Skript",
+  "psEditScriptDialogTitle": "PowerShell-Skript bearbeiten",
+  "psScriptNameRequired": "Skriptname ist erforderlich.",
+  "psSaveFailed": "Speichern fehlgeschlagen: {error}",
+  "@psSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "psNoScriptContent": "Kein Skriptinhalt zum Testen.",
+  "psWindowsOnlyTest": "PowerShell-Test ist nur unter Windows verfügbar.",
+  "psTestRunTitle": "Testlauf",
+  "psTestRunParams": "Parameter (optionale Argumente für das Skript):",
+  "psTestRunFailed": "Testlauf fehlgeschlagen",
+  "psTestOutput": "Testausgabe (Exit-Code: {code})",
+  "@psTestOutput": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "psRunsLocally": "Läuft lokal auf diesem Windows-Rechner",
+  "psNoLlmConfigured": "Kein LLM konfiguriert.",
+  "psGenerationFailed": "Generierung fehlgeschlagen: {error}",
+  "@psGenerationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "psLoadSamplesTooltip": "Beispielskripte laden",
+  "psSamplesLoadedMsg": "{count} Beispielskripte hinzugefügt.",
+  "@psSamplesLoadedMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultTitle": "Einstellungs-Tresor",
+  "vaultSubtitle": "Alle Einstellungen, Skripte und Aufgaben exportieren/importieren — verschlüsselt (.tkv)",
+  "vaultScreenTitle": "Verschlüsseltes Einstellungs-Backup",
+  "vaultScreenDesc": "Alle API-Schlüssel, Zugangsdaten und Integrationen in eine AES-256-verschlüsselte Datei speichern.",
+  "vaultIncludedLabel": "Enthalten (pro Export wählbar)",
+  "vaultIncludedText": "Konfiguration: LLM / API-Schlüssel / E-Mail / SSH / Integrationen\nSkripte: JS  •  PowerShell  •  Python  •  SSH-Skripte\nAufgaben: alle Aufgaben mit benutzerdefiniertem LLM, SSH & Zugangsdaten",
+  "vaultExcludedLabel": "Nie enthalten",
+  "vaultExcludedText": "Gesprächsverlauf  •  DuckDB-Dokumentindex",
+  "vaultExportSection": "Tresor exportieren",
+  "vaultExportHint": "Ordner wählen, dann Dateiname, Passwort und Abschnitte festlegen.",
+  "vaultChooseFolderExport": "Ordner wählen & exportieren",
+  "vaultEncrypting": "Verschlüsseln...",
+  "vaultSaved": "Tresor gespeichert: {name}",
+  "@vaultSaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultExportFailed": "Export fehlgeschlagen: {error}",
+  "@vaultExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultImportSection": "Tresor importieren",
+  "vaultImportHint": "Eine .tkv-Datei auswählen, um Zugangsdaten und Einstellungen wiederherzustellen.",
+  "vaultPickFileImport": "Datei wählen & wiederherstellen",
+  "vaultDecrypting": "Entschlüsseln...",
+  "vaultRestored": "Tresor wiederhergestellt aus {name}",
+  "@vaultRestored": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultImportFailed": "Import fehlgeschlagen: {error}",
+  "@vaultImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultDialogExportTitle": "Tresor exportieren",
+  "vaultDialogImportTitle": "Tresor importieren",
+  "vaultDialogPassword": "Passwort",
+  "vaultDialogPasswordMin": "Mind. 8 Zeichen",
+  "vaultDialogPasswordHint": "Tresor-Passwort",
+  "vaultDialogPasswordLabel": "Passwort (mind. 8 Zeichen)",
+  "vaultDialogConfirmPassword": "Passwort bestätigen",
+  "vaultDialogEnterVaultPassword": "Tresor-Passwort eingeben",
+  "vaultDialogPasswordShort": "Mindestens 8 Zeichen",
+  "vaultPasswordMismatch": "Passwörter stimmen nicht überein",
+  "vaultDialogFilenameLabel": "Dateiname (.tkv)",
+  "vaultDialogEnterFilename": "Dateiname eingeben",
+  "vaultDialogIncludeLabel": "In Tresor einschließen:",
+  "vaultDialogSelectRestore": "Wiederherzustellende Bereiche wählen:",
+  "vaultDialogFrom": "Von: {name}",
+  "@vaultDialogFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultSectionConfiguration": "Konfiguration",
+  "vaultSectionConfigurationDesc": "LLM, API-Schlüssel, E-Mail, SSH, Integrationen, alle Einstellungen",
+  "vaultSectionScripts": "Skripte",
+  "vaultSectionScriptsDesc": "JS, PowerShell, Python, SSH-Skripte",
+  "vaultSectionScriptsMobileDesc": "JS & SSH-Skripte (PowerShell/Python auf mobilen Geräten übersprungen)",
+  "vaultSectionTasks": "Aufgaben",
+  "vaultSectionTasksDesc": "Alle Aufgaben mit benutzerdefiniertem LLM, SSH & API-Schlüsseln",
+  "vaultSectionSessions": "Playground-Konfigurationen",
+  "vaultSectionSessionsDesc": "Gespeicherte Playground-Konfigurationen (Tools & Prompts)",
+  "vaultSectionSkills": "Tool-Skills",
+  "vaultSectionSkillsDesc": "KI-generierte Anleitungen für MCP-Tools",
+  "vaultGreyedNotice": "Ausgegraute Bereiche sind in dieser Tresor-Datei nicht vorhanden.",
+  "vaultExportButton": "Exportieren",
+  "vaultRestoreButton": "Wiederherstellen",
+  "skillsScreenTitle": "Tool-Skills",
+  "skillsScreenSubtitle": "{count} Skills – aktivierte Skills werden in System-Prompts für Tasks eingefügt, die diese Tools verwenden.",
+  "@skillsScreenSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsEmptyHint": "Noch keine Skills vorhanden.\nStarte einen Chat, um die automatische Generierung auszulösen.",
+  "skillsFilterHint": "Nach Tool oder Server filtern…",
+  "skillsCustomBadge": "Benutzerdefiniert (manuell bearbeitet)",
+  "skillsMenuRegenerate": "Nicht-benutzerdefinierte neu generieren",
+  "skillsMenuRegenerateDesc": "Auto-Skills neu generieren, benutzerdefinierte behalten",
+  "skillsMenuRebuild": "Neu aufbauen (alle Tools scannen)",
+  "skillsMenuRebuildDesc": "Alle überschreiben  •  oder  •  nur fehlende hinzufügen",
+  "skillsRebuildDialogTitle": "Skills neu aufbauen",
+  "skillsRebuildDialogDesc": "Wähle, wie Skills für alle registrierten MCP-Tools neu aufgebaut werden sollen.",
+  "skillsRebuildOverwriteTitle": "Alle Skills überschreiben",
+  "skillsRebuildOverwriteDesc": "Alle Skills (inkl. benutzerdefinierte) löschen und von Grund auf neu generieren.",
+  "skillsRebuildAddMissingTitle": "Nur fehlende Skills hinzufügen",
+  "skillsRebuildAddMissingDesc": "Vorhandene Skills behalten. Nur für Tools ohne Skill generieren.",
+  "skillsEditDialogTitle": "Skill bearbeiten: {toolName}",
+  "@skillsEditDialogTitle": {
+    "placeholders": {
+      "toolName": {
+        "type": "String"
+      }
+    }
+  },
+  "skillsFullSkillLabel": "Vollständiger Skill (große Modelle)",
+  "skillsSlmSkillLabel": "SLM-Skill (kleine / eingebettete Modelle)",
+  "docFileTypesLabel": "Zu indizierende Dateitypen",
+  "docFileTypesReset": "Zurücksetzen",
+  "docFileTypesAll": "Alle",
+  "loadModelIntoApp": "In App laden",
+  "unloadModel": "Entladen",
+  "modelLoadedInApp": "Im Speicher",
+  "loadingModelIntoApp": "Wird geladen…",
+  "loadingModelProgress": "Modell laden… {percent}%",
+  "@loadingModelProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "loadModelFailed": "Modell konnte nicht geladen werden",
+  "execLoadingEmbeddedModel": "Eingebettetes Modell wird geladen…",
+  "mcpRegistryInstallManuallyTooltip": "Manuell installieren",
+  "mcpManualInstallDialogTitle": "MCP-Server manuell installieren",
+  "mcpManualInstallDialogSubtitle": "Installiere einen MCP-Server, der in keiner Registry aufgeführt ist.",
+  "mcpManualInstallNameLabel": "Name",
+  "mcpManualInstallNameHint": "z.B. Puppeteer MCP",
+  "mcpManualInstallUrlLabel": "URL (optional)",
+  "mcpManualInstallUrlHint": "https://github.com/…",
+  "mcpManualInstallTypeLabel": "Typ",
+  "mcpManualInstallMethodLabel": "Methode",
+  "mcpManualInstallTypeNodejs": "Node.js",
+  "mcpManualInstallTypePython": "Python",
+  "mcpManualInstallMethodNpm": "npm install -g",
+  "mcpManualInstallMethodNpx": "npx (bei Bedarf)",
+  "mcpManualInstallMethodUvx": "uvx (empfohlen)",
+  "mcpManualInstallMethodPip": "pip install",
+  "mcpManualInstallPackageLabel": "Paket- / Servername",
+  "mcpManualInstallPackageHint": "z.B. puppeteer-mcp-server",
+  "mcpManualInstallCommandLabel": "Installationsbefehl(e)",
+  "mcpManualInstallCommandHint": "Ein Befehl pro Zeile. Zeilen mit # sind Kommentare.",
+  "mcpManualInstallRegenerateTooltip": "Befehl neu generieren",
+  "mcpManualInstallExecuteSaveButton": "Ausführen & Speichern",
+  "mcpManualInstallRunningButton": "Läuft…",
+  "mcpManualInstallDoneButton": "Fertig",
+  "mcpManualInstallNoCommandsMsg": "Keine Installationsbefehle (On-Demand-Launcher). Server wird registriert…",
+  "mcpManualInstallSuccessMsg": "✓ Installation erfolgreich. Server wird gespeichert…",
+  "mcpManualInstallSaveFailedPrefix": "Speichern fehlgeschlagen: ",
+  "mcpManualInstallCloseButton": "Schließen",
+  "tooltipCopyMessage": "Nachricht kopieren",
+  "tooltipDownloadFile": "Datei herunterladen",
+  "tooltipCopyResult": "Ergebnis kopieren",
+  "tooltipViewAllEmails": "Alle E-Mails anzeigen",
+  "tooltipViewAllFiles": "Alle Dateien anzeigen",
+  "tooltipViewFullScreen": "Vollbildansicht",
+  "tooltipExportToPdf": "Als PDF exportieren",
+  "tooltipDownloadImage": "Bild herunterladen",
+  "tooltipShareFile": "Datei teilen",
+  "tooltipCopyFolderPath": "Ordnerpfad kopieren",
+  "tooltipFileDetails": "Dateidetails",
+  "tooltipCopyAll": "Alle kopieren",
+  "tooltipReadResource": "Ressource lesen",
+  "tooltipCopySchema": "Schema kopieren",
+  "tooltipRefresh": "Aktualisieren",
+  "tooltipNewFolder": "Neuer Ordner",
+  "tooltipUploadFile": "Datei hochladen",
+  "tooltipUploadEnterPath": "Hochladen (Quellpfad eingeben)",
+  "tooltipNoChanges": "Keine Änderungen",
+  "tooltipUploadToServer": "Auf Server hochladen",
+  "tooltipRename": "Umbenennen",
+  "tooltipDeleteFile": "Datei löschen",
+  "tooltipStopProcessing": "Verarbeitung stoppen",
+  "tooltipExportToolList": "Werkzeugliste für Modelltraining exportieren",
+  "tooltipDiscoverTools": "Werkzeuge entdecken",
+  "labelImageNotAvailable": "Bild nicht verfügbar",
+  "labelExcelFile": "Excel-Datei",
+  "labelWordDocument": "Word-Dokument",
+  "labelNoContent": "Kein Inhalt",
+  "labelNoResultYet": "Noch kein Ergebnis",
+  "labelNoMatchingEmails": "Keine passenden E-Mails.",
+  "labelFilterEmails": "E-Mails filtern…",
+  "labelFileNotFound": "Datei an diesem Pfad nicht gefunden",
+  "labelToolNoResultData": "Werkzeug ausgeführt, aber keine Ergebnisdaten verfügbar",
+  "labelToolCalledNoData": "Werkzeug aufgerufen, aber keine Ergebnisdaten verfügbar",
+  "labelEmptyToolResult": "[Leeres Werkzeug-Ergebnis]",
+  "labelEmailBodyEmpty": "E-Mail-Text ist leer.",
+  "labelFailedParseEmail": "Fehler beim Parsen der E-Mail-Antwort.",
+  "labelShowingEmailsOf": "{count} von {total} E-Mails",
+  "@labelShowingEmailsOf": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "labelEmailsCount": "E-Mails ({count})",
+  "@labelEmailsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dialogNewFolder": "Neuer Ordner",
+  "dialogDeleteEmptyFolder": "Leeren Ordner löschen",
+  "dialogDeleteFile": "Datei löschen",
+  "dialogRenameFile": "Datei umbenennen",
+  "dialogUploadFile": "Datei hochladen",
+  "dialogEditView": "Bearbeiten / Anzeigen",
+  "dialogDeleteConfirmPermanent": "Endgültig löschen ",
+  "dialogSaveFile": "Datei speichern",
+  "dialogSaveToolList": "Werkzeugliste speichern",
+  "msgFileSaved": "Datei gespeichert: {path}",
+  "@msgFileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedDownload": "Herunterladen fehlgeschlagen: {error}",
+  "@msgFailedDownload": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgSavedToDownloads": "Datei in Downloads gespeichert: {fileName}",
+  "@msgSavedToDownloads": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedSaveFile": "Datei konnte nicht gespeichert werden",
+  "msgSavedToPath": "Gespeichert unter {path}",
+  "@msgSavedToPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "msgCopiedToClipboard": "In Zwischenablage kopiert",
+  "msgToolResultCopied": "Werkzeug-Ergebnis in Zwischenablage kopiert",
+  "msgToolCallCopied": "Werkzeugaufruf in Zwischenablage kopiert",
+  "msgPathCopied": "Pfad kopiert",
+  "msgConversationReset": "Unterhaltung erfolgreich zurückgesetzt",
+  "msgImageSavedDownloads": "Bild in Downloads gespeichert: {fileName}",
+  "@msgImageSavedDownloads": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedSaveImage": "Bild konnte nicht gespeichert werden",
+  "msgExportCancelled": "Export abgebrochen",
+  "msgExportFailed": "Export fehlgeschlagen: {error}",
+  "@msgExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgSplitPromptInfo": "In Unter-Prompts aufteilen — getrennt durch ++#++",
+  "msgFailedAttachFile": "Datei anhängen fehlgeschlagen: {error}",
+  "@msgFailedAttachFile": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgFailedAttachImage": "Bild anhängen fehlgeschlagen: {error}",
+  "@msgFailedAttachImage": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgOfficeDocNotSupported": "Office-Dokumente ({name}) werden vom KI-Assistenten nicht unterstützt.\n\nUnterstützte Formate:\n• Bilder (PNG, JPG, GIF, WebP)\n• PDF-Dateien\n• Textdateien\n\nBitte konvertieren Sie Ihr Office-Dokument in PDF oder kopieren Sie den Textinhalt.",
+  "@msgOfficeDocNotSupported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "msgEnterFilename": "Bitte geben Sie einen Dateinamen ein",
+  "msgFailedGeneratePdf": "PDF-Generierung fehlgeschlagen: {error}",
+  "@msgFailedGeneratePdf": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "msgNetworkImageExportNotSupported": "Export von Netzwerkbildern wird noch nicht unterstützt",
+  "labelFolderName": "Ordnername",
+  "labelSourcePath": "Quellpfad",
+  "labelNewName": "Neuer Name",
+  "labelRemoteTarget": "Remote-Ziel",
+  "labelSearchFiles": "Dateien durchsuchen...",
+  "labelNoFilesFound": "Keine Dateien gefunden",
+  "labelFileName": "Dateiname",
+  "labelEnterFilename": "Dateinamen eingeben",
+  "hintTypeMessage": "Nachricht eingeben...",
+  "hintAddCaption": "Bildunterschrift hinzufügen...",
+  "hintEnterSourcePath": "/home/user/datei.txt",
+  "statusNoActiveTask": "Keine aktive Aufgabe",
+  "statusSelectTaskToSeeTools": "Wähle eine Aufgabe, um\nverfügbare Werkzeuge zu sehen",
+  "statusNoToolsAvailable": "Keine Werkzeuge verfügbar",
+  "statusNoResourcesAvailable": "Keine Ressourcen verfügbar",
+  "statusLoadingTools": "Werkzeuge werden geladen...",
+  "statusConnectToSeeTools": "Verbinde mit MCP-Servern,\num Werkzeuge zu sehen",
+  "statusNoToolsForServer": "Keine Werkzeuge verfügbar für {server}",
+  "@statusNoToolsForServer": {
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "placeholderAllServers": "Alle Server",
+  "labelIncludeServerTag": "Server-Tag einfügen",
+  "labelAllSelected": "Alle ausgewählt",
+  "labelSelectAll": "Alle auswählen",
+  "splitPromptInstruction": "Teile die Benutzeranfrage in aufeinanderfolgende Unter-Prompts auf. Verbinde sie mit dem Trennzeichen ++#++ in einer eigenen Zeile zwischen den Schritten. Jeder Unter-Prompt ist eine vollständige eigenständige Anweisung. Gib NUR die Unter-Prompts mit dem Trennzeichen dazwischen aus. Kein zusätzlicher Text.",
+  "splitPromptHint": "Prompt in Unter-Prompts aufteilen\n\nZum Teilen tippen:\n• Zeilen mit \\n → sofort teilen\n• ✦ für KI-Teilung\n\nTrennzeichen: ++#++ (eigene Zeile)\nVorherige Werkzeugausgabe einfügen: ${tool_result}",
+  "labelSplitFailed": "Teilung fehlgeschlagen: {error}",
+  "@labelSplitFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "renameAgentTitle": "Agent umbenennen",
+  "agentNameLabel": "Name",
+  "renameLabel": "Umbenennen",
+  "nextStepRoutingTitle": "Routing zum nächsten Schritt",
+  "routingModeSequential": "Sequenziell (Nächster Agent)",
+  "routingModeConditional": "Konditional (Verzweigung)",
+  "routingModeScheduled": "Geplant (Unabhängig)",
+  "agentScheduleTitle": "Agent Zeitplan",
+  "schedulingDisabledWarning": "Die Zeitplanung ist deaktiviert, da dieser Agent sequenziell oder konditional von einem vorherigen aufgerufen wird.",
+  "tagsLabel": "Tags (kommagetrennt)",
+  "removeAgentTooltip": "Agent entfernen",
+  "addAgentTooltip": "Agent hinzufügen",
+  "routingModeLabel": "Routing-Modus",
+  "conditionRuleHeader": "Bedingungsregel #{index}",
+  "@conditionRuleHeader": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "removeConditionRuleTooltip": "Bedingungsregel entfernen",
+  "targetAgentLabel": "Ziel-Agent",
+  "addRoutingRuleLabel": "Routing-Regel hinzufügen",
+  "addAgentFirstWarning": "Füge zuerst einen weiteren Agenten hinzu, um konditionales Routing zu konfigurieren.",
+  "operatorLabel": "Operator",
+  "customExpressionLabel": "Benutzerdefinierter Ausdruck",
+  "customExpressionHint": "z.B. avg value > 5",
+  "valueLabel": "Wert",
+  "valueHint": "Wert zum Vergleichen",
+  "agentScheduleHeader": "Agent Zeitplan",
+  "operatorLess": "Kleiner (<)",
+  "operatorLessOrEquals": "Kleiner oder gleich (<=)",
+  "operatorEquals": "Gleich (==)",
+  "operatorNotEqual": "Ungleich (!=)",
+  "operatorGreaterThan": "Größer (>)",
+  "operatorGreaterOrEquals": "Größer oder gleich (>=)",
+  "operatorContains": "Enthält",
+  "operatorNotContains": "Enthält nicht",
+  "operatorCustom": "Benutzerdefinierter Ausdruck",
+  "operatorLlmEval": "Durch LLM auswerten",
+  "llmConditionLabel": "Bedingung auswerten",
+  "llmConditionHint": "z.B. Batteriespannung > 5",
+  "cancelExecution": "Ausführung abbrechen",
+  "inactive": "Inaktiv",
+  "noAgentLogs": "Keine Ausführungsprotokolle für diesen Workflow aufgezeichnet.",
+  "agentLogsTitle": "Ausführungsprotokolle: {name}",
+  "@agentLogsTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
+}

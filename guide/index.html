@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TealKit &ndash; User Guide</title>
+  <style>
+    :root {
+      --primary: #00B4D8;
+      --bg: #0D1B2A;
+      --surface: #162032;
+      --border: #1E3048;
+      --text: #E0EAF4;
+      --muted: #7A96B2;
+      --ok: #2DD4A4;
+      --warn: #F0A832;
+      --accent: #7C6FCD;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      padding: 0 1rem 4rem
+    }
+
+    header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      border-bottom: 1px solid var(--border)
+    }
+
+    header .logo {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -1px
+    }
+
+    header .logo span {
+      color: var(--text)
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: .4rem;
+      font-size: .95rem
+    }
+
+    .platform-badges {
+      display: flex;
+      gap: .5rem;
+      justify-content: center;
+      margin-top: .8rem;
+      flex-wrap: wrap
+    }
+
+    .badge {
+      font-size: .78rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted)
+    }
+
+    .lang-switch {
+      position: absolute;
+      top: 1.2rem;
+      right: 1.4rem;
+      display: flex;
+      gap: .5rem
+    }
+
+    .lang-switch a {
+      color: var(--muted);
+      font-size: .85rem;
+      text-decoration: none;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border)
+    }
+
+    .lang-switch a.active,
+    .lang-switch a:hover {
+      color: var(--primary);
+      border-color: var(--primary)
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative
+    }
+
+    nav {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem 1.6rem;
+      margin: 2rem 0
+    }
+
+    nav h2 {
+      font-size: .82rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: .8rem
+    }
+
+    nav ol {
+      padding-left: 1.4rem;
+      columns: 2;
+      column-gap: 2rem
+    }
+
+    nav ol li {
+      margin-bottom: .3rem;
+      break-inside: avoid
+    }
+
+    nav a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: .95rem
+    }
+
+    nav a:hover {
+      text-decoration: underline
+    }
+
+    section {
+      margin-top: 2.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.6rem 1.8rem
+    }
+
+    section h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding-bottom: .6rem;
+      border-bottom: 1px solid var(--border)
+    }
+
+    section h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.8rem 0 .6rem
+    }
+
+    section h4 {
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 1.2rem 0 .4rem;
+      text-transform: uppercase;
+      letter-spacing: .06em
+    }
+
+    section p {
+      color: var(--text);
+      margin-bottom: .8rem
+    }
+
+    section p:last-child {
+      margin-bottom: 0
+    }
+
+    section ul,
+    section ol {
+      padding-left: 1.4rem;
+      margin-bottom: .8rem
+    }
+
+    section ul li,
+    section ol li {
+      margin-bottom: .35rem
+    }
+
+    .tip {
+      background: rgba(0, 180, 216, .08);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      padding: .7rem 1rem;
+      margin: .8rem 0;
+      font-size: .93rem;
+      color: var(--text)
+    }
+
+    .tip strong {
+      color: var(--primary)
+    }
+
+    .note {
+      background: rgba(240, 168, 50, .07);
+      border-left: 3px solid var(--warn);
+      border-radius: 0 8px 8px 0;
+      padding: .7rem 1rem;
+      margin: .8rem 0;
+      font-size: .93rem;
+      color: var(--text)
+    }
+
+    .note strong {
+      color: var(--warn)
+    }
+
+    .step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: .8rem
+    }
+
+    .step-num {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #000;
+      font-weight: 800;
+      font-size: .85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: .1rem
+    }
+
+
+
+    code {
+      background: rgba(255, 255, 255, .07);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: .88em;
+      font-family: monospace
+    }
+
+    pre {
+      background: rgba(0, 0, 0, .35);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .9rem 1.1rem;
+      font-family: monospace;
+      font-size: .85rem;
+      color: var(--ok);
+      overflow-x: auto;
+      margin: .8rem 0;
+      white-space: pre-wrap;
+      word-break: break-word
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: .8rem 0;
+      font-size: .9rem
+    }
+
+    th {
+      background: rgba(0, 0, 0, .3);
+      color: var(--muted);
+      font-weight: 600;
+      text-align: left;
+      padding: .5rem .8rem;
+      border-bottom: 1px solid var(--border)
+    }
+
+    td {
+      padding: .5rem .8rem;
+      border-bottom: 1px solid rgba(30, 48, 72, .8);
+      vertical-align: top
+    }
+
+    tr:last-child td {
+      border-bottom: none
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border)
+    }
+
+    footer a {
+      color: var(--primary)
+    }
+
+    section a {
+      color: #ffffff
+    }
+
+    section a:hover {
+      opacity: .85
+    }
+
+    figure {
+      margin: 1rem auto;
+      text-align: center;
+      max-width: 340px
+    }
+
+    figure img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border)
+    }
+
+    figcaption {
+      font-size: .82rem;
+      color: var(--muted);
+      margin-top: .4rem
+    }
+
+    .fig-wide {
+      max-width: 100% !important;
+      width: 100%
+    }
+
+    .screenshots-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 1rem 0
+    }
+
+    .screenshots-row figure {
+      flex: 1 1 160px;
+      max-width: 220px;
+      margin: 0
+    }
+
+    .screenshots-row figure img {
+      height: 300px;
+      width: 100%;
+      object-fit: contain;
+      object-position: top center
+    }
+  </style>
+</head>
+
+<body>
+  <div style="position:relative">
+    <div class="lang-switch"><a href="." class="active">EN</a><a href="de/">DE</a></div>
+  </div>
+  <header>
+    <div class="container">
+      <div class="logo">Teal<span>Kit</span></div>
+      <p>User Guide &middot; Mobile AI Agent</p>
+      <div class="platform-badges">
+        <span class="badge">&#x1F916; Android</span>
+        <span class="badge">&#x1F34E; iOS</span>
+        <span class="badge">&#x1F34F; macOS</span>
+        <span class="badge">&#x1FA9F; Windows</span>
+        <span class="badge">&#x1F427; Linux</span>
+      </div>
+    </div>
+  </header>
+  <div class="container">
+    <nav>
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#overview">What is TealKit?</a></li>
+        <li><a href="#home">Home Screen</a></li>
+        <li><a href="#settings">Global Settings</a>
+          <ol style="padding-left:1rem;margin-top:.3rem;list-style:none">
+            <li style="margin-bottom:.2rem"><a href="#server-mode">3.1 &nbsp; Server Mode</a></li>
+            <li style="margin-bottom:.2rem"><a href="#llm">3.2 &nbsp; LLM Settings</a></li>
+            <li style="margin-bottom:.2rem"><a href="#datasources">3.3 &nbsp; Data Sources</a></li>
+            <li style="margin-bottom:.2rem"><a href="#remote-mcp">3.4 &nbsp; Remote MCP Servers</a></li>
+            <li style="margin-bottom:.2rem"><a href="#scripts">3.5 &nbsp; Scripts</a></li>
+            <li style="margin-bottom:.2rem"><a href="#tool-skills">3.6 &nbsp; Tool Skills</a></li>
+            <li style="margin-bottom:.2rem"><a href="#general">3.7 &nbsp; General &amp; Vault</a></li>
+          </ol>
+        </li>
+        <li><a href="#playground">Playground</a></li>
+        <li><a href="#agents">Agents</a></li>
+        <li><a href="#tools-reference">Tools Reference</a></li>
+        <li><a href="#advanced">Advanced Topics</a>
+          <ol style="padding-left:1rem;margin-top:.3rem;list-style:none">
+            <li style="margin-bottom:.2rem"><a href="#chained-agents">7.1 &nbsp; Chained Agents</a></li>
+            <li style="margin-bottom:.2rem"><a href="#prompt-splitting">7.2 &nbsp; Prompt Splitting</a></li>
+            <li style="margin-bottom:.2rem"><a href="#export-tools">7.3 &nbsp; Export for Fine-tuning</a></li>
+            <li style="margin-bottom:.2rem"><a href="#chaining-vs-splitting">7.4 &nbsp; Chaining vs Prompt Splitting</a>
+            </li>
+            <li style="margin-bottom:.2rem"><a href="#desktop">7.5 &nbsp; Desktop Mode</a></li>
+          </ol>
+        </li>
+        <li><a href="#faq">FAQ</a></li>
+      </ol>
+    </nav>
+
+    <section id="overview">
+      <h2>1 &nbsp; What is TealKit?</h2>
+      <p><strong>TealKit</strong> is a mobile and desktop AI agent platform that lets you build, schedule, and run
+        automated AI workflows directly on your device. It connects large language models (LLMs) to the real world
+        through the <strong>Model Context Protocol (MCP)</strong> &mdash; a standardised interface for tools that
+        retrieve data, execute code, control services, and produce files.</p>
+      <p>Key capabilities:</p>
+      <ul>
+        <li><strong>Playground</strong> &mdash; an interactive chat for testing prompts, tools, and system prompts
+          before automating them</li>
+        <li><strong>Agents</strong> &mdash; saved workflows that run on a cron schedule, on demand, or chained after
+          another agent</li>
+        <li><strong>MCP Tools</strong> &mdash; built-in and third-party tools for web search, document indexing, SSH,
+          weather, email, charting, and more</li>
+        <li><strong>Script wizards</strong> &mdash; AI-generated JavaScript, Python, Bash, and PowerShell tools created
+          from plain-language descriptions</li>
+        <li><strong>Remote MCP Servers</strong> &mdash; connect to cloud-hosted or self-hosted MCP endpoints from any
+          platform including mobile</li>
+        <li><strong>Server Mode</strong> &mdash; connect the mobile app to a persistent
+          server that runs agents 24/7 independently of the phone</li>
+        <li><strong>Desktop (Windows / Linux)</strong> &mdash; full local tool
+          execution including Python MCP generator, PowerShell scripts, and system-tray background automation</li>
+      </ul>
+      <p>TealKit supports <strong>OpenAI, Anthropic (Claude), Google Gemini, Mistral, Azure OpenAI, Ollama</strong>, and
+        any OpenAI-compatible endpoint. All API keys are stored exclusively in the device OS secure keychain &mdash;
+        nothing is sent to TealKit servers.</p>
+    </section>
+
+    <section id="home">
+      <h2>2 &nbsp; Home Screen</h2>
+      <figure><img src="images/Screenshot_20260514_114559.jpg" alt="TealKit home screen" />
+        <figcaption>TealKit home screen &mdash; quick access to Playground and Agents</figcaption>
+      </figure>
+      <p>The home screen is the starting point. From here you can open the <strong>Playground</strong> for interactive
+        sessions, navigate to the <strong>Agents</strong> list to manage your automated workflows, or open
+        <strong>Settings</strong> to configure LLMs, data sources, and integrations.
+      </p>
+      <p>The top bar shows a connection indicator for <strong>Server Mode</strong> (cloud icon) and a shortcut to
+        Settings (gear icon). The <strong>Playground</strong> button opens the configuration screen where you choose
+        tools, system prompt, and LLM before starting a chat session.</p>
+    </section>
+
+    <section id="settings">
+      <h2>3 &nbsp; Global Settings</h2>
+      <p>Open Settings via the gear icon in the top bar. Settings are grouped into cards: Server Mode, LLM 1 &amp; LLM
+        2, Data Sources, Remote MCP Servers, Scripts, Tool Skills, General, and (on Windows) Desktop Features.</p>
+
+      <h3 id="server-mode">3.1 &nbsp; Server Mode</h3>
+      <figure><img src="images/settings/server-mode/Screenshot_20260514_160303.jpg" alt="Server Mode settings" />
+        <figcaption>Server Mode &mdash; connect the app to a persistent cloud or self-hosted server</figcaption>
+      </figure>
+      <p>Server Mode connects TealKit to a persistent server that runs agents 24/7 without requiring the phone to stay
+        open. The server executes all LLM calls and tool invocations; the mobile app acts as a remote control and
+        display.</p>
+      <ul>
+        <li>Deploy the TealKit server on any VPS or cloud host (Docker image available)</li>
+        <li>Enter the server URL and your credentials in <em>Settings &rarr; Server Mode</em></li>
+        <li>Once connected, agents are synced to the server and executed there on schedule</li>
+        <li>Results are pushed back to the app in real time</li>
+        <li>Saved Playground setups are automatically stored in the server's DuckDB database, enabling seamless configuration sharing across different devices connected to the same server</li>
+      </ul>
+      <h4>API key configuration</h4>
+      <p>When running the server, set the <code>TEALKIT_API_KEY</code> environment variable to protect endpoints with
+        Bearer token authentication. You can specify a single key, a comma-separated list, or a JSON array to allow
+        multiple UI apps to connect with different keys:</p>
+      <pre># Single key
+TEALKIT_API_KEY=my_secret_key
+
+# Multiple keys (comma-separated)
+TEALKIT_API_KEY=key_a,key_b,key_c
+
+# Multiple keys (JSON array)
+TEALKIT_API_KEY=["key_a","key_b"]</pre>
+      <p>The <code>/health</code> and <code>/status</code> endpoints are always accessible without authentication.</p>
+
+      <h3 id="llm">3.2 &nbsp; LLM Settings</h3>
+      <p>TealKit supports two independently configured LLMs: <strong>LLM 1</strong> (primary) and <strong>LLM 2</strong>
+        (secondary / coding model). Both are configured the same way.</p>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/llm/Screenshot_20260514_141852.jpg" alt="LLM 1 basic" />
+          <figcaption>LLM 1 &mdash; basic settings</figcaption>
+        </figure>
+        <figure><img src="images/settings/llm/Screenshot_20260514_142606.jpg" alt="LLM 1 advanced" />
+          <figcaption>LLM 1 &mdash; advanced parameters</figcaption>
+        </figure>
+      </div>
+      <h4>Provider &amp; model selection</h4>
+      <table>
+        <tr>
+          <th>Provider</th>
+          <th>Model examples</th>
+          <th>Notes</th>
+        </tr>
+        <tr>
+          <td><strong>OpenAI</strong></td>
+          <td>gpt-4o, gpt-4o-mini, gpt-4-turbo</td>
+          <td>API key required; supports function calling and vision</td>
+        </tr>
+        <tr>
+          <td><strong>Anthropic</strong></td>
+          <td>claude-3-5-sonnet, claude-3-haiku</td>
+          <td>API key required; excellent for long context and reasoning</td>
+        </tr>
+        <tr>
+          <td><strong>Google Gemini</strong></td>
+          <td>gemini-2.5-pro, gemini-2.0-flash</td>
+          <td>API key required; fast and cost-effective</td>
+        </tr>
+        <tr>
+          <td><strong>Mistral AI</strong></td>
+          <td>mistral-medium, mistral-large-latest</td>
+          <td>European provider (GDPR); API key required</td>
+        </tr>
+        <tr>
+          <td><strong>Azure OpenAI</strong></td>
+          <td>Any Azure deployment</td>
+          <td>Requires Azure endpoint URL + deployment name + API key</td>
+        </tr>
+        <tr>
+          <td><strong>Ollama</strong></td>
+          <td>llama3, mistral, qwen2.5, ministral-3:14b&hellip;</td>
+          <td>Local or network Ollama; no API cost; great for SLMs</td>
+        </tr>
+      </table>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/llm/Screenshot_20260514_152140.jpg" alt="LLM 2 basic" />
+          <figcaption>LLM 2 &mdash; Ollama local model</figcaption>
+        </figure>
+        <figure><img src="images/settings/llm/Screenshot_20260514_152146.jpg" alt="LLM 2 advanced" />
+          <figcaption>LLM 2 &mdash; advanced parameters expanded</figcaption>
+        </figure>
+        <figure><img src="images/settings/llm/Screenshot_20260514_152153.jpg" alt="LLM additional" />
+          <figcaption>LLM &mdash; additional options</figcaption>
+        </figure>
+        <figure><img src="images/settings/llm/Screenshot_20260514_152351.jpg" alt="LLM provider selection" />
+          <figcaption>LLM &mdash; provider selection</figcaption>
+        </figure>
+      </div>
+      <h4>Advanced parameters</h4>
+      <table>
+        <tr>
+          <th>Parameter</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><strong>Temperature</strong></td>
+          <td>0.7</td>
+          <td>Controls randomness. Lower values (0.1&ndash;0.3) produce more deterministic outputs &mdash; ideal for
+            tool-calling agents. Higher values (0.8&ndash;1.0) add creativity but reduce reliability for automation.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Max Tokens</strong></td>
+          <td>0 (unlimited)</td>
+          <td>Maximum tokens in the LLM response. Set to 0 for the model default. Reduce to cap response length and save
+            cost.</td>
+        </tr>
+        <tr>
+          <td><strong>Max Tool Output Size</strong></td>
+          <td>2 560 000</td>
+          <td>Maximum characters of a single tool result passed back to the LLM. Large outputs are truncated to prevent
+            context overflow.</td>
+        </tr>
+        <tr>
+          <td><strong>Token Warning Threshold</strong></td>
+          <td>80 000</td>
+          <td>The token counter turns amber when cumulative session tokens exceed this value.</td>
+        </tr>
+        <tr>
+          <td><strong>Top-K</strong></td>
+          <td>&ndash;</td>
+          <td>Limits sampling to the K most probable next tokens. Supported by Ollama and some local endpoints.</td>
+        </tr>
+        <tr>
+          <td><strong>Top-P</strong></td>
+          <td>&ndash;</td>
+          <td>Nucleus sampling threshold (0&ndash;1). Tokens are sampled from the smallest set whose cumulative
+            probability exceeds Top-P.</td>
+        </tr>
+        <tr>
+          <td><strong>Repeat Penalty</strong></td>
+          <td>1.0</td>
+          <td>Penalises repetition of recent tokens. Mostly relevant for Ollama / local models.</td>
+        </tr>
+        <tr>
+          <td><strong>Seed</strong></td>
+          <td>&ndash;</td>
+          <td>Fixed random seed for reproducible outputs. Leave empty for non-deterministic mode.</td>
+        </tr>
+      </table>
+      <h4>SLM mode</h4>
+      <p>Enable the <strong>SLM (Small Language Model)</strong> checkbox to activate a compact system prompt that
+        instructs small models to call tools immediately rather than explaining their plan.</p>
+      <h4>Thinking / Reasoning toggle</h4>
+      <p>In the <strong>Playground</strong> Advanced Settings and the <strong>Agent Editor</strong> LLM section, a
+        <strong>Thinking / Reasoning</strong> toggle activates extended reasoning for models that support it (e.g.
+        Claude 3.7 Sonnet with extended thinking, o3-mini with reasoning effort). When enabled, the
+        <code>thinking: true</code> parameter is passed in the LLM request.
+      </p>
+      <h4>Native tool calling (Ollama)</h4>
+      <p>When <strong>Ollama</strong> is selected as the LLM provider, a <strong>Use native tool calling</strong> toggle
+        appears in the Playground and Agent Editor. When enabled, TealKit uses Ollama&rsquo;s native <code>tools</code>
+        API instead of text-based tool injection. This improves reliability and enables structured tool calls with
+        models that support <em>function calling</em> natively (e.g. Qwen2.5, Mistral, Llama 3.1 or newer). Disable this
+        if your model does not support native tool calling or if you prefer the text-based approach.</p>
+
+      <h3 id="datasources">3.3 &nbsp; Data Sources</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152746.jpg" alt="Data sources" />
+          <figcaption>Data Sources overview</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152845.jpg" alt="Google" />
+          <figcaption>Google / Gmail</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152902.jpg" alt="Google Drive" />
+          <figcaption>Google Drive</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152918.jpg" alt="SMTP" />
+          <figcaption>SMTP &mdash; email output</figcaption>
+        </figure>
+      </div>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152926.jpg" alt="SerpApi" />
+          <figcaption>SerpApi &mdash; web search</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152943.jpg" alt="DuckDB" />
+          <figcaption>DuckDB / Website Auto-Index</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_152957.jpg" alt="Document index" />
+          <figcaption>Document Index</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_153023.jpg" alt="Location" />
+          <figcaption>Location</figcaption>
+        </figure>
+      </div>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_153032.jpg" alt="SSH/SFTP" />
+          <figcaption>SSH/SFTP credentials</figcaption>
+        </figure>
+        <figure><img src="images/settings/data-sources/Screenshot_20260514_153046.jpg" alt="Home Assistant" />
+          <figcaption>Home Assistant</figcaption>
+        </figure>
+      </div>
+      <table>
+        <tr>
+          <th>Data Source</th>
+          <th>Provides</th>
+        </tr>
+        <tr>
+          <td><strong>Google / Gmail</strong></td>
+          <td>Google OAuth for Gmail tool, Calendar</td>
+        </tr>
+        <tr>
+          <td><strong>IMAP</strong></td>
+          <td>Login credentials for any IMAP mailbox</td>
+        </tr>
+        <tr>
+          <td><strong>Google Drive</strong></td>
+          <td>OAuth for reading/writing Google Drive files</td>
+        </tr>
+        <tr>
+          <td><strong>SMTP</strong></td>
+          <td>Outbound email &mdash; used by Email output channel</td>
+        </tr>
+        <tr>
+          <td><strong>SerpApi / Serper</strong></td>
+          <td>API key for premium Google Search in Web Search tool</td>
+        </tr>
+        <tr>
+          <td><strong>DuckDB / Website Index</strong></td>
+          <td>Configure websites to index and auto-refresh schedule</td>
+        </tr>
+        <tr>
+          <td><strong>Document Index</strong></td>
+          <td>Local folder path for document indexing (PDF, DOCX, TXT&hellip;)</td>
+        </tr>
+        <tr>
+          <td><strong>Location</strong></td>
+          <td>Device GPS / manual coordinates for location-aware tools</td>
+        </tr>
+        <tr>
+          <td><strong>SSH/SFTP</strong></td>
+          <td>Hostname, port, user, key/password for remote server access</td>
+        </tr>
+        <tr>
+          <td><strong>Home Assistant</strong></td>
+          <td>Base URL and long-lived access token for HA REST API</td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp</strong></td>
+          <td>WhatsApp Business API credentials for WhatsApp output channel</td>
+        </tr>
+      </table>
+
+      <h3 id="remote-mcp">3.4 &nbsp; Remote MCP Servers</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/Remote MCP-Server/Screenshot_20260514_140554.jpg" alt="Remote MCP list" />
+          <figcaption>Remote MCP Servers list</figcaption>
+        </figure>
+        <figure><img src="images/settings/Remote MCP-Server/Screenshot_20260514_140615.jpg" alt="Add remote MCP" />
+          <figcaption>Add a new server</figcaption>
+        </figure>
+        <figure><img src="images/settings/Remote MCP-Server/Screenshot_20260514_140629.jpg" alt="Remote MCP details" />
+          <figcaption>Server details and tools</figcaption>
+        </figure>
+        <figure><img src="images/settings/Remote MCP-Server/Screenshot_20260514_140641.jpg" alt="Remote MCP catalog" />
+          <figcaption>Catalog tabs</figcaption>
+        </figure>
+      </div>
+      <figure><img src="images/settings/Remote MCP-Server/Screenshot_20260514_141100.jpg" alt="Remote MCP tools" />
+        <figcaption>Discovered tools from connected server</figcaption>
+      </figure>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>Go to <em>Settings &rarr; Remote MCP Servers</em> and tap <strong>+</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>Enter the server <strong>Name</strong>, <strong>Server URL</strong>, and optionally an <strong>API
+            Key</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>Tap <strong>Test Connection</strong>. TealKit connects and lists available tools.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div>Tap <strong>Add</strong>. Tools appear immediately in the tool selector.</div>
+      </div>
+      <div class="tip"><strong>Tip:</strong> Use the <strong>PulseMCP</strong> or <strong>Smithery</strong> tabs to
+        connect to hosted servers with a single tap.</div>
+
+      <h3 id="scripts">3.5 &nbsp; Scripts</h3>
+      <figure><img src="images/settings/scripts/Screenshot_20260514_153720.jpg" alt="Scripts section" />
+        <figcaption>Scripts &mdash; SSH Shell Scripts, JavaScript Tools, Desktop tools</figcaption>
+      </figure>
+      <h4>SSH Shell Scripts</h4>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/scripts/ssh-shell-scripts/Screenshot_20260514_153309.jpg"
+            alt="SSH scripts list" />
+          <figcaption>SSH Shell Script library</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/ssh-shell-scripts/Screenshot_20260514_153341.jpg" alt="Edit script" />
+          <figcaption>Script editor with AI generation</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/ssh-shell-scripts/Screenshot_20260514_153725.jpg"
+            alt="Script test run" />
+          <figcaption>Test Run via SSH</figcaption>
+        </figure>
+      </div>
+      <p>SSH Shell Scripts are Bash scripts stored in TealKit and executed on your remote SSH server. The AI generates
+        the complete script from a plain-language description. Tap <strong>Test Run</strong> to execute via SSH and
+        verify output before saving.</p>
+      <h4>JavaScript Tools</h4>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/scripts/js-scripts/Screenshot_20260514_153353.jpg" alt="JS Tool library" />
+          <figcaption>JavaScript Tool library</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/js-scripts/Screenshot_20260514_153402.jpg" alt="JS Tool editor" />
+          <figcaption>JS Tool editor &mdash; AI generation + code</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/js-scripts/Screenshot_20260514_153416.jpg" alt="JS Tool test" />
+          <figcaption>JS Tool &mdash; test run result</figcaption>
+        </figure>
+      </div>
+      <p>JavaScript Tools are lightweight custom MCP tools running in a secure on-device sandbox (QuickJS /
+        JavaScriptCore). Every tool must define a <code>generatedTool</code> object with <code>name</code>,
+        <code>description</code>, <code>inputSchema</code>, and <code>execute: async (args) =&gt; {&hellip;}</code>.
+        Limits: max 64 KB script, 256 KB response, 8 s timeout. <code>fetch()</code> is available; <code>require</code>,
+        <code>import</code>, <code>fs</code>, <code>process</code> are forbidden.
+      </p>
+      <div class="tip"><strong>Tip:</strong> Tap <strong>Load Samples</strong> to add Timestamp Converter, Currency
+        Converter, and City Geolocation &mdash; all use free public APIs, no API key required.</div>
+      <h4>Desktop: Python MCP Tool Generator</h4>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/scripts/desktop/Screenshot_20260514_153445.jpg" alt="Desktop tiles" />
+          <figcaption>Desktop Features tiles</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/desktop/python-mcp/Screenshot_20260514_154004.jpg"
+            alt="Python library" />
+          <figcaption>Python Tool Library</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/desktop/python-mcp/Screenshot_20260514_154012.jpg"
+            alt="Python tool" />
+          <figcaption>Python Tool editing</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/desktop/python-mcp/Screenshot_20260514_154019.jpg"
+            alt="Python tool 2" />
+          <figcaption>Python Tool &mdash; additional</figcaption>
+        </figure>
+      </div>
+      <figure><img src="images/settings/scripts/desktop/python-mcp/Screenshot_20260514_154032.jpg"
+          alt="Python Tool editor" />
+        <figcaption>Python Tool editor &mdash; code, requirements, venv init, test run</figcaption>
+      </figure>
+      <p>On Windows and Linux, the Python MCP Tool Generator creates fully managed Python MCP server tools running in an
+        isolated <code>.venv</code>. Specify packages in <code>requirements.txt</code>, tap <strong>Init venv</strong>
+        once, then <strong>Run Test</strong> to verify output.</p>
+      <h4>Desktop: MCP Server Registry</h4>
+      <div class="screenshots-row">
+        <figure><img
+            src="images/settings/scripts/desktop/nodejs-python-mcp-server-registry/Screenshot_20260514_154239.jpg"
+            alt="Registry list" />
+          <figcaption>MCP Server Registry</figcaption>
+        </figure>
+        <figure><img
+            src="images/settings/scripts/desktop/nodejs-python-mcp-server-registry/Screenshot_20260514_155335.jpg"
+            alt="Registry expanded" />
+          <figcaption>Registry &mdash; expanded entry</figcaption>
+        </figure>
+        <figure><img
+            src="images/settings/scripts/desktop/nodejs-python-mcp-server-registry/Screenshot_20260514_155344.jpg"
+            alt="Registry tools" />
+          <figcaption>Discovered tools &mdash; Filesystem (14 tools)</figcaption>
+        </figure>
+      </div>
+      <p>Install Python and Node.js MCP servers locally with a single tap. TealKit runs <code>npm install -g</code>,
+        <code>uvx</code>, or <code>pip</code> in the background. Tabs: <strong>GitHub</strong> (curated),
+        <strong>Glama</strong>, <strong>PulseMCP</strong>.
+      </p>
+      <div class="tip"><strong>Node.js requirement:</strong> Install <a href="https://nodejs.org" target="_blank"
+          rel="noopener">Node.js 18 LTS</a> for npm/npx servers. Python servers use <code>uvx</code> &mdash; included
+        with TealKit.</div>
+      <h4>Desktop: PowerShell Scripts <span style="font-size:.8em;color:var(--muted)">(Windows only)</span></h4>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/scripts/desktop/win-ps1/desktop-win-ps1-list.png" alt="PS1 list" />
+          <figcaption>PowerShell Tool Library</figcaption>
+        </figure>
+        <figure><img src="images/settings/scripts/desktop/win-ps1/desktop-win-ps1-edit.png" alt="PS1 editor" />
+          <figcaption>PowerShell script editor</figcaption>
+        </figure>
+      </div>
+      <p>On Windows, the PowerShell Tool Library manages <code>.ps1</code> scripts executed locally via the
+        <code>ps_bridge</code> MCP server. Built-in samples: <em>Windows System Info</em>, <em>Last Windows
+          Updates</em>, <em>Fetch Website Status</em>.
+      </p>
+
+      <h3 id="tool-skills">3.6 &nbsp; Tool Skills</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/tool-skills/Screenshot_20260514_155649.jpg" alt="Tool Skills info" />
+          <figcaption>Tool Skills &mdash; info card</figcaption>
+        </figure>
+        <figure><img src="images/settings/tool-skills/Screenshot_20260514_155704.jpg" alt="Tool Skills list" />
+          <figcaption>Tool Skills list (115 skills)</figcaption>
+        </figure>
+        <figure><img src="images/settings/tool-skills/Screenshot_20260514_155712.jpg" alt="Skill detail" />
+          <figcaption>Individual skill</figcaption>
+        </figure>
+        <figure><img src="images/settings/tool-skills/Screenshot_20260514_155720.jpg" alt="Skill editor" />
+          <figcaption>Skill editor</figcaption>
+        </figure>
+      </div>
+      <figure><img src="images/settings/tool-skills/Screenshot_20260514_155732.jpg" alt="Tool Skills extra" />
+        <figcaption>Tool Skills &mdash; additional view</figcaption>
+      </figure>
+      <p>Tool Skills are AI-generated usage guides for each MCP tool, automatically created when you first configure an
+        LLM and injected into system prompts to improve tool-use accuracy. Enable/disable per tool. Set Max tokens LLM
+        and Max tokens SLM to control inclusion. Tap refresh to regenerate; tap edit to refine manually.</p>
+      <div class="tip"><strong>Tip:</strong> Enable only skills for tools your agent actually uses to keep system
+        prompts short and token cost low.</div>
+
+      <h3 id="general">3.7 &nbsp; General &amp; Vault</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/settings/generic/Screenshot_20260514_155815.jpg" alt="General settings" />
+          <figcaption>General settings</figcaption>
+        </figure>
+        <figure><img src="images/settings/vault/Screenshot_20260514_181330.jpg" alt="Vault backup" />
+          <figcaption>Vault &mdash; backup</figcaption>
+        </figure>
+        <figure><img src="images/settings/vault/Screenshot_20260514_181339.jpg" alt="Vault restore" />
+          <figcaption>Vault &mdash; restore</figcaption>
+        </figure>
+      </div>
+      <ul>
+        <li><strong>Background check interval</strong> &mdash; 5 / 10 / 15 min; default 10 min</li>
+        <li><strong>Language</strong> &mdash; English or German</li>
+        <li><strong>Theme</strong> &mdash; System / Light / Dark</li>
+        <li><strong>Output Directory</strong> &mdash; custom folder for agent output files</li>
+        <li><strong>Backup &amp; Restore</strong> &mdash; export/import encrypted vault
+          file</li>
+      </ul>
+    </section>
+
+    <section id="playground">
+      <h2>4 &nbsp; Playground</h2>
+      <p>The Playground is an interactive chat for testing prompts, tools, and system prompts before turning them into
+        automated agents.</p>
+      <div class="screenshots-row">
+        <figure><img src="images/playground/Screenshot_20260514_155926.jpg" alt="Playground setup" />
+          <figcaption>Playground &mdash; configuration screen</figcaption>
+        </figure>
+        <figure><img src="images/playground/Screenshot_20260514_155942.jpg" alt="Playground chat" />
+          <figcaption>Playground &mdash; active chat session</figcaption>
+        </figure>
+        <figure><img src="images/playground/Screenshot_20260514_155958.jpg" alt="Playground tools" />
+          <figcaption>Playground &mdash; tool selection</figcaption>
+        </figure>
+        <figure><img src="images/playground/Screenshot_20260514_160010.jpg" alt="Playground system prompt" />
+          <figcaption>Playground &mdash; system prompt</figcaption>
+        </figure>
+      </div>
+      <div class="screenshots-row">
+        <figure><img src="images/playground/Screenshot_20260514_160039.jpg" alt="Playground advanced" />
+          <figcaption>Playground &mdash; advanced LLM settings</figcaption>
+        </figure>
+        <figure><img src="images/playground/Screenshot_20260514_160049.jpg" alt="Playground LLM selector" />
+          <figcaption>Playground &mdash; LLM selector (LLM 1 / LLM 2 / Custom)</figcaption>
+        </figure>
+        <figure><img src="images/playground/Screenshot_20260514_160104.jpg" alt="Playground initial input" />
+          <figcaption>Playground &mdash; initial input</figcaption>
+        </figure>
+        <figure><img src="images/playground/Screenshot_20260514_160112.jpg" alt="Playground save as agent" />
+          <figcaption>Playground &mdash; save as agent</figcaption>
+        </figure>
+      </div>
+      <figure><img src="images/playground/Screenshot_20260514_160131.jpg" alt="Playground extra" />
+        <figcaption>Playground &mdash; additional options</figcaption>
+      </figure>
+      <h3>Configuration options</h3>
+      <ul>
+        <li><strong>Tools</strong> &mdash; tap <strong>+ Select Tools</strong> to choose MCP tools for this session</li>
+        <li><strong>Generate system prompt</strong> &mdash; auto-generates a system prompt based on selected tools</li>
+        <li><strong>Chat mode</strong> &mdash; direct LLM chat, no tools, no system prompt; fastest for SLMs doing
+          simple tasks</li>
+        <li><strong>Stop after tool call</strong> &mdash; executes the first tool call, returns raw output as session
+          result and <code>${task_result}</code> for chained agents</li>
+        <li><strong>System Prompt</strong> &mdash; type a topic and tap &#9670; to AI-generate, or write manually</li>
+        <li><strong>LLM selector</strong> &mdash; LLM 1, LLM 2, or Custom (temporary parameter overrides)</li>
+        <li><strong>Initial input</strong> &mdash; optional first message pre-filled in the chat input</li>
+        <li><strong>Advanced Settings</strong> &mdash; override Temperature, Max Tokens, Thinking/Reasoning, and
+          <strong>Native Tool Calling</strong> (Ollama only) for this
+          session
+        </li>
+      </ul>
+      <h3>Saving and converting</h3>
+      <p>Tap the bookmark icon to save the current setup as a reusable configuration. Tap <strong>Save as Agent</strong>
+        to create a scheduled agent from the current Playground setup.
+      </p>
+      <p><em>Note:</em> In Local Mode, saved configurations are stored locally on your device's storage. In Server Mode, they are stored on the remote server's database and shared among all connected devices.</p>
+      <div class="tip"><strong>Workflow:</strong> Design in Playground &rarr; test with different LLMs &rarr; iterate on
+        prompts &rarr; save as agent &rarr; add schedule.</div>
+      <h3>Token &amp; cost statistics</h3>
+      <p>A live token counter appears at the bottom. Tap it to see prompt tokens, completion tokens, last-request cost,
+        and cumulative session cost. Tap <strong>Reset Chat</strong> (&#8635;) to clear conversation history and reset
+        counters while keeping tools and system prompt.</p>
+    </section>
+
+    <section id="agents">
+      <h2>5 &nbsp; Agents</h2>
+      <p>Agents are saved AI workflows that run automatically on a cron schedule, on demand, or triggered by another
+        agent.</p>
+      <h3>Agent list</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/agents/list/Screenshot_20260514_160431.jpg" alt="Agent list" />
+          <figcaption>Agent list &mdash; with chain groups</figcaption>
+        </figure>
+        <figure><img src="images/agents/list/Screenshot_20260514_161047.jpg" alt="Agent popup" />
+          <figcaption>Agent context menu</figcaption>
+        </figure>
+        <figure><img src="images/agents/list/Screenshot_20260514_161052.jpg" alt="Agent filter" />
+          <figcaption>Filter by status</figcaption>
+        </figure>
+        <figure><img src="images/agents/list/Screenshot_20260514_161059.jpg" alt="Agent list 2" />
+          <figcaption>Agent list &mdash; additional view</figcaption>
+        </figure>
+      </div>
+      <figure><img src="images/agents/list/Screenshot_20260514_161107.jpg" alt="Agent actions" />
+        <figcaption>Agent action buttons</figcaption>
+      </figure>
+      <p>Each card shows: name, description, schedule, last/next run time, status badge, cost. Action buttons: &#9200;
+        Schedule &middot; &#9654; Run &middot; &#x1F4AC; Chat/Interactive &middot; &#x270F; Edit &middot; &#x1F4CB; Copy
+        &middot; &#x1F5D1; Delete. Chained agents appear as indented groups.</p>
+      <h3>Agent editor</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/agents/edit/Screenshot_20260514_160501.jpg" alt="Basis" />
+          <figcaption>Basis &mdash; name, prompt, toggles</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit/Screenshot_20260514_160518.jpg" alt="Tools" />
+          <figcaption>Tools section</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit/Screenshot_20260514_160531.jpg" alt="Prompts" />
+          <figcaption>Prompts section</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit/Screenshot_20260514_160540.jpg" alt="Schedule" />
+          <figcaption>Zeitplan (Schedule)</figcaption>
+        </figure>
+      </div>
+      <div class="screenshots-row">
+        <figure><img src="images/agents/edit/Screenshot_20260514_160604.jpg" alt="LLM" />
+          <figcaption>LLM override</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit/Screenshot_20260514_160615.jpg" alt="Output" />
+          <figcaption>Ausgabe (Output)</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit/Screenshot_20260514_160634.jpg" alt="Chain" />
+          <figcaption>Verkettung (Chaining)</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit/Screenshot_20260514_162532.jpg" alt="Extra" />
+          <figcaption>Additional settings</figcaption>
+        </figure>
+      </div>
+      <table>
+        <tr>
+          <th>Section</th>
+          <th>Contents</th>
+        </tr>
+        <tr>
+          <td><strong>Basis</strong></td>
+          <td>Name, description, Activated toggle, Chat mode, Stop after tool call</td>
+        </tr>
+        <tr>
+          <td><strong>Tools</strong></td>
+          <td>MCP tool selection</td>
+        </tr>
+        <tr>
+          <td><strong>Prompts</strong></td>
+          <td>System Prompt (AI wizard), Agent Prompt (supports <code>++#++</code> split), per-step tools</td>
+        </tr>
+        <tr>
+          <td><strong>Zeitplan (Schedule)</strong></td>
+          <td>Cron expression, completion notification</td>
+        </tr>
+        <tr>
+          <td><strong>Verkettung (Chaining)</strong></td>
+          <td>Follow-up agent mode, conditional routing, successor selector</td>
+        </tr>
+        <tr>
+          <td><strong>LLM</strong></td>
+          <td>Override global LLM for this agent, including <strong>Native Tool Calling</strong> toggle (Ollama only)
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Ausgabe (Output)</strong></td>
+          <td>File, Email, Slack, WhatsApp, SFTP, ZIP</td>
+        </tr>
+      </table>
+      <h4>Output channels</h4>
+      <table>
+        <tr>
+          <th>Channel</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><strong>File</strong></td>
+          <td>Save to local file (TXT, MD, HTML, JSON, CSV, PDF, PNG)</td>
+        </tr>
+        <tr>
+          <td><strong>Email</strong></td>
+          <td>Send via configured SMTP server</td>
+        </tr>
+        <tr>
+          <td><strong>Slack</strong></td>
+          <td>Post to Slack channel via Incoming Webhook</td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp</strong></td>
+          <td>Send via WhatsApp Business API</td>
+        </tr>
+        <tr>
+          <td><strong>SFTP</strong></td>
+          <td>Upload to remote server via SFTP</td>
+        </tr>
+        <tr>
+          <td><strong>ZIP</strong></td>
+          <td>Compress output before saving or uploading</td>
+        </tr>
+      </table>
+      <div class="screenshots-row">
+        <figure><img src="images/agents/run-agent-manual/Screenshot_20260514_162408.jpg" alt="Manual run" />
+          <figcaption>Manual run &mdash; result and statistics</figcaption>
+        </figure>
+        <figure><img src="images/agents/edit-live-view/Screenshot_20260514_160941[1].jpg" alt="Live view" />
+          <figcaption>Live agent execution view</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="tools-reference">
+      <h2>6 &nbsp; Tools Reference</h2>
+      <div class="screenshots-row">
+        <figure><img src="images/advanced/tools/Screenshot_20260514_164043.jpg" alt="Tool selector p1" />
+          <figcaption>Tool selector &mdash; page 1</figcaption>
+        </figure>
+        <figure><img src="images/advanced/tools/Screenshot_20260514_164054.jpg" alt="Tool selector p2" />
+          <figcaption>Tool selector &mdash; page 2</figcaption>
+        </figure>
+        <figure><img src="images/advanced/tools/Screenshot_20260514_164101.jpg" alt="External MCP" />
+          <figcaption>External &amp; Installed MCP servers</figcaption>
+        </figure>
+      </div>
+      <table>
+        <tr>
+          <th>Tool / Server</th>
+          <th>Description</th>
+          <th>Key tools</th>
+        </tr>
+        <tr>
+          <td><strong>Web Search</strong></td>
+          <td>Search the public web. Uses SerpApi &rarr; Serper.dev &rarr; Brave &rarr; DuckDuckGo (free fallback).</td>
+          <td><code>web_search</code></td>
+        </tr>
+        <tr>
+          <td><strong>Website Search</strong></td>
+          <td>Index websites into DuckDB and search with hybrid full-text + semantic search.</td>
+          <td><code>search_website</code>, <code>reindex_website</code></td>
+        </tr>
+        <tr>
+          <td><strong>Document Search</strong></td>
+          <td>Index local documents (PDF, DOCX, TXT, MD, CSV) and search with hybrid search.</td>
+          <td><code>search_documents</code>, <code>get_document_content</code>, <code>reindex</code></td>
+        </tr>
+        <tr>
+          <td><strong>Weather</strong></td>
+          <td>Fetch weather forecasts using Open-Meteo (free, no API key).</td>
+          <td><code>get_current_weather</code>, <code>get_hourly_forecast</code>, <code>get_daily_forecast</code></td>
+        </tr>
+        <tr>
+          <td><strong>SSH/SFTP</strong></td>
+          <td>Connect to remote Linux/Unix server. Browse, read/write files, run scripts.</td>
+          <td><code>ssh_execute</code>, <code>sftp_list</code>, <code>sftp_read</code>, <code>sftp_upload</code></td>
+        </tr>
+        <tr>
+          <td><strong>IMAP Email</strong></td>
+          <td>Search and read emails from any IMAP mailbox.</td>
+          <td><code>search_emails</code>, <code>read_email</code></td>
+        </tr>
+        <tr>
+          <td><strong>Home Assistant</strong></td>
+          <td>Control smart home via HA REST API.</td>
+          <td><code>ha_get_states</code>, <code>ha_call_service</code></td>
+        </tr>
+        <tr>
+          <td><strong>JavaScript Bridge</strong></td>
+          <td>Run user-defined JS tools from the local JS tool library.</td>
+          <td><code>run_js_tool</code>, <code>js_&lt;name&gt;</code></td>
+        </tr>
+        <tr>
+          <td><strong>PDF Generator</strong></td>
+          <td>Create PDFs from text, HTML, or base64 PNG images.</td>
+          <td><code>create_pdf</code></td>
+        </tr>
+        <tr>
+          <td><strong>Mermaid Diagram</strong></td>
+          <td>Render Mermaid markdown into PNG diagrams.</td>
+          <td><code>render_mermaid</code></td>
+        </tr>
+        <tr>
+          <td><strong>Chart Generator</strong></td>
+          <td>Create line, bar, pie charts as PNG from structured data.</td>
+          <td><code>create_chart_png</code></td>
+        </tr>
+        <tr>
+          <td><strong>Location</strong></td>
+          <td>Device location, geocoding, timezone info.</td>
+          <td><code>get_current_location</code>, <code>geocode_city</code>, <code>get_timezone_info</code></td>
+        </tr>
+        <tr>
+          <td><strong>Calculator</strong></td>
+          <td>Evaluate math expressions and unit conversions.</td>
+          <td><code>calculate</code>, <code>sum_numbers</code></td>
+        </tr>
+        <tr>
+          <td><strong>Python Tools</strong></td>
+          <td>Run Python MCP tools on the local desktop machine.</td>
+          <td>Custom tools from Python Tool Library</td>
+        </tr>
+        <tr>
+          <td><strong>PowerShell Bridge</strong></td>
+          <td>Execute PowerShell scripts locally on Windows.</td>
+          <td><code>run_ps_script</code>, <code>list_ps_scripts</code></td>
+        </tr>
+        <tr>
+          <td><strong>Filesystem</strong> <span style="font-size:.8em;color:var(--muted)">(registry)</span></td>
+          <td>Read/write local files within allowed paths.</td>
+          <td><code>read_file</code>, <code>write_file</code>, <code>list_directory</code></td>
+        </tr>
+        <tr>
+          <td><strong>Web Fetch</strong> <span style="font-size:.8em;color:var(--muted)">(registry)</span></td>
+          <td>Fetch URL content; HTML-to-markdown conversion.</td>
+          <td><code>fetch</code></td>
+        </tr>
+        <tr>
+          <td><strong>Puppeteer</strong> <span style="font-size:.8em;color:var(--muted)">(registry)</span></td>
+          <td>Control headless Chromium: navigate, screenshot, fill forms.</td>
+          <td><code>navigate</code>, <code>screenshot</code>, <code>click</code></td>
+        </tr>
+      </table>
+    </section>
+
+    <section id="advanced">
+      <h2>7 &nbsp; Advanced Topics</h2>
+
+      <h3 id="chained-agents">7.1 &nbsp; Chained Agents</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/advanced/chained-agents/Screenshot_20260514_164220.jpg" alt="Chain group" />
+          <figcaption>Agent list &mdash; chain group</figcaption>
+        </figure>
+        <figure><img src="images/advanced/chained-agents/Screenshot_20260514_164246.jpg" alt="On-match card" />
+          <figcaption>Chain card &mdash; on-match trigger</figcaption>
+        </figure>
+        <figure><img src="images/advanced/chained-agents/Screenshot_20260514_164304.jpg" alt="Unconditional card" />
+          <figcaption>Chain card &mdash; always trigger</figcaption>
+        </figure>
+      </div>
+      <figure><img src="images/advanced/chained-agents/Screenshot_20260514_164324.jpg" alt="Chain section" />
+        <figcaption>Verkettung section in agent editor</figcaption>
+      </figure>
+      <p>Agent chaining connects separate agents in a pipeline. Each agent has its own model, tools, schedule, and
+        output. The previous agent's full output is injected as <code>${task_result}</code> into the next agent's
+        prompt.</p>
+      <h4>Chain configuration (Verkettung section)</h4>
+      <ul>
+        <li><strong>Folgeagent-Modus</strong> &mdash; when enabled, this agent only runs when triggered by another
+          agent; the scheduler is ignored</li>
+        <li><strong>Unconditional trigger</strong> &mdash; always runs the successor with <code>${task_result}</code>
+        </li>
+        <li><strong>Conditional trigger</strong> &mdash; LLM evaluates an expression and routes to different successors
+          (on-match vs. on-no-match)</li>
+      </ul>
+      <div class="tip"><strong>Tip:</strong> Enable <strong>Stop after tool call</strong> on the parent to pass raw tool
+        output directly as <code>${task_result}</code> without further LLM processing.</div>
+      <h4>Chaining vs. Prompt Splitting</h4>
+      <table>
+        <tr>
+          <th></th>
+          <th>Prompt Splitting (<code>++#++</code>)</th>
+          <th>Agent Chaining</th>
+        </tr>
+        <tr>
+          <td>Scope</td>
+          <td>Single agent, sequential steps</td>
+          <td>Multiple separate agents</td>
+        </tr>
+        <tr>
+          <td>LLM per step</td>
+          <td>Same for all steps</td>
+          <td>Different per agent</td>
+        </tr>
+        <tr>
+          <td>Conditional routing</td>
+          <td>No</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td>Variable injection</td>
+          <td><code>${tool_result}</code></td>
+          <td><code>${task_result}</code></td>
+        </tr>
+        <tr>
+          <td>Best for</td>
+          <td>Breaking one task into micro-steps for small models</td>
+          <td>Multi-model pipelines, conditional logic</td>
+        </tr>
+      </table>
+
+      <h3 id="prompt-splitting">7.2 &nbsp; Prompt Splitting</h3>
+      <div class="screenshots-row">
+        <figure><img src="images/advanced/prompt-splitting/Screenshot_20260514_164444.jpg" alt="3-step prompt" />
+          <figcaption>Three-step prompt editor</figcaption>
+        </figure>
+        <figure><img src="images/advanced/prompt-splitting/Screenshot_20260514_164457.jpg" alt="Per-step tools" />
+          <figcaption>Per-step tool selector</figcaption>
+        </figure>
+        <figure><img src="images/advanced/prompt-splitting/Screenshot_20260514_164548.jpg" alt="System prompts" />
+          <figcaption>System prompt per step</figcaption>
+        </figure>
+      </div>
+      <p>Prompt Splitting breaks a single agent's prompt into sequential steps separated by <code>++#++</code>. Use
+        <code>${tool_result}</code> in a later step to inject raw tool output from the previous step. Free
+        &mdash; works in Playground, scheduled agents, and Server Mode.
+      </p>
+      <h4>Example &mdash; weather chart</h4>
+      <pre>Step 1: Get my current location
+++#++
+Step 2: Get the hourly forecast for the next 24 hours for the location from ${tool_result}
+++#++
+Step 3: Create a temperature line chart from ${tool_result}</pre>
+      <p>Each step can have its own tool selection and system prompt. Use &#8853;/&#8854; buttons to add/remove steps;
+        drag &#8801; to reorder.</p>
+      <div class="tip"><strong>Best for small models:</strong> Splitting into focused single-purpose steps dramatically
+        improves reliability with SLMs and local Ollama models.</div>
+
+      <h3 id="export-tools">7.3 &nbsp; Export Tool Definitions for Fine-tuning</h3>
+      <p>TealKit can export MCP server tool definitions in four formats &mdash; useful for fine-tuning small (&lt; 7 B)
+        or embedded models on your specific tool set. This teaches the model exactly how to call your tools, reducing
+        hallucinations and removing the need for lengthy system-prompt skill descriptions.</p>
+      <div class="screenshots-row">
+        <figure><img src="images/advanced/desktop-mode/mcp-server-export-tools4training-0.png"
+            alt="Remote MCP Servers list" />
+          <figcaption>Remote MCP Servers &mdash; Discover tools button</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/mcp-server-export-tools4training-1.png"
+            alt="Tool list with Export for training" />
+          <figcaption>Tool list &mdash; Export for training button</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/mcp-server-export-tools4training-2.png"
+            alt="Export format picker" />
+          <figcaption>Export format picker &mdash; OpenAI / Anthropic / Markdown / JSONL</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/mcp-server-export-tools4training-3.png"
+            alt="JSONL fine-tuning output" />
+          <figcaption>JSONL (fine-tuning) output ready for import</figcaption>
+        </figure>
+      </div>
+      <h4>Export workflow</h4>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>Go to <em>Settings &rarr; Remote MCP Servers</em> and connect a server.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>Tap the <strong>Discover tools</strong> icon on the server card to view available tools.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>Tap <strong>Export for training</strong> in the toolbar and choose a format.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div>Download or copy the output into your fine-tuning pipeline.</div>
+      </div>
+      <h4>Export formats</h4>
+      <table>
+        <tr>
+          <th>Format</th>
+          <th>Use case</th>
+        </tr>
+        <tr>
+          <td><strong>OpenAI functions</strong></td>
+          <td>JSON array of function definitions for OpenAI-format fine-tuning</td>
+        </tr>
+        <tr>
+          <td><strong>Anthropic tools</strong></td>
+          <td>Anthropic <code>tool_use</code> format</td>
+        </tr>
+        <tr>
+          <td><strong>Markdown docs</strong></td>
+          <td>Human-readable tool documentation</td>
+        </tr>
+        <tr>
+          <td><strong>JSONL (fine-tuning)</strong></td>
+          <td>One <code>{"type":"function",&hellip;}</code> record per line &mdash; import directly into OpenAI,
+            Axolotl, or LlamaFactory fine-tuning jobs</td>
+        </tr>
+      </table>
+      <div class="tip"><strong>Tip:</strong> Fine-tune Qwen2.5-3B-Instruct or Phi-4-mini on your domain's tool
+        definitions so the model calls tools reliably with minimal system-prompt overhead.</div>
+
+      <h3 id="chaining-vs-splitting">7.4 &nbsp; Chaining vs. Prompt Splitting</h3>
+      <p>Use this table to decide whether to build a multi-step workflow with Prompt Splitting (one agent) or Agent
+        Chaining (multiple agents).</p>
+      <table>
+        <tr>
+          <th></th>
+          <th>Prompt Splitting (<code>++#++</code>)</th>
+          <th>Agent Chaining</th>
+        </tr>
+        <tr>
+          <td><strong>Setup</strong></td>
+          <td>One agent, one prompt field &mdash; visual step editor with per-step tool controls</td>
+          <td>Multiple separate agents</td>
+        </tr>
+        <tr>
+          <td><strong>Model per step</strong></td>
+          <td>Same model for all steps</td>
+          <td>Different model per agent</td>
+        </tr>
+        <tr>
+          <td><strong>Conditional branching</strong></td>
+          <td>No</td>
+          <td>Yes (LLM-evaluated condition)</td>
+        </tr>
+        <tr>
+          <td><strong>Scheduling</strong></td>
+          <td>One schedule, one task</td>
+          <td>Each agent can have its own schedule</td>
+        </tr>
+        <tr>
+          <td><strong>Variable injection</strong></td>
+          <td><code>${tool_result}</code> &mdash; previous step's raw tool output</td>
+          <td><code>${task_result}</code> &mdash; previous agent's full output</td>
+        </tr>
+        <tr>
+          <td><strong>Best for</strong></td>
+          <td>Small / local models needing focused single-step prompts; sequential fetch &rarr; format &rarr; summarise
+            within one agent</td>
+          <td>Complex cross-model pipelines; conditional routing; different output channels per step; large workflows
+            where each agent runs on its own schedule</td>
+        </tr>
+      </table>
+
+      <h3 id="desktop">7.5 &nbsp; Desktop Mode</h3>
+      <p>Windows app on the <a href="https://apps.microsoft.com/detail/9nb8trlrgwr2" target="_blank"
+          rel="noopener">Microsoft Store</a>. Linux from <a href="https://github.com/lschaffer/tealkit/releases"
+          target="_blank" rel="noopener">GitHub Releases</a>.</p>
+      <figure class="fig-wide"><img src="images/advanced/desktop-mode/win-settings.png" alt="Windows Settings" />
+        <figcaption>Windows Settings &mdash; all desktop feature tiles</figcaption>
+      </figure>
+      <div class="screenshots-row">
+        <figure><img src="images/advanced/desktop-mode/win-agents-list.png" alt="Win agents list" />
+          <figcaption>Windows &mdash; Agents list</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/win-agent-edit-1-tools.png" alt="Win tools" />
+          <figcaption>Agent editor &mdash; Tools</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/win-agent-edit-2-prompt.png" alt="Win prompt" />
+          <figcaption>Agent editor &mdash; Prompt</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/win-agent-edit-3-schedule.png" alt="Win schedule" />
+          <figcaption>Agent editor &mdash; Schedule</figcaption>
+        </figure>
+      </div>
+      <div class="screenshots-row">
+        <figure><img src="images/advanced/desktop-mode/win-agent-edit-4-chain.png" alt="Win chain" />
+          <figcaption>Agent editor &mdash; Chaining</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/win-agent-edit-5-llm.png" alt="Win LLM" />
+          <figcaption>Agent editor &mdash; LLM</figcaption>
+        </figure>
+        <figure><img src="images/advanced/desktop-mode/win-agent-edit-6-output.png" alt="Win output" />
+          <figcaption>Agent editor &mdash; Output</figcaption>
+        </figure>
+      </div>
+      <p>Desktop-exclusive: system tray background execution, Python MCP Tool Generator, MCP Server Registry, PowerShell
+        Tool Library (Windows).</p>
+      <div class="tip"><strong>Linux keyring:</strong> In headless environments:
+        <code>eval $(gnome-keyring-daemon --start --components=secrets)</code>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>8 &nbsp; FAQ</h2>
+      <h3>Does TealKit store my API keys on a server?</h3>
+      <p>No. All API keys are stored exclusively in the device's OS secure keychain (iOS Keychain / Android Keystore)
+        and never leave your device.</p>
+      <h3>Can I use TealKit offline?</h3>
+      <p>Local Ollama models and embedded (on-device) GGUF models work fully offline. Cloud AI providers and web search
+        require internet.</p>
+      <h3>How do I delete all my data?</h3>
+      <p>Uninstall TealKit. All local databases, keys, and settings are removed automatically.</p>
+      <h3>The indexing is slow or stuck</h3>
+      <p>Large document folders or websites take time. Tap the red <strong>Stop</strong> button to cancel at any point.
+      </p>
+      <h3>Where is the output folder on Android?</h3>
+      <p>By default, files go to internal app storage. Set a custom path in <em>Settings &rarr; General &rarr; Output
+          Directory</em> (e.g. Downloads).</p>
+      <h3>What is the difference between Prompt Splitting and Agent Chaining?</h3>
+      <p><strong>Prompt Splitting</strong> (<code>++#++</code>) breaks a single agent's prompt into sequential steps
+        within the <em>same</em> agent. All steps share the same model, tools, and settings. Use
+        <code>${tool_result}</code> to inject prior step output. Free.
+      </p>
+      <p><strong>Agent Chaining</strong> connects separate agents &mdash; each with its
+        own model, tools, schedule, and output. Injects <code>${task_result}</code>. Supports conditional routing.</p>
+      <p>Short rule: use Prompt Splitting for micro-steps within one agent; use Agent Chaining for multi-model
+        pipelines. See <a href="#chained-agents">Section 7.1</a>.</p>
+      <h3>How does agent chaining work?</h3>
+      <p>Each chained agent starts after its predecessor finishes. The predecessor's output is injected as
+        <code>${task_result}</code>. Chaining can be unconditional (always trigger) or conditional (LLM evaluates an
+        expression to choose between successors). Enable <strong>Stop after tool call</strong> on the parent to pass raw
+        tool output directly as <code>${task_result}</code>.
+      </p>
+      <h3>What is the difference between Run and Interactive mode?</h3>
+      <p><strong>Run</strong> executes the agent autonomously and saves the result. <strong>Interactive</strong> opens a
+        live chat with the same LLM and tools for guided exploration and debugging.</p>
+      <h3>What is the advantage of using a European AI provider?</h3>
+      <p>For GDPR compliance, choose <strong>Mistral AI</strong> &mdash; headquartered in France, all data processed
+        within the EU. Enter your API key under <em>Settings &rarr; LLM 1</em> and select Mistral AI.</p>
+      <h3>Can I run models directly on my device without the internet?</h3>
+      <p>Yes. Go to <em>Settings &rarr; Embedded Models</em> to download GGUF models and run inference fully on-device
+        &mdash; no API key, no internet. Browse the HuggingFace catalog or paste a direct GGUF URL. Choose CPU-only,
+        Partial GPU, or Full GPU offloading. Best for text formatting, translation, and summarisation in Chat Mode. For
+        agentic tool calling, you need a model explicitly trained for function calling (e.g. Qwen2.5-3B-Instruct) and
+        sufficient GPU VRAM.</p>
+      <h3>Can TealKit run with smaller models on limited hardware?</h3>
+      <p>Yes. TealKit supports SLMs through <strong>Ollama</strong>, <strong>LM Studio</strong>, or any
+        OpenAI-compatible local endpoint. Enable <strong>SLM mode</strong> and <strong>Chat mode</strong> for text-only
+        tasks. Use the Playground to find the right model before scheduling.</p>
+      <h3>My scheduled agent with an embedded model did not run on Android when the app was closed</h3>
+      <p>This is expected. Embedded models require the app to be open. When Android kills the app, the background alarm
+        cannot load the on-device model and sends a tap-to-open notification instead. For unattended execution use a
+        cloud provider or Ollama. On Desktop the app stays alive in the system tray, so embedded-model agents run
+        normally there.</p>
+      <h3>Scheduled agents don't run reliably on iOS / iPad</h3>
+      <p>iOS BGAppRefreshTask timing is controlled by the OS based on battery, network, and app-usage patterns. Tasks
+        may be delayed or not fire at all in Low Power Mode. Keep the app in the foreground or background (not
+        force-quit) for most reliable execution.</p>
+      <h3>How does the Web Search tool decide which API to use?</h3>
+      <p>Priority order: SerpApi (if key configured) &rarr; Serper.dev (if key configured) &rarr; Brave Search &rarr;
+        DuckDuckGo (always free, no key). Configure in <em>Settings &rarr; Data Sources &rarr; SerpApi</em>.</p>
+      <h3>What LLMs work best for tool calling?</h3>
+      <p>Cloud models (GPT-4o, Claude 3.5 Sonnet, Gemini 2.5 Pro, Mistral Medium) are most reliable. For local models,
+        Qwen2.5-7B-Instruct and Mistral 7B Instruct v0.3 via Ollama are solid. Use Temperature 0.1&ndash;0.2 for
+        deterministic tool calls. Enable SLM mode for smaller models.</p>
+    </section>
+
+    <section id="all-features">
+      <h2>9 &nbsp; All Features</h2>
+      <p>TealKit is <strong>completely free</strong> &mdash; all features are available to every user with no purchase
+        required.</p>
+      <ul>
+        <li>Playground &mdash; unlimited interactive sessions</li>
+        <li>Agents &mdash; create, schedule, run, view results</li>
+        <li>All built-in MCP tools (Web Search, Weather, Calculator, Location, Document Search, Website Search, SSH,
+          Home Assistant, Charts, PDF, Mermaid)</li>
+        <li>JavaScript Tool wizard and library</li>
+        <li>Remote MCP Servers</li>
+        <li>LLM 1 and LLM 2 configuration</li>
+        <li>Scheduled agents and recurring background automation</li>
+        <li>Advanced output channels: Email, Slack, WhatsApp, SFTP, ZIP</li>
+        <li>Agent Chaining with conditional routing</li>
+        <li>Server Mode &mdash; 24/7 persistent server execution</li>
+        <li>Prompt Splitting (<code>++#++</code>)</li>
+        <li>Tool Skills generation and management</li>
+        <li>Embedded (on-device) models</li>
+        <li>Backup &amp; Restore vault</li>
+        <li>Desktop (Windows / Linux) app</li>
+        <li>Python MCP Tool Generator (Desktop)</li>
+        <li>MCP Server Registry (Desktop)</li>
+        <li>PowerShell Tool Library (Windows Desktop)</li>
+      </ul>
+    </section>
+
+  </div>
+  <footer>
+    <div class="container">
+      <p>TealKit &mdash; Mobile AI Agent &nbsp;&bull;&nbsp;
+        <a href="https://tealkit.dev" target="_blank" rel="noopener">tealkit.dev</a> &nbsp;&bull;&nbsp;
+        <a href="de/">Deutsch</a>
+      </p>
+    </div>
+  </footer>
+</body>
+
+</html>

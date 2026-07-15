@@ -1,0 +1,33 @@
+services:
+  tealkit_server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: tealkit_server:latest
+    container_name: tealkit_server
+    restart: unless-stopped
+    ports:
+      - "7771:7771"
+    volumes:
+      - ./data:/data
+      # Mount upload directory so the server can index local files.
+      - /home/tealkit/upload:/home/tealkit/upload:ro
+    environment:
+      TEALKIT_DATA_DIR: /data
+      TEALKIT_MODELS_DIR: /data/models
+      TEALKIT_PORT: "7771"
+      TEALKIT_HOST: "0.0.0.0"
+      TEALKIT_API_KEY: ""  # Optional: single key, or comma-list / JSON-array for multiple UI clients
+      TZ: "Europe/Vienna"  # Set to your local timezone so cron times match what you enter in the app
+      # Optional: set API key(s) to protect endpoints
+      # TEALKIT_API_KEY: "key_a,key_b,key_c"
+      # TEALKIT_API_KEY: '["key_a","key_b"]'
+      # TEALKIT_API_KEY: ""
+    healthcheck:
+      # Exec form required — distroless runtime has no shell.
+      # /usr/bin/wget is the BusyBox static binary (copied during build).
+      test: ["CMD", "/usr/bin/wget", "-qO-", "http://localhost:7771/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

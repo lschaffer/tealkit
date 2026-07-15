@@ -1,0 +1,42 @@
+services:
+  tealkit_server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile.full
+    image: tealkit_server:prod-full
+    container_name: tealkit_server
+    restart: unless-stopped
+    ports:
+      - "7771:7771"
+    volumes:
+      - ./data:/data
+      - /home/tealkit:/tealkit
+      - ./files:/tealkit/files
+      - /home/tealkit/upload:/home/tealkit/upload:ro
+      - ./py_scripts:/data/py_scripts
+      - ./js_scripts:/data/js_scripts
+      - uv_cache:/data/.cache/uv
+      - npm_cache:/data/.cache/npm
+    environment:
+      TEALKIT_DATA_DIR: /data
+      TEALKIT_MODELS_DIR: /data/models
+      TEALKIT_FILES_DIR: /tealkit/files
+      TEALKIT_PORT: "7771"
+      TEALKIT_HOST: "0.0.0.0"
+      # Required in production: only clients with a matching key can connect.
+      # Examples:
+      #   TEALKIT_API_KEY: "single_key"
+      #   TEALKIT_API_KEY: "key_a,key_b,key_c"
+      #   TEALKIT_API_KEY: '["key_a","key_b"]'
+      TEALKIT_API_KEY: ""
+      TZ: "Europe/Vienna"
+    healthcheck:
+      test: ["CMD", "/usr/bin/wget", "-qO-", "http://localhost:7771/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  uv_cache:
+  npm_cache:

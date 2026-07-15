@@ -1,0 +1,11 @@
+{
+  "train_scope": "weathersensorsmcp",
+  "model_artifact_scope": "../servers/weathersensorsmcp/outputs/ollama_native",
+  "data_dir": "servers/weathersensorsmcp/datasets/ollama_native",
+  "tools_json": "scripts_training/weathersensorsmcp/mcp_data/weather_sensors_tools.jsonl",
+  "template_md": "scripts_training/contracts/ollama_native/prompt_contract.md",
+  "quality_gate_profile": "weathersensorsmcp_ollama_native",
+  "quality_gate_profile_file": "contracts/ollama_native/quality_gate_profile.json",
+  "system_prompt_file": "servers/weathersensorsmcp/prompts/ollama_native_system_prompt.md",
+  "contract_model_name_suffix": "-ollama"
+}

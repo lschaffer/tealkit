@@ -1,0 +1,146 @@
+{
+    "profile": "webcrawl_ollama_native",
+    "contract_type": "ollama_native",
+    "notes": "Native Ollama profile for web crawl/search tools. Probes use /api/chat with tool schemas and expect native assistant tool_calls.",
+    "probes": [
+        {
+            "prompt": "Search for information about machine learning in my indexed websites.",
+            "expect": "ollama_native_tool_call",
+            "expected_tool": "search_indexed_websites",
+            "required_args": [
+                "query"
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "search_indexed_websites",
+                        "description": "Search indexed website content with hybrid semantic ranking.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string"
+                                },
+                                "domain": {
+                                    "type": "string"
+                                },
+                                "limit": {
+                                    "type": "integer"
+                                },
+                                "searchMode": {
+                                    "type": "string",
+                                    "enum": [
+                                        "keyword",
+                                        "semantic",
+                                        "hybrid"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "query"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "list_indexed_pages",
+                        "description": "List pages currently indexed.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "domain": {
+                                    "type": "string"
+                                },
+                                "limit": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": []
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "prompt": "List all indexed pages for example.com.",
+            "expect": "ollama_native_tool_call",
+            "expected_tool": "list_indexed_pages",
+            "required_args": [
+                "domain"
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "list_indexed_pages",
+                        "description": "List pages currently indexed.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "domain": {
+                                    "type": "string"
+                                },
+                                "limit": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": []
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "prompt": "Index my website.",
+            "expect": "ollama_native_tool_call",
+            "expected_tool": "index_websites",
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "index_websites",
+                        "description": "Crawl and index configured websites into DuckDB.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "required": []
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "reindex_websites",
+                        "description": "Rebuild the website index from configured seed URLs.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "required": []
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "prompt": "Tool result for the previous call:\n{\"pages\": [{\"url\": \"https://example.com/about\", \"title\": \"About Us\"}], \"total\": 1}\nOriginal request: List all indexed pages.\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "example.com/about",
+                "About Us"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

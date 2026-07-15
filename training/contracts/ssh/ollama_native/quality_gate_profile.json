@@ -1,0 +1,60 @@
+{
+    "profile": "ssh_ollama_native",
+    "contract_type": "ollama_native",
+    "probes": [
+        {
+            "prompt": "List files in /home/user/data. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "list_directory",
+            "required_args": [
+                "path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Read the contents of /home/user/config.json. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "read_file",
+            "required_args": [
+                "path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Upload the file report.csv to /remote/data/report.csv with permissions 644. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "upload_file",
+            "required_args": [
+                "path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Create directory /home/user/new_project. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "make_directory",
+            "required_args": [
+                "path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Tool result:\n{\"files\": [\"data.csv\", \"config.json\", \"logs/\", \"backup/\"]}\nOriginal request: List files in /home/user/data.\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "data.csv",
+                "config.json"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

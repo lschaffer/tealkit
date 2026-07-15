@@ -1,0 +1,94 @@
+# ── Stage 1: Build ──────────────────────────────────────────────────────────
+FROM dart:3.12.0 AS build
+
+WORKDIR /app
+
+COPY server/pubspec.yaml server/pubspec.lock ./
+COPY server/ ./
+COPY third_party/dart_duckdb/ /app/third_party/dart_duckdb/
+COPY third_party/dartssh2/ /app/third_party/dartssh2/
+COPY api/ /app/api/
+
+RUN printf 'dependency_overrides:\n  tealkit_api:\n    path: api\n  dart_duckdb:\n    path: third_party/dart_duckdb\n  dartssh2:\n    path: third_party/dartssh2\n' \
+    > /app/pubspec_overrides.yaml
+
+RUN dart pub get --no-precompile
+RUN mkdir -p /app/build
+RUN dart build cli --output /app/build
+
+# ── Stage 2: Helper ─────────────────────────────────────────────────────────
+FROM busybox:1.37 AS helper
+
+RUN mkdir -p /data/db /data/output /data/logs /data/models /tealkit/files /tealkit/files/mcp_servers
+
+# ── Stage 3: Runtime (full) ────────────────────────────────────────────────
+# Build stage currently resolves native assets against newer glibc; use a
+# runtime base with compatible glibc to avoid libllama load failures.
+FROM debian:trixie-slim AS runtime
+ARG TARGETARCH
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    python3 \
+    python3-venv \
+    python3-pip \
+    libgomp1 \
+    ca-certificates \
+    curl \
+    gnupg \
+    chromium \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && pip3 install --no-cache-dir --break-system-packages uv \
+    && ln -sf /usr/bin/python3 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash tealkit
+
+WORKDIR /app
+
+COPY --from=build /app/build/bundle /app/bundle
+COPY server/config /app/config
+COPY third_party/mcp /app/bundled_mcp
+COPY --from=helper /data /data
+COPY --from=helper /tealkit /tealkit
+
+# Copy the local x64 DuckDB binary as temporary, then download ARM64 if needed
+COPY third_party/dart_duckdb/linux/Libraries/release/libduckdb.so /tmp/libduckdb.so.local
+
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends unzip && \
+      curl -L -o /tmp/duckdb.zip https://github.com/duckdb/duckdb/releases/download/v1.4.1/libduckdb-linux-arm64.zip && \
+      unzip -o /tmp/duckdb.zip -d /app && \
+      rm -f /tmp/duckdb.zip /tmp/libduckdb.so.local && \
+      apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*; \
+    else \
+      mv /tmp/libduckdb.so.local /app/libduckdb.so; \
+    fi
+
+RUN chown -R tealkit:tealkit /app /data /tealkit
+
+USER tealkit
+
+VOLUME ["/data", "/tealkit"]
+
+ENV TEALKIT_DATA_DIR=/data \
+    TEALKIT_FILES_DIR=/tealkit/files \
+    TEALKIT_PORT=7771 \
+    TEALKIT_HOST=0.0.0.0 \
+    LD_LIBRARY_PATH=/app:/app/bundle/lib \
+    NPM_CONFIG_PREFIX=/data/.npm-global \
+    UV_CACHE_DIR=/data/.cache/uv \
+    NPM_CONFIG_CACHE=/data/.cache/npm \
+    PATH=/data/.npm-global/bin:${PATH} \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    PUPPETEER_CACHE_DIR=/data/.cache/puppeteer
+
+EXPOSE 7771
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD ["curl", "-fsS", "http://localhost:7771/health"]
+
+ENTRYPOINT ["/app/bundle/bin/tealkit_server"]

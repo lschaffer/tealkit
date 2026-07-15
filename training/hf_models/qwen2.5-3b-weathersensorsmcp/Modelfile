@@ -1,0 +1,11 @@
+FROM qwen2.5-3b-weathersensorsmcp-q5_k_m.gguf
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+{{ end }}"""
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"
+PARAMETER num_ctx 4096
+PARAMETER num_thread 4

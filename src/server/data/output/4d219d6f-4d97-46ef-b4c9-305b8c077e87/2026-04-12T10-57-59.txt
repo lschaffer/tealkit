@@ -1,0 +1,6 @@
+Could you clarify what you mean by "run script containers_stat"? Are you referring to:
+
+1. A local script named `containers_stat`?
+2. A containerized application named `containers_stat`?
+3. A command to list container statistics (e.g., `docker stats`)?
+4. Something else?

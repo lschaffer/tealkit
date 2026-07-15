@@ -1,0 +1,18 @@
+# Large deployment archives — never commit to GitHub Pages repo
+*.tar.gz
+*.zip
+*.tar.bz2
+*.tgz
+
+# Temp/debug files from Copilot
+_fix_git.ps1
+_fix_out.txt
+_st.txt
+_test_write.txt
+_test2.txt
+
+# Native binaries and dynamic libraries
+*.dll
+*.so
+*.dylib
+*.exe

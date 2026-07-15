@@ -1,0 +1,161 @@
+{
+    "profile": "weatherforecast_ollama_native",
+    "contract_type": "ollama_native",
+    "notes": "Native Ollama profile for weather forecast tools. Probes use /api/chat with tool schemas and expect native assistant tool_calls.",
+    "probes": [
+        {
+            "prompt": "What is the current weather in Vienna?",
+            "expect": "ollama_native_tool_call",
+            "expected_tool": "get_current_weather",
+            "required_args": [
+                "latitude",
+                "longitude"
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_current_weather",
+                        "description": "Get current weather conditions including temperature, wind, humidity, and weather description.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "latitude": {
+                                    "type": "number",
+                                    "description": "Latitude"
+                                },
+                                "longitude": {
+                                    "type": "number",
+                                    "description": "Longitude"
+                                }
+                            },
+                            "required": []
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "geocode_weather_city",
+                        "description": "Look up coordinates for a city name.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "city": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "city"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "prompt": "Show me the hourly forecast for the next 12 hours at coordinates 52.52, 13.405.",
+            "expect": "ollama_native_tool_call",
+            "expected_tool": "get_hourly_forecast",
+            "required_args": [
+                "hours",
+                "latitude",
+                "longitude"
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_hourly_forecast",
+                        "description": "Get hourly weather forecast for the next 24-168 hours.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "hours": {
+                                    "type": "integer",
+                                    "description": "Number of hours to forecast"
+                                },
+                                "latitude": {
+                                    "type": "number"
+                                },
+                                "longitude": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": []
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "prompt": "Give me a 7-day forecast for New York.",
+            "expect": "ollama_native_tool_call",
+            "expected_tool": "get_daily_forecast",
+            "required_args": [
+                "days"
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_daily_forecast",
+                        "description": "Get daily weather forecast for the next 1-16 days.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "days": {
+                                    "type": "integer",
+                                    "description": "Number of days to forecast"
+                                },
+                                "latitude": {
+                                    "type": "number"
+                                },
+                                "longitude": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": []
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "geocode_weather_city",
+                        "description": "Look up coordinates for a city name.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "city": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "city"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "prompt": "Tool result for the previous call:\n{\"temperature\": 22.5, \"description\": \"Sunny\", \"humidity\": 45}\nOriginal request: What is the current weather?\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "22.5",
+                "Sunny"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

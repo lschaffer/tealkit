@@ -1,0 +1,11 @@
+{
+  "train_scope": "weathersensorsmcp",
+  "model_artifact_scope": "../servers/weathersensorsmcp/outputs/text_tool_call",
+  "data_dir": "servers/weathersensorsmcp/datasets/text_tool_call",
+  "tools_json": "scripts_training/weathersensorsmcp/mcp_data/weather_sensors_tools.jsonl",
+  "template_md": "scripts_training/contracts/text_tool_call/prompt_contract.md",
+  "quality_gate_profile": "weathersensorsmcp_text_tool_call",
+  "quality_gate_profile_file": "contracts/text_tool_call/quality_gate_profile.json",
+  "system_prompt_file": "servers/weathersensorsmcp/prompts/weather_sensors_system_prompt.md",
+  "contract_model_name_suffix": ""
+}

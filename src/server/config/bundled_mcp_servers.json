@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "servers": [
+    {
+      "id": "bundled-matplotlib",
+      "name": "matplotlib",
+      "displayName": "Matplotlib",
+      "description": "Server-side chart generation via a bundled Python MCP server (headless Agg backend).",
+      "githubUrl": "bundled://matplotlib",
+      "language": "python",
+      "installType": "python",
+      "packageName": "bundled-matplotlib",
+      "entryPoint": "server.py",
+      "launchArgs": [],
+      "requiredEnvVars": [],
+      "envVars": {
+        "MCP_HTTP_URL": "http://127.0.0.1:3950/mcp",
+        "SERVER_HOST": "127.0.0.1",
+        "SERVER_PORT": "3950",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "category": "visualization",
+      "bundle": {
+        "sourceSubdir": "python/matplotlib",
+        "targetSubdir": "python/matplotlib"
+      }
+    }
+  ]
+}

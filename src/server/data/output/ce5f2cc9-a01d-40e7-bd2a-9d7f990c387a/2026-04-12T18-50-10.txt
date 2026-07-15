@@ -1,0 +1,9 @@
+Error: SSH host is not configured. Please provide the following details to proceed:
+
+1. **SSH Hostname** (e.g., `example.com` or `192.168.1.1`)
+2. **SSH Port** (default: `22`)
+3. **Authentication Method**:
+   - **Password**: Username + Password
+   - **SSH Key**: Private key path + (optional) passphrase
+
+Provide these, and I’ll execute the `disku` command for you.

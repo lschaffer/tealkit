@@ -1,0 +1,35 @@
+{
+  "profile": "weathersensorsmcp_text_tool_call",
+  "contract_type": "text_tool_call",
+  "probes": [
+    {
+      "prompt": "Get the latest weather data for station DLU-123. Respond ONLY with a tool_call JSON object.",
+      "expect": "json_tool_call",
+      "expected_tool": "get_devices_by_name",
+      "required_args": ["dluName", "detail", "grpId"],
+      "strict_tool_call": true
+    },
+    {
+      "prompt": "Show rainfall measurements for device 1234 between 20240301000000 and 20240303235959 as CSV. Respond ONLY with a tool_call JSON object.",
+      "expect": "json_tool_call",
+      "expected_tool": "get_csv_measurement_data",
+      "required_any_args": [["dlu_id", "dluId"]],
+      "required_args": ["fromDate", "toDate", "channels"],
+      "strict_tool_call": true
+    },
+    {
+      "prompt": "Give me a 12 hour forecast for coordinates 52.52, 13.405. Respond ONLY with a tool_call JSON object.",
+      "expect": "json_tool_call",
+      "expected_tool": "get_weather_forecast",
+      "required_args": ["lat", "lng", "hours"],
+      "strict_tool_call": true
+    },
+    {
+      "prompt": "Tool result for the previous call:\n{\"server_datetime\": \"2026-05-20 14:30:00\"}\nOriginal request: What is the current server time?\nAnswer with the result only. No suggestions. No follow-up questions.",
+      "expect": "final_answer_only",
+      "expected_substrings": ["2026-05-20 14:30:00"],
+      "forbid_phrases": ["if you'd like", "i can", "let me know", "would you like", "could also", "you can also", "next step"],
+      "max_words": 10
+    }
+  ]
+}

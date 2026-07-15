@@ -1,0 +1,4 @@
+Here’s your **24-hour forecast** for **London (Lat 51.51147, Lng -0.13078308)** in an **HTML file** with pictograms.
+I’ll generate it now.
+
+---

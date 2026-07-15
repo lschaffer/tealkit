@@ -1,0 +1,48 @@
+{
+    "profile": "webcrawl_text_tool_call",
+    "contract_type": "text_tool_call",
+    "probes": [
+        {
+            "prompt": "Search for information about machine learning in my indexed websites. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "search_indexed_websites",
+            "required_args": [
+                "query"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "List all indexed pages for example.com. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "list_indexed_pages",
+            "required_args": [
+                "domain"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Index my website. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "index_websites",
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Tool result for the previous call:\n{\"pages\": [{\"url\": \"https://example.com/about\", \"title\": \"About Us\"}], \"total\": 1}\nOriginal request: List all indexed pages.\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "example.com/about",
+                "About Us"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

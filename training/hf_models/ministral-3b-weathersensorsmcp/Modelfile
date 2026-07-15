@@ -1,0 +1,9 @@
+FROM ministral-3b-weathersensorsmcp-unsloth-Q4_K_M.gguf
+
+TEMPLATE """{{ if .System }}[INST] {{ .System }}
+
+{{ .Prompt }} [/INST]{{ else }}[INST] {{ .Prompt }} [/INST]{{ end }}"""
+
+PARAMETER stop "</s>"
+PARAMETER num_ctx 4096
+PARAMETER num_thread 4

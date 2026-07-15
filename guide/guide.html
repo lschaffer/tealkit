@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TealKit – User Guide (Draft)</title>
+  <style>
+    :root {
+      --primary: #00B4D8;
+      --bg:      #0D1B2A;
+      --surface: #162032;
+      --border:  #1E3048;
+      --text:    #E0EAF4;
+      --muted:   #7A96B2;
+      --ok:      #2DD4A4;
+      --warn:    #F0A832;
+      --accent:  #7C6FCD;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      padding: 0 1rem 4rem;
+    }
+    header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    header .logo { font-size: 2.4rem; font-weight: 800; color: var(--primary); letter-spacing: -1px; }
+    header .logo span { color: var(--text); }
+    header p { color: var(--muted); margin-top: .4rem; font-size: .95rem; }
+    .draft-banner {
+      background: rgba(240,168,50,.12);
+      border: 1px solid var(--warn);
+      border-radius: 8px;
+      padding: .6rem 1.2rem;
+      margin: .8rem auto 0;
+      max-width: 500px;
+      font-size: .88rem;
+      color: var(--warn);
+      text-align: center;
+    }
+    .platform-badges { display: flex; gap: .5rem; justify-content: center; margin-top: .8rem; flex-wrap: wrap; }
+    .badge { font-size: .78rem; padding: 2px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); }
+    .lang-switch {
+      position: absolute; top: 1.2rem; right: 1.4rem;
+      display: flex; gap: .5rem;
+    }
+    .lang-switch a {
+      color: var(--muted); font-size: .85rem; text-decoration: none;
+      padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
+    }
+    .lang-switch a.active, .lang-switch a:hover { color: var(--primary); border-color: var(--primary); }
+    .container { max-width: 820px; margin: 0 auto; position: relative; }
+    nav {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem 1.6rem;
+      margin: 2rem 0;
+    }
+    nav h2 { font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .8rem; }
+    nav ol { padding-left: 1.4rem; columns: 2; column-gap: 2rem; }
+    nav ol li { margin-bottom: .3rem; break-inside: avoid; }
+    nav a { color: var(--primary); text-decoration: none; font-size: .95rem; }
+    nav a:hover { text-decoration: underline; }
+    section {
+      margin-top: 2.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.6rem 1.8rem;
+    }
+    section h2 {
+      font-size: 1.15rem; font-weight: 700;
+      color: var(--primary); margin-bottom: 1rem;
+      display: flex; align-items: center; gap: .5rem;
+      padding-bottom: .6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    section h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.2rem 0 .5rem; }
+    section p { color: var(--text); margin-bottom: .8rem; }
+    section p:last-child { margin-bottom: 0; }
+    section ul, section ol { padding-left: 1.4rem; margin-bottom: .8rem; }
+    section ul li, section ol li { margin-bottom: .35rem; }
+    .tip {
+      background: rgba(0,180,216,.08);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      padding: .7rem 1rem;
+      margin: .8rem 0;
+      font-size: .93rem;
+      color: var(--text);
+    }
+    .tip strong { color: var(--primary); }
+    .note {
+      background: rgba(240,168,50,.07);
+      border-left: 3px solid var(--warn);
+      border-radius: 0 8px 8px 0;
+      padding: .7rem 1rem;
+      margin: .8rem 0;
+      font-size: .93rem;
+      color: var(--text);
+    }
+    .note strong { color: var(--warn); }
+    .step { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: .8rem; }
+    .step-num {
+      min-width: 28px; height: 28px; border-radius: 50%;
+      background: var(--primary); color: #000;
+      font-weight: 800; font-size: .85rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: .1rem;
+    }
+    .pro-tag {
+      display: inline-block; font-size: .72rem; font-weight: 700;
+      color: var(--accent); border: 1px solid var(--accent);
+      border-radius: 4px; padding: 0 5px; margin-left: 6px;
+      vertical-align: middle; letter-spacing: .04em;
+    }
+    code {
+      background: rgba(255,255,255,.07); border-radius: 4px;
+      padding: 1px 5px; font-size: .88em; font-family: monospace;
+    }
+    pre {
+      background: rgba(0,0,0,.35); border: 1px solid var(--border);
+      border-radius: 8px; padding: .9rem 1.1rem;
+      font-family: monospace; font-size: .85rem;
+      color: var(--ok); overflow-x: auto; margin: .8rem 0;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    table { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .9rem; }
+    th { background: rgba(0,0,0,.3); color: var(--muted); font-weight: 600;
+         text-align: left; padding: .5rem .8rem; border-bottom: 1px solid var(--border); }
+    td { padding: .5rem .8rem; border-bottom: 1px solid rgba(30,48,72,.8); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    /* Screenshot / figure styles */
+    figure {
+      margin: 1.2rem 0;
+      text-align: center;
+    }
+    figure img {
+      max-width: 100%;
+      max-height: 600px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: inline-block;
+      box-shadow: 0 4px 24px rgba(0,0,0,.5);
+    }
+    figcaption {
+      margin-top: .5rem;
+      font-size: .83rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+    .screenshots-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 1.2rem 0;
+    }
+    .screenshots-row figure {
+      flex: 1;
+      min-width: 220px;
+      max-width: 48%;
+    }
+    .screenshots-row figure img {
+      width: 100%;
+      max-height: 480px;
+      object-fit: contain;
+    }
+    footer {
+      text-align: center; color: var(--muted); font-size: .85rem;
+      margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--primary); }
+    section a { color: var(--primary); }
+    section a:hover { opacity: .85; }
+    .subsection {
+      border-top: 1px solid var(--border);
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+<div style="position:relative">
+  <div class="lang-switch">
+    <a href="." class="active">EN</a>
+    <a href="de/">DE</a>
+  </div>
+</div>
+
+<header>
+  <div class="container">
+    <div class="logo">Teal<span>Kit</span></div>
+    <p>Mobile KI Agent &nbsp;&middot;&nbsp; User Guide (Draft)</p>
+    <div class="draft-banner">&#9888; This is a preliminary guide based on available screenshots. Content will be expanded.</div>
+    <div class="platform-badges">
+      <span class="badge">&#x1F916; Android</span>
+      <span class="badge">&#x1F34E; iOS</span>
+      <span class="badge">&#x1FA9F; Windows</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <nav>
+    <h2>Table of Contents</h2>
+    <ol>
+      <li><a href="#intro">Introduction</a></li>
+      <li><a href="#home">Home Screen</a></li>
+      <li><a href="#settings">Global Settings</a>
+        <ol>
+          <li><a href="#settings-llm">LLM Settings</a></li>
+          <li><a href="#settings-data-sources">Data Sources</a></li>
+          <li><a href="#settings-mcp">Remote MCP Servers</a></li>
+          <li><a href="#settings-scripts">Scripts</a></li>
+          <li><a href="#settings-tool-skills">Tool Skills</a></li>
+          <li><a href="#settings-general">General</a></li>
+          <li><a href="#settings-vault">Vault</a></li>
+        </ol>
+      </li>
+      <li><a href="#playground">Playground</a></li>
+      <li><a href="#agents">Agents</a></li>
+      <li><a href="#desktop">Desktop Features</a></li>
+      <li><a href="#advanced">Advanced Techniques</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ol>
+  </nav>
+
+  <!-- ═══════════════════════ INTRO ═══════════════════════ -->
+  <section id="intro">
+    <h2>&#x1F4D6; Introduction</h2>
+    <p>
+      <strong>TealKit – Mobile KI Agent</strong> is a personal AI assistant that runs directly on your phone
+      or desktop. It connects to large language models (LLMs) — local or cloud-based — and uses a rich
+      set of tools (data sources, MCP servers, scripts, and skills) to answer questions, execute tasks,
+      and automate workflows.
+    </p>
+    <h3>Key Concepts</h3>
+    <ul>
+      <li><strong>Local mode</strong> — the app runs entirely on your device; the LLM may be a local Ollama server or a remote API called directly from the device.</li>
+      <li><strong>Server mode</strong> — the app delegates heavy processing to a companion server (useful for weaker devices or shared workloads).</li>
+      <li><strong>Playground</strong> — a free-form chat interface for ad-hoc queries and prompt testing.</li>
+      <li><strong>Agents</strong> — persistent, named task configurations with their own system prompts, tools, and LLM overrides.</li>
+      <li><strong>Data Sources</strong> — external connections (web search, email, cloud drives, databases, etc.) that the AI can query.</li>
+      <li><strong>Tool Skills</strong> — reusable code capabilities that agents can invoke.</li>
+    </ul>
+    <div class="tip">
+      <strong>Tip:</strong> Start with the <a href="#settings-llm">LLM Settings</a> to connect your preferred AI provider before using the Playground or creating agents.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ HOME ═══════════════════════ -->
+  <section id="home">
+    <h2>&#x1F3E0; Home Screen</h2>
+    <p>
+      When you open TealKit, you land on the home screen. From here you choose the operating mode and
+      navigate to the main areas of the app.
+    </p>
+
+    <figure>
+      <img src="images/settings/Screenshot_20260514_114559.jpg" alt="TealKit home screen" />
+      <figcaption>Home screen — Local / Server mode switch, main navigation buttons</figcaption>
+    </figure>
+
+    <h3>Mode Switch</h3>
+    <p>
+      The segmented control at the top switches between <strong>Local</strong> and <strong>Server</strong> mode.
+      In <em>Local</em> mode the app uses LLM providers configured in Settings directly. In
+      <em>Server</em> mode requests are forwarded to your companion backend.
+    </p>
+
+    <h3>Navigation Buttons</h3>
+    <table>
+      <thead>
+        <tr><th>Button</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Playground</strong></td><td>Open the interactive chat and prompt-testing interface.</td></tr>
+        <tr><td><strong>Agents (Agenten)</strong></td><td>Browse, create, and run named agent tasks.</td></tr>
+        <tr><td><strong>Settings (Einstellungen)</strong></td><td>Configure LLM providers, data sources, scripts, and more.</td></tr>
+        <tr><td>User Manual (Benutzerhandbuch)</td><td>Opens this guide.</td></tr>
+        <tr><td>About TealKit (Über TealKit)</td><td>Version info and licenses.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════ GLOBAL SETTINGS ═══════════════════════ -->
+  <section id="settings">
+    <h2>&#x2699;&#xFE0F; Global Settings</h2>
+    <p>
+      Tap <strong>Settings</strong> from the home screen to open the global configuration area.
+      Settings are grouped into tabs or sub-pages covering LLM providers, data sources, MCP servers,
+      scripts, tool skills, general preferences, and the secure vault.
+    </p>
+
+    <!-- ── LLM Settings ── -->
+    <div class="subsection" id="settings-llm">
+      <h3>&#x1F9E0; LLM Settings</h3>
+      <p>
+        TealKit supports <strong>two independent LLM slots</strong>: <em>LLM 1 (Primary)</em> is used for
+        all general chat and agent tasks; <em>LLM 2 (Coding)</em> is automatically selected for code-related
+        tasks when configured.
+      </p>
+
+      <div class="screenshots-row">
+        <figure>
+          <img src="images/settings/llm/Screenshot_20260514_114605.jpg" alt="LLM Settings – LLM 1 Primary basic view" />
+          <figcaption>LLM 1 (Primary) – basic view</figcaption>
+        </figure>
+        <figure>
+          <img src="images/settings/llm/Screenshot_20260514_114623.jpg" alt="LLM Settings – LLM 1 Primary with advanced settings" />
+          <figcaption>LLM 1 (Primary) – advanced settings expanded</figcaption>
+        </figure>
+      </div>
+
+      <figure>
+        <img src="images/settings/Screenshot_20260514_114709.jpg" alt="LLM Settings – LLM 1 Primary, all advanced options" />
+        <figcaption>LLM 1 (Primary) – full advanced view: temperature, token limits, thinking toggle, and status indicator</figcaption>
+      </figure>
+
+      <div class="screenshots-row">
+        <figure>
+          <img src="images/settings/llm/Screenshot_20260514_114637.jpg" alt="LLM Settings – LLM 2 Coding basic view" />
+          <figcaption>LLM 2 (Coding) – basic view (Ollama local)</figcaption>
+        </figure>
+        <figure>
+          <img src="images/settings/llm/Screenshot_20260514_114651.jpg" alt="LLM Settings – LLM 2 Coding advanced settings" />
+          <figcaption>LLM 2 (Coding) – advanced settings expanded</figcaption>
+        </figure>
+      </div>
+
+      <h3>Provider &amp; Model</h3>
+      <p>
+        Select a <strong>Provider</strong> from the dropdown (e.g. Mistral AI, OpenAI, Ollama local,
+        Anthropic, Google Gemini, custom OpenAI-compatible). Then enter the <strong>Model</strong> name
+        (e.g. <code>mistral-medium-latest</code>, <code>mistral:14b</code>). For cloud providers a
+        token price summary is displayed below the model field.
+      </p>
+      <p>
+        Provide your <strong>API Key</strong> and optionally override the <strong>Base URL</strong>
+        (useful for self-hosted or proxy endpoints such as a Pinggy tunnel to a local Ollama instance).
+      </p>
+
+      <h3>AI Data Sharing Consent</h3>
+      <p>
+        When using remote providers, you must acknowledge the <em>AI Data Sharing Consent</em> toggle.
+        This confirms that your prompts and tool outputs may be sent to the selected cloud provider.
+        You can disable this at any time to block remote calls.
+      </p>
+
+      <h3>SLM Mode</h3>
+      <p>
+        Enable <strong>SLM</strong> (Small Language Model) mode if you are using a lightweight local
+        model. This reduces prompt overhead and disables features that small models cannot reliably use.
+      </p>
+
+      <h3>Advanced Settings</h3>
+      <p>
+        Toggle <strong>Advanced Settings</strong> to reveal fine-grained generation parameters:
+      </p>
+      <table>
+        <thead>
+          <tr><th>Parameter</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Temperature</strong></td><td>Controls response randomness. Lower values (e.g. 0.2) produce focused, deterministic output; higher values (e.g. 0.8) produce more creative responses.</td></tr>
+          <tr><td><strong>Max Tokens</strong></td><td>Maximum tokens the model may generate per response. Set to 0 for provider default / unlimited.</td></tr>
+          <tr><td><strong>Max Tool Output Size (chars)</strong></td><td>Caps the character count of any single tool result injected into the context. Prevents oversized tool outputs from consuming the context window. Example: 1 512 000 chars ≈ 1.4 MB.</td></tr>
+          <tr><td><strong>Token Warning Threshold</strong></td><td>When the accumulated context token count exceeds this value the app suggests a context cleanup. Example: 1 500 000 tokens.</td></tr>
+          <tr><td><strong>Top K</strong></td><td>Restrict sampling to the top K most likely tokens. Leave empty for provider default.</td></tr>
+          <tr><td><strong>Top P</strong></td><td>Nucleus sampling threshold. Tokens are sampled from the smallest set whose cumulative probability exceeds P.</td></tr>
+          <tr><td><strong>Repeat Penalty</strong></td><td>Discourages the model from repeating the same tokens. Values above 1.0 penalise repetition.</td></tr>
+          <tr><td><strong>Seed</strong></td><td>Fixed random seed for reproducible output. Leave empty for non-deterministic generation.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Thinking / Reasoning</h3>
+      <p>
+        The <strong>Thinking / Reasoning</strong> toggle enables models that support internal chain-of-thought
+        blocks (e.g. <code>&lt;think&gt;</code> sections, QwQ, DeepSeek-R1). When enabled, the model may emit
+        reasoning tokens before its final answer. Disable this toggle to suppress thinking output and reduce
+        token usage on models where reasoning is optional.
+      </p>
+      <div class="tip">
+        <strong>Tip:</strong> The Thinking toggle is available in all three LLM configurators: global LLM Settings,
+        the Playground LLM override, and the per-agent LLM override.
+      </div>
+
+      <h3>Status &amp; Test Connection</h3>
+      <p>
+        A coloured status indicator at the bottom of the dialog shows the currently configured provider and model.
+        Use <strong>Test Connection</strong> to verify connectivity before saving.
+        Press <strong>Save</strong> (or the floppy-disk icon) to persist the configuration to secure on-device storage.
+      </p>
+    </div>
+
+    <!-- ── Data Sources ── -->
+    <div class="subsection" id="settings-data-sources">
+      <h3>&#x1F4E1; Data Sources</h3>
+      <p>
+        Data Sources give the AI access to real-world information beyond its training data. Enable each
+        source you want agents to be able to query.
+      </p>
+
+      <figure>
+        <img src="images/settings/data-sources/Screenshot_20260514_135241.jpg" alt="Data Sources settings screen" />
+        <figcaption>Data Sources — toggles and configuration for all supported data source types</figcaption>
+      </figure>
+
+      <h3>Available Data Sources</h3>
+      <table>
+        <thead>
+          <tr><th>Source</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Google</strong></td><td>Google account integration. Enables Gmail, Google Drive, and Google Calendar access via OAuth.</td></tr>
+          <tr>
+            <td><strong>Gmail / IMAP</strong></td>
+            <td>Read your email inbox. Supports Gmail OAuth or any IMAP server. A local cache toggle allows the app to index messages for faster offline querying.</td>
+          </tr>
+          <tr><td><strong>Google Drive</strong></td><td>Browse and retrieve documents stored in Google Drive.</td></tr>
+          <tr>
+            <td><strong>E-Mail Sending / SMTP</strong></td>
+            <td>Allow agents to compose and send emails. Configure IMAP (for reading) and SMTP (for sending) with host, port, username, and password fields.</td>
+          </tr>
+          <tr>
+            <td><strong>Web Search (SerpApi)</strong></td>
+            <td>Perform live internet searches via the SerpApi service. Enter your SerpApi API key to enable this source.</td>
+          </tr>
+          <tr>
+            <td><strong>Local Document Index (DuckDB)</strong></td>
+            <td>Full-text and semantic search over locally indexed documents using an embedded DuckDB database.</td>
+          </tr>
+          <tr>
+            <td><strong>Website Auto-Index</strong></td>
+            <td>Provide a list of URLs; the app crawls and indexes the pages for offline retrieval. Manage the URL list and trigger re-indexing from this section.</td>
+          </tr>
+          <tr>
+            <td><strong>Document Index</strong></td>
+            <td>Index files from your device. Choose file types (PDF, DOCX, TXT, etc.) to include in the searchable index.</td>
+          </tr>
+          <tr><td><strong>Location</strong></td><td>Share your current GPS coordinates with the AI (latitude and longitude are shown for confirmation before use).</td></tr>
+          <tr><td><strong>SSH / SFTP</strong></td><td>Connect to a remote server over SSH. The AI can read and write files via SFTP or execute commands over SSH.</td></tr>
+          <tr><td><strong>Home Assistant</strong></td><td>Integration with a Home Assistant instance for smart-home control and status queries.</td></tr>
+          <tr><td><strong>WhatsApp</strong></td><td>Access WhatsApp messages (subject to platform permissions). Allows the AI to read or send messages through WhatsApp.</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <strong>Privacy:</strong> Sensitive credentials (API keys, passwords) are stored in the device's secure vault and never transmitted outside the configured provider endpoints.
+      </div>
+    </div>
+
+    <!-- ── Remote MCP Servers ── -->
+    <div class="subsection" id="settings-mcp">
+      <h3>&#x1F310; Remote MCP Servers</h3>
+      <p>
+        TealKit can connect to external <strong>Model Context Protocol (MCP)</strong> servers to extend
+        the AI's tool set without embedding the tools in the app itself. MCP servers expose tools,
+        resources, and prompts over a standardised JSON-RPC interface.
+      </p>
+      <p>
+        In the Remote MCP Servers settings you can add, edit, and remove server connections. Each server
+        entry requires:
+      </p>
+      <ul>
+        <li><strong>Name</strong> — a display label for the server.</li>
+        <li><strong>URL</strong> — the endpoint address (HTTP/HTTPS or WebSocket).</li>
+        <li><strong>Authentication</strong> — optional Bearer token or API key.</li>
+        <li><strong>Enabled toggle</strong> — quickly enable or disable individual servers.</li>
+      </ul>
+      <p>
+        Once connected, tools provided by the MCP server appear alongside built-in tools in the
+        Playground and agent tool selectors.
+      </p>
+      <div class="tip">
+        <strong>Tip:</strong> The built-in MCP registry (from <code>assets/github_mcp_registry.json</code>) lists publicly available community MCP servers that you can add with one tap.
+      </div>
+    </div>
+
+    <!-- ── Scripts ── -->
+    <div class="subsection" id="settings-scripts">
+      <h3>&#x1F4DC; Scripts</h3>
+      <p>
+        Scripts are JavaScript snippets that the AI can execute on your device. They run inside a
+        sandboxed JS engine (Flutter JS) and can access a set of provided APIs.
+      </p>
+      <p>
+        In the Scripts settings you can:
+      </p>
+      <ul>
+        <li>Create and edit named scripts using the built-in code editor.</li>
+        <li>Assign each script a description so the AI knows when to invoke it.</li>
+        <li>Enable or disable individual scripts per agent or globally.</li>
+      </ul>
+      <div class="note">
+        <strong>Note:</strong> Scripts run client-side in a sandboxed environment. They cannot access the network or device file system beyond the paths explicitly granted.
+      </div>
+    </div>
+
+    <!-- ── Tool Skills ── -->
+    <div class="subsection" id="settings-tool-skills">
+      <h3>&#x1F9B8; Tool Skills</h3>
+      <p>
+        Tool Skills are higher-level reusable capabilities that combine multiple tools or scripts into a
+        single named action. Unlike raw scripts, skills have structured inputs and outputs and can be
+        composed into agent workflows.
+      </p>
+      <p>
+        The Tool Skills settings let you:
+      </p>
+      <ul>
+        <li>Browse and enable community skills from the built-in registry.</li>
+        <li>Write custom skills in the skill editor.</li>
+        <li>Assign skills to specific agents or make them globally available.</li>
+        <li>View the input schema and expected output format for each skill.</li>
+      </ul>
+    </div>
+
+    <!-- ── General ── -->
+    <div class="subsection" id="settings-general">
+      <h3>&#x2699;&#xFE0F; General</h3>
+      <p>
+        The General settings cover app-wide behaviour and preferences:
+      </p>
+      <ul>
+        <li><strong>Language</strong> — switch the app UI language (currently English and German).</li>
+        <li><strong>Theme</strong> — dark mode is the default; light mode may be available in future versions.</li>
+        <li><strong>Notifications</strong> — configure alerts for long-running agent tasks.</li>
+        <li><strong>Background execution</strong> — allow or restrict agents from running when the app is in the background (Android / Windows).</li>
+        <li><strong>Logging</strong> — toggle verbose logging for troubleshooting.</li>
+        <li><strong>Context cleanup</strong> — set auto-cleanup policies for long conversations.</li>
+      </ul>
+    </div>
+
+    <!-- ── Vault ── -->
+    <div class="subsection" id="settings-vault">
+      <h3>&#x1F512; Vault</h3>
+      <p>
+        The Vault is a secure, encrypted key-value store for sensitive information such as API keys,
+        passwords, and personal tokens. Values stored in the vault are:
+      </p>
+      <ul>
+        <li>Encrypted at rest using the platform's secure storage (Android Keystore / iOS Secure Enclave / Windows Credential Manager).</li>
+        <li>Accessible to agents and tools at runtime without exposing them in plain text.</li>
+        <li>Referenced by name in agent prompts using the <code>{{vault:key_name}}</code> syntax.</li>
+      </ul>
+      <p>
+        In the Vault settings you can add, rename, and delete vault entries. Values can be revealed
+        temporarily with the eye icon for verification.
+      </p>
+      <div class="tip">
+        <strong>Best practice:</strong> Store all third-party API keys (SerpApi, SendGrid, SSH passwords, etc.) in the vault rather than entering them directly in data-source configuration fields.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ PLAYGROUND ═══════════════════════ -->
+  <section id="playground">
+    <h2>&#x1F9EA; Playground</h2>
+    <p>
+      The Playground is a free-form chat interface for interacting directly with the AI. Use it to
+      test prompts, experiment with settings, and perform one-off tasks without creating a permanent agent.
+    </p>
+
+    <h3>Chat Interface</h3>
+    <p>
+      Type your message in the input field at the bottom and send it. The AI's response streams in
+      real time. Messages are rendered with Markdown formatting — headers, lists, code blocks, and
+      tables are all supported.
+    </p>
+
+    <h3>LLM Override</h3>
+    <p>
+      By default the Playground uses the global LLM 1 (Primary) settings. Tap the model selector
+      to override the LLM for the current session:
+    </p>
+    <ul>
+      <li>Toggle <strong>Override LLM</strong> to unlock the per-session provider and model fields.</li>
+      <li>Optionally expand <strong>Advanced Settings</strong> to adjust Temperature, Max Tokens, Top K/P, Repeat Penalty, Seed, Max Tool Output Size, and Token Warning Threshold for this session.</li>
+      <li>Enable <strong>Thinking / Reasoning</strong> if the model supports internal chain-of-thought output.</li>
+    </ul>
+    <div class="tip">
+      <strong>Tip:</strong> The Playground LLM override is session-only — it does not change the global LLM settings. Switch back to defaults by disabling the override toggle.
+    </div>
+
+    <h3>Tool Selection</h3>
+    <p>
+      Before or during a conversation you can select which tools the AI may use — web search, document
+      retrieval, scripts, MCP tools, etc. Only enabled tools are offered to the model.
+    </p>
+
+    <h3>System Prompt</h3>
+    <p>
+      Set a custom system prompt for the current session to steer the AI's persona, output format, or
+      focus area. The system prompt is prepended to every message in the conversation.
+    </p>
+
+    <h3>Conversation Management</h3>
+    <ul>
+      <li><strong>Clear / New chat</strong> — start a fresh conversation without changing settings.</li>
+      <li><strong>Export</strong> — save the conversation as plain text or JSON.</li>
+      <li><strong>Token counter</strong> — a token usage indicator warns you when the context window is filling up.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════ AGENTS ═══════════════════════ -->
+  <section id="agents">
+    <h2>&#x2705; Agents</h2>
+    <p>
+      Agents are named, persistent AI task configurations. Each agent has its own system prompt, tool
+      set, LLM override, and scheduling options. Think of them as specialised AI assistants for
+      specific workflows.
+    </p>
+
+    <h3>Agent List</h3>
+    <p>
+      The Agents screen lists all your configured agents. Tap an agent to run it, or use the edit
+      icon to open the agent editor. A colour-coded status dot indicates whether the agent ran
+      successfully, encountered an error, or is currently running.
+    </p>
+
+    <h3>Creating an Agent</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <p>Tap the <strong>+</strong> button on the Agents screen to create a new agent.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <p>Enter a <strong>Name</strong> and optional <strong>Description</strong>.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <p>Write a <strong>System Prompt</strong> that defines the agent's role and behaviour.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <p>Select which <strong>Tools</strong> the agent may use from the tool picker.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <p>Optionally configure a <strong>Sub-prompt</strong> editor for multi-step pipelines.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <p>Optionally override the <strong>LLM</strong> (provider, model, advanced parameters including Thinking / Reasoning) for this agent.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">7</div>
+      <p>Save the agent. It now appears in the agent list and can be run manually or on a schedule.</p>
+    </div>
+
+    <h3>Agent LLM Override</h3>
+    <p>
+      Each agent can override the global LLM settings. In the agent editor, open the
+      <strong>LLM</strong> tab and enable the override toggle. The same advanced parameters
+      available in global LLM Settings are available here, including the
+      <strong>Thinking / Reasoning</strong> toggle.
+    </p>
+
+    <h3>Scheduling <span class="pro-tag">PRO</span></h3>
+    <p>
+      Agents can be scheduled to run automatically at fixed intervals or at specific times of day.
+      Use the <strong>Schedule</strong> tab in the agent editor to set up triggers. Scheduled agents
+      run in the background using the platform's job scheduler (WorkManager on Android).
+    </p>
+
+    <h3>Sub-Prompts</h3>
+    <p>
+      Complex agents can be broken down into a chain of <strong>sub-prompts</strong> — ordered steps
+      where the output of one step becomes available to the next. The sub-prompt editor lets you
+      define each step's prompt, its input variables, and its output variable name.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════ DESKTOP FEATURES ═══════════════════════ -->
+  <section id="desktop">
+    <h2>&#x1FA9F; Desktop Features (Windows)</h2>
+    <p>
+      TealKit is also available as a native Windows desktop application with features tailored for
+      larger screens and desktop workflows.
+    </p>
+
+    <h3>Window Management</h3>
+    <p>
+      The desktop version uses a side-panel navigation layout. The agent list and playground are
+      accessible from the left sidebar without navigating away from the current view.
+    </p>
+
+    <h3>Local Server Mode</h3>
+    <p>
+      On Windows, TealKit can host a local companion server so that mobile devices on the same
+      network can offload processing to the desktop machine. Configure the server bind address and
+      port in Settings → Server Mode.
+    </p>
+
+    <h3>File System Access</h3>
+    <p>
+      Desktop builds have broader file system access than mobile. The Document Index data source can
+      index entire directory trees, and SSH/SFTP and script tools can read and write local files
+      within configured paths.
+    </p>
+
+    <h3>Clipboard &amp; Notifications</h3>
+    <p>
+      On Windows, agents can read from and write to the system clipboard. Background agent results
+      surface as Windows toast notifications.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════ ADVANCED TECHNIQUES ═══════════════════════ -->
+  <section id="advanced">
+    <h2>&#x26A1; Advanced Techniques</h2>
+
+    <h3>Chaining Agents</h3>
+    <p>
+      Use sub-prompts to create multi-step pipelines. For example: step 1 fetches data via web
+      search, step 2 summarises the results, step 3 formats them as a structured report.
+    </p>
+
+    <h3>Vault Templating</h3>
+    <p>
+      Reference vault secrets directly in system prompts and tool parameters using
+      <code>{{vault:key_name}}</code>. The runtime replaces these placeholders before sending the
+      prompt to the LLM, keeping secrets out of conversation history.
+    </p>
+
+    <h3>Custom MCP Tools</h3>
+    <p>
+      Deploy your own MCP server (Node.js, Python, or any language) and register it in Settings →
+      Remote MCP Servers. This lets you expose any custom API or local service as a tool the AI can
+      call. See <a href="../JS_BRIDGE_MCP_TOOL_SPEC.md">JS Bridge &amp; MCP Tool Spec</a> for details.
+    </p>
+
+    <h3>Context Window Management</h3>
+    <p>
+      Long conversations consume context tokens. Use the <em>Token Warning Threshold</em> in LLM
+      Settings to get a prompt when cleanup is due. You can also configure per-agent
+      <em>auto-cleanup</em> policies to summarise or truncate old messages automatically.
+    </p>
+
+    <h3>Thinking / Reasoning Models</h3>
+    <p>
+      Models like DeepSeek-R1, QwQ, or Ollama-hosted reasoning variants emit
+      <code>&lt;think&gt;...&lt;/think&gt;</code> blocks before their final answer. Enable the
+      <strong>Thinking / Reasoning</strong> toggle in LLM Settings (or per-agent / per-playground-session)
+      to allow these blocks. Disable it to strip thinking tokens and reduce latency and token cost.
+    </p>
+
+    <h3>Offline Document Search</h3>
+    <p>
+      Index your documents once in Settings → Data Sources → Document Index. The embedded DuckDB
+      database stores the index locally. Subsequent queries hit the local index without any network
+      round-trip, making document retrieval fast and private.
+    </p>
+
+    <h3>Website Auto-Index</h3>
+    <p>
+      Add a list of web URLs in Settings → Data Sources → Website Auto-Index. The crawler fetches
+      and indexes the content so agents can search it like a local knowledge base. Trigger
+      re-indexing manually or on a schedule to keep the index fresh.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════ FAQ ═══════════════════════ -->
+  <section id="faq">
+    <h2>&#x2753; FAQ</h2>
+
+    <h3>Which LLM providers are supported?</h3>
+    <p>
+      TealKit supports any OpenAI-compatible API endpoint, plus native integrations for Mistral AI,
+      Anthropic Claude, Google Gemini, and local Ollama servers. Additional providers may be added
+      via a custom Base URL pointing to an OpenAI-compatible proxy.
+    </p>
+
+    <h3>Can I use TealKit without an internet connection?</h3>
+    <p>
+      Yes. Run a local Ollama server on the same device or on your LAN and point LLM 1 to it.
+      Disable all cloud data sources. The app, models, and document index will all operate offline.
+    </p>
+
+    <h3>Is my data sent to any third party?</h3>
+    <p>
+      Only if you configure a cloud LLM provider (e.g. Mistral AI, OpenAI, Anthropic) and enable
+      the AI Data Sharing Consent toggle. Prompts and tool outputs are sent to the provider you
+      configure. Credentials are stored encrypted on-device and are never sent to any TealKit server.
+    </p>
+
+    <h3>What is the difference between LLM 1 and LLM 2?</h3>
+    <p>
+      LLM 1 (Primary) handles all general queries and agent tasks. LLM 2 (Coding) is automatically
+      substituted for tasks tagged as coding or for tools that explicitly request the coding model.
+      You can leave LLM 2 unconfigured to always use LLM 1.
+    </p>
+
+    <h3>Why is the Thinking / Reasoning toggle not doing anything?</h3>
+    <p>
+      The toggle only has an effect with models that support it (e.g. DeepSeek-R1, QwQ, Ollama
+      models with thinking capability). If your model does not emit thinking tokens the toggle is
+      silently ignored.
+    </p>
+
+    <h3>How do I reset to factory settings?</h3>
+    <p>
+      Go to Settings → General → Reset App Data. This clears all configurations, vault entries,
+      conversation history, and the document index. This action is irreversible.
+    </p>
+
+    <h3>Agents run but produce no output — what should I check?</h3>
+    <ul>
+      <li>Verify LLM connectivity with the <strong>Test Connection</strong> button in LLM Settings.</li>
+      <li>Check that the system prompt is not inadvertently blocking output.</li>
+      <li>Review agent logs via Settings → General → Logging.</li>
+      <li>Ensure the required data sources are enabled and credentials are valid.</li>
+    </ul>
+  </section>
+
+</div>
+
+<footer>
+  <p>TealKit – Mobile KI Agent &nbsp;&middot;&nbsp; Draft User Guide &nbsp;&middot;&nbsp; <a href=".">Full Guide</a></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+    "profile": "weatherforecast_text_tool_call",
+    "contract_type": "text_tool_call",
+    "probes": [
+        {
+            "prompt": "What is the current weather in Vienna? Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "get_current_weather",
+            "required_args": [
+                "latitude",
+                "longitude"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Show me the hourly forecast for the next 12 hours at coordinates 52.52, 13.405. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "get_hourly_forecast",
+            "required_args": [
+                "hours",
+                "latitude",
+                "longitude"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Give me a 7-day forecast for New York. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "get_daily_forecast",
+            "required_args": [
+                "days",
+                "latitude",
+                "longitude"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Tool result for the previous call:\n{\"temperature\": 22.5, \"description\": \"Sunny\", \"humidity\": 45}\nOriginal request: What is the current weather?\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "22.5",
+                "Sunny"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

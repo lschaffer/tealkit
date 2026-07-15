@@ -1,0 +1,1 @@
+Error: SSH host is not configured. I need SSH connection details (host, username, password/key) to execute the command. Please provide them or configure them in the system settings.

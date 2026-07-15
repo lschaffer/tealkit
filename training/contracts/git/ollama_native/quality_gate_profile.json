@@ -1,0 +1,51 @@
+{
+    "profile": "git_ollama_native",
+    "contract_type": "ollama_native",
+    "probes": [
+        {
+            "prompt": "Show me the status of the repo at /home/user/project. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "git_status",
+            "required_args": [
+                "repo_path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Show the unstaged changes in /home/user/project. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "git_diff_unstaged",
+            "required_args": [
+                "repo_path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Commit all staged changes with message 'Fix bug' in /home/user/project. Respond ONLY with a tool call.",
+            "expect": "json_tool_call",
+            "expected_tool": "git_commit",
+            "required_args": [
+                "repo_path",
+                "message"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Tool result:\n{\"current_branch\": \"main\", \"files_changed\": 3}\nOriginal request: Show status.\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "main"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

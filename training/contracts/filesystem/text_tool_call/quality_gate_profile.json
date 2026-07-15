@@ -1,0 +1,51 @@
+{
+    "profile": "filesystem_text_tool_call",
+    "contract_type": "text_tool_call",
+    "probes": [
+        {
+            "prompt": "Read the file /home/user/config.json. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "read_text_file",
+            "required_args": [
+                "path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "List all files in the /home/user directory. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "list_directory",
+            "required_args": [
+                "path"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Search for all Python files in /home/user/project. Respond ONLY with a tool_call JSON object.",
+            "expect": "json_tool_call",
+            "expected_tool": "search_files",
+            "required_args": [
+                "path",
+                "pattern"
+            ],
+            "strict_tool_call": true
+        },
+        {
+            "prompt": "Tool result for the previous call:\n{\"files\": [{\"name\": \"config.json\", \"size\": 1024}], \"path\": \"/home/user\"}\nOriginal request: List files in /home/user.\nAnswer with the result only. No suggestions. No follow-up questions.",
+            "expect": "final_answer_only",
+            "expected_substrings": [
+                "config.json"
+            ],
+            "forbid_phrases": [
+                "if you'd like",
+                "i can",
+                "let me know",
+                "would you like",
+                "could also",
+                "you can also",
+                "next step"
+            ],
+            "max_words": 15
+        }
+    ]
+}

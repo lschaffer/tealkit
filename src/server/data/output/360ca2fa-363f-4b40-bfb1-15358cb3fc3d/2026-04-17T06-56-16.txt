@@ -1,0 +1,1 @@
+search_emails[ARGS]{"from": "drei.at", "subject": "Rechnung", "since": "2026-01-01", "maxResults": 50}

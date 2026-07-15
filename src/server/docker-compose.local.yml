@@ -1,0 +1,28 @@
+services:
+  tealkit_server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: tealkit_server:local-light
+    container_name: tealkit_server_local
+    restart: unless-stopped
+    ports:
+      - "7771:7771"
+    volumes:
+      - ./data:/data
+      - /home/tealkit:/tealkit
+      - /home/tealkit/upload:/home/tealkit/upload:ro
+    environment:
+      TEALKIT_DATA_DIR: /data
+      TEALKIT_PORT: "7771"
+      TEALKIT_HOST: "0.0.0.0"
+      # Set one or more keys for local server mode clients.
+      # Examples: "key1"  or  "key1,key2"  or  '["key1","key2"]'
+      TEALKIT_API_KEY: ""
+      TZ: "Europe/Vienna"
+    healthcheck:
+      test: ["CMD", "/usr/bin/wget", "-qO-", "http://localhost:7771/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

@@ -1,0 +1,2 @@
+# Only metadata is committed; the binary archive is too large for git
+!*.sha256

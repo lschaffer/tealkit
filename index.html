@@ -1,0 +1,369 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TealKit – Privacy Policy</title>
+  <style>
+    :root {
+      --primary: #00B4D8;
+      --bg:      #0D1B2A;
+      --surface: #162032;
+      --border:  #1E3048;
+      --text:    #E0EAF4;
+      --muted:   #7A96B2;
+      --ok:      #2DD4A4;
+      --warn:    #F0A832;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      padding: 0 1rem 4rem;
+    }
+    header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    header .logo {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -1px;
+    }
+    header .logo span { color: var(--text); }
+    header p {
+      color: var(--muted);
+      margin-top: .4rem;
+      font-size: .95rem;
+    }
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    /* Summary cards */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 2.5rem 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+    }
+    .card .icon { font-size: 1.6rem; margin-bottom: .4rem; }
+    .card .label {
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+    }
+    .card .value {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: .15rem;
+    }
+    .card.green .value  { color: var(--ok);   }
+    .card.yellow .value { color: var(--warn);  }
+
+    /* Section */
+    section {
+      margin-top: 2.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.6rem 1.8rem;
+    }
+    section h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    section p { color: var(--text); margin-bottom: .8rem; }
+    section p:last-child { margin-bottom: 0; }
+    section ul {
+      padding-left: 1.4rem;
+      color: var(--text);
+      margin-bottom: .8rem;
+    }
+    section ul li { margin-bottom: .4rem; }
+    .tag {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: .4rem;
+      vertical-align: middle;
+    }
+    .tag.green  { background: rgba(45,212,164,.15); color: var(--ok); }
+    .tag.yellow { background: rgba(240,168,50,.15);  color: var(--warn); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: .8rem;
+      font-size: .9rem;
+    }
+    th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: .5rem .6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: .6rem .6rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td a { color: var(--primary); text-decoration: none; }
+    td a:hover { text-decoration: underline; }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+    a { color: var(--primary); }
+  </style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="logo">Teal<span>Kit</span></div>
+    <p>Privacy Policy &nbsp;·&nbsp; Last updated: March 2026</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- At-a-glance cards -->
+  <div class="summary">
+    <div class="card green">
+      <div class="icon">🔒</div>
+      <div class="label">Data collected by us</div>
+      <div class="value">None</div>
+    </div>
+    <div class="card green">
+      <div class="icon">🖥️</div>
+      <div class="label">Our servers</div>
+      <div class="value">None</div>
+    </div>
+    <div class="card green">
+      <div class="icon">📍</div>
+      <div class="label">Location</div>
+      <div class="value">On-device only</div>
+    </div>
+    <div class="card green">
+      <div class="icon">🪪</div>
+      <div class="label">Account required</div>
+      <div class="value">No</div>
+    </div>
+  </div>
+
+  <!-- 1. Overview -->
+  <section>
+    <h2>1&nbsp;&nbsp;Overview</h2>
+    <p>
+      <strong>TealKit</strong> is an on-device AI agent application published by <strong>TealKit</strong>
+      (<code>at.ls.gr.tealkit</code>). TealKit does <em>not</em> operate any backend servers, 
+      does not create user accounts, and does not collect, store, or transmit any personal data 
+      to us or any analytics platform.
+    </p>
+    <p>
+      All configuration, conversation history, indexed documents, and API credentials you enter 
+      are stored exclusively on <strong>your device</strong> using the operating system's 
+      secure storage and local databases.
+    </p>
+  </section>
+
+  <!-- 2. Data stored locally -->
+  <section>
+    <h2>2&nbsp;&nbsp;Data stored on your device</h2>
+    <p>The following data exists only on your device and is never transmitted to us:</p>
+    <ul>
+      <li><strong>AI provider API keys</strong> — stored in the OS secure keychain / keystore</li>
+      <li><strong>Task definitions &amp; conversation history</strong> — stored in a local SQLite database</li>
+      <li><strong>Indexed documents &amp; websites</strong> — stored in a local DuckDB database</li>
+      <li><strong>Email / IMAP / SMTP credentials</strong> — stored in the OS secure keychain</li>
+      <li><strong>Location coordinates</strong> — you may optionally save GPS coordinates; these never leave your device</li>
+      <li><strong>Output files</strong> — saved to a folder you choose on your device's storage</li>
+      <li><strong>App preferences</strong> (theme, language, retention days) — stored in local shared preferences</li>
+    </ul>
+    <p>You can delete all app data at any time by uninstalling TealKit.</p>
+  </section>
+
+  <!-- 3. Third-party services -->
+  <section>
+    <h2>3&nbsp;&nbsp;Third-party services</h2>
+    <p>
+      TealKit acts as a client that connects to third-party services <em>you choose and configure</em>. 
+      The data each service receives is governed by <em>their</em> privacy policies, not ours.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Purpose</th>
+          <th>Data sent</th>
+          <th>Privacy policy</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>OpenAI / Anthropic / Google Gemini / Mistral / Ollama</strong>
+            <span class="tag yellow">User-configured</span></td>
+          <td>AI inference — processes your prompts</td>
+          <td>The messages you type or that tasks generate, sent using your own API key</td>
+          <td>Depends on provider chosen</td>
+        </tr>
+        <tr>
+          <td><strong>Google (OAuth / Gmail / Drive)</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>Email search &amp; file access if you connect your Google account</td>
+          <td>OAuth tokens stored on-device; API calls go directly to Google</td>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></td>
+        </tr>
+        <tr>
+          <td><strong>Serper.dev / SerpAPI / DuckDuckGo</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>Web search results inside tasks</td>
+          <td>Your search queries, using your own API key</td>
+          <td>Depends on provider chosen</td>
+        </tr>
+        <tr>
+          <td><strong>Your IMAP / SMTP server</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>Email reading &amp; sending</td>
+          <td>Credentials and email content sent directly to <em>your</em> mail server</td>
+          <td>Your mail provider's policy</td>
+        </tr>
+        <tr>
+          <td><strong>MCP servers (Smithery, custom)</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>External tool execution via the Model Context Protocol</td>
+          <td>Tool call parameters you configure</td>
+          <td>The respective server's policy</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:1rem; font-size:.88rem; color:var(--muted);">
+      All connections to the above services are initiated by <strong>you</strong> using credentials 
+      or accounts you own. TealKit does not proxy, store, or log any of this traffic.
+    </p>
+  </section>
+
+  <!-- 4. Permissions -->
+  <section>
+    <h2>4&nbsp;&nbsp;Device permissions</h2>
+    <table>
+      <thead>
+        <tr><th>Permission</th><th>Why it is requested</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Internet</strong></td>
+          <td>Required to reach the AI providers, search APIs, and mail servers you configure</td>
+        </tr>
+        <tr>
+          <td><strong>Storage / Files</strong></td>
+          <td>To read documents you choose to index and to write output files to your chosen folder</td>
+        </tr>
+        <tr>
+          <td><strong>Location</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>Lets you pin your GPS coordinates into tasks (e.g. "weather at my location"); only used when you explicitly trigger it</td>
+        </tr>
+        <tr>
+          <td><strong>Notifications</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>Background task completion alerts; no notification content is sent anywhere</td>
+        </tr>
+        <tr>
+          <td><strong>Camera / Microphone</strong>
+            <span class="tag yellow">Optional</span></td>
+          <td>Only if you attach media to a conversation; files stay on-device unless you send them to an AI provider</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5. Children -->
+  <section>
+    <h2>5&nbsp;&nbsp;Children's privacy</h2>
+    <p>
+      TealKit is not directed at children under the age of 13 (or the applicable age of digital consent 
+      in your country). We do not knowingly collect any information from children.
+    </p>
+  </section>
+
+  <!-- 6. Data security -->
+  <section>
+    <h2>6&nbsp;&nbsp;Data security</h2>
+    <p>
+      All sensitive credentials (API keys, passwords) are stored using the platform's secure 
+      keychain (iOS Keychain / Android Keystore). Conversation data and indexed content are 
+      stored in local databases that are accessible only to TealKit and protected by the OS 
+      app sandbox.
+    </p>
+    <p>
+      Because no data is transmitted to our servers, there is no server-side breach risk 
+      associated with your TealKit data.
+    </p>
+  </section>
+
+  <!-- 7. Changes -->
+  <section>
+    <h2>7&nbsp;&nbsp;Changes to this policy</h2>
+    <p>
+      We may update this Privacy Policy if the app's functionality changes. 
+      The "Last updated" date at the top of this page will reflect any revision. 
+      Continued use of TealKit after a change constitutes your acceptance of the updated policy.
+    </p>
+  </section>
+
+  <!-- 8. Contact -->
+  <section>
+    <h2>8&nbsp;&nbsp;Contact</h2>
+    <p>
+      If you have questions about this Privacy Policy please open an issue or discussion 
+      in the public repository, or contact us via the app listing on the respective store.
+    </p>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container">
+    <p>&copy; 2026 TealKit &nbsp;·&nbsp; All rights reserved</p>
+    <p style="margin-top:.4rem">
+      <a href="https://lschaffer.github.io/tealkit/">https://lschaffer.github.io/tealkit/</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

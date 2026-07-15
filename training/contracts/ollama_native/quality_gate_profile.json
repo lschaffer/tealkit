@@ -1,0 +1,131 @@
+{
+  "profile": "weathersensorsmcp_ollama_native",
+  "contract_type": "ollama_native",
+  "notes": "Native Ollama profile. These probes use /api/chat with tool schemas and expect assistant tool_calls instead of the legacy text wrapper.",
+  "probes": [
+    {
+      "prompt": "Get the latest weather data for station DLU-123.",
+      "expect": "ollama_native_tool_call",
+      "expected_tool": "get_devices_by_name",
+      "required_args": ["dluName", "detail", "grpId"],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_devices_by_name",
+            "description": "Get device information by station name.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "dluName": {"type": "string"},
+                "detail": {"type": "integer"},
+                "grpId": {"type": "integer"}
+              },
+              "required": ["dluName", "detail", "grpId"]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "get_weather_forecast",
+            "description": "Get forecast by coordinates.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "lat": {"type": "number"},
+                "lng": {"type": "number"},
+                "hours": {"type": "integer"}
+              },
+              "required": ["lat", "lng", "hours"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "prompt": "Show rainfall measurements for device 1234 between 20240301000000 and 20240303235959 as CSV.",
+      "expect": "ollama_native_tool_call",
+      "expected_tool": "get_csv_measurement_data",
+      "required_any_args": [["dlu_id", "dluId"]],
+      "required_args": ["fromDate", "toDate", "channels"],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_csv_measurement_data",
+            "description": "Export measurement data as CSV by device id.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "dlu_id": {"type": "integer"},
+                "fromDate": {"type": "string"},
+                "toDate": {"type": "string"},
+                "channels": {"type": "string"}
+              },
+              "required": ["dlu_id", "fromDate", "toDate", "channels"]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "get_server_datetime",
+            "description": "Return the current server time.",
+            "parameters": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        }
+      ]
+    },
+    {
+      "prompt": "Give me a 12 hour forecast for coordinates 52.52, 13.405.",
+      "expect": "ollama_native_tool_call",
+      "expected_tool": "get_weather_forecast",
+      "required_args": ["lat", "lng", "hours"],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_weather_forecast",
+            "description": "Get forecast by coordinates.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "lat": {"type": "number"},
+                "lng": {"type": "number"},
+                "hours": {"type": "integer"}
+              },
+              "required": ["lat", "lng", "hours"]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "get_devices_by_name",
+            "description": "Get device information by station name.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "dluName": {"type": "string"},
+                "detail": {"type": "integer"},
+                "grpId": {"type": "integer"}
+              },
+              "required": ["dluName", "detail", "grpId"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "prompt": "Tool result for the previous call:\n{\"server_datetime\": \"2026-05-20 14:30:00\"}\nOriginal request: What is the current server time?\nAnswer with the result only. No suggestions. No follow-up questions.",
+      "expect": "final_answer_only",
+      "expected_substrings": ["2026-05-20 14:30:00"],
+      "forbid_phrases": ["if you'd like", "i can", "let me know", "would you like", "could also", "you can also", "next step"],
+      "max_words": 10
+    }
+  ]
+}

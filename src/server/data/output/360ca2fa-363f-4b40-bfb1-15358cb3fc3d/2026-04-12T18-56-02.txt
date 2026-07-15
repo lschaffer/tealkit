@@ -1,0 +1,3 @@
+```python
+search_emails(from="drei.at", subject="Rechnung", since="2026-01-01", maxResults=100)
+```

@@ -1,0 +1,46 @@
+I cannot directly execute scripts or access your file system (`c:\temp`). However, here's how you can run the script yourself in Python:
+
+### Command to Execute:
+```sh
+python "List or delete files.py" --folder "c:\temp" --months 6 --mode 0
+```
+
+### Notes:
+1. **Script Existence**: Ensure the script `List or delete files.py` exists in your working directory or provide the full path.
+2. **Arguments**:
+   - `--folder`: Target directory (e.g., `c:\temp`).
+   - `--months`: Retention period (files older than 6 months will be listed/deleted).
+   - `--mode`: `0` = list files, `1` = delete files (use with caution).
+3. **Permissions**: Run with admin rights if modifying system directories.
+
+### Example Script (if you need a template):
+```python
+import argparse
+import os
+from datetime import datetime, timedelta
+
+def list_or_delete_files(folder, months, mode):
+    cutoff_date = datetime.now() - timedelta(days=months*30)
+    files = []
+    for root, _, filenames in os.walk(folder):
+        for filename in filenames:
+            filepath = os.path.join(root, filename)
+            file_date = datetime.fromtimestamp(os.path.getmtime(filepath))
+            if file_date < cutoff_date:
+                files.append(filepath)
+                if mode == 1:
+                    os.remove(filepath)
+                    print(f"Deleted: {filepath}")
+    if mode == 0:
+        print("Files older than {} months:".format(months))
+        for f in files:
+            print(f)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--folder", required=True)
+    parser.add_argument("--months", type=int, required=True)
+    parser.add_argument("--mode", type=int, required=True)
+    args = parser.parse_args()
+    list_or_delete_files(args.folder, args.months, args.mode)
+```

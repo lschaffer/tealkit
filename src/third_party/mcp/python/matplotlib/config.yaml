@@ -1,0 +1,13 @@
+server:
+  host: 0.0.0.0
+  port: 3950
+  debug: false
+  threaded: true
+
+logging:
+  level: DEBUG
+  file: ./logs/matplotlib_server.log
+  max_bytes: 5242880  # 5MB
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  console_logging: true
