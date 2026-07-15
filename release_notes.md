@@ -2,6 +2,18 @@
 
 This file tracks release changes by version.
 
+## v1.5.3 / v1.0.160 - HTML Browser Preview, Playground Import Skills & Multi-turn Context Sync
+
+### New Features
+- **Default Browser HTML Preview**: Replaced the fullscreen in-app dialog and webview rendering. HTML snippets are written to a temporary local `.html` file with full page wrappers and opened in the user's default system web browser.
+- **JavaScript Execution Warning**: Automatically displays warning banner inside the app's HTML preview card when `<script>` tags are present in the HTML block, suggesting the user open the interactive chart in their system browser.
+- **Playground Import Skills**: Added an **Import Skill** button to the header of the Load Skills dialog, enabling direct parsing and importing of `.zip` (packed with `skills.md` / `SKILL.md`) or flat `.md` files. Includes automatic manifest validation and duplicate check alerts.
+- **Multi-turn Context Propagation**: Implemented automatic context carrying in both ChatService and server-side task runner. If a step prompt doesn't contain result placeholder tags, the output text of the previous step is automatically appended as context.
+
+### Bug Fixes & Improvements
+- **Scheduler Heartbeat Duplicates Fix**: Standardized scheduled executions to run using timezone-safe UTC timestamps (`.toUtc()`), and modified the server router update endpoint to preserve active execution states on synchronization requests, avoiding duplicate schedules/double emails.
+- **Developer Credentials Clean-up**: Stripped all developer Google client IDs and GOCSPX client secrets from 17 launcher and installer scripts and documentation export configurations, replacing them with generic setup placeholders.
+
 ## v1.5.2 / v1.0.150 - LLM Stream Parsing Resilience & Unified Playground Skills
 
 ### New Features
