@@ -4236,46 +4236,44 @@ class MultimediaMessageWidget extends StatelessWidget {
 
   /// Extract HTML from content (handles text before/after HTML)
   String _extractHtmlContent(String content) {
-    // Try to find HTML content - for multi-step tasks, we need to capture ALL HTML
-
-    // Check for ```html code blocks first
-    if (content.contains('```html')) {
-      final htmlBlockMatch = RegExp(r'```html\s*(.*?)```', multiLine: true, dotAll: true).firstMatch(content);
-      if (htmlBlockMatch != null) {
-        return htmlBlockMatch.group(1) ?? content;
+    // 1. Check for ```html or ```xml or ```svg code blocks
+    for (final pattern in [r'```html\s*(.*?)```', r'```xml\s*(.*?)```', r'```svg\s*(.*?)```', r'```\s*(<!DOCTYPE.*?)```', r'```\s*(<html.*?)```']) {
+      final match = RegExp(pattern, multiLine: true, dotAll: true).firstMatch(content);
+      if (match != null) {
+        return match.group(1)!.trim();
       }
     }
 
-    // For DOCTYPE or full HTML documents, extract from first occurrence to last closing tag
-    // Handle both "<!DOCTYPE" and "<! DOCTYPE" (with space)
+    // 2. For DOCTYPE or full HTML documents, extract from first occurrence to last closing tag
     final lowerContent = content.toLowerCase();
     if (lowerContent.contains('<!doctype') || lowerContent.contains('<! doctype') || lowerContent.contains('<html')) {
-      // Find DOCTYPE with or without space
       int firstDoctype = content.indexOf('<!DOCTYPE');
-      if (firstDoctype < 0) {
-        firstDoctype = content.indexOf('<!doctype');
-      }
-      if (firstDoctype < 0) {
-        firstDoctype = content.indexOf('<! DOCTYPE');
-      }
-      if (firstDoctype < 0) {
-        firstDoctype = content.indexOf('<! doctype');
-      }
+      if (firstDoctype < 0) firstDoctype = content.indexOf('<!doctype');
+      if (firstDoctype < 0) firstDoctype = content.indexOf('<! DOCTYPE');
+      if (firstDoctype < 0) firstDoctype = content.indexOf('<! doctype');
 
       final firstHtml = content.toLowerCase().indexOf('<html');
       final startIndex = firstDoctype >= 0 ? firstDoctype : (firstHtml >= 0 ? firstHtml : -1);
 
       if (startIndex >= 0) {
-        // Find the last </html> tag to capture complete document
         final lastHtmlClose = content.toLowerCase().lastIndexOf('</html>');
         if (lastHtmlClose > startIndex) {
-          return content.substring(startIndex, lastHtmlClose + 7); // +7 for '</html>'
+          return content.substring(startIndex, lastHtmlClose + 7);
         }
       }
     }
 
-    // For multiple tables or divs, extract from first opening tag to last closing tag
-    if (content.contains('<table') || content.contains('<div') || content.contains('<tr>')) {
+    // 3. For custom tags (SVG, Canvas, tables, divs, scripts, styles), extract from first opening tag to last closing tag
+    final htmlTags = ['<table', '<div', '<tr>', '<svg', '<canvas', '<script', '<style', '<ul', '<ol', '<p', '<h1', '<h2', '<h3'];
+    bool hasTag = false;
+    for (final tag in htmlTags) {
+      if (content.contains(tag)) {
+        hasTag = true;
+        break;
+      }
+    }
+
+    if (hasTag) {
       final firstTag = content.indexOf('<');
       final lastTag = content.lastIndexOf('>');
       if (firstTag >= 0 && lastTag > firstTag) {
@@ -4292,7 +4290,31 @@ class MultimediaMessageWidget extends StatelessWidget {
       try {
         final tempDir = Directory.systemTemp;
         final tempFile = File('${tempDir.path}/preview_${DateTime.now().millisecondsSinceEpoch}.html');
-        await tempFile.writeAsString(extractedHtml);
+        
+        String finalHtml = extractedHtml;
+        if (!finalHtml.toLowerCase().contains('<html')) {
+          finalHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HTML Preview</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      padding: 20px; 
+      margin: 0;
+      background-color: #f8f9fa;
+    }
+  </style>
+</head>
+<body>
+  $finalHtml
+</body>
+</html>
+''';
+        }
+        await tempFile.writeAsString(finalHtml);
 
         final uri = Uri.file(tempFile.path);
         if (await canLaunchUrl(uri)) {
@@ -4832,6 +4854,30 @@ $extractedHtml
           const SizedBox(height: 8),
           const Divider(),
           const SizedBox(height: 8),
+          if (extractedHtml.toLowerCase().contains('<script')) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, size: 16, color: Colors.orange.shade800),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'JavaScript is not active in preview. Click "Show HTML" to open the interactive version in your browser.',
+                      style: TextStyle(fontSize: 11, color: Colors.orange.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           // HTML preview thumbnail
           _HtmlPreviewThumbnail(html: extractedHtml),
         ],
