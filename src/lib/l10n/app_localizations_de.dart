@@ -3321,4 +3321,12 @@ class LDe extends L {
   String agentLogsTitle(String name) {
     return 'Ausführungsprotokolle: $name';
   }
+
+  @override
+  String skillLlmNotConfigured(String provider, String model) {
+    return 'Das in diesem Skill konfigurierte LLM ($provider / $model) ist nicht verfügbar. Stattdessen wird das Standard-LLM verwendet.';
+  }
+
+  @override
+  String get llmWarning => 'LLM-Warnung';
 }

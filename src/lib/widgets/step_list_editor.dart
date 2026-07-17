@@ -163,6 +163,12 @@ class _SubPromptListEditorState extends State<StepListEditor> {
   // ---- Sync outer tool list ----
 
   void _syncToolGroupsToNewList(List<ToolGroup> newGroups) {
+    // If any of the available groups is currently empty (connecting/loading/discovering),
+    // do NOT remove any tools from the enabled list yet. Otherwise, we would
+    // wipe out the saved selection before the server's tools are discovered!
+    if (newGroups.any((g) => g.toolNames.isEmpty)) {
+      return;
+    }
     final newAllNames = {for (final g in newGroups) ...g.toolNames};
     bool changed = false;
     for (final entry in _entries) {

@@ -1706,5 +1706,18 @@
         "type": "String"
       }
     }
-  }
+  },
+  "skillLlmNotConfigured": "The LLM configured in this skill ({provider} / {model}) is not available. Using the default LLM instead.",
+  "@skillLlmNotConfigured": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmWarning": "LLM Warning",
+  "@llmWarning": {}
 }

@@ -6023,6 +6023,18 @@ abstract class L {
   /// In en, this message translates to:
   /// **'Execution Logs: {name}'**
   String agentLogsTitle(String name);
+
+  /// No description provided for @skillLlmNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'The LLM configured in this skill ({provider} / {model}) is not available. Using the default LLM instead.'**
+  String skillLlmNotConfigured(String provider, String model);
+
+  /// No description provided for @llmWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'LLM Warning'**
+  String get llmWarning;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

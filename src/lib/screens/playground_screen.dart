@@ -30,6 +30,7 @@ import '../services/github_mcp_library_service.dart';
 import '../services/github_mcp_runtime_service.dart';
 import '../services/workflow_export_service.dart';
 import '../services/llm_settings_service.dart';
+import '../services/embedded_llm/embedded_model_manager.dart';
 
 import '../models/function_hint.dart';
 import '../services/function_hint_database_service.dart';
@@ -675,7 +676,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
   }
 
-  void _initFromTask(WorkflowTask task) {
+  Future<void> _initFromTask(WorkflowTask task) async {
     _activeLoadedWorkflow = task;
     _loadSystemPrompt(task.systemPrompt ?? '');
     _initialPromptCtrl.text = task.prompt;
@@ -688,6 +689,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       (m) => m.mcpType == 'toolbox' && !m.enabled,
     ));
     _selectedExternalServerUrls = task.mcpTools.map((t) => t.serverUrl).toSet();
+    _prefetchedRemoteMcpTools.clear();
+    final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
+    Future.microtask(() => _getSelectableGithubMcpServers(isServerMode));
+    for (final toolConfig in task.mcpTools) {
+      if (toolConfig.discoveredTools.isNotEmpty) {
+        _prefetchedRemoteMcpTools[toolConfig.serverUrl] = List<String>.from(toolConfig.discoveredTools);
+      }
+    }
     for (final mcp in task.internalMcps.where((m) => m.enabled)) {
       if (mcp.initParams.isNotEmpty) {
         _mcpInitParams[mcp.mcpType] = Map<String, dynamic>.from(mcp.initParams);
@@ -698,29 +707,108 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     if (llmCfg != null &&
         llmCfg.provider.isNotEmpty &&
         llmCfg.provider != 'llm2') {
-      _overrideLlm = true;
-      _llmProviderCtrl.text = llmCfg.provider;
-      _llmModelCtrl.text = llmCfg.model;
-      _llmApiKeyCtrl.text = llmCfg.apiKey ?? '';
-      _llmBaseUrlCtrl.text = llmCfg.baseUrl ?? '';
-      _playgroundTemperatureCtrl.text = llmCfg.temperature.toString();
-      _playgroundMaxTokensCtrl.text = llmCfg.maxTokens.toString();
-      _playgroundMaxToolOutputSizeCtrl.text =
-          (llmCfg.extraParams['max_tool_output_size'] ?? 2560000).toString();
-      _playgroundTokenWarningThresholdCtrl.text =
-          (llmCfg.extraParams['token_warning_threshold'] ?? 1500000).toString();
-      _customUseNativeToolCall =
-          (llmCfg.extraParams['use_native_tool_call'] as bool?) ?? true;
-      _customIsSlm = (llmCfg.extraParams['is_slm'] as bool?) ?? false;
-      _customIsMultiModal =
-          (llmCfg.extraParams['is_multi_modal'] as bool?) ?? true;
-      _customThinking = (llmCfg.extraParams['thinking'] as bool?) ?? false;
+      final skillProvider = LlmProvider.fromConfigKey(llmCfg.provider);
+
+
+      bool isAvailable = true;
+      if (skillProvider == LlmProvider.none) {
+        isAvailable = false;
+      } else if (skillProvider == LlmProvider.embedded) {
+        final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
+        if (isServerMode) {
+          isAvailable = llmCfg.model.isNotEmpty;
+        } else {
+          final downloaded = await EmbeddedModelManager.instance.listDownloadedFilenames();
+          if (llmCfg.model.isEmpty ||
+              (!downloaded.contains(llmCfg.model) && !downloaded.any((f) => f.contains(llmCfg.model)))) {
+            isAvailable = false;
+          }
+        }
+      } else {
+        // Check if API key or base URL is present for this provider
+        final key = llmCfg.apiKey?.isNotEmpty == true
+            ? llmCfg.apiKey!
+            : LlmSettingsService.instance.getApiKeyForProvider(skillProvider);
+        final baseUrl = llmCfg.baseUrl?.isNotEmpty == true
+            ? llmCfg.baseUrl!
+            : LlmSettingsService.instance.getBaseUrlForProvider(skillProvider);
+
+        final requiresApiKey =
+            skillProvider != LlmProvider.ollama &&
+            skillProvider != LlmProvider.openaiCompatible;
+        final requiresBaseUrl =
+            skillProvider == LlmProvider.ollama ||
+            skillProvider == LlmProvider.openaiCompatible ||
+            skillProvider == LlmProvider.mistral;
+
+        if (llmCfg.model.isEmpty ||
+            (requiresApiKey && key.isEmpty) ||
+            (requiresBaseUrl && baseUrl.isEmpty)) {
+          isAvailable = false;
+        }
+      }
+
+      if (!isAvailable) {
+        // Show dialog warning and fallback
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final loc = L.of(context);
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text(loc.llmWarning),
+                content: Text(loc.skillLlmNotConfigured(
+                  skillProvider.label,
+                  llmCfg.model,
+                )),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+        });
+
+        _overrideLlm = false;
+        _llmProviderCtrl.text = '';
+        _llmModelCtrl.text = '';
+        _llmApiKeyCtrl.text = '';
+        _llmBaseUrlCtrl.text = '';
+      } else {
+        _overrideLlm = true;
+        _llmProviderCtrl.text = llmCfg.provider;
+        _llmModelCtrl.text = llmCfg.model;
+        _llmApiKeyCtrl.text = llmCfg.apiKey?.isNotEmpty == true
+            ? llmCfg.apiKey!
+            : LlmSettingsService.instance.getApiKeyForProvider(skillProvider);
+        _llmBaseUrlCtrl.text = llmCfg.baseUrl?.isNotEmpty == true
+            ? llmCfg.baseUrl!
+            : LlmSettingsService.instance.getBaseUrlForProvider(skillProvider);
+        _playgroundTemperatureCtrl.text = llmCfg.temperature.toString();
+        _playgroundMaxTokensCtrl.text = llmCfg.maxTokens.toString();
+        _playgroundMaxToolOutputSizeCtrl.text =
+            (llmCfg.extraParams['max_tool_output_size'] ?? 2560000).toString();
+        _playgroundTokenWarningThresholdCtrl.text =
+            (llmCfg.extraParams['token_warning_threshold'] ?? 1500000).toString();
+        _customUseNativeToolCall =
+            (llmCfg.extraParams['use_native_tool_call'] as bool?) ?? true;
+        _customIsSlm = (llmCfg.extraParams['is_slm'] as bool?) ?? false;
+        _customIsMultiModal =
+            (llmCfg.extraParams['is_multi_modal'] as bool?) ?? true;
+        _customThinking = (llmCfg.extraParams['thinking'] as bool?) ?? false;
+      }
     } else if (llmCfg?.provider == 'llm2') {
       _selectedLlm = 2;
+    } else {
+      _overrideLlm = false;
     }
     // Auto-start chat; also rebuild skills so stale/empty saved skills are refreshed.
     _skillsWarningShown = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _eagerDiscoverSelectedRemoteMcpTools();
       _updateSkillsSection();
       _startChat();
     });
@@ -1653,200 +1741,22 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
   }
 
-  // ── Load Skills ──
+  // ── Load Workflows ──
 
   Future<void> _showSetupSessionsDialog() async {
     // Make sure we have the latest task list loaded
     await ref.read(taskListProvider.notifier).refresh();
     if (!mounted) return;
 
-    while (mounted) {
-      final allTasks = ref.read(taskListProvider).value ?? [];
-      // Filter showing only the workflows with one agent!
-      final workflows = allTasks
-          .where((task) => task.agents.length == 1)
-          .toList();
+    final WorkflowTask? selectedWorkflow = await showDialog<WorkflowTask>(
+      context: context,
+      builder: (ctx) => const _LoadWorkflowsDialog(),
+    );
 
-      final WorkflowTask? selectedWorkflow = await showDialog<WorkflowTask>(
-        context: context,
-        builder: (ctx) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 32,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 560,
-              maxHeight: MediaQuery.sizeOf(ctx).height * 0.78,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 8, 0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.bookmarks_outlined),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Load Skills',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.file_upload_outlined, size: 18),
-                        label: const Text('Import Skill'),
-                        onPressed: () async {
-                          try {
-                            final result = await FilePicker.pickFiles(
-                              type: FileType.custom,
-                              allowedExtensions: ['zip', 'md'],
-                            );
-                            if (result == null || result.files.isEmpty) return;
-
-                            final file = result.files.first;
-                            final List<int> bytes;
-                            if (file.bytes != null) {
-                              bytes = file.bytes!;
-                            } else if (file.path != null) {
-                              bytes = await File(file.path!).readAsBytes();
-                            } else {
-                              throw Exception('Could not read file content.');
-                            }
-
-                            final task = await WorkflowExportService.parseWorkflowFile(
-                              bytes: bytes,
-                              filename: file.name,
-                            );
-
-                            if (ctx.mounted) {
-                              Navigator.pop(ctx, task);
-                            }
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              showDialog(
-                                context: ctx,
-                                builder: (c) => AlertDialog(
-                                  title: const Text('Import Error'),
-                                  content: Text(e.toString().replaceFirst('Exception: ', '')),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(c),
-                                      child: const Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 20),
-                if (workflows.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
-                    child: Text(
-                      'No saved skills yet.\nUse "Save Skill / Workflow" in the toolbar to save the current tools & prompts.',
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: workflows.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (_, i) {
-                        final task = workflows[i];
-                        final toolCount =
-                            task.internalMcps.length + task.mcpTools.length;
-                        final date =
-                            '${task.createdAt.year}-${task.createdAt.month.toString().padLeft(2, '0')}-${task.createdAt.day.toString().padLeft(2, '0')}';
-                        final promptPreview = task.prompt.isNotEmpty
-                            ? '"${task.prompt.substring(0, task.prompt.length.clamp(0, 60))}${task.prompt.length > 60 ? '…' : ''}"'
-                            : null;
-                        return ListTile(
-                          title: Text(
-                            task.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            [
-                              date,
-                              '$toolCount tool${toolCount == 1 ? '' : 's'}',
-                              ?promptPreview,
-                            ].join(' · '),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          onTap: () => Navigator.pop(ctx, task),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 20),
-                            tooltip: 'Delete',
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (c) => AlertDialog(
-                                  title: const Text('Delete Skill'),
-                                  content: Text('Delete "${task.name}"?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(c, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                      ),
-                                      onPressed: () => Navigator.pop(c, true),
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true && mounted) {
-                                await ref
-                                    .read(taskListProvider.notifier)
-                                    .deleteTask(task.id);
-                                Navigator.pop(ctx);
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-      );
-
-      if (selectedWorkflow == null) {
-        break; // dialog dismissed or delete triggered loops back
-      }
-
-      // Load selected workflow
-      _initFromTask(selectedWorkflow);
-      break;
+    if (selectedWorkflow != null && mounted) {
+      await _initFromTask(selectedWorkflow);
+      await _updateSkillsSection();
     }
-    await _updateSkillsSection();
   }
 
   // ── Chat subscription ──
@@ -2401,9 +2311,47 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     var tempSelection = Set<String>.from(_selectedMcpTypes);
     var tempExternalSelection = Set<String>.from(_selectedExternalServerUrls);
     var tempToolboxEnabled = _pgToolboxEnabled;
-    final externalServers =
-        ExternalToolsSettingsService.instance.selectedServers;
+
+    final globalServers = ExternalToolsSettingsService.instance.selectedServers;
+    final Map<String, McpToolConfig> combinedServers = {};
+    for (final s in globalServers) {
+      combinedServers[s.serverUrl] = s;
+    }
+    for (final url in _selectedExternalServerUrls) {
+      if (!combinedServers.containsKey(url)) {
+        combinedServers[url] = McpToolConfig(
+          serverUrl: url,
+          name: Uri.tryParse(url)?.host ?? url,
+        );
+      }
+    }
+
     final ghServers = await _getSelectableGithubMcpServers(isServerMode);
+    final Map<String, GithubMcpServerDefinition> combinedGhServers = {};
+    for (final s in ghServers) {
+      combinedGhServers[s.id] = s;
+    }
+    for (final type in _selectedMcpTypes) {
+      if (type.startsWith('gh_mcp_')) {
+        final serverId = type.substring('gh_mcp_'.length);
+        if (!combinedGhServers.containsKey(serverId)) {
+          final def = _findGithubMcpById(serverId);
+          combinedGhServers[serverId] = def ?? GithubMcpServerDefinition(
+            id: serverId,
+            name: 'Remote MCP ($serverId)',
+            displayName: 'Remote MCP ($serverId)',
+            description: 'Remote GitHub MCP server',
+            githubUrl: '',
+            language: 'python',
+            installType: 'uvx',
+            packageName: '',
+            createdAt: DateTime.now(),
+            isInstalled: true,
+            isActive: true,
+          );
+        }
+      }
+    }
 
     showDialog<(Set<String>, Set<String>, bool)>(
       context: context,
@@ -2512,7 +2460,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                             );
                           }),
                           // ── External MCP servers section ──
-                          if (externalServers.isNotEmpty) ...[
+                          if (combinedServers.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             _dialogSectionHeader(
                               ctx,
@@ -2520,7 +2468,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                               Icons.dns,
                               Colors.orange,
                             ),
-                            ...externalServers.map((server) {
+                            ...combinedServers.values.map((server) {
                               return CheckboxListTile(
                                 title: Text(
                                   server.name ?? server.serverUrl,
@@ -2582,7 +2530,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                           ],
                           // ── Installed GitHub MCP servers section ──
                           ...() {
-                            if (ghServers.isEmpty) return <Widget>[];
+                            if (combinedGhServers.isEmpty) return <Widget>[];
                             return <Widget>[
                               const SizedBox(height: 8),
                               _dialogSectionHeader(
@@ -2591,7 +2539,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                                 Icons.hub_outlined,
                                 Colors.teal,
                               ),
-                              ...ghServers.map((def) {
+                              ...combinedGhServers.values.map((def) {
                                 final key = 'gh_mcp_${def.id}';
                                 return CheckboxListTile(
                                   title: Text(
@@ -3475,7 +3423,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
           (
             icon: Icons.bookmarks_outlined,
-            label: 'Load Skills',
+            label: 'Load Workflows',
             onTap: _showSetupSessionsDialog,
             pin: true,
           ),
@@ -6983,4 +6931,251 @@ class _ExecEntry {
     this.details,
     required this.timestamp,
   });
+}
+
+class _LoadWorkflowsDialog extends ConsumerStatefulWidget {
+  const _LoadWorkflowsDialog();
+
+  @override
+  ConsumerState<_LoadWorkflowsDialog> createState() => _LoadWorkflowsDialogState();
+}
+
+class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
+  late final TextEditingController _searchController;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allTasks = ref.watch(taskListProvider).value ?? [];
+    // Filter showing only the workflows with one agent!
+    final workflows = allTasks
+        .where((task) => task.agents.length == 1)
+        .toList();
+
+    // Sort by name case-insensitively
+    workflows.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    // Filter by search query
+    final filteredWorkflows = _searchQuery.isEmpty
+        ? workflows
+        : workflows.where((task) {
+            return task.name.toLowerCase().contains(_searchQuery) ||
+                (task.description?.toLowerCase().contains(_searchQuery) ?? false) ||
+                task.prompt.toLowerCase().contains(_searchQuery);
+          }).toList();
+
+    final l = L.of(context);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 32,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          minHeight: MediaQuery.sizeOf(context).height * 0.78,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 8, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.bookmarks_outlined),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Load Workflows',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.file_upload_outlined, size: 18),
+                    label: const Text('Import Skill'),
+                    onPressed: () async {
+                      try {
+                        final result = await FilePicker.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['zip', 'md'],
+                        );
+                        if (result == null || result.files.isEmpty) return;
+
+                        final file = result.files.first;
+                        final List<int> bytes;
+                        if (file.bytes != null) {
+                          bytes = file.bytes!;
+                        } else if (file.path != null) {
+                          bytes = await File(file.path!).readAsBytes();
+                        } else {
+                          throw Exception('Could not read file content.');
+                        }
+
+                        final task = await WorkflowExportService.parseWorkflowFile(
+                          bytes: bytes,
+                          filename: file.name,
+                        );
+
+                        if (context.mounted) {
+                          Navigator.pop(context, task);
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Import Error'),
+                              content: Text(e.toString().replaceFirst('Exception: ', '')),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 20),
+            // Search field
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: l.searchTasks,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => _searchController.clear(),
+                        )
+                      : null,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+            if (filteredWorkflows.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Text(
+                  _searchQuery.isNotEmpty
+                      ? 'No matching workflows found.'
+                      : 'No saved workflows yet.\nUse "Save Skill / Workflow" in the toolbar to save the current tools & prompts.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: filteredWorkflows.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (ctx, i) {
+                    final task = filteredWorkflows[i];
+                    final toolCount =
+                        task.internalMcps.length + task.mcpTools.length;
+                    final date =
+                        '${task.createdAt.year}-${task.createdAt.month.toString().padLeft(2, '0')}-${task.createdAt.day.toString().padLeft(2, '0')}';
+                    final promptPreview = task.prompt.isNotEmpty
+                        ? '"${task.prompt.substring(0, task.prompt.length.clamp(0, 60))}${task.prompt.length > 60 ? '…' : ''}"'
+                        : null;
+                    return ListTile(
+                      title: Text(
+                        task.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        [
+                          date,
+                          '$toolCount tool${toolCount == 1 ? '' : 's'}',
+                          ?promptPreview,
+                        ].join(' · '),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onTap: () => Navigator.pop(context, task),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        tooltip: 'Delete',
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Delete Workflow'),
+                              content: Text('Delete "${task.name}"?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true && context.mounted) {
+                            await ref
+                                .read(taskListProvider.notifier)
+                                .deleteTask(task.id);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -110,6 +110,7 @@ Output formatting: default to concise plain text unless the task specifies a spe
   Future<TaskRunResult> runTask(
     AgenticTask task, {
     CancellationToken? cancellationToken,
+    bool suppressFailureNotifications = false,
   }) async {
     log.info('[TaskRunner] Starting task "${task.name}" (id=${task.id})');
     final startTime = DateTime.now();
@@ -318,14 +319,19 @@ Output formatting: default to concise plain text unless the task specifies a spe
         );
 
         try {
-          await ServerNotificationService().deliverExecutorNotification(
-            taskId: task.id,
-            executorName: currentExecutor.name,
-            notification: currentExecutor.notification,
-            success: llmResult.success,
-            resultText: llmResult.content,
-            errorText: llmResult.success ? null : llmResult.error,
-          );
+          final shouldDeliver = llmResult.success || !suppressFailureNotifications;
+          final isDuplicate = jsonEncode(currentExecutor.notification.toJson()) ==
+              jsonEncode(task.notification.toJson());
+          if (shouldDeliver && !isDuplicate) {
+            await ServerNotificationService().deliverExecutorNotification(
+              taskId: task.id,
+              executorName: currentExecutor.name,
+              notification: currentExecutor.notification,
+              success: llmResult.success,
+              resultText: llmResult.content,
+              errorText: llmResult.success ? null : llmResult.error,
+            );
+          }
         } catch (e) {
           log.warning('[TaskRunner] Failed to deliver step notification: $e');
         }

@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 
 import '../database/server_duckdb_service.dart';
 import '../models/agentic_task.dart';
+import '../services/server_external_tools_service.dart';
+import '../utils/server_live_log.dart';
 import '../utils/server_logger.dart';
 import '../utils/server_paths.dart';
 import 'server_internal_mcp.dart';
@@ -138,11 +140,35 @@ class ServerToolRegistry {
     // External MCP tools configured on the task (HTTP endpoints)
     for (final cfg in mcpTools) {
       if (cfg.serverUrl.isEmpty) continue;
-      await _connectHttpMcp(
-        cfg.serverUrl,
-        bearerToken: cfg.apiKey,
-        serverKey: cfg.serverUrl,
-      );
+      try {
+        final baseUrl = cfg.serverUrl.trim().replaceAll(RegExp(r'/+$'), '');
+        var endpoint = (cfg.mcpEndpoint ?? '/mcp').trim();
+        if (endpoint.isEmpty) endpoint = '/mcp';
+        if (!endpoint.startsWith('/')) endpoint = '/$endpoint';
+
+        final apiKey = ServerExternalToolsService.instance.resolveApiKey(baseUrl, cfg.apiKey);
+        final resolvedTuple = await ServerExternalToolsService.instance
+            .resolveSmitheryEndpoint(baseUrl, apiKey);
+        final resolvedBase = resolvedTuple.$1;
+        final resolvedKey = resolvedTuple.$2;
+
+        final parsedResolved = Uri.parse(resolvedBase);
+        final resolvedUrl = parsedResolved.path.toLowerCase().endsWith('/mcp')
+            ? resolvedBase
+            : parsedResolved
+                  .replace(path: parsedResolved.path + endpoint)
+                  .toString();
+
+        await _connectHttpMcp(
+          resolvedUrl,
+          bearerToken: resolvedKey,
+          serverKey: cfg.serverUrl,
+        );
+      } catch (e) {
+        log.error('[ToolRegistry] Failed to connect HTTP MCP for server ${cfg.serverUrl}: $e');
+        ServerLiveLog.log(task.id, '❌ Failed to connect HTTP MCP for server ${cfg.serverUrl}: $e');
+        rethrow;
+      }
     }
 
     // Internal (in-process) MCP tools — ssh, weather, web_search, etc.
@@ -298,6 +324,7 @@ class ServerToolRegistry {
     } catch (e) {
       log.error('[ToolRegistry] Failed to connect HTTP MCP @ $url: $e');
       client.dispose();
+      rethrow;
     }
   }
 

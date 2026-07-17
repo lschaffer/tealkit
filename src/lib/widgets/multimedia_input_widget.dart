@@ -147,21 +147,23 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
           ignoring: !enabled,
           child: Opacity(
             opacity: enabled ? 1.0 : 0.5,
-            child: StepListEditor(
-              controller: _textController,
-              chatMode: false,
-              availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
-                  ? (widget.chatService.mcpClient as MultiMCPManager).clients
-                        .where((c) => c.availableTools.isNotEmpty)
-                        .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
-                        .toList()
-                  : widget.chatService.mcpClient.availableTools.isNotEmpty
-                  ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
-                  : [],
-              onToolSelectionChanged: widget.onToolSelectionChanged,
-              minLines: 1,
-              maxLines: 6,
-              hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+            child: ListenableBuilder(
+              listenable: widget.chatService.mcpClient,
+              builder: (context, _) => StepListEditor(
+                controller: _textController,
+                chatMode: false,
+                availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
+                    ? (widget.chatService.mcpClient as MultiMCPManager).clients
+                          .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
+                          .toList()
+                    : widget.chatService.mcpClient.availableTools.isNotEmpty
+                    ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
+                    : [],
+                onToolSelectionChanged: widget.onToolSelectionChanged,
+                minLines: 1,
+                maxLines: 6,
+                hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+              ),
             ),
           ),
         ),
@@ -194,35 +196,37 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
             ignoring: !enabled,
             child: Opacity(
               opacity: enabled ? 1.0 : 0.5,
-              child: StepListEditor(
-                controller: _textController,
-                chatMode: false,
-                availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
-                    ? (widget.chatService.mcpClient as MultiMCPManager).clients
-                          .where((c) => c.availableTools.isNotEmpty)
-                          .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
-                          .toList()
-                    : widget.chatService.mcpClient.availableTools.isNotEmpty
-                    ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
-                    : [],
-                onToolSelectionChanged: widget.onToolSelectionChanged,
-                minLines: 1,
-                maxLines: 6,
-                hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Message AI Playground...',
-                leading: isMultiModal ? _buildAttachmentButton() : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.chatService.isProcessing)
-                      IconButton(
-                        icon: const Icon(Icons.stop_circle),
-                        iconSize: 20,
-                        tooltip: 'Stop processing',
-                        onPressed: () => widget.chatService.stopProcessing(),
-                        color: Colors.red,
-                      ),
-                    _buildSendButton(),
-                  ],
+              child: ListenableBuilder(
+                listenable: widget.chatService.mcpClient,
+                builder: (context, _) => StepListEditor(
+                  controller: _textController,
+                  chatMode: false,
+                  availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
+                      ? (widget.chatService.mcpClient as MultiMCPManager).clients
+                            .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
+                            .toList()
+                      : widget.chatService.mcpClient.availableTools.isNotEmpty
+                      ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
+                      : [],
+                  onToolSelectionChanged: widget.onToolSelectionChanged,
+                  minLines: 1,
+                  maxLines: 6,
+                  hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Message AI Playground...',
+                  leading: isMultiModal ? _buildAttachmentButton() : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.chatService.isProcessing)
+                        IconButton(
+                          icon: const Icon(Icons.stop_circle),
+                          iconSize: 20,
+                          tooltip: 'Stop processing',
+                          onPressed: () => widget.chatService.stopProcessing(),
+                          color: Colors.red,
+                        ),
+                      _buildSendButton(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -252,21 +256,23 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                 ignoring: !enabled,
                 child: Opacity(
                   opacity: enabled ? 1.0 : 0.5,
-                  child: StepListEditor(
-                    controller: _textController,
-                    chatMode: false,
-                    availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
-                        ? (widget.chatService.mcpClient as MultiMCPManager).clients
-                              .where((c) => c.availableTools.isNotEmpty)
-                              .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
-                              .toList()
-                        : widget.chatService.mcpClient.availableTools.isNotEmpty
-                        ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
-                        : [],
-                    onToolSelectionChanged: widget.onToolSelectionChanged,
-                    minLines: 1,
-                    maxLines: 6,
-                    hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+                  child: ListenableBuilder(
+                    listenable: widget.chatService.mcpClient,
+                    builder: (context, _) => StepListEditor(
+                      controller: _textController,
+                      chatMode: false,
+                      availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
+                          ? (widget.chatService.mcpClient as MultiMCPManager).clients
+                                .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
+                                .toList()
+                          : widget.chatService.mcpClient.availableTools.isNotEmpty
+                          ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
+                          : [],
+                      onToolSelectionChanged: widget.onToolSelectionChanged,
+                      minLines: 1,
+                      maxLines: 6,
+                      hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+                    ),
                   ),
                 ),
               ),

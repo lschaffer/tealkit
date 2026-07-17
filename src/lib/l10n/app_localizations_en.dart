@@ -3290,4 +3290,12 @@ class LEn extends L {
   String agentLogsTitle(String name) {
     return 'Execution Logs: $name';
   }
+
+  @override
+  String skillLlmNotConfigured(String provider, String model) {
+    return 'The LLM configured in this skill ($provider / $model) is not available. Using the default LLM instead.';
+  }
+
+  @override
+  String get llmWarning => 'LLM Warning';
 }

@@ -85,7 +85,8 @@ class ServerEmailService {
         ..from = Address(ds.smtpSender.isNotEmpty ? ds.smtpSender : ds.imapUsername)
         ..recipients.addAll(notification.recipients)
         ..subject = subject
-        ..text = body;
+        ..text = body
+        ..html = _markdownToHtml(body);
 
       if (notification.withAttachment && effectiveAttachments.isNotEmpty) {
         message.attachments.addAll(effectiveAttachments.map(FileAttachment.new));
@@ -308,4 +309,155 @@ String _sanitizeHtmlForEmailBody(String text) {
   }
 
   return sanitized;
+}
+
+String _markdownToHtml(String md) {
+  // Escape HTML characters first to avoid injecting raw tags
+  var escaped = md
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
+  // Headers: # Header
+  escaped = escaped.replaceAllMapped(RegExp(r'^(#{1,6})\s+(.+)$', multiLine: true), (m) {
+    final level = m.group(1)!.length;
+    return '<h$level>${m.group(2)}</h$level>';
+  });
+
+  // Code blocks: ```content```
+  escaped = escaped.replaceAllMapped(RegExp(r'```(?:[a-zA-Z0-9]+)?\n([\s\S]*?)\n```'), (m) {
+    return '<pre><code>${m.group(1)}</code></pre>';
+  });
+
+  // Inline code: `code`
+  escaped = escaped.replaceAllMapped(RegExp(r'`([^`\n]+)`'), (m) {
+    return '<code>${m.group(1)}</code>';
+  });
+
+  // Bold: **text**
+  escaped = escaped.replaceAllMapped(RegExp(r'\*\*([^*]+)\*\*'), (m) {
+    return '<strong>${m.group(1)}</strong>';
+  });
+
+  // Italic: *text* or _text_
+  escaped = escaped.replaceAllMapped(RegExp(r'\*([^*]+)\*'), (m) {
+    return '<em>${m.group(1)}</em>';
+  });
+  escaped = escaped.replaceAllMapped(RegExp(r'\b_([^_]+)_\b'), (m) {
+    return '<em>${m.group(1)}</em>';
+  });
+
+  // Links: [text](url)
+  escaped = escaped.replaceAllMapped(RegExp(r'\[([^\]]+)\]\(([^)]+)\)'), (m) {
+    final text = m.group(1);
+    var url = m.group(2)!.trim();
+    url = url.replaceAll('&amp;', '&');
+    return '<a href="$url">$text</a>';
+  });
+
+  // Horizontal rules: ---
+  escaped = escaped.replaceAll(RegExp(r'^---\s*$', multiLine: true), '<hr/>');
+
+  // Process line by line for bullet lists and paragraphs
+  final lines = escaped.split('\n');
+  var inList = false;
+  final processedLines = <String>[];
+
+  for (var line in lines) {
+    final trimmed = line.trim();
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+      if (!inList) {
+        processedLines.add('<ul>');
+        inList = true;
+      }
+      processedLines.add('<li>${trimmed.substring(2)}</li>');
+    } else {
+      if (inList) {
+        processedLines.add('</ul>');
+        inList = false;
+      }
+
+      if (trimmed.isEmpty) {
+        processedLines.add('<br/>');
+      } else if (trimmed.startsWith('<h') || trimmed.startsWith('<pre') || trimmed.startsWith('<hr')) {
+        processedLines.add(line);
+      } else {
+        processedLines.add('$line<br/>');
+      }
+    }
+  }
+  if (inList) {
+    processedLines.add('</ul>');
+  }
+
+  final htmlBody = processedLines.join('\n');
+
+  return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333333;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 20px;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      color: #111111;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    h1 { font-size: 20px; border-bottom: 1px solid #eeeeee; padding-bottom: 8px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 16px; }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      font-size: 12px;
+      background-color: #f5f5f5;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    ul {
+      margin-top: 5px;
+      margin-bottom: 5px;
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    hr {
+      border: 0;
+      border-top: 1px solid #dddddd;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  $htmlBody
+</body>
+</html>
+''';
 }

@@ -3090,9 +3090,10 @@ Future<Response> _handleListMcpServers(Request request) async {
 }
 
 Future<Response> _handleStartMcpServer(Request request, String serverId) async {
-  if (_mcpProxyClients.containsKey(serverId) ||
-      _mcpProxyProcesses.containsKey(serverId) ||
-      _mcpProxyInternals.containsKey(serverId)) {
+  final normServerId = _normalizeServerId(serverId);
+  if (_mcpProxyClients.containsKey(normServerId) ||
+      _mcpProxyProcesses.containsKey(normServerId) ||
+      _mcpProxyInternals.containsKey(normServerId)) {
     return _jsonError('Server already running', status: 409);
   }
 
@@ -3110,25 +3111,25 @@ Future<Response> _handleStartMcpServer(Request request, String serverId) async {
     'py_bridge',
     'toolbox',
   };
-  if (internalTypes.contains(serverId)) {
+  if (internalTypes.contains(normServerId)) {
     try {
       final effectiveInitParams = <String, dynamic>{...initParams};
-      if (serverId == 'py_bridge') {
+      if (normServerId == 'py_bridge') {
         effectiveInitParams.putIfAbsent('allowInactive', () => true);
       }
-      final impl = await createServerInternalMcp(serverId, effectiveInitParams);
+      final impl = await createServerInternalMcp(normServerId, effectiveInitParams);
       if (impl == null) {
-        return _jsonError('$serverId MCP not available', status: 500);
+        return _jsonError('$normServerId MCP not available', status: 500);
       }
-      _mcpProxyInternals[serverId] = impl;
+      _mcpProxyInternals[normServerId] = impl;
       return _json({
-        'server_id': serverId,
+        'server_id': normServerId,
         'status': 'running',
         'transport': 'internal',
         'tool_count': impl.tools.length,
       });
     } catch (e) {
-      return _jsonError('Failed to start $serverId: $e', status: 500);
+      return _jsonError('Failed to start $normServerId: $e', status: 500);
     }
   }
 
@@ -3137,7 +3138,7 @@ Future<Response> _handleStartMcpServer(Request request, String serverId) async {
   GithubMcpServerDefinition? githubServer;
   try {
     final all = await db.getAllGithubMcpServers();
-    githubServer = all.where((s) => s.id == serverId).firstOrNull;
+    githubServer = all.where((s) => s.id == normServerId).firstOrNull;
   } catch (e) {
     log.warning('[API] Could not load GitHub MCP servers: $e');
   }
@@ -3147,14 +3148,14 @@ Future<Response> _handleStartMcpServer(Request request, String serverId) async {
   }
 
   final externalCfg = ServerExternalToolsService.instance.selectedServers
-      .where((s) => s.serverUrl == serverId)
+      .where((s) => s.serverUrl == normServerId)
       .firstOrNull;
 
   if (externalCfg != null) {
     return _startExternalMcpServer(externalCfg);
   }
 
-  return _jsonError('Server not found: $serverId', status: 404);
+  return _jsonError('Server not found: $normServerId', status: 404);
 }
 
 Future<Response> _startGithubMcpServer(GithubMcpServerDefinition server) async {
@@ -3220,7 +3221,25 @@ Future<Response> _startGithubMcpServer(GithubMcpServerDefinition server) async {
 }
 
 Future<Response> _startExternalMcpServer(McpToolConfig cfg) async {
-  final client = ServerMcpClient(cfg.serverUrl, bearerToken: cfg.apiKey);
+  final baseUrl = cfg.serverUrl.trim().replaceAll(RegExp(r'/+$'), '');
+  var endpoint = (cfg.mcpEndpoint ?? '/mcp').trim();
+  if (endpoint.isEmpty) endpoint = '/mcp';
+  if (!endpoint.startsWith('/')) endpoint = '/$endpoint';
+
+  final apiKey = ServerExternalToolsService.instance.resolveApiKey(baseUrl, cfg.apiKey);
+  final resolvedTuple = await ServerExternalToolsService.instance
+      .resolveSmitheryEndpoint(baseUrl, apiKey);
+  final resolvedBase = resolvedTuple.$1;
+  final resolvedKey = resolvedTuple.$2;
+
+  final parsedResolved = Uri.parse(resolvedBase);
+  final resolvedUrl = parsedResolved.path.toLowerCase().endsWith('/mcp')
+      ? resolvedBase
+      : parsedResolved
+            .replace(path: parsedResolved.path + endpoint)
+            .toString();
+
+  final client = ServerMcpClient(resolvedUrl, bearerToken: resolvedKey);
   try {
     await client.connect();
     _mcpProxyClients[cfg.serverUrl] = client;
@@ -3645,17 +3664,18 @@ Future<List<MCPTool>> _stdioProxyInit(
 }
 
 Future<Response> _handleStopMcpServer(Request request, String serverId) async {
+  final normServerId = _normalizeServerId(serverId);
   final wasRunning =
-      _mcpProxyInternals.containsKey(serverId) ||
-      _mcpProxyClients.containsKey(serverId) ||
-      _mcpProxyProcesses.containsKey(serverId) ||
-      _mcpProxyLocalHttpProcesses.containsKey(serverId);
+      _mcpProxyInternals.containsKey(normServerId) ||
+      _mcpProxyClients.containsKey(normServerId) ||
+      _mcpProxyProcesses.containsKey(normServerId) ||
+      _mcpProxyLocalHttpProcesses.containsKey(normServerId);
   if (wasRunning) {
-    await _stopMcpProxyServer(serverId);
-    return _json({'server_id': serverId, 'status': 'stopped'});
+    await _stopMcpProxyServer(normServerId);
+    return _json({'server_id': normServerId, 'status': 'stopped'});
   }
 
-  return _jsonError('Server not running: $serverId', status: 404);
+  return _jsonError('Server not running: $normServerId', status: 404);
 }
 
 bool _shouldAutoLaunchLocalHttpMcp(
@@ -4010,35 +4030,36 @@ Future<Response> _handleGetMcpServerTools(
   Request request,
   String serverId,
 ) async {
-  final internalImpl = _mcpProxyInternals[serverId];
+  final normServerId = _normalizeServerId(serverId);
+  final internalImpl = _mcpProxyInternals[normServerId];
   if (internalImpl != null) {
     return _json({
-      'server_id': serverId,
+      'server_id': normServerId,
       'tools': internalImpl.tools.map((t) => t.toJson()).toList(),
     });
   }
 
-  final client = _mcpProxyClients[serverId];
+  final client = _mcpProxyClients[normServerId];
   if (client != null) {
     return _json({
-      'server_id': serverId,
+      'server_id': normServerId,
       'tools': client.availableTools.map((t) => t.toJson()).toList(),
     });
   }
 
-  final tools = _mcpProxyTools[serverId];
+  final tools = _mcpProxyTools[normServerId];
   if (tools != null) {
     return _json({
-      'server_id': serverId,
+      'server_id': normServerId,
       'tools': tools.map((t) => t.toJson()).toList(),
     });
   }
 
-  if (_mcpProxyProcesses.containsKey(serverId)) {
-    return _json({'server_id': serverId, 'tools': []});
+  if (_mcpProxyProcesses.containsKey(normServerId)) {
+    return _json({'server_id': normServerId, 'tools': []});
   }
 
-  return _jsonError('Server not running: $serverId', status: 404);
+  return _jsonError('Server not running: $normServerId', status: 404);
 }
 
 Future<Response> _handleCallMcpTool(
@@ -4046,14 +4067,15 @@ Future<Response> _handleCallMcpTool(
   String serverId,
   String toolName,
 ) async {
+  final normServerId = _normalizeServerId(serverId);
   final body = await _parseJsonBody(request);
   final arguments = (body?['arguments'] as Map<String, dynamic>?) ?? {};
-  final tracksIdle = _mcpProxyLocalHttpProcesses.containsKey(serverId);
+  final tracksIdle = _mcpProxyLocalHttpProcesses.containsKey(normServerId);
   if (tracksIdle) {
-    _cancelLocalHttpIdleShutdown(serverId);
+    _cancelLocalHttpIdleShutdown(normServerId);
   }
 
-  final internalImpl = _mcpProxyInternals[serverId];
+  final internalImpl = _mcpProxyInternals[normServerId];
   if (internalImpl != null) {
     try {
       final raw = await internalImpl.callTool(toolName, arguments);
@@ -4069,42 +4091,42 @@ Future<Response> _handleCallMcpTool(
       );
       return _json(result.toJson());
     } catch (e) {
-      log.error('[API] Internal MCP tool call $serverId/$toolName failed: $e');
+      log.error('[API] Internal MCP tool call $normServerId/$toolName failed: $e');
       return _jsonError('Tool call failed: $e', status: 502);
     }
   }
 
-  final client = _mcpProxyClients[serverId];
+  final client = _mcpProxyClients[normServerId];
   if (client != null) {
     try {
       final result = await client.callTool(toolName, arguments);
       return _json(result.toJson());
     } catch (e) {
-      log.error('[API] MCP tool call $serverId/$toolName failed: $e');
+      log.error('[API] MCP tool call $normServerId/$toolName failed: $e');
       return _jsonError('Tool call failed: $e', status: 502);
     } finally {
       if (tracksIdle) {
-        _armLocalHttpIdleShutdown(serverId);
+        _armLocalHttpIdleShutdown(normServerId);
       }
     }
   }
 
-  final proc = _mcpProxyProcesses[serverId];
+  final proc = _mcpProxyProcesses[normServerId];
   if (proc != null) {
     try {
       final result = await _callStdioProxyTool(proc, toolName, arguments);
       return _json(result.toJson());
     } catch (e) {
-      log.error('[API] Stdio MCP tool call $serverId/$toolName failed: $e');
+      log.error('[API] Stdio MCP tool call $normServerId/$toolName failed: $e');
       return _jsonError('Tool call failed: $e', status: 502);
     }
   }
 
   if (tracksIdle) {
-    _armLocalHttpIdleShutdown(serverId);
+    _armLocalHttpIdleShutdown(normServerId);
   }
 
-  return _jsonError('Server not running: $serverId', status: 404);
+  return _jsonError('Server not running: $normServerId', status: 404);
 }
 
 Future<MCPToolResult> _callStdioProxyTool(
@@ -4150,10 +4172,11 @@ Future<Response> _handleMcpServerEvents(
   Request request,
   String serverId,
 ) async {
-  final proc = _mcpProxyProcesses[serverId];
+  final normServerId = _normalizeServerId(serverId);
+  final proc = _mcpProxyProcesses[normServerId];
   if (proc == null) {
-    if (!_mcpProxyClients.containsKey(serverId)) {
-      return _jsonError('Server not running: $serverId', status: 404);
+    if (!_mcpProxyClients.containsKey(normServerId)) {
+      return _jsonError('Server not running: $normServerId', status: 404);
     }
     return _jsonError(
       'Event streaming is only available for stdio-based servers',
@@ -4311,4 +4334,14 @@ Future<Response> _handleDeletePlaygroundSession(
     log.error('[API] DELETE /playground/sessions/$id failed: $e');
     return _jsonError(e.toString(), status: 500);
   }
+}
+
+String _normalizeServerId(String id) {
+  var s = id.trim();
+  if (s.startsWith('https:/') && !s.startsWith('https://')) {
+    s = s.replaceFirst('https:/', 'https://');
+  } else if (s.startsWith('http:/') && !s.startsWith('http://')) {
+    s = s.replaceFirst('http:/', 'http://');
+  }
+  return s;
 }

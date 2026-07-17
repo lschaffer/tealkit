@@ -160,7 +160,10 @@ class ServerScheduler {
       }
 
       try {
-        final result = await runner.runTask(task);
+        final result = await runner.runTask(
+          task,
+          suppressFailureNotifications: attempt < maxRetries,
+        );
         if (result.success) {
           log.info('[Scheduler] Task ${task.id} completed successfully (attempt ${attempt + 1})');
           return;
@@ -207,6 +210,7 @@ class ServerScheduler {
         lower.contains('set up a provider') ||
         lower.contains('invalid api key') ||
         lower.contains('unauthorized') ||
-        lower.contains('authentication');
+        lower.contains('authentication') ||
+        lower.contains('failed to connect http mcp');
   }
 }
