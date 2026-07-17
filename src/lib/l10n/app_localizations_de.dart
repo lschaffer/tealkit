@@ -3329,4 +3329,11 @@ class LDe extends L {
 
   @override
   String get llmWarning => 'LLM-Warnung';
+
+  @override
+  String get loadWorkflowsAndImportSkills =>
+      'Workflows laden / Skills importieren';
+
+  @override
+  String get resetPlayground => 'Playground zurücksetzen';
 }

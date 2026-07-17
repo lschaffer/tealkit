@@ -998,7 +998,7 @@ class ServerDuckDbService {
   }
 
   // ──────────────────────────────────────────────
-  // Tool Skills CRUD
+  // Tool Hints CRUD
   // ──────────────────────────────────────────────
 
   Future<void> saveToolSkill(Map<String, dynamic> skill) async {
@@ -1133,6 +1133,7 @@ class ServerDuckDbService {
   // ──────────────────────────────────────────────
 
   static String _esc(String s) => s.replaceAll("'", "''");
+  static String esc(String s) => _esc(s);
 
   static Map<String, dynamic> _decodeJsonMap(dynamic raw) {
     if (raw == null) return {};

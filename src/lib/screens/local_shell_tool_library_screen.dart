@@ -45,15 +45,19 @@ class _LocalShellToolLibraryScreenState extends ConsumerState<LocalShellToolLibr
   Future<void> _load() async {
     await LocalShellScriptService.instance.load();
     if (!mounted) return;
+    final list = List<LocalShellScript>.from(LocalShellScriptService.instance.scripts);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _scripts = List.from(LocalShellScriptService.instance.scripts);
+      _scripts = list;
       _loading = false;
     });
   }
 
   void _refresh() {
+    final list = List<LocalShellScript>.from(LocalShellScriptService.instance.scripts);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _scripts = List.from(LocalShellScriptService.instance.scripts);
+      _scripts = list;
       _changed = true;
     });
   }

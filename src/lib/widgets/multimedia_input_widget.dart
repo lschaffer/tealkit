@@ -28,7 +28,7 @@ class MultimediaInputWidget extends StatefulWidget {
   final TextEditingController? controller;
 
   /// Called when the per-step tool selection changes inside the input editor.
-  /// Use this to regenerate tool skills based on the updated step tool filters.
+  /// Use this to regenerate Tool Hints based on the updated step tool filters.
   final VoidCallback? onToolSelectionChanged;
 
   const MultimediaInputWidget({

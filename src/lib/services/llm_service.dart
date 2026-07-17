@@ -24,8 +24,16 @@ import 'embedded_llm/embedded_llm_adapter.dart';
 // response body is deserialized.
 // ─────────────────────────────────────────────────────────────────────────────
 class _MistralPatchClient extends http.BaseClient {
-  _MistralPatchClient(this._inner);
+  _MistralPatchClient(
+    this._inner, {
+    this.targetProvider,
+    this.targetBaseUrl,
+    this.targetApiKey,
+  });
   final http.Client _inner;
+  final String? targetProvider;
+  final String? targetBaseUrl;
+  final String? targetApiKey;
 
   Map<String, dynamic> _sanitizeMistralChatRequest(
     Map<String, dynamic> payload,
@@ -122,6 +130,15 @@ class _MistralPatchClient extends http.BaseClient {
         request.url.path.contains('chat/completions') &&
         request is http.Request) {
       try {
+        if (targetProvider != null && targetProvider!.isNotEmpty) {
+          request.headers['X-Llm-Provider'] = targetProvider!;
+        }
+        if (targetBaseUrl != null && targetBaseUrl!.isNotEmpty) {
+          request.headers['X-Llm-Base-Url'] = targetBaseUrl!;
+        }
+        if (targetApiKey != null && targetApiKey!.isNotEmpty) {
+          request.headers['X-Llm-Api-Key'] = targetApiKey!;
+        }
         final decoded = jsonDecode(request.body);
         if (decoded is Map<String, dynamic>) {
           final patchedPayload = _sanitizeMistralChatRequest(decoded);
@@ -1391,6 +1408,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     String? apiKey,
     String model = 'local-model',
     bool forceMistralCompat = false,
+    String? targetProvider,
+    String? targetBaseUrl,
+    String? targetApiKey,
   }) async {
     try {
       _openaiCompatibleUrl = baseUrl;
@@ -1447,7 +1467,12 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       // Create OpenAI client with custom base URL.
       // For Mistral we wrap the HTTP client to inject missing "type":"function"
       // fields into tool_call objects before openai_dart deserializes the response.
-      final http.Client patchClient = _MistralPatchClient(http.Client());
+      final http.Client patchClient = _MistralPatchClient(
+        http.Client(),
+        targetProvider: targetProvider,
+        targetBaseUrl: targetBaseUrl,
+        targetApiKey: targetApiKey,
+      );
       _openaiCompatibleClient = openai.OpenAIClient(
         config: openai.OpenAIConfig(
           authProvider: openai.ApiKeyProvider(

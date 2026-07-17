@@ -108,7 +108,7 @@ class ChatService extends ChangeNotifier with ServiceLogging {
   // which supports both legacy [N0] and new [NT:tool1|tool2] formats.
   static RegExp get _subPromptSepRegex => stepSepRegex;
 
-  /// Filters the "Tool Skills:" block in [prompt] so that only skills whose
+  /// Filters the "Tool Hints:" block in [prompt] so that only skills whose
   /// tool name appears in [enabledToolNames] are kept.
   ///
   /// * [enabledToolNames] empty  → strips the skills block entirely (no-tools step).
@@ -120,7 +120,7 @@ class ChatService extends ChangeNotifier with ServiceLogging {
     String prompt,
     List<String> enabledToolNames,
   ) {
-    const marker = '\n\nTool Skills:';
+    const marker = '\n\nTool Hints:';
     final idx = prompt.indexOf(marker);
     if (idx < 0) return prompt; // no skills block present
     final base = prompt.substring(0, idx);
@@ -138,7 +138,7 @@ class ChatService extends ChangeNotifier with ServiceLogging {
       }
     }
     if (kept.isEmpty) return base;
-    return '$base\n\nTool Skills:\n${kept.join('\n')}';
+    return '$base\n\nTool Hints:\n${kept.join('\n')}';
   }
 
   // Cancellation flag for multi-step tasks
@@ -1173,7 +1173,7 @@ class ChatService extends ChangeNotifier with ServiceLogging {
           'Example: user says "folder C:\\temp, months 6" → call with {"folder":"C:\\\\temp","months":6}. '
           'Never call with empty {} if the user gave values. '
           'For OPTIONAL parameters: include them only when the user explicitly asked/provided them, '
-          'or when Tool Skills/input schema defines a default value for that parameter. '
+          'or when Tool Hints/input schema defines a default value for that parameter. '
           'Do not invent optional values.',
         );
         buffer.writeln(
@@ -1213,11 +1213,11 @@ class ChatService extends ChangeNotifier with ServiceLogging {
               (pluginSystemPromptOverride ?? pluginPrompts.systemPrompt)
                   ?.trim() ??
               '';
-          // Strip any pre-baked "Tool Skills:" block — SLMs receive compact TOOL PARAMETERS below.
-          final skillsIdx = base.lastIndexOf('\n\nTool Skills:');
+          // Strip any pre-baked "Tool Hints:" block — SLMs receive compact TOOL PARAMETERS below.
+          final skillsIdx = base.lastIndexOf('\n\nTool Hints:');
           if (skillsIdx >= 0) {
             base = base.substring(0, skillsIdx).trim();
-          } else if (base.startsWith('Tool Skills:')) {
+          } else if (base.startsWith('Tool Hints:')) {
             base = '';
           }
           if (base.isNotEmpty) {
@@ -1984,8 +1984,11 @@ class ChatService extends ChangeNotifier with ServiceLogging {
       // Add user-friendly error message
       String errorText;
       if (e.toString().contains('API key')) {
-        errorText =
-            'Please configure your LLM API key in settings (tap the AI icon in the top bar).';
+        final prefs = await SharedPreferences.getInstance();
+        final isServer = (prefs.getString('server_mode') ?? 'local') == 'remote';
+        errorText = isServer
+            ? 'Please configure your LLM API key in settings (tap the settings gear in the top bar).'
+            : 'Please configure your LLM API key in settings (tap the AI icon in the top bar).';
       } else if (e.toString().contains('model') &&
           e.toString().contains('not found')) {
         errorText =
@@ -2098,8 +2101,11 @@ class ChatService extends ChangeNotifier with ServiceLogging {
       // Add user-friendly error message
       String errorText;
       if (e.toString().contains('API key')) {
-        errorText =
-            'Please configure your LLM API key in settings (tap the AI icon in the top bar).';
+        final prefs = await SharedPreferences.getInstance();
+        final isServer = (prefs.getString('server_mode') ?? 'local') == 'remote';
+        errorText = isServer
+            ? 'Please configure your LLM API key in settings (tap the settings gear in the top bar).'
+            : 'Please configure your LLM API key in settings (tap the AI icon in the top bar).';
       } else if (e.toString().contains('model') &&
           e.toString().contains('not found')) {
         errorText =
@@ -2417,8 +2423,11 @@ RULES (follow strictly):
       _subPromptContextStartCount = -1;
       String errorText;
       if (e.toString().contains('API key')) {
-        errorText =
-            'Please configure your LLM API key in settings (tap the AI icon in the top bar).';
+        final prefs = await SharedPreferences.getInstance();
+        final isServer = (prefs.getString('server_mode') ?? 'local') == 'remote';
+        errorText = isServer
+            ? 'Please configure your LLM API key in settings (tap the settings gear in the top bar).'
+            : 'Please configure your LLM API key in settings (tap the AI icon in the top bar).';
       } else if (e.toString().contains('model') &&
           e.toString().contains('not found')) {
         errorText =

@@ -87,38 +87,36 @@ class PyToolLibraryService {
   // ─── Save (create / update) ───────────────────────────────────────────────
 
   Future<PyToolDefinition> save(PyToolDefinition def, [ServerApiClient? client]) async {
+    // 1. Always persist locally
+    try {
+      final db = DuckDbService();
+      await db.savePyTool(def);
+
+      final dir = await toolDir(def.id);
+      await File(p.join(dir, 'main.py')).writeAsString(def.code, flush: true);
+      await File(
+        p.join(dir, 'requirements.txt'),
+      ).writeAsString(def.requirements, flush: true);
+    } catch (e) {
+      log.error('[PyToolLibrary] Failed local save: $e');
+    }
+
+    // 2. Update in-memory cache
+    final idx = _tools.indexWhere((t) => t.id == def.id);
+    if (idx >= 0) {
+      _tools[idx] = def;
+    } else {
+      _tools.add(def);
+    }
+
+    // 3. Remotely sync if server client is provided
     if (client != null) {
-      final idx = _tools.indexWhere((t) => t.id == def.id);
-      if (idx >= 0) {
-        _tools[idx] = def;
-      } else {
-        _tools.add(def);
-      }
       try {
         final exportList = _tools.map((t) => t.toJson()).toList();
         await client.syncPyTools(exportList);
         log.info('[PyToolLibrary] Remotely saved/synced tool: ${def.name}');
       } catch (e) {
         log.error('[PyToolLibrary] Failed to sync remote py_tool save: $e');
-      }
-    } else {
-      // 1. Persist metadata
-      final db = DuckDbService();
-      await db.savePyTool(def);
-
-      // 2. Write source files to disk
-      final dir = await toolDir(def.id);
-      await File(p.join(dir, 'main.py')).writeAsString(def.code, flush: true);
-      await File(
-        p.join(dir, 'requirements.txt'),
-      ).writeAsString(def.requirements, flush: true);
-
-      // 3. Update in-memory cache
-      final idx = _tools.indexWhere((t) => t.id == def.id);
-      if (idx >= 0) {
-        _tools[idx] = def;
-      } else {
-        _tools.add(def);
       }
     }
 
@@ -148,7 +146,18 @@ class PyToolLibraryService {
   // ─── Delete ───────────────────────────────────────────────────────────────
 
   Future<void> delete(String id, [ServerApiClient? client]) async {
+    // 1. Always delete locally
+    try {
+      await DuckDbService().deletePyTool(id);
+      final dir = Directory(p.join(await _rootDir, id));
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (e) {
+      log.error('[PyToolLibrary] Failed local delete: $e');
+    }
+
     _tools.removeWhere((t) => t.id == id);
+
+    // 2. Remotely sync if server client is provided
     if (client != null) {
       try {
         final exportList = _tools.map((t) => t.toJson()).toList();
@@ -157,12 +166,6 @@ class PyToolLibraryService {
       } catch (e) {
         log.error('[PyToolLibrary] Failed to sync remote py_tool delete: $e');
       }
-    } else {
-      await DuckDbService().deletePyTool(id);
-
-      // Delete folder from disk
-      final dir = Directory(p.join(await _rootDir, id));
-      if (await dir.exists()) await dir.delete(recursive: true);
     }
 
     log.info('[PyToolLibrary] Deleted tool: $id');

@@ -57,15 +57,19 @@ class _PyToolLibraryScreenState extends ConsumerState<PyToolLibraryScreen> {
         : null;
     await PyToolLibraryService.instance.load(client);
     if (!mounted) return;
+    final list = List<PyToolDefinition>.from(PyToolLibraryService.instance.tools);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _tools = List.from(PyToolLibraryService.instance.tools);
+      _tools = list;
       _loading = false;
     });
   }
 
   void _refresh() {
+    final list = List<PyToolDefinition>.from(PyToolLibraryService.instance.tools);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _tools = List.from(PyToolLibraryService.instance.tools);
+      _tools = list;
       _changed = true;
     });
   }
@@ -714,6 +718,12 @@ class _PyToolEditorDialogState extends ConsumerState<_PyToolEditorDialog> {
         _initStatusColor = AppTheme.error;
       }
     });
+
+    // Refresh the parent list to reflect the updated venvReady state
+    if (mounted && err == null) {
+      final parentState = context.findAncestorStateOfType<_PyToolLibraryScreenState>();
+      parentState?._refresh();
+    }
   }
 
   Future<void> _initVenvOnServer(PyToolDefinition def, ServerApiClient serverClient) async {
@@ -742,11 +752,23 @@ class _PyToolEditorDialogState extends ConsumerState<_PyToolEditorDialog> {
           : (result['error']?.toString() ?? 'Server venv init failed.');
       final logLines = result['log'] as List<dynamic>?;
       final detail = logLines != null && logLines.isNotEmpty ? '\n${logLines.join('\n')}' : '';
+
+      // Update the in-memory cache so the list immediately shows "Ready"
+      if (success) {
+        await PyToolLibraryService.instance.setVenvReady(def.id, ready: true);
+      }
+
       setState(() {
         _initialising = false;
         _initStatusMessage = '$message$detail';
         _initStatusColor = success ? Colors.green : AppTheme.error;
       });
+
+      // Refresh the parent list to reflect the updated venvReady state
+      if (mounted) {
+        final parentState = context.findAncestorStateOfType<_PyToolLibraryScreenState>();
+        parentState?._refresh();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

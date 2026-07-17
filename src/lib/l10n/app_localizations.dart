@@ -6035,6 +6035,18 @@ abstract class L {
   /// In en, this message translates to:
   /// **'LLM Warning'**
   String get llmWarning;
+
+  /// No description provided for @loadWorkflowsAndImportSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Workflows / Import Skills'**
+  String get loadWorkflowsAndImportSkills;
+
+  /// No description provided for @resetPlayground.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Playground'**
+  String get resetPlayground;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

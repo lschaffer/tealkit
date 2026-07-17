@@ -482,7 +482,14 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                     ref.invalidate(taskListProvider);
                     break;
                   case 'import':
-                    final res = await WorkflowExportService.importWorkflow(context, ref.read(taskRepositoryProvider));
+                    final serverMode = ref.read(serverModeProvider).value;
+                    final isRemote = serverMode?.isRemote ?? false;
+                    final serverClient = isRemote ? ref.read(serverApiClientProvider) : null;
+                    final res = await WorkflowExportService.importWorkflow(
+                      context,
+                      ref.read(taskRepositoryProvider),
+                      serverClient: serverClient,
+                    );
                     if (!mounted) return;
                     if (res.error != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -590,7 +597,14 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
               tooltip: 'Workflow Import/Export',
               onSelected: (value) async {
                 if (value == 'import') {
-                  final res = await WorkflowExportService.importWorkflow(context, ref.read(taskRepositoryProvider));
+                  final serverMode = ref.read(serverModeProvider).value;
+                  final isRemote = serverMode?.isRemote ?? false;
+                  final serverClient = isRemote ? ref.read(serverApiClientProvider) : null;
+                  final res = await WorkflowExportService.importWorkflow(
+                    context,
+                    ref.read(taskRepositoryProvider),
+                    serverClient: serverClient,
+                  );
                   if (!mounted) return;
                   if (res.error != null) {
                     ScaffoldMessenger.of(context).showSnackBar(

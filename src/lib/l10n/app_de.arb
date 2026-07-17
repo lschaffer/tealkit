@@ -1449,5 +1449,9 @@
     }
   },
   "llmWarning": "LLM-Warnung",
-  "@llmWarning": {}
+  "@llmWarning": {},
+  "loadWorkflowsAndImportSkills": "Workflows laden / Skills importieren",
+  "@loadWorkflowsAndImportSkills": {},
+  "resetPlayground": "Playground zurücksetzen",
+  "@resetPlayground": {}
 }

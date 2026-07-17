@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Step;
@@ -145,7 +146,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   void _loadSystemPrompt(String full) {
     // Match the skills marker even if it was written with a single newline or
     // extra whitespace (older saves may have used a different separator).
-    final match = RegExp(r'\n+Tool Skills:\n').firstMatch(full);
+    final match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
     if (match != null) {
       _systemPromptUserCtrl.text = full.substring(0, match.start).trimRight();
       _systemPromptSkillsCtrl.text = full.substring(match.start + 1).trim();
@@ -234,6 +235,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   // Custom LLM override (mirror of task editor)
   bool _overrideLlm = false;
   bool _showCustomLlmAdvanced = false;
+  bool _testingLlmConnection = false;
   bool _customThinking = false;
   bool _customUseNativeToolCall = true;
   bool _customIsSlm = false;
@@ -680,15 +682,19 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _activeLoadedWorkflow = task;
     _loadSystemPrompt(task.systemPrompt ?? '');
     _initialPromptCtrl.text = task.prompt;
-    _selectedMcpTypes = task.internalMcps
-        .where((m) => m.enabled)
-        .map((m) => m.mcpType)
-        .where((t) => t != 'traffic')
-        .toSet();
-    _pgToolboxEnabled = !(task.internalMcps.any(
-      (m) => m.mcpType == 'toolbox' && !m.enabled,
-    ));
-    _selectedExternalServerUrls = task.mcpTools.map((t) => t.serverUrl).toSet();
+    if (task.internalMcps.isNotEmpty) {
+      _selectedMcpTypes = task.internalMcps
+          .where((m) => m.enabled)
+          .map((m) => m.mcpType)
+          .where((t) => t != 'traffic')
+          .toSet();
+      _pgToolboxEnabled = !(task.internalMcps.any(
+        (m) => m.mcpType == 'toolbox' && !m.enabled,
+      ));
+    }
+    if (task.mcpTools.isNotEmpty) {
+      _selectedExternalServerUrls = task.mcpTools.map((t) => t.serverUrl).toSet();
+    }
     _prefetchedRemoteMcpTools.clear();
     final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
     Future.microtask(() => _getSelectableGithubMcpServers(isServerMode));
@@ -843,6 +849,123 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _repeatPenaltyCtrl.dispose();
     _seedCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _testPlaygroundLlmConnection() async {
+    setState(() => _testingLlmConnection = true);
+    try {
+      final provider = LlmProvider.fromConfigKey(_llmProviderCtrl.text.trim());
+      String apiKey = _llmApiKeyCtrl.text.trim();
+      final baseUrl = _llmBaseUrlCtrl.text.trim();
+
+      // Fallback to settings-configured API key / baseUrl if empty
+      if (apiKey.isEmpty) {
+        apiKey = LlmSettingsService.instance.getApiKeyForProvider(provider);
+      }
+      String resolvedBaseUrl = baseUrl;
+      if (resolvedBaseUrl.isEmpty) {
+        resolvedBaseUrl = LlmSettingsService.instance.getBaseUrlForProvider(provider);
+      }
+
+      bool success = false;
+      String? errorMsg;
+
+      switch (provider) {
+        case LlmProvider.ollama:
+          final ollamaBase =
+              (resolvedBaseUrl.isEmpty ? 'http://localhost:11434' : resolvedBaseUrl).replaceAll(
+                RegExp(r'/+$'),
+                '',
+              );
+          final ollamaTagsBase = ollamaBase.endsWith('/api') ? ollamaBase : '$ollamaBase/api';
+          final url = Uri.parse('$ollamaTagsBase/tags');
+          final headers = apiKey.isNotEmpty ? {'Authorization': 'Bearer $apiKey'} : <String, String>{};
+          final resp = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+          success = resp.statusCode >= 200 && resp.statusCode < 300;
+          if (!success) errorMsg = 'HTTP ${resp.statusCode}';
+          break;
+        case LlmProvider.openaiCompatible:
+          final base = resolvedBaseUrl.isEmpty ? 'http://localhost:8080/v1' : resolvedBaseUrl;
+          final url = Uri.parse('$base/models');
+          final headers = apiKey.isNotEmpty ? {'Authorization': 'Bearer $apiKey'} : <String, String>{};
+          final resp = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+          success = resp.statusCode >= 200 && resp.statusCode < 300;
+          if (!success) errorMsg = 'HTTP ${resp.statusCode}';
+          break;
+        case LlmProvider.openai:
+          final url = Uri.parse('https://api.openai.com/v1/models');
+          final resp = await http.get(url, headers: {'Authorization': 'Bearer $apiKey'}).timeout(const Duration(seconds: 15));
+          success = resp.statusCode >= 200 && resp.statusCode < 300;
+          if (!success) errorMsg = 'HTTP ${resp.statusCode}';
+          break;
+        case LlmProvider.gemini:
+          if (apiKey.isEmpty) {
+            errorMsg = 'API key is empty. Please provide a valid Gemini API key.';
+            success = false;
+            break;
+          }
+          final url = Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey',
+          );
+          final resp = await http.get(url).timeout(const Duration(seconds: 15));
+          success = resp.statusCode >= 200 && resp.statusCode < 300;
+          if (!success) errorMsg = 'HTTP ${resp.statusCode}';
+          break;
+        case LlmProvider.claude:
+          final url = Uri.parse('https://api.anthropic.com/v1/models');
+          final resp = await http.get(url, headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          }).timeout(const Duration(seconds: 15));
+          success = resp.statusCode >= 200 && resp.statusCode < 300;
+          if (!success) errorMsg = 'HTTP ${resp.statusCode}';
+          break;
+        case LlmProvider.mistral:
+          final base = resolvedBaseUrl.isEmpty ? 'https://api.mistral.ai/v1' : resolvedBaseUrl;
+          final url = Uri.parse('${base.replaceAll(RegExp(r'/+$'), '')}/models');
+          final resp = await http.get(url, headers: {'Authorization': 'Bearer $apiKey'}).timeout(const Duration(seconds: 15));
+          success = resp.statusCode >= 200 && resp.statusCode < 300;
+          if (!success) errorMsg = 'HTTP ${resp.statusCode}';
+          break;
+        default:
+          errorMsg = 'Unsupported provider for testing';
+          break;
+      }
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${provider.label} connection successful ✓'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connection failed: ${errorMsg ?? "Unknown error"}'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connection failed: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _testingLlmConnection = false);
+      }
+    }
   }
 
   Uri? _normalizeWebsiteUrl(String raw) {
@@ -1147,6 +1270,27 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
           ],
         ],
+        if (selectedProvider != LlmProvider.none && selectedProvider != LlmProvider.embedded) ...[
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: _testingLlmConnection ? null : _testPlaygroundLlmConnection,
+            icon: _testingLlmConnection
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.wifi, size: 16),
+            label: Text(_testingLlmConnection ? 'Testing...' : 'Test API'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
       ],
       SwitchListTile(
         title: Text(L.of(context).llmAdvancedSettings),
@@ -1431,8 +1575,29 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _logsClearedAt = null;
     setState(() {
       _chatStarted = false;
-      _activeLoadedWorkflow = null;
     });
+  }
+
+  void _resetPlayground() {
+    setState(() {
+      _activeLoadedWorkflow = null;
+      _subjectCtrl.clear();
+      _systemPromptUserCtrl.clear();
+      _systemPromptSkillsCtrl.clear();
+      _chatInputController.clear();
+      _messages.clear();
+      _chatStarted = false;
+      _selectedMcpTypes.clear();
+      _selectedExternalServerUrls.clear();
+      _pgToolboxEnabled = true;
+    });
+    _updateSkillsSection();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Playground reset to initial state.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   // ── Save Skill / Workflow ──
@@ -2159,7 +2324,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     // SLMs have very limited context windows. Use compact SLM skill variants
     // instead of the full descriptions to save space.
     final buffer = StringBuffer();
-    buffer.writeln('Tool Skills:');
+    buffer.writeln('Tool Hints:');
     for (final skill in skills) {
       final text = isSlm ? skill.skillTextSlm : skill.skillText;
       if (text.trim().isNotEmpty) {
@@ -2174,7 +2339,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Missing tool skills'),
+        title: const Text('Missing Tool Hints'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2231,7 +2396,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
             const SizedBox(width: 4),
             Text(
-              'Tool Skills (auto-generated)',
+              'Tool Hints (auto-generated)',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[500],
@@ -2277,7 +2442,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             border: const OutlineInputBorder(),
             isDense: true,
             contentPadding: const EdgeInsets.all(8),
-            hintText: 'No tool skills loaded',
+            hintText: 'No Tool Hints loaded',
             hintStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
             filled: true,
             fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
@@ -2631,8 +2796,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               _selectedMcpTypes.isNotEmpty ||
               _selectedExternalServerUrls.isNotEmpty;
           final base = _systemPromptUserCtrl.text.trimRight();
-          if (base.isNotEmpty || !hasTools) {
-            // Base exists or all tools removed → only refresh skills section.
+          if (base.isNotEmpty || !hasTools || _activeLoadedWorkflow != null) {
+            // Base exists, all tools removed, or a workflow is loaded → only refresh skills section.
             _updateSkillsSection();
           } else if (hasTools) {
             // No base yet → auto-populate subject and generate a full prompt.
@@ -3414,16 +3579,24 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 : _showToolSelectionDialog,
             pin: true, // always visible
           ),
-          if (_chatStarted)
+          if (_chatStarted) ...[
             (
               icon: Icons.restart_alt,
               label: l.resetChat,
               onTap: _resetChat,
               pin: true, // always visible
             ),
+          ] else ...[
+            (
+              icon: Icons.restart_alt,
+              label: l.resetPlayground,
+              onTap: _resetPlayground,
+              pin: true, // always visible
+            ),
+          ],
           (
             icon: Icons.bookmarks_outlined,
-            label: 'Load Workflows',
+            label: l.loadWorkflowsAndImportSkills,
             onTap: _showSetupSessionsDialog,
             pin: true,
           ),
@@ -6829,7 +7002,7 @@ class _SystemPromptEditDialogState extends State<_SystemPromptEditDialog> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Tool Skills (auto-generated)',
+                    'Tool Hints (auto-generated)',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[500],
@@ -6885,7 +7058,7 @@ class _SystemPromptEditDialogState extends State<_SystemPromptEditDialog> {
                     border: const OutlineInputBorder(),
                     isDense: true,
                     contentPadding: const EdgeInsets.all(8),
-                    hintText: 'No tool skills loaded',
+                    hintText: 'No Tool Hints loaded',
                     hintStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     filled: true,
                     fillColor: theme.colorScheme.surfaceContainerHighest
@@ -7004,10 +7177,10 @@ class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
                 children: [
                   const Icon(Icons.bookmarks_outlined),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Load Workflows',
-                      style: TextStyle(
+                      l.loadWorkflowsAndImportSkills,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
@@ -7034,9 +7207,14 @@ class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
                           throw Exception('Could not read file content.');
                         }
 
+                        final serverClient = (ref.read(serverModeProvider).value?.isRemote ?? false)
+                            ? ref.read(serverApiClientProvider)
+                            : null;
+
                         final task = await WorkflowExportService.parseWorkflowFile(
                           bytes: bytes,
                           filename: file.name,
+                          serverClient: serverClient,
                         );
 
                         if (context.mounted) {

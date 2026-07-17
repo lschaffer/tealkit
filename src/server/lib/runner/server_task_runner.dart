@@ -982,7 +982,7 @@ Output formatting: default to concise plain text unless the task specifies a spe
   }
 
   String _filterSkillsForStep(String prompt, List<String> enabledToolNames) {
-    const marker = '\n\nTool Skills:';
+    const marker = '\n\nTool Hints:';
     final idx = prompt.indexOf(marker);
     if (idx < 0) return prompt; // no skills block present
     final base = prompt.substring(0, idx);
@@ -1000,7 +1000,7 @@ Output formatting: default to concise plain text unless the task specifies a spe
       }
     }
     if (kept.isEmpty) return base;
-    return '$base\n\nTool Skills:\n${kept.join('\n')}';
+    return '$base\n\nTool Hints:\n${kept.join('\n')}';
   }
 
   Future<void> _writeOutputFiles({

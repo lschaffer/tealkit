@@ -33,6 +33,7 @@ abstract class ServerInternalMcp {
   List<MCPTool> get tools;
   Future<Map<String, dynamic>> callTool(String name, Map<String, dynamic> args);
   Future<void> dispose() async {}
+  Future<void> refresh() async {}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -5347,6 +5348,11 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
   int _initTimeoutSeconds = 300;
 
   @override
+  Future<void> refresh() async {
+    await _rebuildDynamicTools();
+  }
+
+  @override
   List<MCPTool> get tools => <MCPTool>[
     const MCPTool(
       name: 'list_py_tools',
@@ -5539,7 +5545,10 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
     try {
       final dir = await _ensureToolFiles(tool);
       final venvPath = '${dir.path}/.venv';
-      final pythonPath = '$venvPath/bin/python';
+      // On Windows venv uses Scripts\python.exe, on Linux/macOS bin/python
+      final pythonPath = Platform.isWindows
+          ? '$venvPath/Scripts/python.exe'
+          : '$venvPath/bin/python';
 
       logLines.add('Creating venv with uv...');
       final venvResult = await _runSubprocess('uv', <String>[
@@ -5639,12 +5648,18 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
 
     final venvReady = tool['venv_ready'] as bool? ?? false;
     if (!venvReady) {
-      return {
-        'success': false,
-        'error': 'Tool venv is not ready. Call init_py_tool first.',
-        'toolId': id,
-        'toolName': tool['name'],
-      };
+      // Auto-initialize the venv on first use instead of failing
+      log.info('[PyBridge] venv not ready for "${tool['name']}" — auto-initializing…');
+      final initResult = await _initTool({'toolId': id, 'timeoutSeconds': 300});
+      if (initResult['success'] != true) {
+        return {
+          'success': false,
+          'error': 'Auto-init failed: ${initResult['error'] ?? 'unknown error'}',
+          'toolId': id,
+          'toolName': tool['name'],
+        };
+      }
+      log.info('[PyBridge] Auto-init succeeded for "${tool['name']}"');
     }
 
     final timeout = Duration(
@@ -5655,7 +5670,10 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
     );
     final dir = await _ensureToolFiles(tool);
     final codePath = '${dir.path}/code.py';
-    final pythonPath = '${dir.path}/.venv/bin/python';
+    // On Windows venv uses Scripts\python.exe, on Linux/macOS bin/python
+    final pythonPath = Platform.isWindows
+        ? '${dir.path}/.venv/Scripts/python.exe'
+        : '${dir.path}/.venv/bin/python';
     final shimPath = '${dir.path}/.shim_run.py';
 
     const shim = '''import json, os, sys, importlib.util, traceback

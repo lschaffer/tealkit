@@ -3298,4 +3298,10 @@ class LEn extends L {
 
   @override
   String get llmWarning => 'LLM Warning';
+
+  @override
+  String get loadWorkflowsAndImportSkills => 'Load Workflows / Import Skills';
+
+  @override
+  String get resetPlayground => 'Reset Playground';
 }

@@ -93,15 +93,19 @@ class _JsToolLibraryScreenState extends ConsumerState<JsToolLibraryScreen> {
         : null;
     await JsToolLibraryService.instance.load(client);
     if (!mounted) return;
+    final list = List<JsToolDefinition>.from(JsToolLibraryService.instance.tools);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _tools = List.from(JsToolLibraryService.instance.tools);
+      _tools = list;
       _loading = false;
     });
   }
 
   void _refresh() {
+    final list = List<JsToolDefinition>.from(JsToolLibraryService.instance.tools);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _tools = List.from(JsToolLibraryService.instance.tools);
+      _tools = list;
       _changed = true;
     });
   }

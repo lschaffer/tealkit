@@ -787,7 +787,7 @@ class SettingsVaultService {
       if (rawSkills != null) {
         final records = rawSkills.whereType<Map<String, dynamic>>().toList();
         await FunctionHintDatabaseService().importFromJson(records);
-        log.info('[SettingsVault] Restored ${records.length} tool skills.');
+        log.info('[SettingsVault] Restored ${records.length} Tool Hints.');
       }
     }
 

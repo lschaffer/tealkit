@@ -287,7 +287,7 @@ class DuckDbService {
       )
     ''');
 
-    // ── Tool skills table — LLM-generated usage guides per MCP tool ──────
+    // ── Tool Hints table — LLM-generated usage guides per MCP tool ──────
     await conn.execute('''
       CREATE TABLE IF NOT EXISTS tool_skills (
         id              VARCHAR PRIMARY KEY,
@@ -771,7 +771,7 @@ class DuckDbService {
   }
 
   // ──────────────────────────────────────────────
-  // Tool Skills CRUD
+  // Tool Hints CRUD
   // ──────────────────────────────────────────────
 
   /// Upsert a tool skill record.
@@ -803,7 +803,7 @@ class DuckDbService {
     ''');
   }
 
-  /// Return all tool skills, optionally filtered by mcpType.
+  /// Return all Tool Hints, optionally filtered by mcpType.
   Future<List<Map<String, dynamic>>> getAllToolSkills({String? mcpType}) async {
     final conn = await connection;
     final where = mcpType != null ? "WHERE mcp_type = '${_esc(mcpType)}'" : '';

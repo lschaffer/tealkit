@@ -12,7 +12,7 @@ import '../services/server_external_tools_service.dart';
 import '../services/server_llm_settings_service.dart';
 import '../utils/server_logger.dart';
 
-/// All known built-in MCP types that can have tool skills generated.
+/// All known built-in MCP types that can have Tool Hints generated.
 const _kBuiltInMcpTypes = [
   'ssh',
   'weather',

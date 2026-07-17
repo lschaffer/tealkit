@@ -559,7 +559,49 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           };
           await widget.serverClient!.putLlmSettings(llmPayload);
           widget.service.applyRemoteState(llmPayload);
-          log.info('[LLM Settings] Pushed updated settings to server.');
+          // Also save locally so that the client keeps API keys and configs for all providers in local secure storage
+          await widget.service.save(
+            provider: _provider,
+            model: _modelCtrl.text,
+            apiKey: _isEmbeddedProvider ? '' : _apiKeyCtrl.text,
+            baseUrl: _isBaseUrlProvider ? _baseUrlCtrl.text : '',
+            temperature: double.tryParse(_temperatureCtrl.text) ?? 0.2,
+            maxTokens: int.tryParse(_maxTokensCtrl.text) ?? 0,
+            maxToolOutputSize: int.tryParse(_maxToolOutputSizeCtrl.text) ?? 2560000,
+            tokenWarningThreshold: int.tryParse(_tokenWarningThresholdCtrl.text) ?? 1500000,
+            isSlm: _isSlm,
+            isMultiModal: _isMultiModal,
+            topK: int.tryParse(_topKCtrl.text.trim()),
+            topP: double.tryParse(_topPCtrl.text.trim()),
+            repeatPenalty: double.tryParse(_repeatPenaltyCtrl.text.trim()),
+            seed: int.tryParse(_seedCtrl.text.trim()),
+            thinking: _thinking,
+            useNativeToolCall: _useNativeToolCall,
+            useSafeToolCall: _useSafeToolCall,
+            enableToolParameterAutoRecovery: _enableToolParameterAutoRecovery,
+          );
+          await widget.service.save2(
+            provider: _provider2,
+            model: _modelCtrl2.text,
+            apiKey: _apiKeyCtrl2.text,
+            baseUrl: _isBaseUrlProvider2 ? _baseUrlCtrl2.text : '',
+            temperature: double.tryParse(_temperatureCtrl2.text) ?? 0.2,
+            maxTokens: int.tryParse(_maxTokensCtrl2.text) ?? 0,
+            maxToolOutputSize2: int.tryParse(_maxToolOutputSizeCtrl2.text) ?? 2560000,
+            tokenWarningThreshold2: int.tryParse(_tokenWarningThresholdCtrl2.text) ?? 1500000,
+            isSlm2: _isSlm2,
+            isMultiModal2: _isMultiModal2,
+            topK2: int.tryParse(_topKCtrl2.text.trim()),
+            topP2: double.tryParse(_topPCtrl2.text.trim()),
+            repeatPenalty2: double.tryParse(_repeatPenaltyCtrl2.text.trim()),
+            seed2: int.tryParse(_seedCtrl2.text.trim()),
+            thinking2: _thinking2,
+            useNativeToolCall2: _useNativeToolCall2,
+            useSafeToolCall2: _useSafeToolCall2,
+          );
+          // ignore: unawaited_futures
+          LlmTaskResyncService.resyncLlm2Tasks();
+          log.info('[LLM Settings] Pushed updated settings to server and saved locally.');
         } catch (e) {
           log.warning('[LLM Settings] Failed to push settings to server: $e');
         }

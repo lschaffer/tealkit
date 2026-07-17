@@ -1764,39 +1764,59 @@ Future<Response> _handleLlmChatCompletions(Request request) async {
     );
   }
 
-  // Determine upstream URL + auth based on provider
+  // Determine upstream URL + auth based on provider (checking headers and auto-detecting from model name)
+  LlmProvider resolvedProvider = llm.provider;
+  final headerProvider = request.headers['x-llm-provider'] ?? request.headers['X-Llm-Provider'];
+  if (headerProvider != null && headerProvider.isNotEmpty) {
+    resolvedProvider = LlmProvider.fromConfigKey(headerProvider);
+  } else if (requestedModel.isNotEmpty) {
+    final modelLower = requestedModel.toLowerCase();
+    if (modelLower.contains('gemini')) {
+      resolvedProvider = LlmProvider.gemini;
+    } else if (modelLower.startsWith('gpt-') || modelLower.startsWith('o1-') || modelLower.startsWith('o3-')) {
+      resolvedProvider = LlmProvider.openai;
+    } else if (modelLower.contains('mistral') || modelLower.startsWith('pixtral') || modelLower.startsWith('open-mixtral')) {
+      resolvedProvider = LlmProvider.mistral;
+    }
+  }
+
   String upstreamBase;
   String? upstreamAuth;
-  switch (llm.provider) {
+  
+  final headerBaseUrl = request.headers['x-llm-base-url'] ?? request.headers['X-Llm-Base-Url'];
+  final headerApiKey = request.headers['x-llm-api-key'] ?? request.headers['X-Llm-Api-Key'];
+
+  switch (resolvedProvider) {
     case LlmProvider.openai:
       upstreamBase = 'https://api.openai.com/v1';
-      upstreamAuth = llm.apiKey;
+      upstreamAuth = headerApiKey ?? llm.getApiKeyForProvider(LlmProvider.openai);
     case LlmProvider.mistral:
       upstreamBase = 'https://api.mistral.ai/v1';
-      upstreamAuth = llm.apiKey;
+      upstreamAuth = headerApiKey ?? llm.getApiKeyForProvider(LlmProvider.mistral);
     case LlmProvider.gemini:
       // Google exposes an OpenAI-compatible endpoint under this path
       upstreamBase = 'https://generativelanguage.googleapis.com/v1beta/openai';
-      upstreamAuth = llm.apiKey;
+      upstreamAuth = headerApiKey ?? llm.getApiKeyForProvider(LlmProvider.gemini);
     case LlmProvider.ollama:
-      final base =
-          (llm.baseUrl.isNotEmpty ? llm.baseUrl : 'http://localhost:11434')
-              .trimRight()
-              .replaceAll(RegExp(r'/+$'), '');
-      upstreamBase = '$base/v1';
-      upstreamAuth = llm.apiKey.isNotEmpty ? llm.apiKey : null;
+      final base = (headerBaseUrl ?? llm.getBaseUrlForProvider(LlmProvider.ollama));
+      final cleanBase = (base.isNotEmpty ? base : 'http://localhost:11434')
+          .trimRight()
+          .replaceAll(RegExp(r'/+$'), '');
+      upstreamBase = '$cleanBase/v1';
+      upstreamAuth = headerApiKey ?? (llm.getApiKeyForProvider(LlmProvider.ollama).isNotEmpty ? llm.getApiKeyForProvider(LlmProvider.ollama) : null);
     case LlmProvider.openaiCompatible:
-      upstreamBase = llm.baseUrl.trimRight().replaceAll(RegExp(r'/+$'), '');
-      upstreamAuth = llm.apiKey.isNotEmpty ? llm.apiKey : null;
+      final base = (headerBaseUrl ?? llm.getBaseUrlForProvider(LlmProvider.openaiCompatible));
+      upstreamBase = base.trimRight().replaceAll(RegExp(r'/+$'), '');
+      upstreamAuth = headerApiKey ?? (llm.getApiKeyForProvider(LlmProvider.openaiCompatible).isNotEmpty ? llm.getApiKeyForProvider(LlmProvider.openaiCompatible) : null);
     default:
       return _jsonError(
-        'Provider "${llm.provider.label}" is not supported by LLM proxy',
+        'Provider "${resolvedProvider.label}" is not supported by LLM proxy',
         status: 400,
       );
   }
 
   final upstreamUrl = '$upstreamBase/chat/completions';
-  final isOllama1 = llm.provider == LlmProvider.ollama;
+  final isOllama1 = resolvedProvider == LlmProvider.ollama;
 
   try {
     final effectiveBody = isOllama1 ? _sanitizeBodyForOllama(body) : body;
@@ -1829,7 +1849,7 @@ Future<Response> _handleLlmChatCompletions(Request request) async {
 
     final httpResponse = await httpRequest.close();
     log.info(
-      '[LlmProxy] ${llm.provider.configKey} → $upstreamUrl — HTTP ${httpResponse.statusCode}',
+      '[LlmProxy] ${resolvedProvider.configKey} → $upstreamUrl — HTTP ${httpResponse.statusCode}',
     );
 
     final contentType =
@@ -1843,7 +1863,7 @@ Future<Response> _handleLlmChatCompletions(Request request) async {
         body: errorBody,
         headers: {
           'Content-Type': contentType,
-          'X-Proxy-Provider': llm.provider.configKey,
+          'X-Proxy-Provider': resolvedProvider.configKey,
         },
       );
     }
@@ -1853,7 +1873,7 @@ Future<Response> _handleLlmChatCompletions(Request request) async {
       body: httpResponse.cast<List<int>>(),
       headers: {
         'Content-Type': contentType,
-        'X-Proxy-Provider': llm.provider.configKey,
+        'X-Proxy-Provider': resolvedProvider.configKey,
       },
     );
   } catch (e) {
@@ -1871,43 +1891,68 @@ Future<Response> _handleLlm2ChatCompletions(Request request) async {
   }
 
   final body = await request.readAsString();
+  Map<String, dynamic>? reqBody;
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) {
+      reqBody = decoded;
+    }
+  } catch (_) {}
 
-  // Determine upstream URL + auth based on provider2
+  final requestedModel = ((reqBody?['model']) as String? ?? '').trim();
+
+  // Determine upstream URL + auth based on provider2 (checking headers and auto-detecting from model name)
+  LlmProvider resolvedProvider = llm.provider2;
+  final headerProvider = request.headers['x-llm-provider'] ?? request.headers['X-Llm-Provider'];
+  if (headerProvider != null && headerProvider.isNotEmpty) {
+    resolvedProvider = LlmProvider.fromConfigKey(headerProvider);
+  } else if (requestedModel.isNotEmpty) {
+    final modelLower = requestedModel.toLowerCase();
+    if (modelLower.contains('gemini')) {
+      resolvedProvider = LlmProvider.gemini;
+    } else if (modelLower.startsWith('gpt-') || modelLower.startsWith('o1-') || modelLower.startsWith('o3-')) {
+      resolvedProvider = LlmProvider.openai;
+    } else if (modelLower.contains('mistral') || modelLower.startsWith('pixtral') || modelLower.startsWith('open-mixtral')) {
+      resolvedProvider = LlmProvider.mistral;
+    }
+  }
+
   String upstreamBase;
   String? upstreamAuth;
-  switch (llm.provider2) {
+  
+  final headerBaseUrl = request.headers['x-llm-base-url'] ?? request.headers['X-Llm-Base-Url'];
+  final headerApiKey = request.headers['x-llm-api-key'] ?? request.headers['X-Llm-Api-Key'];
+
+  switch (resolvedProvider) {
     case LlmProvider.openai:
       upstreamBase = 'https://api.openai.com/v1';
-      upstreamAuth = llm.apiKey2;
+      upstreamAuth = headerApiKey ?? llm.apiKey2;
     case LlmProvider.mistral:
       upstreamBase = 'https://api.mistral.ai/v1';
-      upstreamAuth = llm.apiKey2;
+      upstreamAuth = headerApiKey ?? llm.apiKey2;
     case LlmProvider.gemini:
       upstreamBase = 'https://generativelanguage.googleapis.com/v1beta/openai';
-      upstreamAuth = llm.apiKey2;
+      upstreamAuth = headerApiKey ?? llm.apiKey2;
     case LlmProvider.ollama:
-      final base =
-          (llm.baseUrl2.isNotEmpty ? llm.baseUrl2 : 'http://localhost:11434')
-              .trimRight()
-              .replaceAll(RegExp(r'/+$'), '');
-      // Strip trailing /api suffix — Ollama OpenAI-compat endpoint is at /v1
-      final cleanBase = base.endsWith('/api')
-          ? base.substring(0, base.length - 4)
-          : base;
+      final base = (headerBaseUrl ?? (llm.baseUrl2.isNotEmpty ? llm.baseUrl2 : 'http://localhost:11434'))
+          .trimRight()
+          .replaceAll(RegExp(r'/+$'), '');
+      final cleanBase = base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
       upstreamBase = '$cleanBase/v1';
-      upstreamAuth = llm.apiKey2.isNotEmpty ? llm.apiKey2 : null;
+      upstreamAuth = headerApiKey ?? (llm.apiKey2.isNotEmpty ? llm.apiKey2 : null);
     case LlmProvider.openaiCompatible:
-      upstreamBase = llm.baseUrl2.trimRight().replaceAll(RegExp(r'/+$'), '');
-      upstreamAuth = llm.apiKey2.isNotEmpty ? llm.apiKey2 : null;
+      final base = (headerBaseUrl ?? llm.baseUrl2).trimRight().replaceAll(RegExp(r'/+$'), '');
+      upstreamBase = base;
+      upstreamAuth = headerApiKey ?? (llm.apiKey2.isNotEmpty ? llm.apiKey2 : null);
     default:
       return _jsonError(
-        'LLM 2 provider "${llm.provider2.label}" is not supported by LLM proxy',
+        'LLM 2 provider "${resolvedProvider.label}" is not supported by LLM proxy',
         status: 400,
       );
   }
 
   final upstreamUrl = '$upstreamBase/chat/completions';
-  final isOllama2 = llm.provider2 == LlmProvider.ollama;
+  final isOllama2 = resolvedProvider == LlmProvider.ollama;
 
   try {
     final effectiveBody = isOllama2 ? _sanitizeBodyForOllama(body) : body;
@@ -1939,7 +1984,7 @@ Future<Response> _handleLlm2ChatCompletions(Request request) async {
 
     final httpResponse = await httpRequest.close();
     log.info(
-      '[LlmProxy2] ${llm.provider2.configKey} → $upstreamUrl — HTTP ${httpResponse.statusCode}',
+      '[LlmProxy2] ${resolvedProvider.configKey} → $upstreamUrl — HTTP ${httpResponse.statusCode}',
     );
 
     final contentType =
@@ -1954,7 +1999,7 @@ Future<Response> _handleLlm2ChatCompletions(Request request) async {
         body: errorBody,
         headers: {
           'Content-Type': contentType,
-          'X-Proxy-Provider': llm.provider2.configKey,
+          'X-Proxy-Provider': resolvedProvider.configKey,
         },
       );
     }
@@ -1964,7 +2009,7 @@ Future<Response> _handleLlm2ChatCompletions(Request request) async {
       body: httpResponse.cast<List<int>>(),
       headers: {
         'Content-Type': contentType,
-        'X-Proxy-Provider': llm.provider2.configKey,
+        'X-Proxy-Provider': resolvedProvider.configKey,
       },
     );
   } catch (e) {
@@ -2848,6 +2893,30 @@ Future<Response> _handleSyncPyTools(Request request) async {
     }
   }
 
+  // 1. Gather all synced tool IDs
+  final syncedIds = <String>[];
+  for (final raw in rawTools) {
+    if (raw is! Map<String, dynamic>) continue;
+    final id = (raw['id'] as String?)?.trim();
+    if (id != null && id.isNotEmpty) {
+      syncedIds.add(id);
+    }
+  }
+
+  // 2. Delete tools on the server that are not in the synced list
+  try {
+    if (syncedIds.isEmpty) {
+      final conn = await db.connection;
+      await conn.execute('DELETE FROM py_tools');
+    } else {
+      final conn = await db.connection;
+      final escapedIds = syncedIds.map((id) => "'${ServerDuckDbService.esc(id)}'").join(', ');
+      await conn.execute('DELETE FROM py_tools WHERE id NOT IN ($escapedIds)');
+    }
+  } catch (e) {
+    errors.add('delete_stale: $e');
+  }
+
   return _json({'inserted': inserted, 'updated': updated, 'errors': errors});
 }
 
@@ -3029,6 +3098,30 @@ Future<Response> _handleSyncJsTools(Request request) async {
     } catch (e) {
       errors.add('$id: $e');
     }
+  }
+
+  // 1. Gather all synced tool IDs
+  final syncedIds = <String>[];
+  for (final raw in rawTools) {
+    if (raw is! Map<String, dynamic>) continue;
+    final id = (raw['id'] as String?)?.trim();
+    if (id != null && id.isNotEmpty) {
+      syncedIds.add(id);
+    }
+  }
+
+  // 2. Delete tools on the server that are not in the synced list
+  try {
+    if (syncedIds.isEmpty) {
+      final conn = await db.connection;
+      await conn.execute('DELETE FROM js_tools');
+    } else {
+      final conn = await db.connection;
+      final escapedIds = syncedIds.map((id) => "'${ServerDuckDbService.esc(id)}'").join(', ');
+      await conn.execute('DELETE FROM js_tools WHERE id NOT IN ($escapedIds)');
+    }
+  } catch (e) {
+    errors.add('delete_stale: $e');
   }
 
   return _json({'inserted': inserted, 'updated': updated, 'errors': errors});
@@ -4033,6 +4126,7 @@ Future<Response> _handleGetMcpServerTools(
   final normServerId = _normalizeServerId(serverId);
   final internalImpl = _mcpProxyInternals[normServerId];
   if (internalImpl != null) {
+    await internalImpl.refresh();
     return _json({
       'server_id': normServerId,
       'tools': internalImpl.tools.map((t) => t.toJson()).toList(),
@@ -4201,7 +4295,7 @@ Future<Response> _handleMcpServerEvents(
 
 // ── Skills ──────────────────────────────────────────────────────────────────
 
-/// GET /api/v1/skills — list all stored tool skills.
+/// GET /api/v1/skills — list all stored Tool Hints.
 Future<Response> _handleListSkills(Request request) async {
   try {
     final db = ServerDuckDbService();

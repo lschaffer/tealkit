@@ -13,6 +13,7 @@ import 'llm_settings_service.dart';
 import 'settings_vault_service.dart';
 import 'py_tool_library_service.dart';
 import '../models/py_tool_definition.dart';
+import 'server_api_client.dart';
 
 /// Service for exporting and importing Workflows in agentskills.io SKILL.md format.
 class WorkflowExportService {
@@ -312,8 +313,9 @@ class WorkflowExportService {
   /// Imports workflows from a TealKit-compatible SKILL.md file or a ZIP of skills.
   static Future<({String? error, List<WorkflowTask>? importedTasks})> importWorkflow(
     BuildContext context,
-    ITaskRepository repo,
-  ) async {
+    ITaskRepository repo, {
+    ServerApiClient? serverClient,
+  }) async {
     try {
       final picked = await FilePicker.pickFiles(
         dialogTitle: 'Select TealKit Skill File or Zip',
@@ -346,11 +348,12 @@ class WorkflowExportService {
         // 1. Gather all files
         for (final archiveFile in archive) {
           if (!archiveFile.isFile) continue;
-          final pathParts = archiveFile.name.split('/');
+          final normalizedName = archiveFile.name.replaceAll('\\', '/');
+          final pathParts = normalizedName.split('/');
           if (pathParts.isEmpty) continue;
 
           // Detect skill markdown files
-          if (archiveFile.name.endsWith('SKILL.md') || archiveFile.name.endsWith('.md')) {
+          if (normalizedName.endsWith('SKILL.md') || normalizedName.endsWith('.md')) {
             final content = utf8.decode(archiveFile.content as List<int>);
             final task = parseSkillContent(content);
             if (task != null) {
@@ -359,7 +362,7 @@ class WorkflowExportService {
           }
 
           // Detect scripts
-          if (archiveFile.name.contains('/scripts/')) {
+          if (normalizedName.contains('/scripts/')) {
             final folderPrefix = pathParts.first; // top level folder e.g. "battery-check"
             final fileName = pathParts.last;
             final fileContent = utf8.decode(archiveFile.content as List<int>);
@@ -402,7 +405,7 @@ class WorkflowExportService {
         // let's also scan archiveScripts in case of plain physical files.
         final localScripts = archiveScripts[folderPrefix];
         if (localScripts != null) {
-          await PyToolLibraryService.instance.load();
+          await PyToolLibraryService.instance.load(serverClient);
           for (final entry in localScripts.entries) {
             if (entry.key.endsWith('.py')) {
               final scriptName = entry.key.replaceAll('.py', '');
@@ -410,23 +413,36 @@ class WorkflowExportService {
               final reqKey = '${scriptName}_requirements.txt';
               final requirements = localScripts[reqKey] ?? '';
 
+              final inputSchema = {
+                'type': 'object',
+                'properties': {},
+              };
+              final newTool = PyToolDefinition.create(
+                name: scriptName,
+                description: 'Imported script tool from skill "${task.name}"',
+                inputSchema: inputSchema,
+                code: code,
+                requirements: requirements,
+              );
+
               final existingTool = PyToolLibraryService.instance.getByName(scriptName);
-              if (existingTool == null) {
-                final inputSchema = {
-                  'type': 'object',
-                  'properties': {},
-                };
-                // Look up in serialized python_tools if present in metadata to fetch exact schema
-                // (Optional fallback: create raw empty schema)
-                final newTool = PyToolDefinition.create(
-                  name: scriptName,
-                  description: 'Imported script tool from skill "${task.name}"',
-                  inputSchema: inputSchema,
-                  code: code,
-                  requirements: requirements,
-                );
-                await PyToolLibraryService.instance.save(newTool);
-              }
+              final toolToSave = existingTool != null
+                  ? PyToolDefinition(
+                      id: existingTool.id,
+                      name: newTool.name,
+                      description: newTool.description,
+                      inputSchema: newTool.inputSchema,
+                      code: newTool.code,
+                      requirements: newTool.requirements,
+                      venvReady: false,
+                      isActive: newTool.isActive,
+                      generationPrompt: newTool.generationPrompt,
+                      testArgs: newTool.testArgs,
+                      createdAt: existingTool.createdAt,
+                      updatedAt: DateTime.now(),
+                    )
+                  : newTool;
+              await PyToolLibraryService.instance.save(toolToSave, serverClient);
             }
           }
         }
@@ -814,10 +830,30 @@ class WorkflowExportService {
       }
     }
 
+    // Extract the markdown body (everything after the closing ---) as skill
+    // context. For "Hermes-style" skills (e.g. docker-skills.md) that have no
+    // workflow block this body IS the instructional system prompt that should
+    // be injected when the skill is loaded into the Playground.
+    // For skills that already define system_prompt inside workflow.agents we
+    // leave systemPrompt null so the agent-level value takes priority.
+    final bool hasAgentSystemPrompt =
+        agents.any((a) => (a.systemPrompt?.isNotEmpty ?? false));
+    String? skillBodySystemPrompt;
+    if (!hasAgentSystemPrompt && workflowNode == null) {
+      // Parse body: everything after the second '---' line
+      final closingDash = dashIndex; // set earlier when parsing YAML
+      final bodyLines = lines.sublist(closingDash + 1);
+      final body = bodyLines.join('\n').trim();
+      if (body.isNotEmpty) {
+        skillBodySystemPrompt = body;
+      }
+    }
+
     return WorkflowTask(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       description: description,
+      systemPrompt: skillBodySystemPrompt,
       prompt: prompt,
       chatMode: chatMode,
       stopAfterToolCall: stopAfterToolCall,
@@ -830,24 +866,41 @@ class WorkflowExportService {
   }
 
   /// Parses a file (either .zip containing skills.md/SKILL.md or a single .md file)
-  /// and returns the parsed [WorkflowTask] without saving it to the database.
+  /// and returns the parsed [WorkflowTask] after saving and synchronizing any included scripts.
   /// Throws descriptive exceptions on error.
   static Future<WorkflowTask> parseWorkflowFile({
     required List<int> bytes,
     required String filename,
+    ServerApiClient? serverClient,
   }) async {
     final nameLower = filename.toLowerCase();
     if (nameLower.endsWith('.zip')) {
       final archive = ZipDecoder().decodeBytes(bytes);
       ArchiveFile? skillFile;
+      final archiveScripts = <String, Map<String, String>>{}; // folderPrefix -> (scriptName -> code/reqs)
+
       for (final f in archive) {
         if (!f.isFile) continue;
-        final baseName = f.name.split('/').last.toLowerCase();
+        final normalizedName = f.name.replaceAll('\\', '/');
+        final pathParts = normalizedName.split('/');
+        if (pathParts.isEmpty) continue;
+
+        final baseName = pathParts.last.toLowerCase();
         if (baseName == 'skill.md' || baseName == 'skills.md') {
           skillFile = f;
-          break;
+        }
+
+        // Detect scripts
+        if (normalizedName.contains('/scripts/')) {
+          final folderPrefix = pathParts.first; // top level folder e.g. "battery-check"
+          final fileName = pathParts.last;
+          final fileContent = utf8.decode(f.content as List<int>);
+
+          archiveScripts.putIfAbsent(folderPrefix, () => {});
+          archiveScripts[folderPrefix]![fileName] = fileContent;
         }
       }
+
       if (skillFile == null) {
         for (final f in archive) {
           if (!f.isFile) continue;
@@ -867,6 +920,53 @@ class WorkflowExportService {
       if (task == null) {
         throw Exception('Failed to parse skills.md inside the zip. Invalid format.');
       }
+
+      // Handle restoring custom scripts for this workflow
+      final folderPrefix = sanitizeSkillName(task.name);
+      final localScripts = archiveScripts[folderPrefix];
+      if (localScripts != null) {
+        await PyToolLibraryService.instance.load(serverClient);
+        for (final entry in localScripts.entries) {
+          if (entry.key.endsWith('.py')) {
+            final scriptName = entry.key.replaceAll('.py', '');
+            final code = entry.value;
+            final reqKey = '${scriptName}_requirements.txt';
+            final requirements = localScripts[reqKey] ?? '';
+
+            final inputSchema = {
+              'type': 'object',
+              'properties': {},
+            };
+            final newTool = PyToolDefinition.create(
+              name: scriptName,
+              description: 'Imported script tool from skill "${task.name}"',
+              inputSchema: inputSchema,
+              code: code,
+              requirements: requirements,
+            );
+
+            final existingTool = PyToolLibraryService.instance.getByName(scriptName);
+            final toolToSave = existingTool != null
+                ? PyToolDefinition(
+                    id: existingTool.id,
+                    name: newTool.name,
+                    description: newTool.description,
+                    inputSchema: newTool.inputSchema,
+                    code: newTool.code,
+                    requirements: newTool.requirements,
+                    venvReady: false,
+                    isActive: newTool.isActive,
+                    generationPrompt: newTool.generationPrompt,
+                    testArgs: newTool.testArgs,
+                    createdAt: existingTool.createdAt,
+                    updatedAt: DateTime.now(),
+                  )
+                : newTool;
+            await PyToolLibraryService.instance.save(toolToSave, serverClient);
+          }
+        }
+      }
+
       return task;
     } else if (nameLower.endsWith('.md')) {
       final content = utf8.decode(bytes);

@@ -2724,7 +2724,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
   }
 
   void _loadSystemPrompt(String full) {
-    final match = RegExp(r'\n+Tool Skills:\n').firstMatch(full);
+    final match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
     if (match != null) {
       _systemPromptCtrl.text = full.substring(0, match.start).trimRight();
       _systemPromptSkillsCtrl.text = full.substring(match.start + 1).trim();
@@ -2826,7 +2826,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       }
       if (skills.isEmpty) return '';
       final buffer = StringBuffer();
-      buffer.writeln('Tool Skills:');
+      buffer.writeln('Tool Hints:');
       for (final skill in skills) {
         final text = isSlm ? skill.skillTextSlm : skill.skillText;
         if (text.trim().isNotEmpty) {
@@ -3505,7 +3505,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
             ),
             const SizedBox(width: 4),
             Text(
-              'Tool Skills (auto-generated)',
+              'Tool Hints (auto-generated)',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[500],
@@ -3552,7 +3552,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
             border: const OutlineInputBorder(),
             isDense: true,
             contentPadding: const EdgeInsets.all(8),
-            hintText: 'No tool skills loaded',
+            hintText: 'No Tool Hints loaded',
             hintStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
             filled: true,
             fillColor: theme.colorScheme.surfaceContainerHighest.withValues(

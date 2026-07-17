@@ -16,7 +16,7 @@ import '../services/function_hint_generation_service.dart';
 import '../widgets/function_hint_build_progress_dialog.dart';
 import '../services/llm_settings_service.dart';
 
-/// Screen for viewing and editing LLM-generated tool skills.
+/// Screen for viewing and editing LLM-generated Tool Hints.
 ///
 /// Skills are grouped by MCP server type. Each skill can be:
 ///   • Toggled enabled/disabled (affects injection into system prompts)

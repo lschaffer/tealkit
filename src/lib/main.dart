@@ -669,7 +669,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Icon(Icons.auto_awesome, color: AppTheme.primaryBlue, size: 22),
             const SizedBox(width: 8),
-            const Text('Generate Tool Skills'),
+            const Text('Generate Tool Hints'),
           ],
         ),
         content: Column(
@@ -677,8 +677,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'No tool skills have been generated yet.\n\n'
-              'Tool skills teach the AI when and how to use each tool correctly. '
+              'No Tool Hints have been generated yet.\n\n'
+              'Tool Hints teach the AI when and how to use each tool correctly. '
               'Generate them now from your registered tools?',
             ),
             const SizedBox(height: 12),

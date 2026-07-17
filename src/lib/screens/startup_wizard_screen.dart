@@ -358,7 +358,7 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
             },
           ),
 
-          // ── Tool Skills ──
+          // ── Tool Hints ──
           _SkillsCard(onOpen: () => FunctionHintsScreen.show(context)),
           const SizedBox(height: 16),
 
@@ -678,7 +678,7 @@ class _DesktopFeaturesCard extends StatelessWidget {
   }
 }
 
-// Tool Skills card
+// Tool Hints card
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SkillsCard extends StatelessWidget {

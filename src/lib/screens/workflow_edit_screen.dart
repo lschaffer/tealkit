@@ -238,11 +238,11 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   // ── Skills-section helpers ────────────────────────────────────────────────
 
   /// The marker that separates the user-managed base prompt from the
-  /// auto-managed "Tool Skills" block appended below it.
-  static const _kSkillsMarker = '\n\nTool Skills:';
+  /// auto-managed "Tool Hints" block appended below it.
+  static const _kSkillsMarker = '\n\nTool Hints:';
 
   /// Returns only the user-managed portion of [full] — everything **before**
-  /// the auto-managed "Tool Skills:" block.
+  /// the auto-managed "Tool Hints:" block.
   String _extractBasePrompt(String full) {
     final idx = full.indexOf(_kSkillsMarker);
     return idx >= 0 ? full.substring(0, idx).trimRight() : full.trimRight();
@@ -278,7 +278,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   void _loadSystemPrompt(String full) {
     // Match the skills marker even if it was written with a single newline or
     // extra whitespace (older saves may have used a different separator).
-    final match = RegExp(r'\n+Tool Skills:\n').firstMatch(full);
+    final match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
     if (match != null) {
       _systemPromptUserCtrl.text = full.substring(0, match.start).trimRight();
       _systemPromptSkillsCtrl.text = full.substring(match.start + 1).trim();
@@ -560,7 +560,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       }
       if (skills.isEmpty) return '';
       final buffer = StringBuffer();
-      buffer.writeln('Tool Skills:');
+      buffer.writeln('Tool Hints:');
       for (final skill in skills) {
         final text = isSlm ? skill.skillTextSlm : skill.skillText;
         if (text.trim().isNotEmpty) {
@@ -578,7 +578,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Missing tool skills'),
+        title: const Text('Missing Tool Hints'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -7565,7 +7565,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                       '• ${s.toolName}: ${isCompact ? s.skillTextSlm : s.skillText}',
                 )
                 .join('\n');
-            preview = '$preview\n\nTool Skills:\n$skillLines';
+            preview = '$preview\n\nTool Hints:\n$skillLines';
           }
         }
       } catch (_) {}
@@ -7608,7 +7608,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             ),
             const SizedBox(width: 4),
             Text(
-              'Tool Skills (auto-generated)',
+              'Tool Hints (auto-generated)',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[500],
@@ -7654,7 +7654,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             border: const OutlineInputBorder(),
             isDense: true,
             contentPadding: const EdgeInsets.all(8),
-            hintText: 'No tool skills loaded',
+            hintText: 'No Tool Hints loaded',
             hintStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
             filled: true,
             fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
@@ -8025,7 +8025,7 @@ class _SystemPromptPreviewDialogState
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Tool Skills (auto-generated)',
+                    'Tool Hints (auto-generated)',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[500],
@@ -8085,7 +8085,7 @@ class _SystemPromptPreviewDialogState
                     border: const OutlineInputBorder(),
                     isDense: true,
                     contentPadding: const EdgeInsets.all(8),
-                    hintText: 'No tool skills loaded',
+                    hintText: 'No Tool Hints loaded',
                     hintStyle: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     filled: true,
                     fillColor: theme.colorScheme.surfaceContainerHighest
@@ -8184,7 +8184,7 @@ class PromptWizardDialogState extends State<PromptWizardDialog> {
             'Rules:\n'
             '- Be specific, actionable, and relevant to the topic\n'
             '- No filler phrases or unnecessary explanations\n'
-            '- Output ONLY the role/persona/constraint text. Do NOT include tool instructions, skill descriptions, or "Tool Skills:" blocks.\n'
+            '- Output ONLY the role/persona/constraint text. Do NOT include tool instructions, skill descriptions, or "Tool Hints:" blocks.\n'
             '$slmConstraint'
             'Output ONLY the prompt text. No preamble, no quotes.';
 

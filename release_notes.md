@@ -8,9 +8,13 @@ This file tracks release changes by version.
 - **Default Browser HTML Preview**: Replaced the fullscreen in-app dialog and webview rendering. HTML snippets are written to a temporary local `.html` file with full page wrappers and opened in the user's default system web browser.
 - **JavaScript Execution Warning**: Automatically displays warning banner inside the app's HTML preview card when `<script>` tags are present in the HTML block, suggesting the user open the interactive chart in their system browser.
 - **Playground Import Skills**: Added an **Import Skill** button to the header of the Load Skills dialog, enabling direct parsing and importing of `.zip` (packed with `skills.md` / `SKILL.md`) or flat `.md` files. Includes automatic manifest validation and duplicate check alerts.
+- **Hermes Skill File Import**: Added direct support for importing unstructured Hermes-style skill files (e.g., `docker-skills.md`). The parser automatically extracts the full instructional Markdown body following the YAML frontmatter and populates it as the `systemPrompt`, ensuring the Playground injects it as context.
 - **Multi-turn Context Propagation**: Implemented automatic context carrying in both ChatService and server-side task runner. If a step prompt doesn't contain result placeholder tags, the output text of the previous step is automatically appended as context.
+- **Python Tool Auto-Initialization**: Python tools now automatically initialize their virtual environments and install requirements on the first execution (in both workflows and playground runs) instead of returning a venv error. The execution logic is platform-aware, dynamically mapping the correct Python executable path for both Windows and Linux/macOS.
 
 ### Bug Fixes & Improvements
+- **UI Nomenclature Refactoring**: Renamed all instances of "Tool Skills" to "Tool Hints" across UI screens, log events, and prompt configuration services to clearly describe their function as LLM tool-calling usage summaries.
+- **Playground Venv State Synchronization**: Fixed a UI refresh issue where the list of Python tools would not update its venv state after successfully completing a local or remote initialization.
 - **Scheduler Heartbeat Duplicates Fix**: Standardized scheduled executions to run using timezone-safe UTC timestamps (`.toUtc()`), and modified the server router update endpoint to preserve active execution states on synchronization requests, avoiding duplicate schedules/double emails.
 - **Developer Credentials Clean-up**: Stripped all developer Google client IDs and GOCSPX client secrets from 17 launcher and installer scripts and documentation export configurations, replacing them with generic setup placeholders.
 

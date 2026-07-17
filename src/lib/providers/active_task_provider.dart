@@ -314,7 +314,7 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
       effectiveSystemPrompt = _stripGeneratedCapabilitiesBlock(
         effectiveSystemPrompt,
       );
-      // Strip any existing Tool Skills section — it will be re-injected below
+      // Strip any existing Tool Hints section — it will be re-injected below
       // with the correct per-step filter, preventing double-injection when the
       // task's saved systemPrompt already contains a skills block from the editor.
       effectiveSystemPrompt = _stripToolSkillsSection(effectiveSystemPrompt);
@@ -446,7 +446,7 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
             : '$base\n\n$hintsBlock';
       }
 
-      // ── Inject tool skills for tools enabled in this task ─────────────
+      // ── Inject Tool Hints for tools enabled in this task ─────────────
       // For compact/SLM: only inject mini skills when the user has written a
       // substantive custom system prompt (multi-line or >50 chars) — signals
       // they actually care about tool guidance. Plain playground / empty prompt
@@ -500,13 +500,13 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
                   .join('\n');
               final base = effectiveSystemPrompt.trim();
               effectiveSystemPrompt = base.isEmpty
-                  ? 'Tool Skills:\n$skillLines'
-                  : '$base\n\nTool Skills:\n$skillLines';
+                  ? 'Tool Hints:\n$skillLines'
+                  : '$base\n\nTool Hints:\n$skillLines';
             }
           }
         } catch (e) {
           log.warning(
-            '[ActiveTask] Failed to inject tool skills (non-fatal): $e',
+            '[ActiveTask] Failed to inject Tool Hints (non-fatal): $e',
           );
         }
       }
@@ -541,7 +541,7 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
 
       // 4b. Inject skills for just-connected external MCP tools.
       // External MCPs connect AFTER the system prompt is first built, so their
-      // tool skills must be appended here once the clients are live.
+      // Tool Hints must be appended here once the clients are live.
       if (shouldInjectSkills) {
         try {
           final allExtToolNames = mcpManager.clients
@@ -575,16 +575,16 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
                   .join('\n');
               if (newLines.isNotEmpty) {
                 final cur = (state?.effectiveSystemPrompt ?? '').trim();
-                final updated = cur.contains('Tool Skills:')
+                final updated = cur.contains('Tool Hints:')
                     ? '$cur\n$newLines'
-                    : '$cur\n\nTool Skills:\n$newLines';
+                    : '$cur\n\nTool Hints:\n$newLines';
                 state = state!.copyWith(effectiveSystemPrompt: updated);
               }
             }
           }
         } catch (e) {
           log.warning(
-            '[ActiveTask] Failed to inject external tool skills (non-fatal): $e',
+            '[ActiveTask] Failed to inject external Tool Hints (non-fatal): $e',
           );
         }
       }
@@ -637,17 +637,17 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
     return base.substring(0, markerIndex).trimRight();
   }
 
-  /// Strips any existing "Tool Skills:" section from a system prompt so it can
+  /// Strips any existing "Tool Hints:" section from a system prompt so it can
   /// be re-injected fresh without duplication.
   String _stripToolSkillsSection(String prompt) {
     final base = prompt.trim();
-    const marker = 'Tool Skills:';
+    const marker = 'Tool Hints:';
     // Prefer matching with a preceding blank line (the standard injection format).
-    final doubleNewlineIdx = base.indexOf('\n\nTool Skills:');
+    final doubleNewlineIdx = base.indexOf('\n\nTool Hints:');
     if (doubleNewlineIdx >= 0) {
       return base.substring(0, doubleNewlineIdx).trimRight();
     }
-    final singleNewlineIdx = base.indexOf('\nTool Skills:');
+    final singleNewlineIdx = base.indexOf('\nTool Hints:');
     if (singleNewlineIdx >= 0) {
       return base.substring(0, singleNewlineIdx).trimRight();
     }
@@ -738,6 +738,8 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
       final effectiveModel = explicitEmbeddedOverride
           ? await _resolveRemoteEmbeddedModel(api, requestedModel)
           : (requestedModel.isNotEmpty ? requestedModel : serverModel);
+      final requestedApiKey = _overrides?.llmApiKey ?? task.llmConfig?.apiKey;
+      final requestedBaseUrl = _overrides?.llmBaseUrl ?? task.llmConfig?.baseUrl;
       final proxyBase =
           '${modeState.serverUrl.trimRight().replaceAll(RegExp(r'/+$'), '')}/api/v1/${isLlm2 ? 'llm2' : 'llm'}';
       await llmService.initializeOpenAICompatible(
@@ -745,6 +747,9 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
         apiKey: modeState.apiKey.isNotEmpty ? modeState.apiKey : null,
         model: effectiveModel,
         forceMistralCompat: forceMistralCompat,
+        targetProvider: requestedProvider,
+        targetBaseUrl: requestedBaseUrl,
+        targetApiKey: requestedApiKey,
       );
       log.info(
         '[ActiveTask] Server mode — LLM proxy: $proxyBase, model: $effectiveModel'

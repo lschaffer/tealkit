@@ -641,7 +641,7 @@ class _ExternalToolsSettingsScreenState extends ConsumerState<ExternalToolsSetti
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.psychology_outlined, size: 20),
-                                  tooltip: 'Generate & view tool skills',
+                                  tooltip: 'Generate & view Tool Hints',
                                   onPressed: () => Navigator.of(context).push<void>(
                                     MaterialPageRoute(
                                       fullscreenDialog: true,
@@ -1188,7 +1188,7 @@ class _McpToolsViewerScreenState extends ConsumerState<_McpToolsViewerScreen> {
               ),
             ),
           if (!_loading && _error == null && _tools.isNotEmpty)
-            IconButton(icon: const Icon(Icons.psychology_outlined), tooltip: 'Generate tool skills', onPressed: _generateAllSkills),
+            IconButton(icon: const Icon(Icons.psychology_outlined), tooltip: 'Generate Tool Hints', onPressed: _generateAllSkills),
           IconButton(onPressed: _loading ? null : _loadTools, icon: const Icon(Icons.refresh), tooltip: 'Refresh tools'),
         ],
       ),

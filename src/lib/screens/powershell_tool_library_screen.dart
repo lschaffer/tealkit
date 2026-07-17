@@ -48,15 +48,19 @@ class _PowershellToolLibraryScreenState extends ConsumerState<PowershellToolLibr
   Future<void> _load() async {
     await PowershellScriptService.instance.load();
     if (!mounted) return;
+    final list = List<PowershellScript>.from(PowershellScriptService.instance.scripts);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _scripts = List.from(PowershellScriptService.instance.scripts);
+      _scripts = list;
       _loading = false;
     });
   }
 
   void _refresh() {
+    final list = List<PowershellScript>.from(PowershellScriptService.instance.scripts);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
-      _scripts = List.from(PowershellScriptService.instance.scripts);
+      _scripts = list;
       _changed = true;
     });
   }
