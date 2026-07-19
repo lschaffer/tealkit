@@ -25,6 +25,13 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 ---
 
+## 🎥 Latest Videos
+
+* **Tealkit Multi-Agent System in Action — Full Demo on ARM64 Mac Mini M4 Pro**
+  https://youtu.be/i28xrFum3KM
+
+---
+
 ## 🆕 What's New
 
 * **Agentic Skill Interoperability (v1.4.6)** — Export and import workflows as standardized, compliant skills under the `agentskills.io` specification. Workflows containing custom Python scripts are automatically packaged as `.zip` files containing `[workflow-name]/SKILL.md` and script files under `scripts/` (e.g. `main.py` and `requirements.txt`). On import, the ZIP is parsed, and any custom scripts are restored to your local registry. Compatible with active local or remote server databases.
