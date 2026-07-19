@@ -4,7 +4,7 @@
 
 For examples of what is possible with TealKit, see [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md).
 
-![TealKit](https://lschaffer.github.io/tealkit/images/tealkit_promo.png)
+![TealKit](images/tealkit_promo.png)
 
 > **💡 Behind the Project**
 > 
