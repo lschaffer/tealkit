@@ -27,7 +27,6 @@ import '../services/scheduler_service.dart';
 import '../services/server_api_client.dart';
 import '../services/task_runner_service.dart';
 
-import 'interactive_chat_screen.dart';
 import 'server_settings_screen.dart';
 import 'workflow_edit_screen.dart';
 import 'workflow_detail_screen.dart';
@@ -375,20 +374,6 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
     }
   }
 
-  Future<void> _openTaskChat(WorkflowTask task) async {
-    final activeNotifier = ref.read(activeTaskProvider.notifier);
-    activeNotifier.clearTask();
-    // Start initialization but do NOT await it — navigate immediately so the
-    // InteractiveChatScreen can show its own loading indicator while MCP servers
-    // (especially external ones) are connecting in the background.
-    // ignore: unawaited_futures
-    activeNotifier.setTask(task);
-    if (!mounted) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const InteractiveChatScreen()));
-    activeNotifier.clearTask();
-  }
 
   /// Opens a live execution-flow dialog for the task (used by the ▶ run button).
   Future<void> _executeTaskWithDialog(WorkflowTask task) async {
@@ -1261,12 +1246,7 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                         : () => _executeTaskWithDialog(task),
                     visualDensity: VisualDensity.compact,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.chat, size: 20),
-                    tooltip: L.of(context).interactiveModeTooltip,
-                    onPressed: () => _openTaskChat(task),
-                    visualDensity: VisualDensity.compact,
-                  ),
+
                   IconButton(
                     icon: const Icon(Icons.edit, size: 20),
                     tooltip: L.of(context).edit,
@@ -1514,12 +1494,7 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                           : () => _executeTaskWithDialog(task),
                       visualDensity: VisualDensity.compact,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.chat, size: 20),
-                      tooltip: l.interactiveModeTooltip,
-                      onPressed: () => _openTaskChat(task),
-                      visualDensity: VisualDensity.compact,
-                    ),
+
                     IconButton(
                       icon: const Icon(Icons.copy, size: 20),
                       tooltip: l.copy,

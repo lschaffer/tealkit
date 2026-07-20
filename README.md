@@ -3,6 +3,7 @@
 [**Privacy first**](security_privacy.md), agentic AI Platform for Mobile & Desktop
 
 For examples of what is possible with TealKit, see [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md).
+For release notes see [release_notes.md](release_notes.md).
 
 ![TealKit](images/tealkit_promo.png)
 

@@ -1743,27 +1743,6 @@ Future<Response> _handleLlmChatCompletions(Request request) async {
     requestedModel,
   );
   final requestedModelLooksEmbedded = resolvedEmbeddedModel != null;
-
-  if (llm.provider == LlmProvider.embedded || requestedModelLooksEmbedded) {
-    if (requestedModelLooksEmbedded &&
-        reqBody != null &&
-        resolvedEmbeddedModel != requestedModel) {
-      reqBody['model'] = resolvedEmbeddedModel;
-      log.info(
-        '[LlmProxy] Normalized embedded model "$requestedModel" -> "$resolvedEmbeddedModel"',
-      );
-    }
-    if (requestedModelLooksEmbedded && llm.provider != LlmProvider.embedded) {
-      log.info(
-        '[LlmProxy] Auto-routing chat/completions to embedded model "$resolvedEmbeddedModel" (global provider is ${llm.provider.configKey})',
-      );
-    }
-    return _handleEmbeddedChatCompletions(
-      reqBody ?? const <String, dynamic>{},
-      llm,
-    );
-  }
-
   // Determine upstream URL + auth based on provider (checking headers and auto-detecting from model name)
   LlmProvider resolvedProvider = llm.provider;
   final headerProvider = request.headers['x-llm-provider'] ?? request.headers['X-Llm-Provider'];
@@ -1778,6 +1757,26 @@ Future<Response> _handleLlmChatCompletions(Request request) async {
     } else if (modelLower.contains('mistral') || modelLower.startsWith('pixtral') || modelLower.startsWith('open-mixtral')) {
       resolvedProvider = LlmProvider.mistral;
     }
+  }
+
+  if (resolvedProvider == LlmProvider.embedded || requestedModelLooksEmbedded) {
+    if (requestedModelLooksEmbedded &&
+        reqBody != null &&
+        resolvedEmbeddedModel != requestedModel) {
+      reqBody['model'] = resolvedEmbeddedModel;
+      log.info(
+        '[LlmProxy] Normalized embedded model "$requestedModel" -> "$resolvedEmbeddedModel"',
+      );
+    }
+    if (requestedModelLooksEmbedded && resolvedProvider != LlmProvider.embedded) {
+      log.info(
+        '[LlmProxy] Auto-routing chat/completions to embedded model "$resolvedEmbeddedModel" (global provider is ${llm.provider.configKey})',
+      );
+    }
+    return _handleEmbeddedChatCompletions(
+      reqBody ?? const <String, dynamic>{},
+      llm,
+    );
   }
 
   String upstreamBase;
@@ -1915,6 +1914,26 @@ Future<Response> _handleLlm2ChatCompletions(Request request) async {
     } else if (modelLower.contains('mistral') || modelLower.startsWith('pixtral') || modelLower.startsWith('open-mixtral')) {
       resolvedProvider = LlmProvider.mistral;
     }
+  }
+
+  final resolvedEmbeddedModel = await _resolveEmbeddedModelFilename(
+    requestedModel,
+  );
+  final requestedModelLooksEmbedded = resolvedEmbeddedModel != null;
+
+  if (resolvedProvider == LlmProvider.embedded || requestedModelLooksEmbedded) {
+    if (requestedModelLooksEmbedded &&
+        reqBody != null &&
+        resolvedEmbeddedModel != requestedModel) {
+      reqBody['model'] = resolvedEmbeddedModel;
+      log.info(
+        '[LlmProxy] Normalized embedded model "$requestedModel" -> "$resolvedEmbeddedModel"',
+      );
+    }
+    return _handleEmbeddedChatCompletions(
+      reqBody ?? const <String, dynamic>{},
+      llm,
+    );
   }
 
   String upstreamBase;

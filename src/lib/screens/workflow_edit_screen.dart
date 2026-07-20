@@ -1,5 +1,6 @@
 // ignore_for_file: unused_element
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
@@ -34,7 +35,6 @@ import '../widgets/schedule_picker_dialog.dart';
 import '../widgets/tool_list_export_sheet.dart';
 import '../widgets/step_list_editor.dart';
 import '../widgets/llm_settings_form_widget.dart';
-import 'interactive_chat_screen.dart';
 import 'js_tool_library_screen.dart';
 import 'local_shell_tool_library_screen.dart';
 import 'py_tool_library_screen.dart';
@@ -2084,61 +2084,14 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   // ═══════════════════════════════════════════════════════
   // INTERACTIVE MODE
   // ═══════════════════════════════════════════════════════
-  Future<void> _openInteractiveMode() async {
+  (WorkflowTask, TaskLlmOverrides) _buildTransientTaskAndOverrides() {
     _saveCurrentExecutorState();
 
-    // Map agents to SubPromptSteps for the combined prompt.
-    final List<Step> workflowSteps = _executors.map((exec) {
-      final List<String> toolNames = [];
-      for (final t in exec.mcpTools) {
-        toolNames.addAll(t.discoveredTools);
-      }
-      for (final m in exec.internalMcps) {
-        if (m.enabled) {
-          final server = InternalMcpRegistry().create(m.mcpType);
-          if (server != null) {
-            toolNames.addAll(server.tools.map((t) => t.name));
-          }
-        }
-      }
-      return Step(
-        text: exec.prompt,
-        enabledToolNames: toolNames.isNotEmpty ? toolNames : null,
-        stopAfterToolCall: exec.stopAfterToolCall,
-      );
-    }).toList();
+    final exec = _executors[_selectedExecutorIndex];
 
-    final combinedPrompt = serializeWorkflowSteps(workflowSteps);
-
-    // Map agents' system prompts to a combined system prompt split by ++#++
-    final combinedSystemPrompt = _executors
-        .map((e) => e.systemPrompt ?? '')
-        .join('\n++#++\n');
-
-    final List<McpToolConfig> combinedMcpTools = [];
-    final Set<String> seenUrls = {};
-    for (final exec in _executors) {
-      for (final tool in exec.mcpTools) {
-        if (!seenUrls.contains(tool.serverUrl)) {
-          seenUrls.add(tool.serverUrl);
-          combinedMcpTools.add(tool);
-        }
-      }
-    }
-
-    final List<InternalMcpEntry> combinedInternalMcps = [];
-    final Set<String> seenTypes = {};
-    for (final exec in _executors) {
-      for (final entry in exec.internalMcps) {
-        if (entry.mcpType == 'toolbox') continue;
-        if (!seenTypes.contains(entry.mcpType)) {
-          seenTypes.add(entry.mcpType);
-          combinedInternalMcps.add(entry);
-        }
-      }
-    }
+    final List<InternalMcpEntry> agentInternalMcps = List.from(exec.internalMcps);
     if (!_toolboxEnabled) {
-      combinedInternalMcps.add(
+      agentInternalMcps.add(
         InternalMcpEntry(
           id: const Uuid().v4(),
           mcpType: 'toolbox',
@@ -2149,72 +2102,83 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       );
     }
 
-    // Build a transient WorkflowTask from the current editor state
-    // so the interactive screen uses whatever the user has typed,
-    // even if not yet saved.
+    // Build a transient WorkflowTask for testing ONLY the currently selected agent
     final task = WorkflowTask(
       id: widget.task?.id ?? const Uuid().v4(),
       name: _nameCtrl.text.trim().isEmpty ? 'Untitled' : _nameCtrl.text.trim(),
-      prompt: combinedPrompt,
-      mcpTools: combinedMcpTools,
-      internalMcps: combinedInternalMcps,
+      prompt: exec.prompt,
+      mcpTools: exec.mcpTools,
+      internalMcps: agentInternalMcps,
       executionPlan: ExecutionPlan(cronExpression: _cronCtrl.text.trim()),
-      agents: _executors,
-      edges: _routingRules,
+      agents: [exec],
+      edges: const [],
+      chatMode: exec.chatMode,
+      stopAfterToolCall: exec.stopAfterToolCall,
+      systemPrompt: exec.systemPrompt,
+      llmConfig: exec.llmConfig,
     );
 
-    // Push the task into the shared Riverpod provider (keepAlive).
-    // The provider handles LLM configuration, MCP connections (external
-    // + internal) and exposes ChatService — the chat screen simply
-    // ref.watch(activeTaskProvider) to read the ready state.
+    final cfg = exec.llmConfig;
     final overrides = TaskLlmOverrides(
-      systemPrompt: combinedSystemPrompt.trim().isNotEmpty
-          ? combinedSystemPrompt.trim()
+      systemPrompt: exec.systemPrompt?.trim().isNotEmpty == true
+          ? exec.systemPrompt!.trim()
           : null,
-      llmProvider: _overrideLlm && _llmProviderCtrl.text.isNotEmpty
-          ? _llmProviderCtrl.text.trim()
+      llmProvider: cfg != null && cfg.provider.isNotEmpty
+          ? cfg.provider
           : null,
-      llmModel: _overrideLlm && _llmModelCtrl.text.isNotEmpty
-          ? _llmModelCtrl.text.trim()
+      llmModel: cfg != null && cfg.model.isNotEmpty
+          ? cfg.model
           : null,
-      llmApiKey: _overrideLlm && _llmApiKeyCtrl.text.isNotEmpty
-          ? _llmApiKeyCtrl.text.trim()
+      llmApiKey: cfg?.apiKey?.isNotEmpty == true
+          ? cfg!.apiKey
           : null,
-      llmBaseUrl:
-          _overrideLlm &&
-              (_llmProviderCtrl.text == 'ollama' ||
-                  _llmProviderCtrl.text == 'openai_compatible' ||
-                  _llmProviderCtrl.text == 'mistral') &&
-              _llmBaseUrlCtrl.text.isNotEmpty
-          ? _llmBaseUrlCtrl.text.trim()
+      llmBaseUrl: cfg?.baseUrl?.isNotEmpty == true
+          ? cfg!.baseUrl
           : null,
-      temperature: _overrideLlm ? double.tryParse(_temperatureCtrl.text) : null,
-      maxTokens: _overrideLlm ? int.tryParse(_maxTokensCtrl.text) : null,
-      maxToolOutputSize: _overrideLlm
-          ? int.tryParse(_maxToolOutputSizeCtrl.text)
-          : null,
-      tokenWarningThreshold: _overrideLlm
-          ? int.tryParse(_tokenWarningThresholdCtrl.text)
-          : null,
-      isMultiModal: _overrideLlm ? _isMultiModal : null,
+      temperature: cfg?.temperature,
+      maxTokens: cfg?.maxTokens,
+      maxToolOutputSize: cfg?.extraParams != null ? (cfg!.extraParams['max_tool_output_size'] as num?)?.toInt() : null,
+      tokenWarningThreshold: cfg?.extraParams != null ? (cfg!.extraParams['token_warning_threshold'] as num?)?.toInt() : null,
+      isMultiModal: cfg?.extraParams != null ? cfg!.extraParams['is_multi_modal'] as bool? : null,
     );
 
-    // Always reset runtime before entering interactive mode to avoid
-    // leaking conversation/tool state between sessions.
-    final activeNotifier = ref.read(activeTaskProvider.notifier);
-    activeNotifier.clearTask();
-    // Start initialization fire-and-forget so we can navigate immediately.
-    // The InteractiveChatScreen shows a loading indicator during initialization.
-    // ignore: unawaited_futures
-    activeNotifier.setTask(task, overrides: overrides);
+    return (task, overrides);
+  }
+
+  bool _validateLlmConfig() {
+    if (_executors.isEmpty) return false;
+    final exec = _executors[_selectedExecutorIndex];
+    final settings = ref.read(llmSettingsProvider);
+    final isRemote = ref.read(serverModeProvider).value?.isRemote ?? false;
+    
+    // Check if the current agent has overrides
+    final hasOverride = exec.llmConfig != null;
+    final provider = hasOverride ? exec.llmConfig!.provider : settings.provider.configKey;
+    final model = hasOverride ? exec.llmConfig!.model : settings.model;
+    
+    if (!isRemote && (provider.isEmpty || provider == 'none' || model.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kein gültiges Modell konfiguriert. Bitte wählen Sie ein LLM-Modell in den Einstellungen.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _runPromptTest() async {
+    if (!_validateLlmConfig()) return;
+
+    final (task, overrides) = _buildTransientTaskAndOverrides();
 
     if (!mounted) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const InteractiveChatScreen()));
-
-    // Reset again when returning from interactive screen.
-    activeNotifier.clearTask();
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PromptTestDialog(task: task, overrides: overrides),
+    );
   }
 
   // ═══════════════════════════════════════════════════════
@@ -2505,11 +2469,6 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       appBar: AppBar(
         title: Text(widget.isEditing ? l.editTask : l.newTask),
         actions: [
-          IconButton(
-            onPressed: _openInteractiveMode,
-            icon: const Icon(Icons.chat),
-            tooltip: l.interactiveModeTooltip,
-          ),
           if (widget.isEditing && widget.task != null)
             IconButton(
               icon: const Icon(
@@ -2933,6 +2892,18 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? l.promptRequired : null,
                 ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _runPromptTest,
+                    icon: const Icon(Icons.play_circle_outline, size: 18),
+                    label: const Text('Testen'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -3277,6 +3248,36 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                         ),
                         const Spacer(),
                         Tooltip(
+                          message: 'Prompts testen',
+                          child: InkWell(
+                            onTap: _runPromptTest,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.play_circle_outline,
+                                    size: 16,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Testen',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.primaryBlue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Tooltip(
                           message: 'KI-Assistent: Prompt generieren',
                           child: InkWell(
                             onTap: () => _showPromptWizardDialog(
@@ -3531,6 +3532,36 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                 ),
               ),
               const Spacer(),
+              Tooltip(
+                message: 'Prompts testen',
+                child: InkWell(
+                  onTap: _runPromptTest,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.play_circle_outline,
+                          size: 16,
+                          color: AppTheme.primaryBlue,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Testen',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Tooltip(
                 message: 'KI-Assistent: Prompt generieren',
                 child: InkWell(
@@ -9053,6 +9084,312 @@ class _TaskNotificationEditorState extends State<TaskNotificationEditor> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _PromptTestDialog extends ConsumerStatefulWidget {
+  final WorkflowTask task;
+  final TaskLlmOverrides overrides;
+
+  const _PromptTestDialog({
+    required this.task,
+    required this.overrides,
+  });
+
+  @override
+  ConsumerState<_PromptTestDialog> createState() => _PromptTestDialogState();
+}
+
+class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
+  final List<ChatMessage> _messages = [];
+  StreamSubscription<List<ChatMessage>>? _messagesSub;
+  StreamSubscription<String>? _errorSub;
+  bool _running = false;
+  bool _done = false;
+  String _status = 'Initializing test session...';
+  String? _initError;
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startTest();
+    });
+  }
+
+  @override
+  void dispose() {
+    _messagesSub?.cancel();
+    _errorSub?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startTest() async {
+    setState(() {
+      _running = true;
+      _status = 'Configuring test runner and tools...';
+    });
+
+    final activeNotifier = ref.read(activeTaskProvider.notifier);
+    activeNotifier.clearTask();
+
+    // Start loading the task
+    try {
+      await activeNotifier.setTask(widget.task, overrides: widget.overrides);
+      final activeState = ref.read(activeTaskProvider);
+      
+      if (activeState == null) {
+        throw StateError('Could not initialize active task state.');
+      }
+
+      if (activeState.hasError) {
+        throw StateError(activeState.error!);
+      }
+
+      // Check if LLM is actually configured
+      if (activeState.llmService == null || !activeState.llmService!.isConfigured) {
+        throw StateError('No LLM configured. Please check your settings or overrides.');
+      }
+
+      // Once the provider is ready, subscribe to ChatService
+      final chatService = activeState.chatService;
+      if (chatService == null) {
+        throw StateError('ChatService is not initialized.');
+      }
+
+      // Subscribe to messages stream
+      _messagesSub = chatService.messagesStream.listen((msgs) {
+        if (mounted) {
+          setState(() {
+            _messages.clear();
+            _messages.addAll(msgs);
+          });
+          _scrollToBottom();
+        }
+      });
+
+      // Subscribe to errors stream
+      _errorSub = chatService.errorNotificationStream.listen((err) {
+        if (mounted) {
+          setState(() {
+            _done = true;
+            _running = false;
+            _status = 'Error during prompt execution: $err';
+          });
+        }
+      });
+
+      // Auto-start prompt sequence
+      setState(() {
+        _status = 'Running prompt steps...';
+      });
+      await chatService.sendChatMessage(ChatMessage(
+        id: const Uuid().v4(),
+        content: widget.task.prompt,
+        role: ChatRole.user,
+        timestamp: DateTime.now(),
+      ));
+
+      setState(() {
+        _done = true;
+        _running = false;
+        _status = 'Prompt sequence completed successfully.';
+      });
+
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _done = true;
+          _running = false;
+          _initError = e.toString();
+          _status = 'Initialization failed: $e';
+        });
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Widget _buildContent(BuildContext context, bool isDark) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(
+            children: [
+              Icon(Icons.play_circle_outline, color: theme.colorScheme.primary, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Prompt Execution Test',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (_running)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (_done)
+                const Icon(Icons.check_circle, color: Colors.green, size: 18),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        
+        // Status bar
+        Container(
+          color: isDark ? Colors.grey[900] : Colors.grey[100],
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            _status,
+            style: TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: _initError != null ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+
+        // Message output log
+        Expanded(
+          child: _messages.isEmpty && _initError == null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Initializing agent runtime...',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _messages.length,
+                  itemBuilder: (_, i) => _buildMessageTile(_messages[i], isDark),
+                ),
+        ),
+        const Divider(height: 1),
+
+        // Footer
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () {
+                  ref.read(activeTaskProvider.notifier).clearTask();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMessageTile(ChatMessage msg, bool isDark) {
+    final (IconData icon, Color color) = switch (msg.role) {
+      ChatRole.user => (Icons.person_outline, Colors.blue),
+      ChatRole.assistant => (Icons.smart_toy_outlined, Colors.green),
+      ChatRole.system => (Icons.lock_outline, Colors.purple),
+      ChatRole.tool => (Icons.build_outlined, Colors.orange),
+    };
+
+    final contentText = msg.content;
+    
+    // Nice style container for each message/log entry
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  msg.role.name.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  contentText,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontFamily: msg.role == ChatRole.tool ? 'monospace' : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    if (isMobile) {
+      return Dialog.fullscreen(
+        child: SafeArea(child: _buildContent(context, isDark)),
+      );
+    }
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 680,
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        child: _buildContent(context, isDark),
+      ),
     );
   }
 }

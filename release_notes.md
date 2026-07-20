@@ -2,6 +2,17 @@
 
 This file tracks release changes by version.
 
+## v1.5.4 / v1.0.175 - Automated Prompt Test & LLM Proxy Embedded Routing
+
+### New Features
+- **Automated Prompt Test Runner**: Replaced the legacy interactive chat bubble test feature in the workflow editor with an automated "Test" action dialog. Clicking the **Testen** button (available directly inline in the Prompts tab) executes step prompts sequentially using the active LLM configurations and MCP tools, reporting detailed log outputs of the execution.
+- **Single Agent Prompt Scope**: Prompt test executions are now isolated to run only the prompt sequence, tool configurations, and LLM overrides of the currently selected agent (tab) in the workflow task, rather than executing all agents sequentially.
+- **Playground Skill Tool Auto-Detection**: Importing skills now automatically scans for required tools, checking local libraries and active MCP server capabilities. Discovered tools are auto-enabled for prompt execution, and a post-import dialog presents a summary of resolved tools (green checkmark) vs. missing tools (orange warning).
+
+### Bug Fixes & Improvements
+- **LLM Proxy Embedded Provider Routing**: Resolved a server-side proxy issue where requesting the `Embedded (on-device)` provider in remote server mode threw an unsupported provider `BadRequestException`. Requests are now successfully intercepted and auto-routed to the server's local on-device embedded completions handler (`_handleEmbeddedChatCompletions`) for both `/llm` and `/llm2` proxy endpoints.
+- **Import/Deduplication Fixes**: Removed legacy interactive chat bubble screen code, cleaned up all unused UI imports, and resolved Dart null-safety analyzer warnings.
+
 ## v1.5.3 / v1.0.160 - HTML Browser Preview, Playground Import Skills & Multi-turn Context Sync
 
 ### New Features
