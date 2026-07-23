@@ -640,18 +640,20 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
   /// Strips any existing "Tool Hints:" section from a system prompt so it can
   /// be re-injected fresh without duplication.
   String _stripToolSkillsSection(String prompt) {
-    final base = prompt.trim();
-    const marker = 'Tool Hints:';
-    // Prefer matching with a preceding blank line (the standard injection format).
-    final doubleNewlineIdx = base.indexOf('\n\nTool Hints:');
-    if (doubleNewlineIdx >= 0) {
-      return base.substring(0, doubleNewlineIdx).trimRight();
+    var base = prompt.trim();
+    for (final marker in ['Tool Hints:', 'Tool Skills:']) {
+      final doubleNewlineIdx = base.indexOf('\n\n$marker');
+      if (doubleNewlineIdx >= 0) {
+        base = base.substring(0, doubleNewlineIdx).trimRight();
+      } else {
+        final singleNewlineIdx = base.indexOf('\n$marker');
+        if (singleNewlineIdx >= 0) {
+          base = base.substring(0, singleNewlineIdx).trimRight();
+        } else if (base.startsWith(marker)) {
+          base = '';
+        }
+      }
     }
-    final singleNewlineIdx = base.indexOf('\nTool Hints:');
-    if (singleNewlineIdx >= 0) {
-      return base.substring(0, singleNewlineIdx).trimRight();
-    }
-    if (base.startsWith(marker)) return '';
     return base;
   }
 

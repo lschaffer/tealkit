@@ -146,7 +146,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   void _loadSystemPrompt(String full) {
     // Match the skills marker even if it was written with a single newline or
     // extra whitespace (older saves may have used a different separator).
-    final match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
+    var match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
+    match ??= RegExp(r'\n+Tool Skills:\n').firstMatch(full);
     if (match != null) {
       _systemPromptUserCtrl.text = full.substring(0, match.start).trimRight();
       _systemPromptSkillsCtrl.text = full.substring(match.start + 1).trim();
@@ -813,6 +814,51 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
     // Auto-start chat; also rebuild skills so stale/empty saved skills are refreshed.
     _skillsWarningShown = false;
+
+    // Check for required capabilities / toolsets from imported skill
+    final requiredCaps = task.mcpTools
+        .where((t) => t.serverUrl.startsWith('capability://'))
+        .map((t) => t.name)
+        .toList();
+    if (requiredCaps.isNotEmpty) {
+      final missingCaps = <String>[];
+      for (final cap in requiredCaps) {
+        final capName = cap?.trim() ?? '';
+        final capLower = capName.toLowerCase();
+        if (capLower == 'terminal' || capLower == 'shell' || capLower == 'bash') {
+          final hasTerminal = _selectedMcpTypes.contains('local_shell') ||
+              _selectedMcpTypes.contains('ssh') ||
+              _selectedMcpTypes.contains('ps_bridge');
+          if (!hasTerminal) {
+            missingCaps.add(capName);
+          }
+        } else if (capName.isNotEmpty) {
+          missingCaps.add(capName);
+        }
+      }
+
+      if (missingCaps.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final loc = L.of(context);
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text(loc.toolWarning),
+                content: Text(loc.skillRequiresTools(missingCaps.join(', '))),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+        });
+      }
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _eagerDiscoverSelectedRemoteMcpTools();
       _updateSkillsSection();

@@ -1179,15 +1179,17 @@ class TaskRunnerService {
           : '$prompt\n\n$_formatInstruction';
     }
 
-    // Always strip any pre-baked "Tool Hints:" block and rebuild it fresh.
+    // Always strip any pre-baked "Tool Hints:" or "Tool Skills:" block and rebuild it fresh.
     // The editor may have generated an incomplete block (e.g. external servers were
     // not yet connected at the time the prompt was authored), so we always discard
     // the stale preview and inject the authoritative runtime version here.
-    final skillsMarker = '\n\nTool Hints:';
-    final skillsIdx = prompt.lastIndexOf(skillsMarker);
-    if (skillsIdx >= 0) {
-      prompt = prompt.substring(0, skillsIdx);
-    } else if (prompt.trimLeft().startsWith('Tool Hints:')) {
+    for (final marker in ['\n\nTool Hints:', '\n\nTool Skills:']) {
+      final skillsIdx = prompt.lastIndexOf(marker);
+      if (skillsIdx >= 0) {
+        prompt = prompt.substring(0, skillsIdx);
+      }
+    }
+    if (prompt.trimLeft().startsWith('Tool Hints:') || prompt.trimLeft().startsWith('Tool Skills:')) {
       prompt = '';
     }
 

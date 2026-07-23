@@ -6047,6 +6047,18 @@ abstract class L {
   /// In en, this message translates to:
   /// **'Reset Playground'**
   String get resetPlayground;
+
+  /// No description provided for @toolWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool Warning'**
+  String get toolWarning;
+
+  /// No description provided for @skillRequiresTools.
+  ///
+  /// In en, this message translates to:
+  /// **'This skill requires tool(s): {tools}. Please install/register if not exists or select from the toolset.'**
+  String skillRequiresTools(String tools);
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

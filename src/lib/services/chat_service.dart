@@ -120,19 +120,23 @@ class ChatService extends ChangeNotifier with ServiceLogging {
     String prompt,
     List<String> enabledToolNames,
   ) {
-    const marker = '\n\nTool Hints:';
-    final idx = prompt.indexOf(marker);
+    var idx = prompt.indexOf('\n\nTool Hints:');
+    var markerLength = '\n\nTool Hints:'.length;
+    if (idx < 0) {
+      idx = prompt.indexOf('\n\nTool Skills:');
+      markerLength = '\n\nTool Skills:'.length;
+    }
     if (idx < 0) return prompt; // no skills block present
     final base = prompt.substring(0, idx);
     if (enabledToolNames.isEmpty) {
       return base; // no-tools step → strip all skills
     }
     // Keep only bullet lines whose tool name is in the enabled set.
-    final skillsSection = prompt.substring(idx + marker.length);
+    final skillsSection = prompt.substring(idx + markerLength);
     final kept = <String>[];
     for (final line in skillsSection.split('\n')) {
       if (line.trim().isEmpty) continue;
-      final match = RegExp(r'^[•]\s+(\S+?):\s').firstMatch(line.trim());
+      final match = RegExp(r'^[*•]\s+(\S+?):\s').firstMatch(line.trim());
       if (match != null && enabledToolNames.contains(match.group(1))) {
         kept.add(line.trim());
       }
@@ -1213,11 +1217,14 @@ class ChatService extends ChangeNotifier with ServiceLogging {
               (pluginSystemPromptOverride ?? pluginPrompts.systemPrompt)
                   ?.trim() ??
               '';
-          // Strip any pre-baked "Tool Hints:" block — SLMs receive compact TOOL PARAMETERS below.
-          final skillsIdx = base.lastIndexOf('\n\nTool Hints:');
+          // Strip any pre-baked "Tool Hints:" or "Tool Skills:" block — SLMs receive compact TOOL PARAMETERS below.
+          var skillsIdx = base.lastIndexOf('\n\nTool Hints:');
+          if (skillsIdx < 0) {
+            skillsIdx = base.lastIndexOf('\n\nTool Skills:');
+          }
           if (skillsIdx >= 0) {
             base = base.substring(0, skillsIdx).trim();
-          } else if (base.startsWith('Tool Hints:')) {
+          } else if (base.startsWith('Tool Hints:') || base.startsWith('Tool Skills:')) {
             base = '';
           }
           if (base.isNotEmpty) {

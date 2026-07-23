@@ -2724,7 +2724,8 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
   }
 
   void _loadSystemPrompt(String full) {
-    final match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
+    var match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
+    match ??= RegExp(r'\n+Tool Skills:\n').firstMatch(full);
     if (match != null) {
       _systemPromptCtrl.text = full.substring(0, match.start).trimRight();
       _systemPromptSkillsCtrl.text = full.substring(match.start + 1).trim();

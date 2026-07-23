@@ -244,7 +244,10 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   /// Returns only the user-managed portion of [full] — everything **before**
   /// the auto-managed "Tool Hints:" block.
   String _extractBasePrompt(String full) {
-    final idx = full.indexOf(_kSkillsMarker);
+    var idx = full.indexOf(_kSkillsMarker);
+    if (idx < 0) {
+      idx = full.indexOf('\n\nTool Skills:');
+    }
     return idx >= 0 ? full.substring(0, idx).trimRight() : full.trimRight();
   }
 
@@ -278,7 +281,8 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   void _loadSystemPrompt(String full) {
     // Match the skills marker even if it was written with a single newline or
     // extra whitespace (older saves may have used a different separator).
-    final match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
+    var match = RegExp(r'\n+Tool Hints:\n').firstMatch(full);
+    match ??= RegExp(r'\n+Tool Skills:\n').firstMatch(full);
     if (match != null) {
       _systemPromptUserCtrl.text = full.substring(0, match.start).trimRight();
       _systemPromptSkillsCtrl.text = full.substring(match.start + 1).trim();

@@ -3304,4 +3304,12 @@ class LEn extends L {
 
   @override
   String get resetPlayground => 'Reset Playground';
+
+  @override
+  String get toolWarning => 'Tool Warning';
+
+  @override
+  String skillRequiresTools(String tools) {
+    return 'This skill requires tool(s): $tools. Please install/register if not exists or select from the toolset.';
+  }
 }

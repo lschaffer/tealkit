@@ -1453,5 +1453,15 @@
   "loadWorkflowsAndImportSkills": "Workflows laden / Skills importieren",
   "@loadWorkflowsAndImportSkills": {},
   "resetPlayground": "Playground zurücksetzen",
-  "@resetPlayground": {}
+  "@resetPlayground": {},
+  "toolWarning": "Werkzeug-Warnung",
+  "@toolWarning": {},
+  "skillRequiresTools": "Dieser Skill benötigt folgende Werkzeug(e): {tools}. Bitte installieren/registrieren Sie diese falls nicht vorhanden oder wählen Sie sie aus dem Toolset aus.",
+  "@skillRequiresTools": {
+    "placeholders": {
+      "tools": {
+        "type": "String"
+      }
+    }
+  }
 }

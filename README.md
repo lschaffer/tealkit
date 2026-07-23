@@ -28,6 +28,9 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 ## 🎥 Latest Videos
 
+* **TealKit Playground: Importing Hermes Agent Skills & Auto-Detecting Missing Tools**
+  https://youtu.be/EUQEFbf4UT0
+
 * **Tealkit Multi-Agent System in Action — Full Demo on ARM64 Mac Mini M4 Pro**
   https://youtu.be/i28xrFum3KM
 

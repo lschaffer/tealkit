@@ -758,7 +758,7 @@ class WorkflowExportService {
       );
     }
 
-    // Parse MCP Servers
+    // Parse MCP Servers & Hermes / TealKit toolset requirements
     final mcpTools = <McpToolConfig>[];
     final servers = _getValue(doc, 'mcp_servers');
     if (servers is YamlList) {
@@ -772,6 +772,32 @@ class WorkflowExportService {
             apiKey: s['api_key']?.toString(),
           ));
         }
+      }
+    }
+
+    final hermesMap = metadata?['hermes'];
+    final hermesToolsets = hermesMap is YamlMap ? hermesMap['requires_toolsets'] : null;
+    final reqCaps = metadata?['required_capabilities'];
+
+    void addRequiredTool(String name) {
+      final trimmed = name.trim();
+      if (trimmed.isNotEmpty && !mcpTools.any((t) => t.name == trimmed)) {
+        mcpTools.add(McpToolConfig(
+          serverUrl: 'capability://$trimmed',
+          name: trimmed,
+          description: 'Required tool capability: $trimmed',
+        ));
+      }
+    }
+
+    if (hermesToolsets is YamlList) {
+      for (final item in hermesToolsets) {
+        addRequiredTool(item.toString());
+      }
+    }
+    if (reqCaps is YamlList) {
+      for (final item in reqCaps) {
+        addRequiredTool(item.toString());
       }
     }
 

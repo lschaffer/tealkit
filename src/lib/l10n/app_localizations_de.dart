@@ -3336,4 +3336,12 @@ class LDe extends L {
 
   @override
   String get resetPlayground => 'Playground zurücksetzen';
+
+  @override
+  String get toolWarning => 'Werkzeug-Warnung';
+
+  @override
+  String skillRequiresTools(String tools) {
+    return 'Dieser Skill benötigt folgende Werkzeug(e): $tools. Bitte installieren/registrieren Sie diese falls nicht vorhanden oder wählen Sie sie aus dem Toolset aus.';
+  }
 }
