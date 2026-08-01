@@ -1,89 +1,167 @@
 # TealKit Server Light 🚀
 
-**TealKit Server Light** is a lightweight, low-footprint edition of `tealkit_server` specifically designed for **microcontrollers, Raspberry Pi (3/4/5), embedded ARM Linux single-board computers**, and low-resource environments with as little as **1GB RAM**.
+**TealKit Server Light** is a lightweight edition of `tealkit_server` targeting ARM Linux single-board computers (Raspberry Pi, BeagleBone, etc.) and low-resource environments with **≥512 MB RAM**.
+
+It reuses the full `tealkit_server` REST API codebase but uses **SQLite** instead of DuckDB and disables resource-heavy features via `ServerFeatureFlags.light`.
 
 ---
 
-## 🌐 Full TealKit UI Compatibility (Same REST API)
+## ✅ Supported Features
 
-`server_light` implements the exact same `/api/v1/` REST API endpoints as full `tealkit_server`, allowing the TealKit UI app (Desktop, Web, Mobile) to connect seamlessly to TealKit Server Light.
+| Feature | Light Mode |
+|---------|-----------|
+| Task/agent CRUD (`/api/v1/tasks`) | ✅ Full |
+| Agent execution with LLM proxies | ✅ Full |
+| LLM Settings (OpenAI, Gemini, Claude, Mistral, Ollama, OpenAI-compatible) | ✅ Full |
+| Embedded/local models (llama.cpp / GGUF) | ❌ Disabled |
+| Model download / GPU queries | ❌ Disabled |
+| External MCP servers (SSE/HTTP) | ✅ Full |
+| Internal MCP tools: SSH, Weather, IMAP, Web Search, Gmail, Google Calendar/Drive, Home Assistant, JS/Python bridges, Toolbox | ✅ Full |
+| Internal MCP tools: Excel, Document, PDF, Chart, Mermaid, File | ❌ Filtered in UI |
+| Website/Document indexing (semantic search) | ❌ Disabled |
+| Cron scheduler | ❌ Disabled |
+| DuckDB engine | ❌ (SQLite used instead) |
 
-### Supported Configuration Endpoints:
-- **LLM Settings**: `GET /api/v1/settings/llm`, `PUT /api/v1/settings/llm`
-- **External Tools & MCP**: `GET /api/v1/settings/external-tools`, `PUT /api/v1/settings/external-tools`
-- **Preferences**: `GET /api/v1/settings/preferences`, `PUT /api/v1/settings/preferences`
-- **MCP Server Controls**: `GET /api/v1/mcp/servers`, `POST /api/v1/mcp/servers/<id>/start`, `POST /api/v1/mcp/servers/<id>/stop`
-- **Health Probes**: `GET /health`, `GET /status`
+### UI Compatibility
 
----
+The TealKit desktop/mobile app connects to server_light via the same REST API. The app automatically detects light mode from the `/health` endpoint and:
 
-## 🔌 MCP Configuration Methods
-
-### Method 1: Via TealKit UI App (REST API)
-Navigate to **Settings -> External Tools & MCP** in the TealKit UI, enter server URLs or local commands, and click **Save**. The server automatically saves the configuration into SQLite and hot-loads the MCP registry.
-
-### Method 2: Via Direct JSON API call / Config Store
-Send a `PUT /api/v1/settings/external-tools` payload:
-
-```json
-{
-  "selected_servers": [
-    {
-      "id": "remote_cloud_mcp",
-      "name": "Cloud MCP Endpoint",
-      "transportType": "https",
-      "url": "https://mcp.example.com/sse",
-      "enabled": true
-    },
-    {
-      "id": "local_gpio_python",
-      "name": "Local GPIO Python Tool (User Risk)",
-      "transportType": "python",
-      "command": "python3",
-      "args": ["/opt/mcp/gpio.py"],
-      "enabled": true
-    }
-  ]
-}
-```
+- Hides **"Embedded"** from the LLM provider dropdown
+- Filters out unsupported MCP tools (Excel, Document, PDF, Chart, Website Search) from the workflow editor
+- Skips embedded-model download/file-list endpoints
 
 ---
 
-## 🛠️ Building & Cross-Compiling
+## 🛠️ Build & Deploy
 
-### 1. Build for ARM Linux from Windows / WSL2 / macOS (Recommended Docker Method)
+### Prerequisites
 
-Run the included Docker script to cross-compile an ARM64 binary:
+- **On the ARM device:** Dart SDK ≥ 3.8.0 and `libsqlite3-dev`
+- **On the build machine:** Bash, Docker (for cross-compilation)
+
+### Option 1: Cross-compile from x86_64 (Docker)
+
+Build a native ARM binary from your desktop/laptop using Docker:
 
 ```bash
-bash scripts/build_docker_arm.sh linux/arm64
+# For 64-bit ARM (Raspberry Pi 4/5, ARM64 SBCs):
+bash server_light/scripts/build_docker_arm.sh linux/arm64
+
+# For 32-bit ARMv7 (BeagleBone, older Pi):
+# NOTE: The dart:stable Docker image does NOT ship a 32-bit ARM variant.
+# Build natively on the device instead (Option 3).
 ```
 
-*Or run directly via PowerShell on Windows:*
-```powershell
-docker run --rm --platform linux/arm64 `
-  -v ${PWD}:/app `
-  -w /app `
-  dart:stable `
-  sh -c "dart pub get && dart compile exe bin/server_light.dart -o dist/server_light_arm"
-```
-
-### 2. Native Compilation directly on Raspberry Pi
-
-If building directly on target ARM hardware (e.g. Raspberry Pi running Raspberry Pi OS / Ubuntu ARM):
+The binary is written to `server_light/dist/tealkit-server-light`. Copy it to the target device:
 
 ```bash
-bash scripts/build.sh
+scp server_light/dist/tealkit-server-light user@arm-device:/opt/tealkit/
+```
+
+> **Limitation:** Docker cross-compilation only works for `linux/arm64`. For 32-bit ARMv7 devices, build natively (Option 3).
+
+### Option 2: Package source for native build on ARM
+
+Creates a minimal tarball (~200 KB) with only the required source files and stub packages:
+
+```bash
+bash server_light/scripts/package_light.sh
+# → dist/tealkit_light_deploy.tar.gz
+
+# Copy to ARM device
+scp dist/tealkit_light_deploy.tar.gz root@arm-device:/opt/tealkit/
+```
+
+On the ARM device:
+
+```bash
+cd /opt/tealkit
+tar xzf tealkit_light_deploy.tar.gz
+bash build_and_run.sh
+```
+
+This resolves dependencies, compiles a native binary with `dart compile exe`, and starts the server — all on the target device.
+
+### Option 3: Build directly on the ARM device
+
+If the project source is already on the device:
+
+```bash
+# Install Dart (if not already present)
+bash server_light/scripts/install_dart_arm.sh
+
+# Build and run
+bash scripts/build_arm_light.sh
 ```
 
 ---
 
-## 🚀 Running TealKit Server Light
+## 🚀 Running
 
 ```bash
-# Run standalone binary
-./dist/tealkit-server-light
+# Default: binds to localhost:7771, data in ~/.tealkit-server
+./tealkit-server-light
 
-# Environment overrides:
-PORT=7771 TEALKIT_DB_PATH=tealkit.db ./dist/tealkit-server-light
+# Custom port and host (accessible from network)
+TEALKIT_HOST=0.0.0.0 TEALKIT_PORT=8080 ./tealkit-server-light
+
+# Custom data directory
+TEALKIT_DATA_DIR=/opt/tealkit/data ./tealkit-server-light
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TEALKIT_HOST` | `localhost` | Bind address (`0.0.0.0` for network access) |
+| `TEALKIT_PORT` | `7771` | HTTP listen port |
+| `TEALKIT_DATA_DIR` | `~/.tealkit-server` | Data directory (DB, config, keys) |
+
+### Health Check
+
+```bash
+curl http://localhost:7771/api/v1/health
+# → {"status":"ok","mode":"light","engine":"sqlite"}
+```
+
+### Firewall (Linux)
+
+```bash
+# Allow port 7771
+iptables -A INPUT -p tcp --dport 7771 -j ACCEPT
+# or
+ufw allow 7771
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+server_light/
+├── bin/server_light.dart       # Entry point — SQLite + light flags
+├── pubspec.yaml                # Depends on tealkit_server + sqlite3
+│                                # dependency_overrides → stub dart_duckdb + llamadart
+├── scripts/
+│   ├── build.sh                # Native Dart compile & run
+│   ├── build_docker_arm.sh     # Docker cross-compile (ARM64)
+│   ├── package_light.sh        # Minimal deployment tarball
+│   ├── install_dart_arm.sh     # Install Dart SDK on ARM Linux
+│   └── run_light_arm.sh        # Convenience run script for ARM
+└── dist/                       # Build output directory
+```
+
+### How it works
+
+`server_light` depends on `tealkit_server` via path (`../server`) and reuses its entire REST API. To avoid pulling in heavy/Flutter-dependent transitive dependencies:
+
+- **`dependency_overrides`** swap `dart_duckdb` → `dart_duckdb_light` (stub without Flutter SDK) and `llamadart` → `llamadart_stub` (stub without native build hooks). See [`server_light/pubspec.yaml`](pubspec.yaml).
+- **`ServerFeatureFlags.light`** disables embedded models, indexing, PDF/chart/document/excel/file tools, semantic search, and the cron scheduler.
+- **`ServerSqliteAdapter`** replaces DuckDB with SQLite — same schema, zero external dependencies beyond `libsqlite3`.
+- The server code was refactored so `server_runner.dart` no longer directly imports `server_duckdb_adapter.dart` or `server_embedded_llm_adapter.dart`, using a factory pattern (`defaultDbFactory`) and dynamic dispatch (`embeddedLlmInstance`) instead.
+
+### System Dependencies (ARM device)
+
+```bash
+apt-get install -y libsqlite3-0 libsqlite3-dev
 ```
