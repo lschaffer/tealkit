@@ -23,6 +23,33 @@ import '../utils/saf_bridge.dart';
 import 'download_progress_widget.dart';
 import '../utils/html_renderer_stub.dart';
 
+HttpServer? _previewServer;
+int? _previewServerPort;
+
+Future<int> _ensurePreviewServerRunning() async {
+  if (_previewServer != null) return _previewServerPort!;
+  _previewServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  _previewServerPort = _previewServer!.port;
+  _previewServer!.listen((HttpRequest request) async {
+    final path = request.uri.path;
+    final fileName = path.replaceFirst('/', '');
+    if (fileName.startsWith('preview_') && fileName.endsWith('.html')) {
+      final tempDir = Directory.systemTemp;
+      final file = File('${tempDir.path}/$fileName');
+      if (await file.exists()) {
+        request.response.headers.contentType = ContentType.html;
+        request.response.headers.add('Access-Control-Allow-Origin', '*');
+        await request.response.addStream(file.openRead());
+        await request.response.close();
+        return;
+      }
+    }
+    request.response.statusCode = HttpStatus.notFound;
+    await request.response.close();
+  });
+  return _previewServerPort!;
+}
+
 /// Source info for displaying file origin (local path, Drive, OneDrive).
 class _FileSourceInfo {
   final String label;
@@ -4289,7 +4316,9 @@ class MultimediaMessageWidget extends StatelessWidget {
     Future(() async {
       try {
         final tempDir = Directory.systemTemp;
-        final tempFile = File('${tempDir.path}/preview_${DateTime.now().millisecondsSinceEpoch}.html');
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileName = 'preview_$timestamp.html';
+        final tempFile = File('${tempDir.path}/$fileName');
         
         String finalHtml = extractedHtml;
         if (!finalHtml.toLowerCase().contains('<html')) {
@@ -4316,7 +4345,9 @@ class MultimediaMessageWidget extends StatelessWidget {
         }
         await tempFile.writeAsString(finalHtml);
 
-        final uri = Uri.file(tempFile.path);
+        final port = await _ensurePreviewServerRunning();
+        final uri = Uri.parse('http://localhost:$port/$fileName');
+
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         } else {

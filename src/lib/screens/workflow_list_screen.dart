@@ -66,9 +66,13 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
   @override
   void initState() {
     super.initState();
-    // Refresh task list whenever this screen is first shown (e.g. after vault restore)
+    // Refresh task list whenever this screen is first shown (e.g. after vault restore).
+    // Double post-frame defers past TickerMode route-transition to avoid Riverpod
+    // "setState() or markNeedsBuild() called during build" on UncontrolledProviderScope.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.invalidate(taskListProvider);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(taskListProvider);
+      });
     });
     _searchController.addListener(() {
       setState(() {
@@ -246,7 +250,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
     );
 
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => WorkflowEditScreen(task: prefilledTask)),
+      MaterialPageRoute(
+        builder: (_) => WorkflowEditScreen(task: prefilledTask),
+      ),
     );
     if (result == true) {
       ref.invalidate(taskListProvider);
@@ -267,9 +273,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
   }
 
   Future<void> _editTask(WorkflowTask task) async {
-    final result = await Navigator.of(
-      context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => WorkflowEditScreen(task: task)));
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => WorkflowEditScreen(task: task)),
+    );
     if (result == true) {
       ref.invalidate(taskListProvider);
       await _resyncScheduler();
@@ -292,9 +298,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
       notification: task.notification,
       tags: task.tags,
     );
-    final result = await Navigator.of(
-      context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => WorkflowEditScreen(task: copy)));
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => WorkflowEditScreen(task: copy)),
+    );
     if (result == true) {
       ref.invalidate(taskListProvider);
       await _resyncScheduler();
@@ -304,9 +310,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
   void _showDetails(WorkflowTask task) {
     final isMobile = MediaQuery.of(context).size.width < 800;
     if (isMobile) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => WorkflowDetailScreen(task: task)));
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => WorkflowDetailScreen(task: task)),
+      );
     } else {
       showDialog(
         context: context,
@@ -373,7 +379,6 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
       }
     }
   }
-
 
   /// Opens a live execution-flow dialog for the task (used by the ▶ run button).
   Future<void> _executeTaskWithDialog(WorkflowTask task) async {
@@ -460,7 +465,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                     break;
                   case 'settings':
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const StartupWizardScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const StartupWizardScreen(),
+                      ),
                     );
                     break;
                   case 'refresh':
@@ -469,7 +476,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                   case 'import':
                     final serverMode = ref.read(serverModeProvider).value;
                     final isRemote = serverMode?.isRemote ?? false;
-                    final serverClient = isRemote ? ref.read(serverApiClientProvider) : null;
+                    final serverClient = isRemote
+                        ? ref.read(serverApiClientProvider)
+                        : null;
                     final res = await WorkflowExportService.importWorkflow(
                       context,
                       ref.read(taskRepositoryProvider),
@@ -480,19 +489,23 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Import failed: ${res.error}')),
                       );
-                    } else if (res.importedTasks != null && res.importedTasks!.isNotEmpty) {
+                    } else if (res.importedTasks != null &&
+                        res.importedTasks!.isNotEmpty) {
                       final count = res.importedTasks!.length;
                       final message = count == 1
                           ? 'Workflow "${res.importedTasks!.first.name}" imported successfully.'
                           : 'Successfully imported $count workflows.';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(message)),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(message)));
                       ref.invalidate(taskListProvider);
                     }
                     break;
                   case 'export_all':
-                    final res = await WorkflowExportService.exportAllWorkflows(context, ref.read(taskRepositoryProvider));
+                    final res = await WorkflowExportService.exportAllWorkflows(
+                      context,
+                      ref.read(taskRepositoryProvider),
+                    );
                     if (!mounted) return;
                     if (res.error != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -500,7 +513,11 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                       );
                     } else if (res.count > 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Successfully exported ${res.count} workflows to Skills.')),
+                        SnackBar(
+                          content: Text(
+                            'Successfully exported ${res.count} workflows to Skills.',
+                          ),
+                        ),
                       );
                     }
                     break;
@@ -584,7 +601,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                 if (value == 'import') {
                   final serverMode = ref.read(serverModeProvider).value;
                   final isRemote = serverMode?.isRemote ?? false;
-                  final serverClient = isRemote ? ref.read(serverApiClientProvider) : null;
+                  final serverClient = isRemote
+                      ? ref.read(serverApiClientProvider)
+                      : null;
                   final res = await WorkflowExportService.importWorkflow(
                     context,
                     ref.read(taskRepositoryProvider),
@@ -595,18 +614,22 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Import failed: ${res.error}')),
                     );
-                  } else if (res.importedTasks != null && res.importedTasks!.isNotEmpty) {
+                  } else if (res.importedTasks != null &&
+                      res.importedTasks!.isNotEmpty) {
                     final count = res.importedTasks!.length;
                     final message = count == 1
                         ? 'Workflow "${res.importedTasks!.first.name}" imported successfully.'
                         : 'Successfully imported $count workflows.';
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(message)),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(message)));
                     ref.invalidate(taskListProvider);
                   }
                 } else if (value == 'export_all') {
-                  final res = await WorkflowExportService.exportAllWorkflows(context, ref.read(taskRepositoryProvider));
+                  final res = await WorkflowExportService.exportAllWorkflows(
+                    context,
+                    ref.read(taskRepositoryProvider),
+                  );
                   if (!mounted) return;
                   if (res.error != null) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -614,7 +637,11 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                     );
                   } else if (res.count > 0) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Successfully exported ${res.count} workflows to Skills.')),
+                      SnackBar(
+                        content: Text(
+                          'Successfully exported ${res.count} workflows to Skills.',
+                        ),
+                      ),
                     );
                   }
                 }
@@ -2029,9 +2056,13 @@ String _buildExecutionLog({
   for (final step in executedSteps) {
     final exec = step['executor'] as Agent;
     final msgs = step['messages'] as List<ChatMessage>;
-    sb.writeln('================================================================');
+    sb.writeln(
+      '================================================================',
+    );
     sb.writeln('### Agent: ${exec.name}');
-    sb.writeln('================================================================');
+    sb.writeln(
+      '================================================================',
+    );
     sb.writeln();
 
     for (final msg in msgs) {
@@ -2086,9 +2117,13 @@ String _buildOutputLog({
   for (final step in executedSteps) {
     final exec = step['executor'] as Agent;
     final assistantText = step['assistantText'] as String;
-    sb.writeln('================================================================');
+    sb.writeln(
+      '================================================================',
+    );
     sb.writeln('### Agent: ${exec.name}');
-    sb.writeln('================================================================');
+    sb.writeln(
+      '================================================================',
+    );
     sb.writeln();
     sb.writeln(assistantText.trim());
     sb.writeln();
@@ -2138,7 +2173,7 @@ String _slugifyName(String name) {
 List<String> _extractHtmlSections(String text) {
   if (text.trim().isEmpty) return const [];
   final sections = <String>[];
-  
+
   // 1. Check for markdown html code fences
   final fenceMatch = RegExp(
     r'```html\s*\n([\s\S]*?)\n?```',
@@ -2190,7 +2225,7 @@ Future<_GeneratedOutputBundle> _buildTaskOutputBundle({
   try {
     final generatedFiles = <_GeneratedFile>[];
     final savedFilePaths = <String>[];
-    
+
     // Extract binary attachments from all step messages
     final toolAttachments = <EmailAttachmentPayload>[];
     for (final step in executedSteps) {
@@ -2239,7 +2274,10 @@ Future<_GeneratedOutputBundle> _buildTaskOutputBundle({
     }
 
     // Output log: full user+assistant conversation (no tool results)
-    final outputLogContent = _buildOutputLog(task: task, executedSteps: executedSteps);
+    final outputLogContent = _buildOutputLog(
+      task: task,
+      executedSteps: executedSteps,
+    );
     generatedFiles.add(
       _GeneratedFile(
         name: 'output_log.md',
@@ -2895,8 +2933,8 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
         _addEntry(
           'info',
           '\n================================================================\n'
-          '▶ AGENT RUNNING: "$execName"\n'
-          '================================================================',
+              '▶ AGENT RUNNING: "$execName"\n'
+              '================================================================',
         );
         _addEntry('info', '[$execName] ${l.execInitializing}');
 
@@ -2950,7 +2988,10 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
                 final shortPreview = preview.length > 120
                     ? '${preview.substring(0, 120)}…'
                     : preview;
-                _addEntry('info', '[$execName] Sending prompt to AI: $shortPreview');
+                _addEntry(
+                  'info',
+                  '[$execName] Sending prompt to AI: $shortPreview',
+                );
               }
               break;
             case ChatRole.tool:
@@ -3042,7 +3083,8 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
           }
         }
 
-        if (currentExecutor.stopAfterToolCall && !currentExecutor.prompt.contains('++#++')) {
+        if (currentExecutor.stopAfterToolCall &&
+            !currentExecutor.prompt.contains('++#++')) {
           final toolTexts = stepMessages
               .where((m) => m.role == ChatRole.tool)
               .expand((m) => m.toolResult?.content ?? <MCPContent>[])
@@ -3169,7 +3211,10 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
         _addEntry('success', l.execCompleted);
       }
 
-      final combinedOutputLog = _buildOutputLog(task: widget.task, executedSteps: executedSteps);
+      final combinedOutputLog = _buildOutputLog(
+        task: widget.task,
+        executedSteps: executedSteps,
+      );
 
       // Build output bundle (generates .md, .html, execution_log as needed)
       final outputBundle = await _buildTaskOutputBundle(

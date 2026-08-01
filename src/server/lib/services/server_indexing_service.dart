@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 
-import '../database/server_duckdb_service.dart';
+import '../database/server_database_adapter.dart';
 import '../services/server_data_sources_service.dart';
 import '../utils/semantic_embedding.dart';
 import '../utils/server_logger.dart';
@@ -19,7 +19,12 @@ class _FetchedPage {
   final String title;
   final String text;
   final List<Uri> links;
-  _FetchedPage({required this.statusCode, required this.title, required this.text, required this.links});
+  _FetchedPage({
+    required this.statusCode,
+    required this.title,
+    required this.text,
+    required this.links,
+  });
 }
 
 class _CrawlItem {
@@ -36,7 +41,7 @@ class _CrawlItem {
 ///
 /// Exposes start / stop / status for both website and document indexing.
 /// All crawling and file I/O runs directly on the server and writes into
-/// [ServerDuckDbService] (the server's own DuckDB).
+/// [ServerDatabaseAdapter] (the server's own DuckDB).
 class ServerIndexingService {
   static final ServerIndexingService instance = ServerIndexingService._();
   ServerIndexingService._();
@@ -74,7 +79,10 @@ class ServerIndexingService {
   };
 
   /// Start website indexing in the background. Returns immediately.
-  Map<String, dynamic> startWebsiteIndex({required String urls, required int maxPages}) {
+  Map<String, dynamic> startWebsiteIndex({
+    required String urls,
+    required int maxPages,
+  }) {
     if (_websiteRunning) {
       return {'error': 'Website indexing is already running'};
     }
@@ -124,7 +132,10 @@ class ServerIndexingService {
   }
 
   /// Run website indexing synchronously. Awaits the execution and returns results.
-  Future<Map<String, dynamic>> runWebsiteIndexSync({required String urls, required int maxPages}) async {
+  Future<Map<String, dynamic>> runWebsiteIndexSync({
+    required String urls,
+    required int maxPages,
+  }) async {
     if (_websiteRunning) {
       return {'error': 'Website indexing is already running'};
     }
@@ -190,15 +201,27 @@ class ServerIndexingService {
   };
 
   /// Start document indexing in the background. Returns immediately.
-  Map<String, dynamic> startDocumentIndex({required String rootPaths, required String fileTypes}) {
+  Map<String, dynamic> startDocumentIndex({
+    required String rootPaths,
+    required String fileTypes,
+  }) {
     if (_documentRunning) {
       return {'error': 'Document indexing is already running'};
     }
-    final paths = rootPaths.split(';').map((e) => _normalizeRootPath(e.trim())).where((e) => e.isNotEmpty).toSet().toList();
+    final paths = rootPaths
+        .split(';')
+        .map((e) => _normalizeRootPath(e.trim()))
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
     if (paths.isEmpty) {
       return {'error': 'No root paths provided'};
     }
-    final types = fileTypes.split(',').map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+    final types = fileTypes
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
     final effectiveTypes = types.isNotEmpty ? types : ['pdf', 'md', 'docx'];
 
     _documentRunning = true;
@@ -239,30 +262,39 @@ class ServerIndexingService {
 
   /// Signal the running document indexer to cancel.
   Map<String, dynamic> stopDocumentIndex() {
-    if (!_documentRunning) return {'message': 'No document indexing in progress'};
+    if (!_documentRunning)
+      return {'message': 'No document indexing in progress'};
     _documentCancelRequested = true;
     return {'message': 'Cancel requested'};
   }
 
   /// Purge website rows that are not part of currently configured seed URLs.
   Future<Map<String, dynamic>> purgeStaleWebsiteIndex() async {
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final ds = ServerDataSourcesService.instance;
     await ds.load();
 
-    final seeds = _parseSeedUrls(ds.websiteIndexUrls).map(_normalizeUrl).toSet().toList();
+    final seeds = _parseSeedUrls(
+      ds.websiteIndexUrls,
+    ).map(_normalizeUrl).toSet().toList();
     final beforeRows = await db.query('SELECT COUNT(*) FROM website_index');
-    final beforeCount = beforeRows.isNotEmpty ? int.tryParse(beforeRows.first.first.toString()) ?? 0 : 0;
+    final beforeCount = beforeRows.isNotEmpty
+        ? int.tryParse(beforeRows.first.first.toString()) ?? 0
+        : 0;
 
     if (seeds.isEmpty) {
       await db.execute('DELETE FROM website_index');
     } else {
       final seedIn = seeds.map((s) => "'${_esc(s)}'").join(',');
-      await db.execute('DELETE FROM website_index WHERE seed_url NOT IN ($seedIn)');
+      await db.execute(
+        'DELETE FROM website_index WHERE seed_url NOT IN ($seedIn)',
+      );
     }
 
     final afterRows = await db.query('SELECT COUNT(*) FROM website_index');
-    final afterCount = afterRows.isNotEmpty ? int.tryParse(afterRows.first.first.toString()) ?? 0 : 0;
+    final afterCount = afterRows.isNotEmpty
+        ? int.tryParse(afterRows.first.first.toString()) ?? 0
+        : 0;
     return {
       'ok': true,
       'scope': 'website',
@@ -275,21 +307,27 @@ class ServerIndexingService {
 
   /// Purge document rows that are not part of currently configured root paths.
   Future<Map<String, dynamic>> purgeStaleDocumentIndex() async {
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final roots = await _getConfiguredDocumentRoots();
 
     final beforeRows = await db.query('SELECT COUNT(*) FROM document_index');
-    final beforeCount = beforeRows.isNotEmpty ? int.tryParse(beforeRows.first.first.toString()) ?? 0 : 0;
+    final beforeCount = beforeRows.isNotEmpty
+        ? int.tryParse(beforeRows.first.first.toString()) ?? 0
+        : 0;
 
     if (roots.isEmpty) {
       await db.execute('DELETE FROM document_index');
     } else {
       final rootIn = roots.map((rp) => "'${_esc(rp)}'").join(',');
-      await db.execute('DELETE FROM document_index WHERE root_path NOT IN ($rootIn)');
+      await db.execute(
+        'DELETE FROM document_index WHERE root_path NOT IN ($rootIn)',
+      );
     }
 
     final afterRows = await db.query('SELECT COUNT(*) FROM document_index');
-    final afterCount = afterRows.isNotEmpty ? int.tryParse(afterRows.first.first.toString()) ?? 0 : 0;
+    final afterCount = afterRows.isNotEmpty
+        ? int.tryParse(afterRows.first.first.toString()) ?? 0
+        : 0;
     return {
       'ok': true,
       'scope': 'document',
@@ -304,19 +342,28 @@ class ServerIndexingService {
   // Website crawl engine
   // ═══════════════════════════════════════════════════
 
-  Future<Map<String, dynamic>> _runWebsiteIndex(List<Uri> seedUrls, int maxPages) async {
-    final db = ServerDuckDbService();
+  Future<Map<String, dynamic>> _runWebsiteIndex(
+    List<Uri> seedUrls,
+    int maxPages,
+  ) async {
+    final db = serverDb;
     final stopwatch = Stopwatch()..start();
 
-    log.info('[ServerIndexing] Website index start — seeds=${seedUrls.map((u) => u.toString()).join(", ")}, maxPages=$maxPages');
+    log.info(
+      '[ServerIndexing] Website index start — seeds=${seedUrls.map((u) => u.toString()).join(", ")}, maxPages=$maxPages',
+    );
 
     // Remove stale rows for removed seeds and fully refresh current seeds.
     final normalizedSeeds = seedUrls.map(_normalizeUrl).toSet().toList();
     try {
       if (normalizedSeeds.isNotEmpty) {
         final seedIn = normalizedSeeds.map((s) => "'${_esc(s)}'").join(',');
-        await db.execute('DELETE FROM website_index WHERE seed_url NOT IN ($seedIn)');
-        await db.execute('DELETE FROM website_index WHERE seed_url IN ($seedIn)');
+        await db.execute(
+          'DELETE FROM website_index WHERE seed_url NOT IN ($seedIn)',
+        );
+        await db.execute(
+          'DELETE FROM website_index WHERE seed_url IN ($seedIn)',
+        );
       }
     } catch (e) {
       log.warning('[ServerIndexing] Failed to clear old website rows: $e');
@@ -332,7 +379,9 @@ class ServerIndexingService {
 
     int indexed = 0;
     int failed = 0;
-    final perSeedIndexed = <String, int>{for (final s in seedUrls) _normalizeUrl(s): 0};
+    final perSeedIndexed = <String, int>{
+      for (final s in seedUrls) _normalizeUrl(s): 0,
+    };
     _websiteTotal = seedUrls.length * maxPages;
 
     while (queue.isNotEmpty) {
@@ -419,24 +468,41 @@ class ServerIndexingService {
   // Document indexing engine
   // ═══════════════════════════════════════════════════
 
-  Future<Map<String, dynamic>> _runDocumentIndex(List<String> rootPaths, List<String> fileTypes) async {
-    final db = ServerDuckDbService();
+  Future<Map<String, dynamic>> _runDocumentIndex(
+    List<String> rootPaths,
+    List<String> fileTypes,
+  ) async {
+    final db = serverDb;
     final stopwatch = Stopwatch()..start();
 
-    log.info('[ServerIndexing] Document index start — paths=${rootPaths.join(";")} types=${fileTypes.join(",")}');
+    log.info(
+      '[ServerIndexing] Document index start — paths=${rootPaths.join(";")} types=${fileTypes.join(",")}',
+    );
 
     // Remove stale rows for removed roots, then fully refresh current roots.
-    final normalizedRoots = rootPaths.map(_normalizeRootPath).where((e) => e.isNotEmpty).toSet().toList();
+    final normalizedRoots = rootPaths
+        .map(_normalizeRootPath)
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
     if (normalizedRoots.isNotEmpty) {
       final rootIn = normalizedRoots.map((rp) => "'${_esc(rp)}'").join(',');
-      await db.execute('DELETE FROM document_index WHERE root_path NOT IN ($rootIn)');
+      await db.execute(
+        'DELETE FROM document_index WHERE root_path NOT IN ($rootIn)',
+      );
     }
 
     // Clear existing index for these root paths (also remove common legacy variants).
     for (final rp in normalizedRoots) {
-      await db.execute("DELETE FROM document_index WHERE root_path = '${_esc(rp)}'");
-      await db.execute("DELETE FROM document_index WHERE root_path = '${_esc('$rp/')}'");
-      await db.execute("DELETE FROM document_index WHERE root_path = '${_esc('$rp\\')}'");
+      await db.execute(
+        "DELETE FROM document_index WHERE root_path = '${_esc(rp)}'",
+      );
+      await db.execute(
+        "DELETE FROM document_index WHERE root_path = '${_esc('$rp/')}'",
+      );
+      await db.execute(
+        "DELETE FROM document_index WHERE root_path = '${_esc('$rp\\')}'",
+      );
     }
 
     // Enumerate files
@@ -448,7 +514,10 @@ class ServerIndexingService {
         continue;
       }
       try {
-        await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        await for (final entity in dir.list(
+          recursive: true,
+          followLinks: false,
+        )) {
           if (entity is File) {
             final ext = _getExtension(entity.path);
             if (fileTypes.contains(ext)) {
@@ -476,7 +545,10 @@ class ServerIndexingService {
       try {
         final f = File(entry.path);
         final stat = f.statSync();
-        final content = await _extractText(entry.path, _getExtension(entry.path));
+        final content = await _extractText(
+          entry.path,
+          _getExtension(entry.path),
+        );
 
         final id = '${entry.rp}_${entry.path}'.hashCode.toRadixString(16);
         final embedding = SemanticEmbedding.buildEmbedding(content ?? '');
@@ -575,10 +647,10 @@ class ServerIndexingService {
         final paraRegex = RegExp(r'<w:p[^>]*>(.*?)</w:p>', dotAll: true);
         final paragraphs = <String>[];
         for (final para in paraRegex.allMatches(content)) {
-          final texts = RegExp(
-            r'<w:t[^>]*>(.*?)</w:t>',
-            dotAll: true,
-          ).allMatches(para.group(1) ?? '').map((m) => m.group(1) ?? '').join('');
+          final texts = RegExp(r'<w:t[^>]*>(.*?)</w:t>', dotAll: true)
+              .allMatches(para.group(1) ?? '')
+              .map((m) => m.group(1) ?? '')
+              .join('');
           if (texts.isNotEmpty) paragraphs.add(texts);
         }
         return paragraphs.join('\n');
@@ -594,7 +666,10 @@ class ServerIndexingService {
     for (final file in archive) {
       if (file.name == 'xl/sharedStrings.xml' && file.isFile) {
         final content = utf8.decode(file.content as List<int>);
-        for (final m in RegExp(r'<t[^>]*>(.*?)</t>', dotAll: true).allMatches(content)) {
+        for (final m in RegExp(
+          r'<t[^>]*>(.*?)</t>',
+          dotAll: true,
+        ).allMatches(content)) {
           final t = m.group(1) ?? '';
           if (t.isNotEmpty) shared.add(t);
         }
@@ -606,7 +681,10 @@ class ServerIndexingService {
   Future<String?> _extractPdfText(String filePath) async {
     // Try pdftotext (poppler) if available on the system
     try {
-      final result = await Process.run('pdftotext', [filePath, '-'], stdoutEncoding: utf8);
+      final result = await Process.run('pdftotext', [
+        filePath,
+        '-',
+      ], stdoutEncoding: utf8);
       if (result.exitCode == 0) {
         final text = (result.stdout as String).trim();
         if (text.isNotEmpty) return text;
@@ -708,7 +786,12 @@ class ServerIndexingService {
 
   List<Uri> _parseSeedUrls(String raw) {
     final urls = <Uri>[];
-    for (final part in raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).take(10)) {
+    for (final part
+        in raw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .take(10)) {
       try {
         var uri = Uri.parse(part);
         if (!uri.hasScheme) uri = Uri.parse('https://$part');
@@ -735,13 +818,22 @@ class ServerIndexingService {
   Future<_FetchedPage?> _fetchPage(Uri url) async {
     try {
       final response = await http
-          .get(url, headers: {'Accept': 'text/html,application/xhtml+xml', 'User-Agent': 'TealKit-Indexer/1.0'})
+          .get(
+            url,
+            headers: {
+              'Accept': 'text/html,application/xhtml+xml',
+              'User-Agent': 'TealKit-Indexer/1.0',
+            },
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode < 200 || response.statusCode >= 300) return null;
 
-      final contentType = (response.headers['content-type'] ?? '').toLowerCase();
-      if (!contentType.contains('text/html') && !contentType.contains('application/xhtml') && !contentType.contains('text/plain')) {
+      final contentType = (response.headers['content-type'] ?? '')
+          .toLowerCase();
+      if (!contentType.contains('text/html') &&
+          !contentType.contains('application/xhtml') &&
+          !contentType.contains('text/plain')) {
         return null;
       }
 
@@ -750,7 +842,12 @@ class ServerIndexingService {
       final text = _extractHtmlText(body);
       if (text.trim().isEmpty) return null;
 
-      return _FetchedPage(statusCode: response.statusCode, title: title, text: text, links: _extractLinks(url, body));
+      return _FetchedPage(
+        statusCode: response.statusCode,
+        title: title,
+        text: text,
+        links: _extractLinks(url, body),
+      );
     } catch (e) {
       log.warning('[ServerIndexing] Failed to fetch $url: $e');
       return null;
@@ -758,15 +855,40 @@ class ServerIndexingService {
   }
 
   String _extractTitle(String html) {
-    final m = RegExp(r'<title[^>]*>(.*?)</title>', caseSensitive: false, dotAll: true).firstMatch(html);
+    final m = RegExp(
+      r'<title[^>]*>(.*?)</title>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(html);
     return m == null ? '' : _stripTags(m.group(1) ?? '').trim();
   }
 
   String _extractHtmlText(String html) {
     var text = html
-        .replaceAll(RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false, dotAll: true), ' ')
-        .replaceAll(RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false, dotAll: true), ' ')
-        .replaceAll(RegExp(r'<noscript[^>]*>.*?</noscript>', caseSensitive: false, dotAll: true), ' ');
+        .replaceAll(
+          RegExp(
+            r'<script[^>]*>.*?</script>',
+            caseSensitive: false,
+            dotAll: true,
+          ),
+          ' ',
+        )
+        .replaceAll(
+          RegExp(
+            r'<style[^>]*>.*?</style>',
+            caseSensitive: false,
+            dotAll: true,
+          ),
+          ' ',
+        )
+        .replaceAll(
+          RegExp(
+            r'<noscript[^>]*>.*?</noscript>',
+            caseSensitive: false,
+            dotAll: true,
+          ),
+          ' ',
+        );
     text = _stripTags(text)
         .replaceAll('&nbsp;', ' ')
         .replaceAll('&amp;', '&')
@@ -781,15 +903,21 @@ class ServerIndexingService {
 
   List<Uri> _extractLinks(Uri baseUrl, String html) {
     final links = <Uri>[];
-    final regex = RegExp('href\\s*=\\s*["\']([^"\'#]+)["\']', caseSensitive: false);
+    final regex = RegExp(
+      'href\\s*=\\s*["\']([^"\'#]+)["\']',
+      caseSensitive: false,
+    );
     for (final match in regex.allMatches(html)) {
       final href = (match.group(1) ?? '').trim();
       if (href.isEmpty) continue;
-      if (href.startsWith('javascript:') || href.startsWith('mailto:')) continue;
+      if (href.startsWith('javascript:') || href.startsWith('mailto:'))
+        continue;
       if (href.contains('{{') || href.contains('}}')) continue;
       try {
         final candidate = Uri.parse(href);
-        final resolved = candidate.hasScheme ? candidate : baseUrl.resolveUri(candidate);
+        final resolved = candidate.hasScheme
+            ? candidate
+            : baseUrl.resolveUri(candidate);
         if (resolved.scheme != 'http' && resolved.scheme != 'https') continue;
 
         final pathSegment = resolved.path.split('/').last.toLowerCase();
@@ -799,8 +927,14 @@ class ServerIndexingService {
           if (_kSkipExtensions.contains(ext)) continue;
         }
 
-        final pathParts = resolved.path.toLowerCase().split('/').where((s) => s.isNotEmpty);
-        if (pathParts.any((seg) => _kSkipPathSegments.contains(seg.split('?').first))) continue;
+        final pathParts = resolved.path
+            .toLowerCase()
+            .split('/')
+            .where((s) => s.isNotEmpty);
+        if (pathParts.any(
+          (seg) => _kSkipPathSegments.contains(seg.split('?').first),
+        ))
+          continue;
 
         links.add(resolved);
       } catch (_) {}
@@ -825,8 +959,10 @@ class ServerIndexingService {
         .replaceAll(RegExp(r'\s{2,}'), ' ')
         .trim();
 
-    final db = ServerDuckDbService();
-    final where = StringBuffer("WHERE content_text IS NOT NULL AND content_text != ''");
+    final db = serverDb;
+    final where = StringBuffer(
+      "WHERE content_text IS NOT NULL AND content_text != ''",
+    );
     final websiteScope = await _getWebsiteScope();
     if (websiteScope != null) {
       where.write(' AND ($websiteScope)');
@@ -849,14 +985,23 @@ class ServerIndexingService {
       if (content.isEmpty) continue;
 
       final docEmbedding = SemanticEmbedding.fromJson(row[4]?.toString());
-      final semanticScore = SemanticEmbedding.cosineSimilarity(queryEmbedding, docEmbedding);
-      final keywordScore = SemanticEmbedding.keywordOverlapScore(cleanQuery, content);
+      final semanticScore = SemanticEmbedding.cosineSimilarity(
+        queryEmbedding,
+        docEmbedding,
+      );
+      final keywordScore = SemanticEmbedding.keywordOverlapScore(
+        cleanQuery,
+        content,
+      );
       final lexicalMatches = _countMatches(content, cleanQuery);
 
       final relevance = switch (searchMode) {
         'keyword' => keywordScore + (lexicalMatches * 0.02),
         'semantic' => semanticScore,
-        _ => (0.65 * semanticScore) + (0.30 * keywordScore) + (0.05 * lexicalMatches),
+        _ =>
+          (0.65 * semanticScore) +
+              (0.30 * keywordScore) +
+              (0.05 * lexicalMatches),
       };
 
       if (lexicalMatches == 0 && relevance < 0.12) continue;
@@ -874,9 +1019,14 @@ class ServerIndexingService {
       });
     }
 
-    matches.sort((a, b) => (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num));
+    matches.sort(
+      (a, b) =>
+          (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num),
+    );
 
-    final domainRows = await db.query('SELECT domain, COUNT(*) FROM website_index $where GROUP BY domain ORDER BY COUNT(*) DESC');
+    final domainRows = await db.query(
+      'SELECT domain, COUNT(*) FROM website_index $where GROUP BY domain ORDER BY COUNT(*) DESC',
+    );
     final indexedDomains = {for (final r in domainRows) r[0].toString(): r[1]};
 
     List<Map<String, dynamic>> finalResults = matches.take(limit).toList();
@@ -888,7 +1038,10 @@ class ServerIndexingService {
         final content = (row[3] ?? '').toString();
         if (content.isEmpty) continue;
         final docEmb = SemanticEmbedding.fromJson(row[4]?.toString());
-        final score = SemanticEmbedding.cosineSimilarity(queryEmbedding, docEmb);
+        final score = SemanticEmbedding.cosineSimilarity(
+          queryEmbedding,
+          docEmb,
+        );
         fallback.add({
           'url': row[0],
           'domain': row[1],
@@ -900,11 +1053,16 @@ class ServerIndexingService {
           'indexedAt': row[5],
         });
       }
-      fallback.sort((a, b) => (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num));
+      fallback.sort(
+        (a, b) =>
+            (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num),
+      );
       finalResults = fallback.take(limit).toList();
     }
 
-    final sampleRows = await db.query("SELECT title, domain FROM website_index $where AND title IS NOT NULL AND title != '' LIMIT 5");
+    final sampleRows = await db.query(
+      "SELECT title, domain FROM website_index $where AND title IS NOT NULL AND title != '' LIMIT 5",
+    );
     final sampleTitles = sampleRows.map((r) => '${r[1]}: ${r[0]}').toList();
 
     return {
@@ -920,8 +1078,11 @@ class ServerIndexingService {
   }
 
   /// List pages in the server's website_index.
-  Future<Map<String, dynamic>> listWebsitePages({String? domain, int limit = 50}) async {
-    final db = ServerDuckDbService();
+  Future<Map<String, dynamic>> listWebsitePages({
+    String? domain,
+    int limit = 50,
+  }) async {
+    final db = serverDb;
     final where = StringBuffer('WHERE 1=1');
     final websiteScope = await _getWebsiteScope();
     if (websiteScope != null) {
@@ -939,14 +1100,24 @@ class ServerIndexingService {
     ''');
     return {
       'returned': rows.length,
-      'pages': rows.map((r) => {'url': r[0], 'domain': r[1], 'title': r[2], 'httpStatus': r[3], 'indexedAt': r[4]}).toList(),
+      'pages': rows
+          .map(
+            (r) => {
+              'url': r[0],
+              'domain': r[1],
+              'title': r[2],
+              'httpStatus': r[3],
+              'indexedAt': r[4],
+            },
+          )
+          .toList(),
     };
   }
 
   /// Retrieve the full stored content for a single indexed URL.
   Future<Map<String, dynamic>> getWebsitePage(String url) async {
     final normalized = _normalizeUrl(Uri.parse(url));
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final websiteScope = await _getWebsiteScope();
     final scopeClause = websiteScope == null ? '' : ' AND ($websiteScope)';
     final rows = await db.query('''
@@ -957,13 +1128,23 @@ class ServerIndexingService {
     ''');
     if (rows.isEmpty) return {'error': 'Indexed page not found: $url'};
     final r = rows.first;
-    return {'url': r[0], 'domain': r[1], 'title': r[2], 'content': r[3], 'indexedAt': r[4]};
+    return {
+      'url': r[0],
+      'domain': r[1],
+      'title': r[2],
+      'content': r[3],
+      'indexedAt': r[4],
+    };
   }
 
   // ── search helpers ───────────────────────────────────────────
 
   int _countMatches(String content, String query) {
-    final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     final lower = content.toLowerCase();
     var count = 0;
     for (final word in words) {
@@ -979,7 +1160,11 @@ class ServerIndexingService {
   }
 
   String _buildExcerpt(String content, String query, {int maxLength = 260}) {
-    final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     final lower = content.toLowerCase();
     int pos = 0;
     for (final word in words) {
@@ -1011,20 +1196,31 @@ class ServerIndexingService {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) return {'error': 'query is required'};
 
-    final db = ServerDuckDbService();
-    final words = cleanQuery.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final db = serverDb;
+    final words = cleanQuery
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
 
-    final where = StringBuffer("WHERE content_text IS NOT NULL AND content_text != ''");
+    final where = StringBuffer(
+      "WHERE content_text IS NOT NULL AND content_text != ''",
+    );
     final roots = await _getConfiguredDocumentRoots();
     if (roots.isNotEmpty) {
-      final rootClause = roots.map((rp) => "root_path = '${_esc(rp)}'").join(' OR ');
+      final rootClause = roots
+          .map((rp) => "root_path = '${_esc(rp)}'")
+          .join(' OR ');
       where.write(' AND ($rootClause)');
     }
     if (fileType != null && fileType.isNotEmpty) {
       where.write(" AND file_type = '${_esc(fileType.toLowerCase())}'");
     }
     if (words.isNotEmpty) {
-      final likes = words.take(3).map((w) => "LOWER(content_text) LIKE '%${_esc(w)}%'").join(' OR ');
+      final likes = words
+          .take(3)
+          .map((w) => "LOWER(content_text) LIKE '%${_esc(w)}%'")
+          .join(' OR ');
       where.write(' AND ($likes)');
     }
 
@@ -1053,13 +1249,20 @@ class ServerIndexingService {
       final content = row[4]?.toString() ?? '';
       if (content.isEmpty) continue;
       final matchCount = _countMatches(content, cleanQuery);
-      final keywordScore = SemanticEmbedding.keywordOverlapScore(cleanQuery, content);
+      final keywordScore = SemanticEmbedding.keywordOverlapScore(
+        cleanQuery,
+        content,
+      );
       final docEmbedding = SemanticEmbedding.fromJson(row[5]?.toString());
-      final semanticScore = SemanticEmbedding.cosineSimilarity(queryEmbedding, docEmbedding);
+      final semanticScore = SemanticEmbedding.cosineSimilarity(
+        queryEmbedding,
+        docEmbedding,
+      );
       final relevanceScore = switch (searchMode) {
         'keyword' => keywordScore + (matchCount * 0.02),
         'semantic' => semanticScore,
-        _ => (0.65 * semanticScore) + (0.30 * keywordScore) + (0.05 * matchCount),
+        _ =>
+          (0.65 * semanticScore) + (0.30 * keywordScore) + (0.05 * matchCount),
       };
       if (searchMode == 'keyword' && matchCount == 0) continue;
       if (matchCount == 0 && relevanceScore < 0.35) continue;
@@ -1077,25 +1280,49 @@ class ServerIndexingService {
       });
     }
 
-    scored.sort((a, b) => (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num));
+    scored.sort(
+      (a, b) =>
+          (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num),
+    );
     final limited = scored.take(limit).toList();
-    final fileLines = limited.asMap().entries.map((e) => '${e.key + 1}. ${e.value['fileName']}  →  ${e.value['filePath']}').join('\n');
+    final fileLines = limited
+        .asMap()
+        .entries
+        .map(
+          (e) =>
+              '${e.key + 1}. ${e.value['fileName']}  →  ${e.value['filePath']}',
+        )
+        .join('\n');
     return {
-      'summary': 'Found ${limited.length} file(s) matching "$cleanQuery":\n$fileLines',
+      'summary':
+          'Found ${limited.length} file(s) matching "$cleanQuery":\n$fileLines',
       'totalResults': limited.length,
       'query': cleanQuery,
       'searchMode': searchMode,
-      'results': limited.map((r) => {'fileName': r['fileName'], 'filePath': r['filePath'], 'fileType': r['fileType']}).toList(),
+      'results': limited
+          .map(
+            (r) => {
+              'fileName': r['fileName'],
+              'filePath': r['filePath'],
+              'fileType': r['fileType'],
+            },
+          )
+          .toList(),
     };
   }
 
   /// List documents in the server's document_index.
-  Future<Map<String, dynamic>> listDocumentIndex({String? fileType, int limit = 100}) async {
-    final db = ServerDuckDbService();
+  Future<Map<String, dynamic>> listDocumentIndex({
+    String? fileType,
+    int limit = 100,
+  }) async {
+    final db = serverDb;
     final where = StringBuffer('WHERE 1=1');
     final roots = await _getConfiguredDocumentRoots();
     if (roots.isNotEmpty) {
-      final rootClause = roots.map((rp) => "root_path = '${_esc(rp)}'").join(' OR ');
+      final rootClause = roots
+          .map((rp) => "root_path = '${_esc(rp)}'")
+          .join(' OR ');
       where.write(' AND ($rootClause)');
     }
     if (fileType != null && fileType.isNotEmpty) {
@@ -1109,22 +1336,35 @@ class ServerIndexingService {
       ORDER BY file_name ASC
       LIMIT ${limit.clamp(1, 1000)}
     ''');
-    final countRows = await db.query('SELECT COUNT(*) FROM document_index $where');
+    final countRows = await db.query(
+      'SELECT COUNT(*) FROM document_index $where',
+    );
     final totalCount = int.tryParse(countRows.first.first.toString()) ?? 0;
     return {
       'totalDocuments': totalCount,
       'returned': rows.length,
       'documents': rows
-          .map((r) => {'filePath': r[0], 'fileName': r[1], 'fileType': r[2], 'fileSize': r[3], 'lastModified': r[4], 'contentLength': r[5]})
+          .map(
+            (r) => {
+              'filePath': r[0],
+              'fileName': r[1],
+              'fileType': r[2],
+              'fileSize': r[3],
+              'lastModified': r[4],
+              'contentLength': r[5],
+            },
+          )
           .toList(),
     };
   }
 
   /// Retrieve the full stored content for a single indexed document.
   Future<Map<String, dynamic>> getDocumentIndexEntry(String filePath) async {
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final roots = await _getConfiguredDocumentRoots();
-    final rootScope = roots.isEmpty ? '' : ' AND (${roots.map((rp) => "root_path = '${_esc(rp)}'").join(' OR ')})';
+    final rootScope = roots.isEmpty
+        ? ''
+        : ' AND (${roots.map((rp) => "root_path = '${_esc(rp)}'").join(' OR ')})';
     // Try exact path first, then filename, then partial path
     for (final sql in [
       "SELECT file_path, file_name, file_type, content_text, file_size, last_modified FROM document_index WHERE file_path = '${_esc(filePath)}'$rootScope LIMIT 1",
@@ -1134,7 +1374,14 @@ class ServerIndexingService {
       final rows = await db.query(sql);
       if (rows.isNotEmpty) {
         final r = rows.first;
-        return {'filePath': r[0], 'fileName': r[1], 'fileType': r[2], 'content': r[3], 'fileSize': r[4], 'lastModified': r[5]};
+        return {
+          'filePath': r[0],
+          'fileName': r[1],
+          'fileType': r[2],
+          'content': r[3],
+          'fileSize': r[4],
+          'lastModified': r[5],
+        };
       }
     }
     return {'error': 'Document not found: $filePath'};
@@ -1147,14 +1394,21 @@ class ServerIndexingService {
   Future<List<String>> _getConfiguredDocumentRoots() async {
     final ds = ServerDataSourcesService.instance;
     await ds.load();
-    return ds.documentRootPaths.split(';').map((e) => _normalizeRootPath(e.trim())).where((e) => e.isNotEmpty).toSet().toList();
+    return ds.documentRootPaths
+        .split(';')
+        .map((e) => _normalizeRootPath(e.trim()))
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   Future<String?> _getWebsiteScope() async {
     final ds = ServerDataSourcesService.instance;
     await ds.load();
 
-    final seeds = _parseSeedUrls(ds.websiteIndexUrls).map(_normalizeUrl).toSet().toList();
+    final seeds = _parseSeedUrls(
+      ds.websiteIndexUrls,
+    ).map(_normalizeUrl).toSet().toList();
     if (seeds.isEmpty) {
       // No configured seeds means no rows should be visible.
       return '1=0';

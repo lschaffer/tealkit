@@ -43,10 +43,15 @@ class StartupWizardScreen extends ConsumerStatefulWidget {
   final int initialStep;
   final bool autoOpenInitialStep;
 
-  const StartupWizardScreen({super.key, this.initialStep = 0, this.autoOpenInitialStep = false});
+  const StartupWizardScreen({
+    super.key,
+    this.initialStep = 0,
+    this.autoOpenInitialStep = false,
+  });
 
   @override
-  ConsumerState<StartupWizardScreen> createState() => _StartupWizardScreenState();
+  ConsumerState<StartupWizardScreen> createState() =>
+      _StartupWizardScreenState();
 }
 
 class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
@@ -55,7 +60,9 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
   Future<void> _quickConfigureMistral() async {
     final apiKeyCtrl = TextEditingController();
     final modelCtrl = TextEditingController(text: 'mistral-large-latest');
-    final baseUrlCtrl = TextEditingController(text: 'https://api.mistral.ai/v1');
+    final baseUrlCtrl = TextEditingController(
+      text: 'https://api.mistral.ai/v1',
+    );
 
     final config = await showDialog<(String, String, String)?>(
       context: context,
@@ -68,7 +75,11 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
             children: [
               TextField(
                 controller: apiKeyCtrl,
-                decoration: const InputDecoration(labelText: 'API Key', hintText: 'mistral-... or sk-...', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'API Key',
+                  hintText: 'mistral-... or sk-...',
+                  border: OutlineInputBorder(),
+                ),
                 obscureText: true,
               ),
               const SizedBox(height: 12),
@@ -76,20 +87,27 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
                 controller: modelCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Model',
-                  hintText: 'mistral-large-latest / mistral-medium-latest / mistral-small-latest',
+                  hintText:
+                      'mistral-large-latest / mistral-medium-latest / mistral-small-latest',
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: baseUrlCtrl,
-                decoration: const InputDecoration(labelText: 'Base URL', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Base URL',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               final apiKey = apiKeyCtrl.text.trim();
@@ -97,7 +115,11 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
               final baseUrl = baseUrlCtrl.text.trim();
               final uri = Uri.tryParse(baseUrl);
 
-              if (apiKey.isEmpty || model.isEmpty || baseUrl.isEmpty || uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+              if (apiKey.isEmpty ||
+                  model.isEmpty ||
+                  baseUrl.isEmpty ||
+                  uri == null ||
+                  !(uri.isScheme('http') || uri.isScheme('https'))) {
                 return;
               }
 
@@ -116,7 +138,12 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
 
     if (!(apiKey.startsWith('mistral-') || apiKey.startsWith('sk-'))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mistral API key should usually start with mistral- or sk-'), backgroundColor: Colors.orange),
+        const SnackBar(
+          content: Text(
+            'Mistral API key should usually start with mistral- or sk-',
+          ),
+          backgroundColor: Colors.orange,
+        ),
       );
     }
 
@@ -133,9 +160,12 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Mistral saved as default LLM'), backgroundColor: AppTheme.success));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Mistral saved as default LLM'),
+        backgroundColor: AppTheme.success,
+      ),
+    );
     setState(() {});
   }
 
@@ -158,7 +188,12 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
     final result = await ImportExportService.exportSettings();
     if (!mounted) return;
     if (result.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(l.exportFailed(result.error!)), backgroundColor: AppTheme.error));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l.exportFailed(result.error!)),
+          backgroundColor: AppTheme.error,
+        ),
+      );
     } else if (result.savedPath != null) {
       // Mobile: file saved silently to Downloads — show path in snackbar
       final fileName = result.savedPath!.split(RegExp(r'[/\\]')).last;
@@ -171,7 +206,12 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
       );
     } else {
       // Desktop: OS dialog handled it
-      messenger.showSnackBar(SnackBar(content: Text(l.exportSuccess), backgroundColor: AppTheme.success));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l.exportSuccess),
+          backgroundColor: AppTheme.success,
+        ),
+      );
     }
   }
 
@@ -179,7 +219,9 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
     final prefs = ref.read(appPreferencesProvider);
     final path = await FilePicker.getDirectoryPath(
       dialogTitle: L.of(context).defaultOutputDir,
-      initialDirectory: prefs.defaultOutputPath.isNotEmpty ? prefs.defaultOutputPath : null,
+      initialDirectory: prefs.defaultOutputPath.isNotEmpty
+          ? prefs.defaultOutputPath
+          : null,
     );
     if (path != null) await prefs.setDefaultOutputPath(path);
   }
@@ -191,11 +233,21 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
     if (index == 0) {
       final llmSettings = ref.read(llmSettingsProvider);
       final serverClient = ref.read(serverApiClientProvider);
-      await LlmSettingsDialog.show(context, llmSettings, serverClient: serverClient);
+      final isLightMode = ref.read(isLightModeProvider);
+      await LlmSettingsDialog.show(
+        context,
+        llmSettings,
+        serverClient: serverClient,
+        isLightMode: isLightMode,
+      );
     } else if (index == 1) {
       final dataSources = ref.read(dataSourcesSettingsProvider);
       final serverClient = ref.read(serverApiClientProvider);
-      await DataSourcesSettingsScreen.show(context, dataSources, serverClient: serverClient);
+      await DataSourcesSettingsScreen.show(
+        context,
+        dataSources,
+        serverClient: serverClient,
+      );
     } else {
       final externalTools = ref.read(externalToolsSettingsProvider);
       await ExternalToolsSettingsScreen.show(context, externalTools);
@@ -227,7 +279,10 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
         backgroundColor: isModern ? Colors.transparent : null,
         elevation: 0,
         title: Text(title),
-        leading: (isModern && MediaQuery.sizeOf(context).width > 1200 && !(ModalRoute.of(context)?.canPop ?? false))
+        leading:
+            (isModern &&
+                MediaQuery.sizeOf(context).width > 1200 &&
+                !(ModalRoute.of(context)?.canPop ?? false))
             ? Consumer(
                 builder: (context, ref, _) {
                   final isOpen = ref.watch(sidebarOpenProvider);
@@ -249,10 +304,18 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
                 return const SizedBox.shrink();
               }
               return IconButton(
-                icon: Icon(serverState.isConnected ? Icons.cloud : Icons.cloud_outlined),
-                tooltip: serverState.isConnected ? 'Server connected: ${serverState.serverUrl}' : 'Server mode — not connected',
+                icon: Icon(
+                  serverState.isConnected ? Icons.cloud : Icons.cloud_outlined,
+                ),
+                tooltip: serverState.isConnected
+                    ? 'Server connected: ${serverState.serverUrl}'
+                    : 'Server mode — not connected',
                 color: serverState.isConnected ? AppTheme.success : null,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ServerSettingsScreen(),
+                  ),
+                ),
               );
             },
           ),
@@ -266,7 +329,9 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
             builder: (context, ref, _) {
               final modeAsync = ref.watch(serverModeProvider);
               final serverState = modeAsync.value;
-              if (serverState == null || !serverState.isRemote) return const SizedBox.shrink();
+              if (serverState == null || !serverState.isRemote) {
+                return const SizedBox.shrink();
+              }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -332,15 +397,21 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
             onOpenJsTools: () => JsToolLibraryScreen.show(context),
             // Python MCP Tools is desktop-only and shown in _DesktopFeaturesCard below.
             onOpenPyTools: null,
-            onOpenLocalShell: (!kIsWeb && (Platform.isMacOS || Platform.isLinux)) ? () => LocalShellToolLibraryScreen.show(context) : null,
+            onOpenLocalShell:
+                (!kIsWeb && (Platform.isMacOS || Platform.isLinux))
+                ? () => LocalShellToolLibraryScreen.show(context)
+                : null,
           ),
           const SizedBox(height: 16),
 
           // ── Desktop Features (desktop always; mobile when server mode is active) ──
           Consumer(
             builder: (context, ref, _) {
-              final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
-              final isDesktopPlatform = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+              final isServerMode =
+                  ref.watch(serverModeProvider).value?.isRemote ?? false;
+              final isDesktopPlatform =
+                  !kIsWeb &&
+                  (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
               final showDesktopFeatures = isDesktopPlatform || isServerMode;
               if (!showDesktopFeatures) return const SizedBox.shrink();
 
@@ -349,8 +420,14 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
                 children: [
                   _DesktopFeaturesCard(
                     onOpenPyTools: () => PyToolLibraryScreen.show(context),
-                    onOpenMcpRegistry: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GithubMcpRegistryScreen())),
-                    onOpenPwsh: (!kIsWeb && Platform.isWindows && !isServerMode) ? () => PowershellToolLibraryScreen.show(context) : null,
+                    onOpenMcpRegistry: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const GithubMcpRegistryScreen(),
+                      ),
+                    ),
+                    onOpenPwsh: (!kIsWeb && Platform.isWindows && !isServerMode)
+                        ? () => PowershellToolLibraryScreen.show(context)
+                        : null,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -365,7 +442,11 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
           // ── 4. Generic ── rebuild whenever prefs change
           ListenableBuilder(
             listenable: prefs,
-            builder: (_, _) => _GenericCard(prefs: prefs, onPickOutputDir: _pickDefaultOutputDir, onVault: _openVault),
+            builder: (_, _) => _GenericCard(
+              prefs: prefs,
+              onPickOutputDir: _pickDefaultOutputDir,
+              onVault: _openVault,
+            ),
           ),
           const SizedBox(height: 32),
         ],
@@ -405,7 +486,9 @@ class _StepCard extends StatelessWidget {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
     final cardBg = isModern
-        ? (isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.65))
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
         : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
 
     return Container(
@@ -415,7 +498,11 @@ class _StepCard extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ready ? AppTheme.success.withAlpha(128) : (required_ ? AppTheme.warning.withAlpha(128) : theme.dividerColor),
+          color: ready
+              ? AppTheme.success.withAlpha(128)
+              : (required_
+                    ? AppTheme.warning.withAlpha(128)
+                    : theme.dividerColor),
           width: ready || required_ ? 2 : 1,
         ),
       ),
@@ -424,14 +511,25 @@ class _StepCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: ready ? AppTheme.success : AppTheme.primaryBlue, size: 22),
+              Icon(
+                icon,
+                color: ready ? AppTheme.success : AppTheme.primaryBlue,
+                size: 22,
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               Icon(
                 ready ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: ready ? AppTheme.success : (required_ ? AppTheme.warning : Colors.grey),
+                color: ready
+                    ? AppTheme.success
+                    : (required_ ? AppTheme.warning : Colors.grey),
                 size: 20,
               ),
             ],
@@ -442,13 +540,21 @@ class _StepCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               L.of(context).requiredLabel,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.warning),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.warning,
+              ),
             ),
           ],
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(onPressed: onPressed, icon: const Icon(Icons.open_in_new, size: 16), label: Text(actionLabel)),
+            child: OutlinedButton.icon(
+              onPressed: onPressed,
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: Text(actionLabel),
+            ),
           ),
         ],
       ),
@@ -465,7 +571,12 @@ class _ScriptsCard extends StatelessWidget {
   final VoidCallback? onOpenPyTools;
   final VoidCallback? onOpenLocalShell;
 
-  const _ScriptsCard({required this.onOpenSshScripts, required this.onOpenJsTools, this.onOpenPyTools, this.onOpenLocalShell});
+  const _ScriptsCard({
+    required this.onOpenSshScripts,
+    required this.onOpenJsTools,
+    this.onOpenPyTools,
+    this.onOpenLocalShell,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -475,20 +586,24 @@ class _ScriptsCard extends StatelessWidget {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
     final cardBg = isModern
-        ? (isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.65))
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
         : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
 
     final buttons = <Widget>[
       _DesktopFeatureButton(
         icon: Icons.terminal,
         label: 'SSH Shell Scripts',
-        description: 'Manage and test shell scripts that run on the configured SSH server.',
+        description:
+            'Manage and test shell scripts that run on the configured SSH server.',
         onTap: onOpenSshScripts,
       ),
       _DesktopFeatureButton(
         icon: Icons.javascript,
         label: 'JavaScript Tools',
-        description: 'Create and manage custom JavaScript tools exposed as MCP tools.',
+        description:
+            'Create and manage custom JavaScript tools exposed as MCP tools.',
         onTap: onOpenJsTools,
       ),
       if (onOpenPyTools != null)
@@ -513,7 +628,10 @@ class _ScriptsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.35), width: 1.2),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,11 +640,19 @@ class _ScriptsCard extends StatelessWidget {
             children: [
               const Icon(Icons.code, color: AppTheme.primaryBlue, size: 22),
               const SizedBox(width: 10),
-              Text('Scripts', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                'Scripts',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 4),
-          Text('Script and tool libraries. Access depends on your active plan or trial status.', style: theme.textTheme.bodySmall),
+          Text(
+            'Script and tool libraries. Access depends on your active plan or trial status.',
+            style: theme.textTheme.bodySmall,
+          ),
           const SizedBox(height: 18),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -579,7 +705,11 @@ class _DesktopFeaturesCard extends StatelessWidget {
   final VoidCallback onOpenMcpRegistry;
   final VoidCallback? onOpenPwsh;
 
-  const _DesktopFeaturesCard({required this.onOpenPyTools, required this.onOpenMcpRegistry, this.onOpenPwsh});
+  const _DesktopFeaturesCard({
+    required this.onOpenPyTools,
+    required this.onOpenMcpRegistry,
+    this.onOpenPwsh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -589,7 +719,9 @@ class _DesktopFeaturesCard extends StatelessWidget {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
     final cardBg = isModern
-        ? (isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.65))
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
         : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
 
     return Container(
@@ -598,7 +730,10 @@ class _DesktopFeaturesCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.35), width: 1.2),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,9 +741,18 @@ class _DesktopFeaturesCard extends StatelessWidget {
           // Header
           Row(
             children: [
-              const Icon(Icons.desktop_windows, color: AppTheme.primaryBlue, size: 22),
+              const Icon(
+                Icons.desktop_windows,
+                color: AppTheme.primaryBlue,
+                size: 22,
+              ),
               const SizedBox(width: 10),
-              Text('Desktop Features', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                'Desktop Features',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -621,20 +765,23 @@ class _DesktopFeaturesCard extends StatelessWidget {
                 _DesktopFeatureButton(
                   icon: Icons.code,
                   label: 'Python MCP Tool Generator',
-                  description: 'Create and manage custom Python tools as MCP servers.',
+                  description:
+                      'Create and manage custom Python tools as MCP servers.',
                   onTap: onOpenPyTools,
                 ),
                 _DesktopFeatureButton(
                   icon: Icons.cloud_download_outlined,
                   label: 'MCP Server Registry',
-                  description: 'Browse and install Python or Node.js MCP servers from the community registry.',
+                  description:
+                      'Browse and install Python or Node.js MCP servers from the community registry.',
                   onTap: onOpenMcpRegistry,
                 ),
                 if (onOpenPwsh != null)
                   _DesktopFeatureButton(
                     icon: Icons.terminal,
                     label: 'PowerShell Scripts',
-                    description: 'Manage and test PowerShell scripts that run locally on Windows.',
+                    description:
+                        'Manage and test PowerShell scripts that run locally on Windows.',
                     onTap: onOpenPwsh!,
                   ),
               ];
@@ -696,9 +843,18 @@ class _SkillsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outlined, color: Colors.amber[600], size: 24),
+                Icon(
+                  Icons.lightbulb_outlined,
+                  color: Colors.amber[600],
+                  size: 24,
+                ),
                 const SizedBox(width: 12),
-                Text('Function Hints', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Function Hints',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -710,7 +866,11 @@ class _SkillsCard extends StatelessWidget {
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(onPressed: onOpen, icon: const Icon(Icons.manage_search), label: const Text('Manage Function Hints')),
+              child: OutlinedButton.icon(
+                onPressed: onOpen,
+                icon: const Icon(Icons.manage_search),
+                label: const Text('Manage Function Hints'),
+              ),
             ),
           ],
         ),
@@ -727,7 +887,11 @@ class _GenericCard extends StatelessWidget {
   final VoidCallback onPickOutputDir;
   final VoidCallback onVault;
 
-  const _GenericCard({required this.prefs, required this.onPickOutputDir, required this.onVault});
+  const _GenericCard({
+    required this.prefs,
+    required this.onPickOutputDir,
+    required this.onVault,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -736,7 +900,9 @@ class _GenericCard extends StatelessWidget {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
     final cardBg = isModern
-        ? (isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.65))
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
         : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
 
     return Container(
@@ -755,11 +921,19 @@ class _GenericCard extends StatelessWidget {
             children: [
               const Icon(Icons.tune, color: AppTheme.primaryBlue, size: 22),
               const SizedBox(width: 10),
-              Text(L.of(context).generalSection, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                L.of(context).generalSection,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(L.of(context).generalSectionDescription, style: theme.textTheme.bodySmall),
+          Text(
+            L.of(context).generalSectionDescription,
+            style: theme.textTheme.bodySmall,
+          ),
           const SizedBox(height: 16),
 
           // ── Theme toggle ───────────────────────────────────────────────
@@ -776,10 +950,14 @@ class _GenericCard extends StatelessWidget {
           _SettingsRow(
             icon: Icons.palette_outlined,
             label: prefs.locale == 'de' ? 'Design-Stil' : 'UI Design Style',
-            value: prefs.uiStyle == 'modern' 
-                ? (prefs.locale == 'de' ? 'Modern' : 'Modern') 
-                : (prefs.locale == 'de' ? 'Klassisch (Original)' : 'Classic (Original)'),
-            tooltip: prefs.locale == 'de' ? 'Zwischen modernem und klassischem Design wechseln' : 'Toggle between modern and classic design styles',
+            value: prefs.uiStyle == 'modern'
+                ? (prefs.locale == 'de' ? 'Modern' : 'Modern')
+                : (prefs.locale == 'de'
+                      ? 'Klassisch (Original)'
+                      : 'Classic (Original)'),
+            tooltip: prefs.locale == 'de'
+                ? 'Zwischen modernem und klassischem Design wechseln'
+                : 'Toggle between modern and classic design styles',
             onTap: () {
               final next = prefs.uiStyle == 'modern' ? 'classic' : 'modern';
               prefs.setUiStyle(next);
@@ -798,24 +976,39 @@ class _GenericCard extends StatelessWidget {
           const Divider(height: 24),
 
           // ── Default output directory ────────────────────────────────────
-          Text(L.of(context).defaultOutputDir, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            L.of(context).defaultOutputDir,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(L.of(context).defaultOutputDirDescription, style: theme.textTheme.bodySmall),
+          Text(
+            L.of(context).defaultOutputDirDescription,
+            style: theme.textTheme.bodySmall,
+          ),
           const SizedBox(height: 8),
           // ── Folder picker row ──────────────────────────────────────────
           Row(
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: theme.dividerColor),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    prefs.defaultOutputPath.isNotEmpty ? prefs.defaultOutputPath : L.of(context).defaultOutputDirNotSet,
+                    prefs.defaultOutputPath.isNotEmpty
+                        ? prefs.defaultOutputPath
+                        : L.of(context).defaultOutputDirNotSet,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: prefs.defaultOutputPath.isNotEmpty ? null : Colors.grey,
+                      color: prefs.defaultOutputPath.isNotEmpty
+                          ? null
+                          : Colors.grey,
                       overflow: TextOverflow.ellipsis,
                     ),
                     maxLines: 1,
@@ -828,7 +1021,9 @@ class _GenericCard extends StatelessWidget {
                 height: 40,
                 child: OutlinedButton(
                   onPressed: onPickOutputDir,
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
                   child: const Icon(Icons.folder_open, size: 18),
                 ),
               ),
@@ -843,24 +1038,47 @@ class _GenericCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(L.of(context).outputRetentionDays, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      L.of(context).outputRetentionDays,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(L.of(context).outputRetentionDaysDescription, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                    Text(
+                      L.of(context).outputRetentionDaysDescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.remove, size: 18),
-                onPressed: prefs.outputRetentionDays > 1 ? () => prefs.setOutputRetentionDays(prefs.outputRetentionDays - 1) : null,
+                onPressed: prefs.outputRetentionDays > 1
+                    ? () => prefs.setOutputRetentionDays(
+                        prefs.outputRetentionDays - 1,
+                      )
+                    : null,
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-              Text('${prefs.outputRetentionDays}', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                '${prefs.outputRetentionDays}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.add, size: 18),
-                onPressed: prefs.outputRetentionDays < 60 ? () => prefs.setOutputRetentionDays(prefs.outputRetentionDays + 1) : null,
+                onPressed: prefs.outputRetentionDays < 60
+                    ? () => prefs.setOutputRetentionDays(
+                        prefs.outputRetentionDays + 1,
+                      )
+                    : null,
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -873,24 +1091,45 @@ class _GenericCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(L.of(context).backgroundCheckInterval, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                L.of(context).backgroundCheckInterval,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(L.of(context).backgroundCheckIntervalDescription, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+              Text(
+                L.of(context).backgroundCheckIntervalDescription,
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+              ),
               const SizedBox(height: 8),
               SegmentedButton<int>(
                 segments: AppPreferencesService.backgroundCheckIntervalOptions
-                    .map((m) => ButtonSegment<int>(value: m, label: Text('${m}m')))
+                    .map(
+                      (m) => ButtonSegment<int>(value: m, label: Text('${m}m')),
+                    )
                     .toList(),
                 selected: {prefs.backgroundCheckIntervalMinutes},
-                onSelectionChanged: (s) => prefs.setBackgroundCheckInterval(s.first),
-                style: ButtonStyle(visualDensity: VisualDensity.compact, textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12))),
+                onSelectionChanged: (s) =>
+                    prefs.setBackgroundCheckInterval(s.first),
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStateProperty.all(
+                    const TextStyle(fontSize: 12),
+                  ),
+                ),
               ),
             ],
           ),
           const Divider(height: 24),
 
           // ── Settings Vault ───────────────────────────────────────────────
-          _ActionRow(icon: Icons.lock_outlined, label: L.of(context).vaultTitle, description: L.of(context).vaultSubtitle, onTap: onVault),
+          _ActionRow(
+            icon: Icons.lock_outlined,
+            label: L.of(context).vaultTitle,
+            description: L.of(context).vaultSubtitle,
+            onTap: onVault,
+          ),
         ],
       ),
     );
@@ -904,7 +1143,13 @@ class _SettingsRow extends StatelessWidget {
   final String tooltip;
   final VoidCallback onTap;
 
-  const _SettingsRow({required this.icon, required this.label, required this.value, required this.tooltip, required this.onTap});
+  const _SettingsRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tooltip,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -942,7 +1187,12 @@ class _DesktopFeatureButton extends StatelessWidget {
   final String description;
   final VoidCallback onTap;
 
-  const _DesktopFeatureButton({required this.icon, required this.label, required this.description, required this.onTap});
+  const _DesktopFeatureButton({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -968,10 +1218,18 @@ class _DesktopFeatureButton extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 label,
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: cs.onSurface),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
               ),
               const SizedBox(height: 4),
-              Text(description, style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.7))),
+              Text(
+                description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
             ],
           ),
         ),
@@ -988,7 +1246,12 @@ class _ActionRow extends StatelessWidget {
   final String description;
   final VoidCallback onTap;
 
-  const _ActionRow({required this.icon, required this.label, required this.description, required this.onTap});
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1000,7 +1263,10 @@ class _ActionRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label),
-          Text(description, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+          Text(
+            description,
+            style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+          ),
         ],
       ),
       style: OutlinedButton.styleFrom(
@@ -1032,19 +1298,32 @@ class _ServerConnectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.cardDark : AppTheme.cardLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isConnected ? AppTheme.success.withAlpha(160) : Colors.orange.withAlpha(160), width: 2),
+        border: Border.all(
+          color: isConnected
+              ? AppTheme.success.withAlpha(160)
+              : Colors.orange.withAlpha(160),
+          width: 2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(isConnected ? Icons.cloud_done : Icons.cloud_off, color: isConnected ? AppTheme.success : Colors.orange, size: 22),
+              Icon(
+                isConnected ? Icons.cloud_done : Icons.cloud_off,
+                color: isConnected ? AppTheme.success : Colors.orange,
+                size: 22,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isConnected ? 'Server Mode \u2022 Connected' : 'Server Mode \u2022 Not Connected',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  isConnected
+                      ? 'Server Mode \u2022 Connected'
+                      : 'Server Mode \u2022 Not Connected',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -1053,7 +1332,9 @@ class _ServerConnectionCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               serverState.serverUrl,
-              style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -1061,7 +1342,9 @@ class _ServerConnectionCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
+              ),
               icon: const Icon(Icons.settings_ethernet, size: 16),
               label: const Text('Server Settings'),
             ),
@@ -1122,24 +1405,31 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
   void _exportSingleTool(InternalMcpInfo info) {
     final registry = InternalMcpRegistry();
     final server = registry.create(info.type);
-    final matchingSkills = _skills.where((s) => s.mcpType == info.type).toList();
-    
-    final List<Map<String, dynamic>> toolsList = (server?.tools ?? []).map((tool) {
-      final skill = matchingSkills.where((s) => s.toolName == tool.name).firstOrNull;
+    final matchingSkills = _skills
+        .where((s) => s.mcpType == info.type)
+        .toList();
+
+    final List<Map<String, dynamic>> toolsList = (server?.tools ?? []).map((
+      tool,
+    ) {
+      final skill = matchingSkills
+          .where((s) => s.toolName == tool.name)
+          .firstOrNull;
       return {
         'name': tool.name,
         'description': tool.description,
         'inputSchema': tool.inputSchema,
         if (tool.returnType != null) 'returnType': tool.returnType,
-        if (skill != null) 'skill': {
-          'id': skill.id,
-          'skillText': skill.skillText,
-          'skillTextSlm': skill.skillTextSlm,
-          'isEnabled': skill.isEnabled,
-          'isCustom': skill.isCustom,
-          'generatedAt': skill.generatedAt.toIso8601String(),
-          'updatedAt': skill.updatedAt.toIso8601String(),
-        },
+        if (skill != null)
+          'skill': {
+            'id': skill.id,
+            'skillText': skill.skillText,
+            'skillTextSlm': skill.skillTextSlm,
+            'isEnabled': skill.isEnabled,
+            'isCustom': skill.isCustom,
+            'generatedAt': skill.generatedAt.toIso8601String(),
+            'updatedAt': skill.updatedAt.toIso8601String(),
+          },
       };
     }).toList();
 
@@ -1153,29 +1443,36 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
   void _exportAllTools(List<InternalMcpInfo> available) {
     final registry = InternalMcpRegistry();
     final List<Map<String, dynamic>> exportList = [];
-    
+
     for (final info in available) {
       final server = registry.create(info.type);
-      final matchingSkills = _skills.where((s) => s.mcpType == info.type).toList();
-      
-      exportList.addAll((server?.tools ?? []).map((tool) {
-        final skill = matchingSkills.where((s) => s.toolName == tool.name).firstOrNull;
-        return {
-          'name': tool.name,
-          'description': '${info.displayName}: ${tool.description}',
-          'inputSchema': tool.inputSchema,
-          if (tool.returnType != null) 'returnType': tool.returnType,
-          if (skill != null) 'skill': {
-            'id': skill.id,
-            'skillText': skill.skillText,
-            'skillTextSlm': skill.skillTextSlm,
-            'isEnabled': skill.isEnabled,
-            'isCustom': skill.isCustom,
-            'generatedAt': skill.generatedAt.toIso8601String(),
-            'updatedAt': skill.updatedAt.toIso8601String(),
-          },
-        };
-      }));
+      final matchingSkills = _skills
+          .where((s) => s.mcpType == info.type)
+          .toList();
+
+      exportList.addAll(
+        (server?.tools ?? []).map((tool) {
+          final skill = matchingSkills
+              .where((s) => s.toolName == tool.name)
+              .firstOrNull;
+          return {
+            'name': tool.name,
+            'description': '${info.displayName}: ${tool.description}',
+            'inputSchema': tool.inputSchema,
+            if (tool.returnType != null) 'returnType': tool.returnType,
+            if (skill != null)
+              'skill': {
+                'id': skill.id,
+                'skillText': skill.skillText,
+                'skillTextSlm': skill.skillTextSlm,
+                'isEnabled': skill.isEnabled,
+                'isCustom': skill.isCustom,
+                'generatedAt': skill.generatedAt.toIso8601String(),
+                'updatedAt': skill.updatedAt.toIso8601String(),
+              },
+          };
+        }),
+      );
     }
 
     ToolListExportSheet.show(
@@ -1220,12 +1517,18 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
     return params.join('\n');
   }
 
-  List<Widget> _buildSubToolsList(InternalMcpInfo info, List<FunctionHint> matchingSkills) {
+  List<Widget> _buildSubToolsList(
+    InternalMcpInfo info,
+    List<FunctionHint> matchingSkills,
+  ) {
     final registry = InternalMcpRegistry();
     final server = registry.create(info.type);
     if (server == null || server.tools.isEmpty) {
       return [
-        const Text('No tools available for this server.', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+        const Text(
+          'No tools available for this server.',
+          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+        ),
       ];
     }
 
@@ -1233,7 +1536,9 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
     final isDark = theme.brightness == Brightness.dark;
 
     return server.tools.map((tool) {
-      final skill = matchingSkills.where((s) => s.toolName == tool.name).firstOrNull;
+      final skill = matchingSkills
+          .where((s) => s.toolName == tool.name)
+          .firstOrNull;
 
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -1251,12 +1556,18 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                 Expanded(
                   child: Text(
                     tool.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 if (skill != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: skill.isEnabled
                           ? AppTheme.success.withAlpha(30)
@@ -1268,7 +1579,9 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: skill.isEnabled ? AppTheme.success : theme.hintColor,
+                        color: skill.isEnabled
+                            ? AppTheme.success
+                            : theme.hintColor,
                       ),
                     ),
                   ),
@@ -1278,31 +1591,46 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
               const SizedBox(height: 2),
               Text(
                 tool.description,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.hintColor,
+                ),
               ),
             ],
             const SizedBox(height: 6),
             if (tool.inputSchema.isNotEmpty) ...[
               Text(
                 'Parameters:',
-                style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.bold),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 _formatInputSchema(tool.inputSchema),
-                style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace', fontSize: 11),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                ),
               ),
               const SizedBox(height: 6),
             ],
             Text(
               'Procedural Guide (Skill):',
-              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.bold),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 2),
             if (skill != null) ...[
               Text(
-                skill.skillText.isNotEmpty ? skill.skillText : 'Empty skill text.',
-                style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                skill.skillText.isNotEmpty
+                    ? skill.skillText
+                    : 'Empty skill text.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1310,7 +1638,10 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                 const SizedBox(height: 4),
                 Text(
                   'SLM version: ${skill.skillTextSlm}',
-                  style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic, color: theme.hintColor),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: theme.hintColor,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1318,7 +1649,10 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
             ] else
               Text(
                 'No skill generated for this tool yet.',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor, fontStyle: FontStyle.italic),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.hintColor,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
           ],
         ),
@@ -1330,15 +1664,23 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isExpanded = _expandedTypes.contains(info.type);
-    final matchingSkills = _skills.where((s) => s.mcpType == info.type).toList();
+    final matchingSkills = _skills
+        .where((s) => s.mcpType == info.type)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: 2,
+          ),
           leading: Icon(_mcpIcon(info.iconName), color: AppTheme.primaryBlue),
-          title: Text(info.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(
+            info.displayName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Text(info.description, style: theme.textTheme.bodySmall),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1373,26 +1715,39 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                 if (info.initParamSchema.isNotEmpty) ...[
                   Text(
                     'Initialization Parameters',
-                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: theme.hintColor),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.hintColor,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.white10 : Colors.black.withAlpha(10),
+                      color: isDark
+                          ? Colors.white10
+                          : Colors.black.withAlpha(10),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      const JsonEncoder.withIndent('  ').convert(info.initParamSchema),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                      const JsonEncoder.withIndent(
+                        '  ',
+                      ).convert(info.initParamSchema),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
                 Text(
                   'Tools & Skills',
-                  style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: theme.hintColor),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.hintColor,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 ..._buildSubToolsList(info, matchingSkills),
@@ -1425,7 +1780,9 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
     final cardBg = isModern
-        ? (isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.65))
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
         : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
 
     final available = InternalMcpRegistry().availableServers;
@@ -1451,15 +1808,27 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.construction, color: AppTheme.primaryBlue, size: 22),
+                  const Icon(
+                    Icons.construction,
+                    color: AppTheme.primaryBlue,
+                    size: 22,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Inbuilt Tools', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          'Inbuilt Tools',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text('Built-in capabilities for tasks.', style: theme.textTheme.bodySmall),
+                        Text(
+                          'Built-in capabilities for tasks.',
+                          style: theme.textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   ),
@@ -1491,7 +1860,8 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: available.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final info = available[index];
                         return _buildToolItem(info);

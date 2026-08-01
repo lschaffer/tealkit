@@ -29,7 +29,14 @@ class ServerCredentialCipher {
   Uint8List? _key;
 
   /// Names of initParam fields that hold sensitive credentials.
-  static const sensitiveFields = <String>{'password', 'privateKey', 'apiKey', 'accessToken', 'secret', 'token'};
+  static const sensitiveFields = <String>{
+    'password',
+    'privateKey',
+    'apiKey',
+    'accessToken',
+    'secret',
+    'token',
+  };
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -45,7 +52,10 @@ class ServerCredentialCipher {
         log.info('[Cipher] Loaded master key from ${keyFile.path}');
       } else {
         final rng = Random.secure();
-        final key = Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+        final key = Uint8List.fromList(
+          List.generate(32, (_) => rng.nextInt(256)),
+        );
+        await keyFile.parent.create(recursive: true);
         await keyFile.writeAsString(base64.encode(key));
         // chmod 600 — only works on POSIX (Linux), ignored on Windows.
         if (!Platform.isWindows) {
@@ -67,10 +77,15 @@ class ServerCredentialCipher {
     if (_key == null || plaintext.isEmpty) return plaintext;
 
     final rng = Random.secure();
-    final iv = Uint8List.fromList(List.generate(_ivLen, (_) => rng.nextInt(256)));
+    final iv = Uint8List.fromList(
+      List.generate(_ivLen, (_) => rng.nextInt(256)),
+    );
 
     final cipher = GCMBlockCipher(AESEngine());
-    cipher.init(true, AEADParameters(KeyParameter(_key!), _tagLen, iv, Uint8List(0)));
+    cipher.init(
+      true,
+      AEADParameters(KeyParameter(_key!), _tagLen, iv, Uint8List(0)),
+    );
 
     final input = Uint8List.fromList(utf8.encode(plaintext));
     final cipherAndTag = cipher.process(input);
@@ -95,7 +110,10 @@ class ServerCredentialCipher {
       final cipherAndTag = combined.sublist(_ivLen);
 
       final cipher = GCMBlockCipher(AESEngine());
-      cipher.init(false, AEADParameters(KeyParameter(_key!), _tagLen, iv, Uint8List(0)));
+      cipher.init(
+        false,
+        AEADParameters(KeyParameter(_key!), _tagLen, iv, Uint8List(0)),
+      );
 
       final plainBytes = cipher.process(cipherAndTag);
       return utf8.decode(plainBytes);

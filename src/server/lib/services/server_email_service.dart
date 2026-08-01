@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
-import '../database/server_duckdb_service.dart';
+import 'package:tealkit_server/database/server_duckdb_adapter.dart';
 import '../models/agentic_task.dart';
 import '../runner/server_llm_runner.dart';
 import '../runner/server_tool_registry.dart';
@@ -37,7 +37,9 @@ class ServerEmailService {
   }) async {
     final notification = task.notification.email;
     if (notification == null || notification.recipients.isEmpty) {
-      log.debug('[EmailService] No email notification configured for task "${task.name}"');
+      log.debug(
+        '[EmailService] No email notification configured for task "${task.name}"',
+      );
       return false;
     }
 
@@ -50,7 +52,9 @@ class ServerEmailService {
       conditionExpression: notification.conditionExpression,
     );
     if (!shouldSend) {
-      log.debug('[EmailService] Send condition not met for task "${task.name}" (condition: ${notification.sendCondition})');
+      log.debug(
+        '[EmailService] Send condition not met for task "${task.name}" (condition: ${notification.sendCondition})',
+      );
       return false;
     }
 
@@ -64,7 +68,9 @@ class ServerEmailService {
 
     // Check if SMTP is configured
     if (ds.smtpHost.trim().isEmpty) {
-      log.warning('[EmailService] SMTP not configured - cannot send email for task "${task.name}"');
+      log.warning(
+        '[EmailService] SMTP not configured - cannot send email for task "${task.name}"',
+      );
       return false;
     }
 
@@ -75,24 +81,36 @@ class ServerEmailService {
         includeAttachments: notification.withAttachment,
       );
 
-      final effectiveResultText = _sanitizeHtmlForEmailBody(extraction.sanitizedText);
-      final effectiveAttachments = <File>[...attachments, ...extraction.extractedFiles];
+      final effectiveResultText = _sanitizeHtmlForEmailBody(
+        extraction.sanitizedText,
+      );
+      final effectiveAttachments = <File>[
+        ...attachments,
+        ...extraction.extractedFiles,
+      ];
 
       final subject = _buildSubject(notification, task);
       final body = _buildBody(task, success, effectiveResultText, errorText);
 
       final message = Message()
-        ..from = Address(ds.smtpSender.isNotEmpty ? ds.smtpSender : ds.imapUsername)
+        ..from = Address(
+          ds.smtpSender.isNotEmpty ? ds.smtpSender : ds.imapUsername,
+        )
         ..recipients.addAll(notification.recipients)
         ..subject = subject
         ..text = body
         ..html = _markdownToHtml(body);
 
       if (notification.withAttachment && effectiveAttachments.isNotEmpty) {
-        message.attachments.addAll(effectiveAttachments.map(FileAttachment.new));
+        message.attachments.addAll(
+          effectiveAttachments.map(FileAttachment.new),
+        );
       }
 
-      final smtpServer = gmail(ds.smtpSender.isNotEmpty ? ds.smtpSender : ds.imapUsername, ds.imapPassword);
+      final smtpServer = gmail(
+        ds.smtpSender.isNotEmpty ? ds.smtpSender : ds.imapUsername,
+        ds.imapPassword,
+      );
 
       // Override SMTP settings if custom values provided
       if (ds.smtpHost.isNotEmpty && ds.smtpPort > 0) {
@@ -112,48 +130,78 @@ class ServerEmailService {
         await send(message, smtpServer);
       }
 
-      log.info('[EmailService] Email sent for task "${task.name}" to ${notification.recipients.join(", ")}');
+      log.info(
+        '[EmailService] Email sent for task "${task.name}" to ${notification.recipients.join(", ")}',
+      );
       return true;
     } catch (e, st) {
-      log.error('[EmailService] Failed to send email for task "${task.name}": $e', e, st);
+      log.error(
+        '[EmailService] Failed to send email for task "${task.name}": $e',
+        e,
+        st,
+      );
       return false;
     }
   }
 
-  Future<_EmbeddedAttachmentExtractionResult> _extractEmbeddedDataUriAttachments({
+  Future<_EmbeddedAttachmentExtractionResult>
+  _extractEmbeddedDataUriAttachments({
     required String resultText,
     required String taskName,
     required bool includeAttachments,
   }) async {
     if (resultText.isEmpty) {
-      return const _EmbeddedAttachmentExtractionResult(sanitizedText: '', extractedFiles: []);
+      return const _EmbeddedAttachmentExtractionResult(
+        sanitizedText: '',
+        extractedFiles: [],
+      );
     }
 
     final extractedFiles = <File>[];
     var index = 0;
 
-    final sanitizedText = resultText.replaceAllMapped(_markdownDataUriPattern, (match) {
+    final sanitizedText = resultText.replaceAllMapped(_markdownDataUriPattern, (
+      match,
+    ) {
       final rawName = (match.group(1) ?? '').trim();
       final dataUri = (match.group(2) ?? '').trim();
 
       final fallbackName = 'attachment_${index + 1}';
-      final fileName = _sanitizeFileName(rawName.isNotEmpty ? rawName : fallbackName, fallbackName: fallbackName);
+      final fileName = _sanitizeFileName(
+        rawName.isNotEmpty ? rawName : fallbackName,
+        fallbackName: fallbackName,
+      );
 
       if (includeAttachments) {
-        final extracted = _tryDecodeDataUriToTempFile(dataUri: dataUri, fileName: fileName, taskName: taskName, index: index);
+        final extracted = _tryDecodeDataUriToTempFile(
+          dataUri: dataUri,
+          fileName: fileName,
+          taskName: taskName,
+          index: index,
+        );
         if (extracted != null) {
           extractedFiles.add(extracted);
         }
       }
 
       index++;
-      return includeAttachments ? '$fileName (attached)' : '$fileName (file content omitted)';
+      return includeAttachments
+          ? '$fileName (attached)'
+          : '$fileName (file content omitted)';
     });
 
-    return _EmbeddedAttachmentExtractionResult(sanitizedText: sanitizedText, extractedFiles: extractedFiles);
+    return _EmbeddedAttachmentExtractionResult(
+      sanitizedText: sanitizedText,
+      extractedFiles: extractedFiles,
+    );
   }
 
-  File? _tryDecodeDataUriToTempFile({required String dataUri, required String fileName, required String taskName, required int index}) {
+  File? _tryDecodeDataUriToTempFile({
+    required String dataUri,
+    required String fileName,
+    required String taskName,
+    required int index,
+  }) {
     try {
       final uri = Uri.parse(dataUri);
       final uriData = uri.data;
@@ -166,14 +214,21 @@ class ServerEmailService {
         return null;
       }
 
-      final safeTaskName = taskName.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]+'), '_');
-      final tempName = '${safeTaskName}_${DateTime.now().millisecondsSinceEpoch}_${index + 1}_$fileName';
-      final path = '${Directory.systemTemp.path}${Platform.pathSeparator}$tempName';
+      final safeTaskName = taskName.replaceAll(
+        RegExp(r'[^a-zA-Z0-9_\-]+'),
+        '_',
+      );
+      final tempName =
+          '${safeTaskName}_${DateTime.now().millisecondsSinceEpoch}_${index + 1}_$fileName';
+      final path =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}$tempName';
       final file = File(path);
       file.writeAsBytesSync(bytes, flush: true);
       return file;
     } catch (e) {
-      log.warning('[EmailService] Failed to decode embedded data URI attachment "$fileName": $e');
+      log.warning(
+        '[EmailService] Failed to decode embedded data URI attachment "$fileName": $e',
+      );
       return null;
     }
   }
@@ -182,7 +237,9 @@ class ServerEmailService {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return fallbackName;
 
-    final cleaned = trimmed.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').replaceAll(RegExp(r'\s+'), '_');
+    final cleaned = trimmed
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_');
     if (cleaned.isEmpty || cleaned == '.') {
       return fallbackName;
     }
@@ -215,29 +272,40 @@ class ServerEmailService {
     }
   }
 
-  Future<bool> _evaluateCustomCondition(String expression, String resultText) async {
+  Future<bool> _evaluateCustomCondition(
+    String expression,
+    String resultText,
+  ) async {
     try {
       final llmRunner = ServerLlmRunner(ServerLlmSettingsService.instance);
-      final emptyRegistry = ServerToolRegistry(ServerDuckDbService());
+      final emptyRegistry = ServerToolRegistry(ServerDuckDbAdapter());
       final prompt =
           'Check this condition against the task output.\n'
           'Return ONLY TRUE if it matches, otherwise ONLY FALSE.\n\n'
           'Condition: $expression\n\n'
           'Task output:\n$resultText';
       final res = await llmRunner.run(
-        systemPrompt: 'You are a strict condition evaluator. Reply with ONLY TRUE or ONLY FALSE.',
+        systemPrompt:
+            'You are a strict condition evaluator. Reply with ONLY TRUE or ONLY FALSE.',
         userPrompt: prompt,
         registry: emptyRegistry,
       );
       if (!res.success) return false;
       final ans = res.content.trim().toLowerCase();
-      final firstToken = RegExp(r'\b(true|false)\b', caseSensitive: false).firstMatch(ans)?.group(1)?.toLowerCase();
+      final firstToken = RegExp(
+        r'\b(true|false)\b',
+        caseSensitive: false,
+      ).firstMatch(ans)?.group(1)?.toLowerCase();
       if (firstToken == null) {
-        log.warning('[EmailService] Conditional evaluation returned non-boolean response: ${res.content}');
+        log.warning(
+          '[EmailService] Conditional evaluation returned non-boolean response: ${res.content}',
+        );
         return false;
       }
       final matched = firstToken == 'true';
-      log.info('[EmailService] Conditional evaluation: "$expression" => $firstToken (send=$matched)');
+      log.info(
+        '[EmailService] Conditional evaluation: "$expression" => $firstToken (send=$matched)',
+      );
       return matched;
     } catch (e) {
       log.warning('[EmailService] Conditional evaluation failed: $e');
@@ -250,7 +318,12 @@ class ServerEmailService {
     return template.replaceAll('[task_name]', task.name);
   }
 
-  String _buildBody(AgenticTask task, bool success, String resultText, String? errorText) {
+  String _buildBody(
+    AgenticTask task,
+    bool success,
+    String resultText,
+    String? errorText,
+  ) {
     final buf = StringBuffer()
       ..writeln('Task: ${task.name}')
       ..writeln('Status: ${success ? "SUCCESS" : "FAILED"}')
@@ -275,7 +348,10 @@ class _EmbeddedAttachmentExtractionResult {
   final String sanitizedText;
   final List<File> extractedFiles;
 
-  const _EmbeddedAttachmentExtractionResult({required this.sanitizedText, required this.extractedFiles});
+  const _EmbeddedAttachmentExtractionResult({
+    required this.sanitizedText,
+    required this.extractedFiles,
+  });
 }
 
 String _sanitizeHtmlForEmailBody(String text) {
@@ -287,7 +363,10 @@ String _sanitizeHtmlForEmailBody(String text) {
     caseSensitive: false,
   );
   if (fenceRegex.hasMatch(sanitized)) {
-    sanitized = sanitized.replaceAll(fenceRegex, '[HTML Content Omitted - See Attachment]');
+    sanitized = sanitized.replaceAll(
+      fenceRegex,
+      '[HTML Content Omitted - See Attachment]',
+    );
   }
 
   // 2. Replace raw HTML blocks starting with <!DOCTYPE html> or <html... to </html>
@@ -296,7 +375,10 @@ String _sanitizeHtmlForEmailBody(String text) {
     caseSensitive: false,
   );
   if (rawHtmlRegex.hasMatch(sanitized)) {
-    sanitized = sanitized.replaceAll(rawHtmlRegex, '[HTML Content Omitted - See Attachment]');
+    sanitized = sanitized.replaceAll(
+      rawHtmlRegex,
+      '[HTML Content Omitted - See Attachment]',
+    );
   }
 
   // 3. Replace typical tag blocks like <table...</table>, <div...</div>, <ol...</ol>, <ul...</ul>
@@ -305,7 +387,10 @@ String _sanitizeHtmlForEmailBody(String text) {
     caseSensitive: false,
   );
   if (tagBlocksRegex.hasMatch(sanitized)) {
-    sanitized = sanitized.replaceAll(tagBlocksRegex, '[HTML Content Omitted - See Attachment]');
+    sanitized = sanitized.replaceAll(
+      tagBlocksRegex,
+      '[HTML Content Omitted - See Attachment]',
+    );
   }
 
   return sanitized;
@@ -319,15 +404,21 @@ String _markdownToHtml(String md) {
       .replaceAll('>', '&gt;');
 
   // Headers: # Header
-  escaped = escaped.replaceAllMapped(RegExp(r'^(#{1,6})\s+(.+)$', multiLine: true), (m) {
-    final level = m.group(1)!.length;
-    return '<h$level>${m.group(2)}</h$level>';
-  });
+  escaped = escaped.replaceAllMapped(
+    RegExp(r'^(#{1,6})\s+(.+)$', multiLine: true),
+    (m) {
+      final level = m.group(1)!.length;
+      return '<h$level>${m.group(2)}</h$level>';
+    },
+  );
 
   // Code blocks: ```content```
-  escaped = escaped.replaceAllMapped(RegExp(r'```(?:[a-zA-Z0-9]+)?\n([\s\S]*?)\n```'), (m) {
-    return '<pre><code>${m.group(1)}</code></pre>';
-  });
+  escaped = escaped.replaceAllMapped(
+    RegExp(r'```(?:[a-zA-Z0-9]+)?\n([\s\S]*?)\n```'),
+    (m) {
+      return '<pre><code>${m.group(1)}</code></pre>';
+    },
+  );
 
   // Inline code: `code`
   escaped = escaped.replaceAllMapped(RegExp(r'`([^`\n]+)`'), (m) {
@@ -365,7 +456,9 @@ String _markdownToHtml(String md) {
 
   for (var line in lines) {
     final trimmed = line.trim();
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+    if (trimmed.startsWith('- ') ||
+        trimmed.startsWith('* ') ||
+        trimmed.startsWith('• ')) {
       if (!inList) {
         processedLines.add('<ul>');
         inList = true;
@@ -379,7 +472,9 @@ String _markdownToHtml(String md) {
 
       if (trimmed.isEmpty) {
         processedLines.add('<br/>');
-      } else if (trimmed.startsWith('<h') || trimmed.startsWith('<pre') || trimmed.startsWith('<hr')) {
+      } else if (trimmed.startsWith('<h') ||
+          trimmed.startsWith('<pre') ||
+          trimmed.startsWith('<hr')) {
         processedLines.add(line);
       } else {
         processedLines.add('$line<br/>');

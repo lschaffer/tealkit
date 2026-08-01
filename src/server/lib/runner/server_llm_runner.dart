@@ -880,7 +880,7 @@ class ServerLlmRunner {
 
     if (taskLlmConfig != null) {
       provider = LlmProvider.values.firstWhere(
-        (p) => p.name == taskLlmConfig.provider,
+        (p) => p.name == taskLlmConfig.provider || p.configKey == taskLlmConfig.provider,
         orElse: () => usePrimary ? _settings.provider : _settings.provider2,
       );
       model = taskLlmConfig.model;
@@ -909,6 +909,8 @@ class ServerLlmRunner {
       thinking = usePrimary ? _settings.thinking : _settings.thinking2;
     }
 
+    log.info('[LlmRunner] TaskConfig: ${taskLlmConfig != null ? "provider=${taskLlmConfig.provider} model=${taskLlmConfig.model} baseUrl=${taskLlmConfig.baseUrl}" : "null"}');
+    log.info('[LlmRunner] resolved: provider=${provider.configKey} model=$model baseUrl="$baseUrl" hasApiKey=${apiKey.isNotEmpty}');
     log.info('[LlmRunner] Provider=${provider.label} Model=$model');
     _liveLog('Starting execution flow using provider: ${provider.label}, model: $model');
     _liveLog('System Prompt: $systemPrompt');
@@ -1563,6 +1565,7 @@ class ServerLlmRunner {
       case LlmProvider.ollama:
         return _generateOllama(
           model: model,
+          apiKey: apiKey,
           baseUrl: baseUrl,
           temperature: temperature,
           maxTokens: maxTokens,
@@ -1828,15 +1831,25 @@ class ServerLlmRunner {
 
   Future<_NativeResponse> _generateOllama({
     required String model,
+    required String apiKey,
     required String baseUrl,
     required double temperature,
     required int? maxTokens,
     required List<LlmChatMessage> history,
     required List<MCPTool> mcpTools,
   }) async {
+    log.info('[OllamaRunner] Input baseUrl: "$baseUrl"');
+    var cleanedBaseUrl = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    if (cleanedBaseUrl.endsWith('/api')) {
+      cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 4).replaceAll(RegExp(r'/+$'), '');
+      log.info('[OllamaRunner] baseUrl after strip endsWith("/api"): "$cleanedBaseUrl"');
+    }
+    final finalUrl = cleanedBaseUrl.isNotEmpty ? cleanedBaseUrl : 'http://localhost:11434';
+    log.info('[OllamaRunner] final target baseUrl config for OllamaClient: "$finalUrl"');
     final client = ollama.OllamaClient(
       config: ollama.OllamaConfig(
-        baseUrl: baseUrl.isNotEmpty ? baseUrl : 'http://localhost:11434/api',
+        baseUrl: finalUrl,
+        defaultHeaders: apiKey.isNotEmpty ? {'Authorization': 'Bearer $apiKey'} : const {},
       ),
     );
     try {

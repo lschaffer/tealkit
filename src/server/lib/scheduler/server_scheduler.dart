@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../database/server_duckdb_service.dart';
+import '../database/server_database_adapter.dart';
 import '../models/agentic_task.dart';
 import '../runner/server_task_runner.dart';
 import '../services/server_data_sources_service.dart';
@@ -25,7 +25,7 @@ import '../utils/server_logger.dart';
 /// - Retry logic: retries up to [_maxRetries] times with exponential
 ///   back-off before marking a task as FAILED.
 /// - Records every run in the `scheduler_log` table via
-///   [ServerDuckDbService.logRun].
+///   [ServerDatabaseAdapter.logRun].
 /// - Respects [ServerPreferencesService.backgroundCheckIntervalMinutes]
 ///   at each tick (so config changes take effect without restart).
 ///
@@ -54,7 +54,9 @@ class ServerScheduler {
   /// running.
   void start() {
     if (_timer != null) return;
-    log.info('[Scheduler] Starting — tick every ${_tickInterval.inMinutes} minute(s)');
+    log.info(
+      '[Scheduler] Starting — tick every ${_tickInterval.inMinutes} minute(s)',
+    );
     _timer = Timer.periodic(_tickInterval, (_) => _tick());
     // Fire an immediate first tick so tasks due right at startup are picked up.
     _tick();
@@ -75,7 +77,7 @@ class ServerScheduler {
 
     await _tickBackgroundIndexing();
 
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final llmSettings = ServerLlmSettingsService.instance;
 
     List<AgenticTask> dueTasks;
@@ -113,28 +115,44 @@ class ServerScheduler {
     final indexing = ServerIndexingService.instance;
     final now = DateTime.now();
 
-    if (ds.websiteIndexCron.trim().isNotEmpty && ds.websiteIndexUrls.trim().isNotEmpty) {
+    if (ds.websiteIndexCron.trim().isNotEmpty &&
+        ds.websiteIndexUrls.trim().isNotEmpty) {
       final status = indexing.getWebsiteIndexStatus();
       final running = status['running'] == true;
       if (!running) {
-        final last = ds.websiteIndexLastIndexedAt ?? now.subtract(const Duration(days: 3650));
+        final last =
+            ds.websiteIndexLastIndexedAt ??
+            now.subtract(const Duration(days: 3650));
         final dueAt = nextCronFire(ds.websiteIndexCron, from: last);
         if (!dueAt.isAfter(now)) {
-          log.info('[Scheduler] Website index due by cron (${ds.websiteIndexCron}) — starting background run');
-          indexing.startWebsiteIndex(urls: ds.websiteIndexUrls, maxPages: ds.websiteIndexMaxPages);
+          log.info(
+            '[Scheduler] Website index due by cron (${ds.websiteIndexCron}) — starting background run',
+          );
+          indexing.startWebsiteIndex(
+            urls: ds.websiteIndexUrls,
+            maxPages: ds.websiteIndexMaxPages,
+          );
         }
       }
     }
 
-    if (ds.documentIndexCron.trim().isNotEmpty && ds.documentRootPaths.trim().isNotEmpty) {
+    if (ds.documentIndexCron.trim().isNotEmpty &&
+        ds.documentRootPaths.trim().isNotEmpty) {
       final status = indexing.getDocumentIndexStatus();
       final running = status['running'] == true;
       if (!running) {
-        final last = ds.documentIndexLastIndexedAt ?? now.subtract(const Duration(days: 3650));
+        final last =
+            ds.documentIndexLastIndexedAt ??
+            now.subtract(const Duration(days: 3650));
         final dueAt = nextCronFire(ds.documentIndexCron, from: last);
         if (!dueAt.isAfter(now)) {
-          log.info('[Scheduler] Document index due by cron (${ds.documentIndexCron}) — starting background run');
-          indexing.startDocumentIndex(rootPaths: ds.documentRootPaths, fileTypes: ds.documentFileTypes);
+          log.info(
+            '[Scheduler] Document index due by cron (${ds.documentIndexCron}) — starting background run',
+          );
+          indexing.startDocumentIndex(
+            rootPaths: ds.documentRootPaths,
+            fileTypes: ds.documentFileTypes,
+          );
         }
       }
     }
@@ -142,7 +160,11 @@ class ServerScheduler {
 
   // ── Retry wrapper ────────────────────────────────────────────
 
-  Future<void> _runWithRetry(AgenticTask task, {required ServerDuckDbService db, required ServerLlmSettingsService llmSettings}) async {
+  Future<void> _runWithRetry(
+    AgenticTask task, {
+    required ServerDatabaseAdapter db,
+    required ServerLlmSettingsService llmSettings,
+  }) async {
     final prefs = ServerPreferencesService.instance;
     // Use preferences retentionDays as a proxy for configured max retries,
     // capped at _maxRetries.  A dedicated pref could be added later.
@@ -155,7 +177,9 @@ class ServerScheduler {
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       if (attempt > 0) {
         final backoff = Duration(seconds: (4 << attempt).clamp(0, 120));
-        log.info('[Scheduler] Retry $attempt/$maxRetries for task ${task.id} in ${backoff.inSeconds}s');
+        log.info(
+          '[Scheduler] Retry $attempt/$maxRetries for task ${task.id} in ${backoff.inSeconds}s',
+        );
         await Future.delayed(backoff);
       }
 
@@ -165,25 +189,35 @@ class ServerScheduler {
           suppressFailureNotifications: attempt < maxRetries,
         );
         if (result.success) {
-          log.info('[Scheduler] Task ${task.id} completed successfully (attempt ${attempt + 1})');
+          log.info(
+            '[Scheduler] Task ${task.id} completed successfully (attempt ${attempt + 1})',
+          );
           return;
         }
         lastError = result.error;
-        log.warning('[Scheduler] Task ${task.id} failed (attempt ${attempt + 1}): $lastError');
+        log.warning(
+          '[Scheduler] Task ${task.id} failed (attempt ${attempt + 1}): $lastError',
+        );
 
         // Configuration errors (e.g. no LLM set up) will never succeed on
         // retry — abort immediately instead of wasting retry cycles.
         if (_isPermanentError(lastError)) {
-          log.error('[Scheduler] Task ${task.id} permanently failed — config error, no retry: $lastError');
+          log.error(
+            '[Scheduler] Task ${task.id} permanently failed — config error, no retry: $lastError',
+          );
           break;
         }
       } catch (e) {
         lastError = e.toString();
-        log.error('[Scheduler] Exception running task ${task.id} (attempt ${attempt + 1}): $lastError');
+        log.error(
+          '[Scheduler] Exception running task ${task.id} (attempt ${attempt + 1}): $lastError',
+        );
       }
     }
 
-    log.error('[Scheduler] Task ${task.id} permanently failed after $maxRetries retries');
+    log.error(
+      '[Scheduler] Task ${task.id} permanently failed after $maxRetries retries',
+    );
     // Record final failure with the real error message so the app can show it.
     try {
       final existing = await db.getTask(task.id);

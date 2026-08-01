@@ -102,6 +102,19 @@ class ServerApiClient {
     }
   }
 
+  /// Get health status payload from `/health`.
+  Future<Map<String, dynamic>> getHealthStatus({Duration? timeout}) async {
+    try {
+      final r = await http.get(Uri.parse(_url('/health')), headers: _headers).timeout(timeout ?? _healthTimeout);
+      if (r.statusCode == 200) {
+        return jsonDecode(r.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      _logWarning('[ServerApiClient] getHealthStatus failed: $e');
+    }
+    return const {};
+  }
+
   /// Returns `true` only when an authenticated API endpoint accepts the API key.
   ///
   /// This validates authorization, not just network reachability.

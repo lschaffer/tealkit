@@ -305,10 +305,16 @@ void main() async {
 
   // Initialize DuckDB
   try {
-    await DuckDbService().init();
-    log.info('DuckDB initialized successfully');
+    final prefs = await SharedPreferences.getInstance();
+    final isRemoteMode = (prefs.getString('server_mode') ?? 'local') == 'remote';
+    if (!isRemoteMode) {
+      await DuckDbService().init();
+      log.info('DuckDB initialized successfully');
+    } else {
+      log.info('Skipping local DuckDB initialization in server mode');
+    }
   } catch (e) {
-    log.error('Failed to initialize DuckDB: $e');
+    log.warning('Could not initialize DuckDB (e.g. running in multi-instance or server mode): $e');
   }
 
   // Initialize credential cipher (must run before any task is loaded from DB).

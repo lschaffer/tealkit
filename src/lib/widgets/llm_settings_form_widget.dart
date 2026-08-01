@@ -44,6 +44,7 @@ class LlmSettingsFormWidget extends StatefulWidget {
   final ValueChanged<bool>? onAiDataSharingConsentChanged;
   final bool showLlm2Option;
   final bool showNoneOption;
+  final bool showEmbeddedOption;
 
   const LlmSettingsFormWidget({
     super.key,
@@ -74,6 +75,7 @@ class LlmSettingsFormWidget extends StatefulWidget {
     this.aiDataSharingConsent = false,
     this.onAiDataSharingConsentChanged,
     this.showLlm2Option = false,
+    this.showEmbeddedOption = true,
     this.showNoneOption = true,
   });
 
@@ -417,13 +419,11 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
     final requiresBaseUrl =
         provider == LlmProvider.ollama ||
         provider == LlmProvider.openaiCompatible ||
+        provider == LlmProvider.openai ||
         provider == LlmProvider.mistral;
 
     final hasDedicatedApiKeyField =
-        provider != LlmProvider.none &&
-        provider != LlmProvider.ollama &&
-        provider != LlmProvider.openaiCompatible &&
-        provider != LlmProvider.embedded;
+        provider != LlmProvider.none && provider != LlmProvider.embedded;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -540,10 +540,11 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
               value: 'openai_compatible',
               child: Text('OpenAI-compatible'),
             ),
-            const DropdownMenuItem(
-              value: 'embedded',
-              child: Text('Embedded (on-device)'),
-            ),
+            if (widget.showEmbeddedOption)
+              const DropdownMenuItem(
+                value: 'embedded',
+                child: Text('Embedded (on-device)'),
+              ),
             if (widget.showLlm2Option)
               const DropdownMenuItem(
                 value: 'llm2',
@@ -889,7 +890,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                       onChanged: (v) =>
                           widget.onUseNativeToolCallChanged(v ?? false),
                     ),
-                     CheckboxListTile(
+                    CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       value: widget.useSafeToolCall,
                       title: const Text('Safe Tool Call'),
@@ -906,8 +907,9 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                       subtitle: const Text(
                         'Allows LLM to recover from parameter schema errors. Disable for smaller/local models to avoid loops.',
                       ),
-                      onChanged: (v) =>
-                          widget.onEnableToolParameterAutoRecoveryChanged?.call(v ?? false),
+                      onChanged: (v) => widget
+                          .onEnableToolParameterAutoRecoveryChanged
+                          ?.call(v ?? false),
                     ),
                     const Divider(height: 24),
                     TextFormField(

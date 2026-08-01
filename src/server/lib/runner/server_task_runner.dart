@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
-import '../database/server_duckdb_service.dart';
+import '../database/server_database_adapter.dart';
 import '../models/agentic_task.dart';
 import '../services/server_data_sources_service.dart';
 import '../services/server_notification_service.dart';
@@ -91,12 +91,12 @@ Output formatting: default to concise plain text unless the task specifies a spe
     caseSensitive: false,
   );
 
-  final ServerDuckDbService _db;
+  final ServerDatabaseAdapter _db;
   final ServerLlmSettingsService _llmSettings;
   final _uuid = const Uuid();
 
   ServerTaskRunner({
-    required ServerDuckDbService db,
+    required ServerDatabaseAdapter db,
     required ServerLlmSettingsService llmSettings,
   }) : _db = db,
        _llmSettings = llmSettings;
@@ -276,13 +276,15 @@ Output formatting: default to concise plain text unless the task specifies a spe
               .replaceAll(r'$(tool_result)', previousStepOutput);
         }
 
-        final bool hasPlaceholder = currentExecutor.prompt.contains('tool_result') ||
+        final bool hasPlaceholder =
+            currentExecutor.prompt.contains('tool_result') ||
             currentExecutor.prompt.contains('tool_output') ||
             currentExecutor.prompt.contains('task_result') ||
             currentExecutor.prompt.contains('task_output');
 
         if (!hasPlaceholder && previousStepOutput.isNotEmpty) {
-          promptToRun = '$promptToRun\n\n[Context from previous step]:\n$previousStepOutput';
+          promptToRun =
+              '$promptToRun\n\n[Context from previous step]:\n$previousStepOutput';
         }
 
         final llmResult = await _runPrompt(
@@ -319,8 +321,10 @@ Output formatting: default to concise plain text unless the task specifies a spe
         );
 
         try {
-          final shouldDeliver = llmResult.success || !suppressFailureNotifications;
-          final isDuplicate = jsonEncode(currentExecutor.notification.toJson()) ==
+          final shouldDeliver =
+              llmResult.success || !suppressFailureNotifications;
+          final isDuplicate =
+              jsonEncode(currentExecutor.notification.toJson()) ==
               jsonEncode(task.notification.toJson());
           if (shouldDeliver && !isDuplicate) {
             await ServerNotificationService().deliverExecutorNotification(
@@ -1319,7 +1323,7 @@ Future<bool> _evaluateCondition(
   String operator,
   String value, {
   required ServerLlmSettingsService llmSettings,
-  required ServerDuckDbService db,
+  required ServerDatabaseAdapter db,
 }) async {
   final src = source.trim();
   final val = value.trim();

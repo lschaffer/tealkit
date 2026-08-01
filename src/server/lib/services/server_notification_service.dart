@@ -7,7 +7,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-import '../database/server_duckdb_service.dart';
+import '../database/server_database_adapter.dart';
 import '../models/agentic_task.dart';
 import '../runner/server_llm_runner.dart';
 import '../runner/server_task_runner.dart';
@@ -27,11 +27,12 @@ import '../utils/server_logger.dart';
 /// - Cloud storage uploads (Google Drive, OneDrive)
 /// - Task chaining (running subsequent tasks with result injection)
 class ServerNotificationService {
-  static final ServerNotificationService _instance = ServerNotificationService._();
+  static final ServerNotificationService _instance =
+      ServerNotificationService._();
   factory ServerNotificationService() => _instance;
   ServerNotificationService._();
 
-  final _db = ServerDuckDbService();
+  final _db = serverDb;
 
   /// Handle all post-task-execution notifications and chaining.
   Future<void> handleTaskCompletion({
@@ -40,7 +41,9 @@ class ServerNotificationService {
     required String resultText,
     required String? errorText,
   }) async {
-    log.info('[Notifications] Processing task "${task.name}" completion (success=$success)');
+    log.info(
+      '[Notifications] Processing task "${task.name}" completion (success=$success)',
+    );
 
     final previousResult = (task.execution.lastResult ?? '').trim();
 
@@ -53,7 +56,9 @@ class ServerNotificationService {
 
     String bodyText = resultText;
     try {
-      final outputLogFile = latestOutputFiles.firstWhere((f) => p.basename(f.path) == 'output.log');
+      final outputLogFile = latestOutputFiles.firstWhere(
+        (f) => p.basename(f.path) == 'output.log',
+      );
       bodyText = await outputLogFile.readAsString();
     } catch (_) {
       // fallback to resultText
@@ -61,7 +66,10 @@ class ServerNotificationService {
 
     List<File> emailAttachments = const [];
     try {
-      emailAttachments = await _prepareEmailAttachments(task: task, files: latestOutputFiles);
+      emailAttachments = await _prepareEmailAttachments(
+        task: task,
+        files: latestOutputFiles,
+      );
     } catch (e) {
       log.warning('[Notifications] Failed to prepare email attachments: $e');
     }
@@ -108,21 +116,35 @@ class ServerNotificationService {
 
     // 4. Upload output via SFTP if configured
     try {
-      await _uploadSftpOutput(task: task, success: success, resultText: bodyText, errorText: errorText);
+      await _uploadSftpOutput(
+        task: task,
+        success: success,
+        resultText: bodyText,
+        errorText: errorText,
+      );
     } catch (e) {
       log.warning('[Notifications] SFTP upload failed: $e');
     }
 
     // 5. Process task chaining if configured
     try {
-      await _handleTaskChaining(task: task, success: success, resultText: bodyText);
+      await _handleTaskChaining(
+        task: task,
+        success: success,
+        resultText: bodyText,
+      );
     } catch (e) {
       log.error('[Notifications] Task chaining failed: $e');
     }
   }
 
   /// Evaluate send condition for a notification.
-  bool _shouldSend(String sendCondition, {required bool success, required String resultText, String? previousResult}) {
+  bool _shouldSend(
+    String sendCondition, {
+    required bool success,
+    required String resultText,
+    String? previousResult,
+  }) {
     switch (sendCondition.toLowerCase().trim()) {
       case 'always':
         return true;
@@ -142,19 +164,30 @@ class ServerNotificationService {
     final outputRoot = Directory(p.join(_db.dataDir, 'output', taskId));
     if (!await outputRoot.exists()) return const [];
 
-    final runDirs = await outputRoot.list().where((entity) => entity is Directory).cast<Directory>().toList();
+    final runDirs = await outputRoot
+        .list()
+        .where((entity) => entity is Directory)
+        .cast<Directory>()
+        .toList();
     if (runDirs.isEmpty) return const [];
 
     runDirs.sort((a, b) => b.path.compareTo(a.path));
     for (final runDir in runDirs) {
-      final files = await runDir.list().where((entity) => entity is File).cast<File>().toList();
+      final files = await runDir
+          .list()
+          .where((entity) => entity is File)
+          .cast<File>()
+          .toList();
       if (files.isNotEmpty) return files;
     }
 
     return const [];
   }
 
-  Future<List<File>> _prepareEmailAttachments({required AgenticTask task, required List<File> files}) async {
+  Future<List<File>> _prepareEmailAttachments({
+    required AgenticTask task,
+    required List<File> files,
+  }) async {
     final emailCfg = task.notification.email;
     if (emailCfg == null || files.isEmpty) return const [];
 
@@ -170,10 +203,17 @@ class ServerNotificationService {
         return false; // Omit step logs
       }
       final ext = p.extension(file.path).toLowerCase();
-      final isAllowed = ext == '.png' || ext == '.jpg' || ext == '.jpeg' || ext == '.gif' || ext == '.webp' || // pictures
-                        ext == '.xlsx' || ext == '.xls' || // excel
-                        ext == '.html' || ext == '.htm' || // html
-                        ext == '.json'; // json
+      final isAllowed =
+          ext == '.png' ||
+          ext == '.jpg' ||
+          ext == '.jpeg' ||
+          ext == '.gif' ||
+          ext == '.webp' || // pictures
+          ext == '.xlsx' ||
+          ext == '.xls' || // excel
+          ext == '.html' ||
+          ext == '.htm' || // html
+          ext == '.json'; // json
       return isAllowed;
     }).toList();
 
@@ -212,8 +252,15 @@ class ServerNotificationService {
     final notification = task.notification.slack;
     if (notification == null) return;
 
-    if (!_shouldSend(notification.sendCondition, success: success, resultText: resultText, previousResult: previousResult)) {
-      log.debug('[Slack] Send condition not met: ${notification.sendCondition}');
+    if (!_shouldSend(
+      notification.sendCondition,
+      success: success,
+      resultText: resultText,
+      previousResult: previousResult,
+    )) {
+      log.debug(
+        '[Slack] Send condition not met: ${notification.sendCondition}',
+      );
       return;
     }
 
@@ -233,18 +280,26 @@ class ServerNotificationService {
       final emoji = success ? '✅' : '❌';
       final status = success ? 'completed' : 'failed';
       final body = success ? resultText : (errorText ?? resultText);
-      final truncated = body.length > 2800 ? '${body.substring(0, 2800)}…' : body;
+      final truncated = body.length > 2800
+          ? '${body.substring(0, 2800)}…'
+          : body;
 
       final message = '$emoji *${task.name}* $status\n\n$truncated';
 
       final response = await http
-          .post(Uri.parse(webhook), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'text': message}))
+          .post(
+            Uri.parse(webhook),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'text': message}),
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200 && response.body == 'ok') {
         log.info('[Slack] Notification sent successfully');
       } else {
-        log.warning('[Slack] Webhook returned ${response.statusCode}: ${response.body}');
+        log.warning(
+          '[Slack] Webhook returned ${response.statusCode}: ${response.body}',
+        );
       }
     } catch (e, st) {
       log.error('[Slack] Notification failed: $e', e, st);
@@ -263,8 +318,15 @@ class ServerNotificationService {
     final notification = task.notification.whatsApp;
     if (notification == null) return;
 
-    if (!_shouldSend(notification.sendCondition, success: success, resultText: resultText, previousResult: previousResult)) {
-      log.debug('[WhatsApp] Send condition not met: ${notification.sendCondition}');
+    if (!_shouldSend(
+      notification.sendCondition,
+      success: success,
+      resultText: resultText,
+      previousResult: previousResult,
+    )) {
+      log.debug(
+        '[WhatsApp] Send condition not met: ${notification.sendCondition}',
+      );
       return;
     }
 
@@ -326,9 +388,13 @@ class ServerNotificationService {
 
     final response = await http
         .get(
-          Uri.parse(
-            'https://api.callmebot.com/whatsapp.php',
-          ).replace(queryParameters: {'phone': recipient, 'text': message, 'apikey': apiKey}),
+          Uri.parse('https://api.callmebot.com/whatsapp.php').replace(
+            queryParameters: {
+              'phone': recipient,
+              'text': message,
+              'apikey': apiKey,
+            },
+          ),
         )
         .timeout(const Duration(seconds: 20));
 
@@ -356,13 +422,20 @@ class ServerNotificationService {
     try {
       final status = success ? '✅ completed' : '❌ failed';
       final body = success ? resultText : (errorText ?? resultText);
-      final truncated = body.length > 1000 ? '${body.substring(0, 1000)}…' : body;
+      final truncated = body.length > 1000
+          ? '${body.substring(0, 1000)}…'
+          : body;
       final message = '*${task.name}* $status\n\n$truncated';
 
       final response = await http
           .post(
-            Uri.parse('https://graph.instagram.com/v18.0/$phoneNumberId/messages'),
-            headers: {'Authorization': 'Bearer $accessToken', 'Content-Type': 'application/json'},
+            Uri.parse(
+              'https://graph.instagram.com/v18.0/$phoneNumberId/messages',
+            ),
+            headers: {
+              'Authorization': 'Bearer $accessToken',
+              'Content-Type': 'application/json',
+            },
             body: jsonEncode({
               'messaging_product': 'whatsapp',
               'to': recipient,
@@ -375,7 +448,9 @@ class ServerNotificationService {
       if (response.statusCode == 200) {
         log.info('[WhatsApp/Meta] Message sent successfully');
       } else {
-        log.warning('[WhatsApp/Meta] Returned ${response.statusCode}: ${response.body}');
+        log.warning(
+          '[WhatsApp/Meta] Returned ${response.statusCode}: ${response.body}',
+        );
       }
     } catch (e, st) {
       log.error('[WhatsApp/Meta] Failed: $e', e, st);
@@ -395,40 +470,66 @@ class ServerNotificationService {
 
     final ds = ServerDataSourcesService.instance;
 
-    final host = cfg.useConfiguredSshServer ? ds.sshHost.trim() : cfg.host.trim();
+    final host = cfg.useConfiguredSshServer
+        ? ds.sshHost.trim()
+        : cfg.host.trim();
     final port = cfg.useConfiguredSshServer ? ds.sshPort : cfg.port;
-    final username = cfg.useConfiguredSshServer ? ds.sshUsername.trim() : cfg.username.trim();
-    final password = cfg.useConfiguredSshServer ? ds.sshPassword : (cfg.password ?? '');
-    final privateKeyPem = cfg.useConfiguredSshServer ? ds.sshPrivateKey.trim() : (cfg.privateKey?.trim() ?? '');
+    final username = cfg.useConfiguredSshServer
+        ? ds.sshUsername.trim()
+        : cfg.username.trim();
+    final password = cfg.useConfiguredSshServer
+        ? ds.sshPassword
+        : (cfg.password ?? '');
+    final privateKeyPem = cfg.useConfiguredSshServer
+        ? ds.sshPrivateKey.trim()
+        : (cfg.privateKey?.trim() ?? '');
 
     if (host.isEmpty || username.isEmpty) {
-      log.warning('[SFTP] Skipping upload for task "${task.name}": host or username is missing');
+      log.warning(
+        '[SFTP] Skipping upload for task "${task.name}": host or username is missing',
+      );
       return;
     }
 
     final outputRoot = Directory(p.join(_db.dataDir, 'output', task.id));
     if (!await outputRoot.exists()) {
-      log.warning('[SFTP] Skipping upload for task "${task.name}": no local output directory found');
+      log.warning(
+        '[SFTP] Skipping upload for task "${task.name}": no local output directory found',
+      );
       return;
     }
 
-    final runDirs = await outputRoot.list().where((entity) => entity is Directory).cast<Directory>().toList();
+    final runDirs = await outputRoot
+        .list()
+        .where((entity) => entity is Directory)
+        .cast<Directory>()
+        .toList();
     if (runDirs.isEmpty) {
-      log.warning('[SFTP] Skipping upload for task "${task.name}": no execution artifact directory found');
+      log.warning(
+        '[SFTP] Skipping upload for task "${task.name}": no execution artifact directory found',
+      );
       return;
     }
     runDirs.sort((a, b) => b.path.compareTo(a.path));
     final latestRunDir = runDirs.first;
-    final runDirName = latestRunDir.uri.pathSegments.where((segment) => segment.isNotEmpty).last;
+    final runDirName = latestRunDir.uri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .last;
 
-    final baseRemoteDir = (cfg.remotePath.trim().isEmpty ? '/' : cfg.remotePath.trim()).replaceAll('\\', '/');
-    final remoteDir = baseRemoteDir.endsWith('/') ? '$baseRemoteDir$runDirName' : '$baseRemoteDir/$runDirName';
+    final baseRemoteDir =
+        (cfg.remotePath.trim().isEmpty ? '/' : cfg.remotePath.trim())
+            .replaceAll('\\', '/');
+    final remoteDir = baseRemoteDir.endsWith('/')
+        ? '$baseRemoteDir$runDirName'
+        : '$baseRemoteDir/$runDirName';
     final uploadAsZip = task.notification.zipOutputFiles;
 
     SSHClient? client;
     SftpClient? sftp;
     try {
-      final identities = privateKeyPem.isNotEmpty ? SSHKeyPair.fromPem(privateKeyPem) : null;
+      final identities = privateKeyPem.isNotEmpty
+          ? SSHKeyPair.fromPem(privateKeyPem)
+          : null;
 
       client = SSHClient(
         await SSHSocket.connect(host, port),
@@ -443,7 +544,11 @@ class ServerNotificationService {
 
       sftp = await client.sftp();
 
-      final localFiles = await latestRunDir.list().where((entity) => entity is File).cast<File>().toList();
+      final localFiles = await latestRunDir
+          .list()
+          .where((entity) => entity is File)
+          .cast<File>()
+          .toList();
       final filteredFiles = localFiles.where((file) {
         final name = p.basename(file.path);
         if (name == 'output.log') {
@@ -456,15 +561,24 @@ class ServerNotificationService {
           return false; // Omit step logs
         }
         final ext = p.extension(file.path).toLowerCase();
-        final isAllowed = ext == '.png' || ext == '.jpg' || ext == '.jpeg' || ext == '.gif' || ext == '.webp' || // pictures
-                          ext == '.xlsx' || ext == '.xls' || // excel
-                          ext == '.html' || ext == '.htm' || // html
-                          ext == '.json'; // json
+        final isAllowed =
+            ext == '.png' ||
+            ext == '.jpg' ||
+            ext == '.jpeg' ||
+            ext == '.gif' ||
+            ext == '.webp' || // pictures
+            ext == '.xlsx' ||
+            ext == '.xls' || // excel
+            ext == '.html' ||
+            ext == '.htm' || // html
+            ext == '.json'; // json
         return isAllowed;
       }).toList();
 
       if (filteredFiles.isEmpty) {
-        log.warning('[SFTP] Skipping upload for task "${task.name}": latest execution produced no files');
+        log.warning(
+          '[SFTP] Skipping upload for task "${task.name}": latest execution produced no files',
+        );
         return;
       }
 
@@ -476,21 +590,41 @@ class ServerNotificationService {
           archive.addFile(ArchiveFile(fileName, bytes.length, bytes));
         }
         final zipped = ZipEncoder().encode(archive);
-        final remoteZipPath = remoteDir.endsWith('/') ? '${remoteDir}output.zip' : '$remoteDir/output.zip';
-        final zipFile = await sftp.open(remoteZipPath, mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate);
+        final remoteZipPath = remoteDir.endsWith('/')
+            ? '${remoteDir}output.zip'
+            : '$remoteDir/output.zip';
+        final zipFile = await sftp.open(
+          remoteZipPath,
+          mode:
+              SftpFileOpenMode.create |
+              SftpFileOpenMode.write |
+              SftpFileOpenMode.truncate,
+        );
         await zipFile.writeBytes(Uint8List.fromList(zipped));
         await zipFile.close();
-        log.info('[SFTP] Uploaded zipped output for task "${task.name}" to $host:$remoteZipPath');
+        log.info(
+          '[SFTP] Uploaded zipped output for task "${task.name}" to $host:$remoteZipPath',
+        );
       } else {
         for (final localFile in filteredFiles) {
           final fileName = p.basename(localFile.path);
-          final remotePath = remoteDir.endsWith('/') ? '$remoteDir$fileName' : '$remoteDir/$fileName';
+          final remotePath = remoteDir.endsWith('/')
+              ? '$remoteDir$fileName'
+              : '$remoteDir/$fileName';
           final bytes = await localFile.readAsBytes();
-          final file = await sftp.open(remotePath, mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate);
+          final file = await sftp.open(
+            remotePath,
+            mode:
+                SftpFileOpenMode.create |
+                SftpFileOpenMode.write |
+                SftpFileOpenMode.truncate,
+          );
           await file.writeBytes(bytes);
           await file.close();
         }
-        log.info('[SFTP] Uploaded ${filteredFiles.length} output file(s) for task "${task.name}" to $host:$remoteDir');
+        log.info(
+          '[SFTP] Uploaded ${filteredFiles.length} output file(s) for task "${task.name}" to $host:$remoteDir',
+        );
       }
     } finally {
       try {
@@ -512,7 +646,11 @@ class ServerNotificationService {
 
   // ── Task Chaining ───────────────────────────────────
 
-  Future<void> _handleTaskChaining({required AgenticTask task, required bool success, required String resultText}) async {
+  Future<void> _handleTaskChaining({
+    required AgenticTask task,
+    required bool success,
+    required String resultText,
+  }) async {
     final chainConfig = task.chainConfig;
     if (chainConfig == null) {
       return;
@@ -525,16 +663,25 @@ class ServerNotificationService {
     // onMatchTaskId/onNoMatchTaskId.
     String? targetTaskId;
 
-    if (chainConfig.triggerCondition != null && chainConfig.triggerCondition!.trim().isNotEmpty) {
+    if (chainConfig.triggerCondition != null &&
+        chainConfig.triggerCondition!.trim().isNotEmpty) {
       // Evaluate condition when configured and route to onMatch/onNoMatch.
       try {
-        final shouldMatch = await _evaluateCondition(condition: chainConfig.triggerCondition!, taskResult: resultText, parentTask: task);
+        final shouldMatch = await _evaluateCondition(
+          condition: chainConfig.triggerCondition!,
+          taskResult: resultText,
+          parentTask: task,
+        );
         if (shouldMatch) {
           targetTaskId = chainConfig.onMatchTaskId;
-          log.info('[Chaining] Condition matched, following chain to $targetTaskId');
+          log.info(
+            '[Chaining] Condition matched, following chain to $targetTaskId',
+          );
         } else {
           targetTaskId = chainConfig.onNoMatchTaskId;
-          log.info('[Chaining] Condition not matched, following chain to $targetTaskId');
+          log.info(
+            '[Chaining] Condition not matched, following chain to $targetTaskId',
+          );
         }
       } catch (e) {
         log.warning('[Chaining] Condition evaluation failed: $e');
@@ -573,7 +720,9 @@ class ServerNotificationService {
           .replaceAll(r'$(tool_output)', resultText.trim());
       final taskToRun = chainedTask.copyWith(prompt: injectedPrompt);
 
-      log.info('[Chaining] Running chained task "${chainedTask.name}" (id=$targetTaskId)');
+      log.info(
+        '[Chaining] Running chained task "${chainedTask.name}" (id=$targetTaskId)',
+      );
 
       // FIXED: Actually execute the chained task instead of just queuing it.
       // This matches the local mode behavior where TaskRunnerService().run(taskToRun) is called recursively.
@@ -583,9 +732,13 @@ class ServerNotificationService {
         final chainedResult = await runner.runTask(taskToRun);
 
         if (chainedResult.success) {
-          log.info('[Chaining] Chained task "${chainedTask.name}" completed successfully');
+          log.info(
+            '[Chaining] Chained task "${chainedTask.name}" completed successfully',
+          );
         } else {
-          log.warning('[Chaining] Chained task "${chainedTask.name}" completed with error: ${chainedResult.error}');
+          log.warning(
+            '[Chaining] Chained task "${chainedTask.name}" completed with error: ${chainedResult.error}',
+          );
         }
       } catch (e, st) {
         log.error('[Chaining] Failed to execute chained task: $e', e, st);
@@ -595,7 +748,11 @@ class ServerNotificationService {
     }
   }
 
-  Future<bool> _evaluateCondition({required String condition, required String taskResult, required AgenticTask parentTask}) async {
+  Future<bool> _evaluateCondition({
+    required String condition,
+    required String taskResult,
+    required AgenticTask parentTask,
+  }) async {
     // Improved condition evaluator: use LLM for natural language conditions (like local mode)
     // Falls back to string matching if LLM evaluation fails
 
@@ -615,7 +772,8 @@ class ServerNotificationService {
           'RESULT: <TRUE or FALSE>';
 
       final result = await runner.run(
-        systemPrompt: 'You are a strict logic evaluator. Reply with step-by-step reasoning first, then conclude with RESULT: TRUE or RESULT: FALSE.',
+        systemPrompt:
+            'You are a strict logic evaluator. Reply with step-by-step reasoning first, then conclude with RESULT: TRUE or RESULT: FALSE.',
         userPrompt: evaluationPrompt,
         registry: emptyRegistry,
       );
@@ -669,7 +827,9 @@ class ServerNotificationService {
         }
       }
     } catch (e) {
-      log.warning('[Chaining] LLM condition evaluation failed, falling back to pattern matching: $e');
+      log.warning(
+        '[Chaining] LLM condition evaluation failed, falling back to pattern matching: $e',
+      );
     }
 
     // ── Fallback: Simple pattern matching ──
@@ -679,7 +839,10 @@ class ServerNotificationService {
     // Match common patterns
     if (lower.contains('contains') || lower.contains('includes')) {
       // Extract the keyword to search for
-      final pattern = RegExp(r'''contains.*?["']([^"']+)["']''', caseSensitive: false);
+      final pattern = RegExp(
+        r'''contains.*?["']([^"']+)["']''',
+        caseSensitive: false,
+      );
       final match = pattern.firstMatch(condition);
       if (match != null) {
         final keyword = match.group(1)?.toLowerCase() ?? '';
@@ -708,8 +871,10 @@ class ServerNotificationService {
     required String resultText,
     required String? errorText,
   }) async {
-    log.info('[Notifications] Delivering executor notification for "$executorName" in task "$taskId"');
-    
+    log.info(
+      '[Notifications] Delivering executor notification for "$executorName" in task "$taskId"',
+    );
+
     final dummyTask = AgenticTask(
       id: taskId,
       name: executorName,
@@ -722,8 +887,11 @@ class ServerNotificationService {
     if (notification.email != null) {
       try {
         final latestOutputFiles = await _collectLatestRunFiles(taskId);
-        final emailAttachments = await _prepareEmailAttachments(task: dummyTask, files: latestOutputFiles);
-        
+        final emailAttachments = await _prepareEmailAttachments(
+          task: dummyTask,
+          files: latestOutputFiles,
+        );
+
         await ServerEmailService().sendTaskNotification(
           task: dummyTask,
           success: success,

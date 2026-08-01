@@ -9,7 +9,6 @@ import 'package:yaml/yaml.dart';
 import '../models/workflow_task.dart';
 import '../repositories/i_task_repository.dart';
 import 'app_logger.dart';
-import 'llm_settings_service.dart';
 import 'settings_vault_service.dart';
 import 'py_tool_library_service.dart';
 import '../models/py_tool_definition.dart';
@@ -52,10 +51,10 @@ class WorkflowExportService {
   /// Sanitizes a workflow name to a lowercase alphanumeric hyphenated string
   /// compatible with the agentskills.io specification constraints.
   static String sanitizeSkillName(String name) {
-    String cleaned = name
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    String cleaned = name.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]+'),
+      '-',
+    );
     while (cleaned.startsWith('-')) {
       cleaned = cleaned.substring(1);
     }
@@ -67,7 +66,9 @@ class WorkflowExportService {
   }
 
   /// Analyzes the workflow to see if it uses any custom Python tools by name/prefix
-  static List<PyToolDefinition> _getReferencedPythonTools(WorkflowTask workflow) {
+  static List<PyToolDefinition> _getReferencedPythonTools(
+    WorkflowTask workflow,
+  ) {
     final referenced = <PyToolDefinition>[];
     final allTools = PyToolLibraryService.instance.tools;
     final targets = [
@@ -76,7 +77,9 @@ class WorkflowExportService {
       ...workflow.agents.map((a) => a.prompt.toLowerCase()),
       ...workflow.agents.map((a) => a.systemPrompt?.toLowerCase() ?? ''),
       ...workflow.agents.map((a) => a.name.toLowerCase()),
-      ...workflow.agents.expand((a) => a.mcpTools.map((t) => t.name?.toLowerCase() ?? '')),
+      ...workflow.agents.expand(
+        (a) => a.mcpTools.map((t) => t.name?.toLowerCase() ?? ''),
+      ),
     ];
 
     for (final tool in allTools) {
@@ -203,20 +206,34 @@ class WorkflowExportService {
         // Zip mode: bundle SKILL.md and scripts/ folder
         final archive = Archive();
         final folderPrefix = '${sanitizeSkillName(workflow.name)}/';
-        
+
         // Add SKILL.md
         final skillBytes = utf8.encode(skillContent);
-        archive.addFile(ArchiveFile('${folderPrefix}SKILL.md', skillBytes.length, skillBytes));
+        archive.addFile(
+          ArchiveFile('${folderPrefix}SKILL.md', skillBytes.length, skillBytes),
+        );
 
         // Add scripts/
         for (final tool in pythonTools) {
           final scriptName = sanitizeSkillName(tool.name);
           final codeBytes = utf8.encode(tool.code);
-          archive.addFile(ArchiveFile('${folderPrefix}scripts/$scriptName.py', codeBytes.length, codeBytes));
+          archive.addFile(
+            ArchiveFile(
+              '${folderPrefix}scripts/$scriptName.py',
+              codeBytes.length,
+              codeBytes,
+            ),
+          );
 
           if (tool.requirements.trim().isNotEmpty) {
             final reqBytes = utf8.encode(tool.requirements);
-            archive.addFile(ArchiveFile('${folderPrefix}scripts/${scriptName}_requirements.txt', reqBytes.length, reqBytes));
+            archive.addFile(
+              ArchiveFile(
+                '${folderPrefix}scripts/${scriptName}_requirements.txt',
+                reqBytes.length,
+                reqBytes,
+              ),
+            );
           }
         }
 
@@ -257,7 +274,8 @@ class WorkflowExportService {
 
       // Step 2: Prompt Filename
       final now = DateTime.now();
-      final defaultFilename = 'tealkit_skills_export_${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}_${_twoDigits(now.hour)}${_twoDigits(now.minute)}.zip';
+      final defaultFilename =
+          'tealkit_skills_export_${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}_${_twoDigits(now.hour)}${_twoDigits(now.minute)}.zip';
 
       final filename = await showFilenameDialog(
         context: context,
@@ -270,7 +288,9 @@ class WorkflowExportService {
         return (error: null, count: 0); // user cancelled
       }
 
-      final finalFilename = filename.endsWith('.zip') ? filename : '$filename.zip';
+      final finalFilename = filename.endsWith('.zip')
+          ? filename
+          : '$filename.zip';
       final filePath = '$dirPath${Platform.pathSeparator}$finalFilename';
 
       final archive = Archive();
@@ -284,17 +304,31 @@ class WorkflowExportService {
 
         // Add SKILL.md
         final skillBytes = utf8.encode(skillContent);
-        archive.addFile(ArchiveFile('${folderPrefix}SKILL.md', skillBytes.length, skillBytes));
+        archive.addFile(
+          ArchiveFile('${folderPrefix}SKILL.md', skillBytes.length, skillBytes),
+        );
 
         // Add custom scripts if any
         for (final tool in pythonTools) {
           final scriptName = sanitizeSkillName(tool.name);
           final codeBytes = utf8.encode(tool.code);
-          archive.addFile(ArchiveFile('${folderPrefix}scripts/$scriptName.py', codeBytes.length, codeBytes));
+          archive.addFile(
+            ArchiveFile(
+              '${folderPrefix}scripts/$scriptName.py',
+              codeBytes.length,
+              codeBytes,
+            ),
+          );
 
           if (tool.requirements.trim().isNotEmpty) {
             final reqBytes = utf8.encode(tool.requirements);
-            archive.addFile(ArchiveFile('${folderPrefix}scripts/${scriptName}_requirements.txt', reqBytes.length, reqBytes));
+            archive.addFile(
+              ArchiveFile(
+                '${folderPrefix}scripts/${scriptName}_requirements.txt',
+                reqBytes.length,
+                reqBytes,
+              ),
+            );
           }
         }
         count++;
@@ -311,7 +345,8 @@ class WorkflowExportService {
   }
 
   /// Imports workflows from a TealKit-compatible SKILL.md file or a ZIP of skills.
-  static Future<({String? error, List<WorkflowTask>? importedTasks})> importWorkflow(
+  static Future<({String? error, List<WorkflowTask>? importedTasks})>
+  importWorkflow(
     BuildContext context,
     ITaskRepository repo, {
     ServerApiClient? serverClient,
@@ -331,7 +366,11 @@ class WorkflowExportService {
 
       final file = picked.files.first;
       final importedTasks = <WorkflowTask>[];
-      final archiveScripts = <String, Map<String, String>>{}; // folderPrefix -> (scriptName -> code/reqs)
+      final archiveScripts =
+          <
+            String,
+            Map<String, String>
+          >{}; // folderPrefix -> (scriptName -> code/reqs)
 
       if (file.name.endsWith('.zip')) {
         final List<int> bytes;
@@ -340,7 +379,10 @@ class WorkflowExportService {
         } else if (file.path != null) {
           bytes = await File(file.path!).readAsBytes();
         } else {
-          return (error: 'Could not read zip file content.', importedTasks: null);
+          return (
+            error: 'Could not read zip file content.',
+            importedTasks: null,
+          );
         }
 
         final archive = ZipDecoder().decodeBytes(bytes);
@@ -353,7 +395,8 @@ class WorkflowExportService {
           if (pathParts.isEmpty) continue;
 
           // Detect skill markdown files
-          if (normalizedName.endsWith('SKILL.md') || normalizedName.endsWith('.md')) {
+          if (normalizedName.endsWith('SKILL.md') ||
+              normalizedName.endsWith('.md')) {
             final content = utf8.decode(archiveFile.content as List<int>);
             final task = parseSkillContent(content);
             if (task != null) {
@@ -363,7 +406,8 @@ class WorkflowExportService {
 
           // Detect scripts
           if (normalizedName.contains('/scripts/')) {
-            final folderPrefix = pathParts.first; // top level folder e.g. "battery-check"
+            final folderPrefix =
+                pathParts.first; // top level folder e.g. "battery-check"
             final fileName = pathParts.last;
             final fileContent = utf8.decode(archiveFile.content as List<int>);
 
@@ -373,7 +417,11 @@ class WorkflowExportService {
         }
 
         if (importedTasks.isEmpty) {
-          return (error: 'No valid SKILL.md/markdown workflow files found in the zip.', importedTasks: null);
+          return (
+            error:
+                'No valid SKILL.md/markdown workflow files found in the zip.',
+            importedTasks: null,
+          );
         }
       } else {
         // Single md file
@@ -388,7 +436,10 @@ class WorkflowExportService {
 
         final task = parseSkillContent(content);
         if (task == null) {
-          return (error: 'Failed to parse TealKit compatible SKILL.md format.', importedTasks: null);
+          return (
+            error: 'Failed to parse TealKit compatible SKILL.md format.',
+            importedTasks: null,
+          );
         }
         importedTasks.add(task);
       }
@@ -399,7 +450,7 @@ class WorkflowExportService {
       for (final task in importedTasks) {
         // 1. Handle restoring custom scripts for this workflow
         final folderPrefix = sanitizeSkillName(task.name);
-        
+
         // Check if there are python tool definitions serialized in metadata
         // Since we parse metadata dynamically in _parseSkillContent (where they might already be added to the registry),
         // let's also scan archiveScripts in case of plain physical files.
@@ -413,10 +464,7 @@ class WorkflowExportService {
               final reqKey = '${scriptName}_requirements.txt';
               final requirements = localScripts[reqKey] ?? '';
 
-              final inputSchema = {
-                'type': 'object',
-                'properties': {},
-              };
+              final inputSchema = {'type': 'object', 'properties': {}};
               final newTool = PyToolDefinition.create(
                 name: scriptName,
                 description: 'Imported script tool from skill "${task.name}"',
@@ -425,7 +473,9 @@ class WorkflowExportService {
                 requirements: requirements,
               );
 
-              final existingTool = PyToolLibraryService.instance.getByName(scriptName);
+              final existingTool = PyToolLibraryService.instance.getByName(
+                scriptName,
+              );
               final toolToSave = existingTool != null
                   ? PyToolDefinition(
                       id: existingTool.id,
@@ -442,7 +492,10 @@ class WorkflowExportService {
                       updatedAt: DateTime.now(),
                     )
                   : newTool;
-              await PyToolLibraryService.instance.save(toolToSave, serverClient);
+              await PyToolLibraryService.instance.save(
+                toolToSave,
+                serverClient,
+              );
             }
           }
         }
@@ -450,9 +503,57 @@ class WorkflowExportService {
         // 2. Overwrite check by name (case-insensitive)
         WorkflowTask? existingMatch;
         for (final existingTask in existingTasks) {
-          if (existingTask.name.trim().toLowerCase() == task.name.trim().toLowerCase()) {
+          if (existingTask.name.trim().toLowerCase() ==
+              task.name.trim().toLowerCase()) {
             existingMatch = existingTask;
             break;
+          }
+        }
+
+        var taskToSave = task;
+        if (serverClient != null) {
+          try {
+            final health = await serverClient.getHealthStatus();
+            final isLightServer =
+                health['light_mode'] == true || health['mode'] == 'light';
+
+            bool isUnsupported(String type) {
+              if (type == 'gmail' ||
+                  type == 'google_calendar' ||
+                  type == 'google_drive' ||
+                  type == 'pdf' ||
+                  type == 'ps_bridge' ||
+                  type == 'chart') {
+                return true;
+              }
+              if (isLightServer &&
+                  (type == 'website_search' || type == 'document')) {
+                return true;
+              }
+              return false;
+            }
+
+            bool hasUnsupported = false;
+            for (final exec in task.agents) {
+              for (final mcp in exec.internalMcps) {
+                if (mcp.enabled && isUnsupported(mcp.mcpType)) {
+                  hasUnsupported = true;
+                }
+              }
+            }
+            for (final mcp in task.internalMcps) {
+              if (mcp.enabled && isUnsupported(mcp.mcpType)) {
+                hasUnsupported = true;
+              }
+            }
+            if (hasUnsupported) {
+              taskToSave = task.copyWith(enabled: false);
+              _log.warning(
+                'Imported task "${task.name}" uses unsupported tools in server mode; automatically disabled.',
+              );
+            }
+          } catch (e) {
+            _log.warning('Could not query server status during import: $e');
           }
         }
 
@@ -465,7 +566,9 @@ class WorkflowExportService {
             barrierDismissible: false,
             builder: (ctx) => AlertDialog(
               title: const Text('Confirm Overwrite'),
-              content: Text('A workflow with the name "${task.name}" already exists. Do you want to overwrite it?'),
+              content: Text(
+                'A workflow with the name "${task.name}" already exists. Do you want to overwrite it?',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
@@ -480,13 +583,13 @@ class WorkflowExportService {
           );
 
           if (confirm == true) {
-            final updatedTask = task.copyWith(id: existingMatch.id);
+            final updatedTask = taskToSave.copyWith(id: existingMatch.id);
             await repo.saveTask(updatedTask);
             savedTasks.add(updatedTask);
           }
         } else {
-          await repo.saveTask(task);
-          savedTasks.add(task);
+          await repo.saveTask(taskToSave);
+          savedTasks.add(taskToSave);
         }
       }
 
@@ -499,107 +602,87 @@ class WorkflowExportService {
 
   // ── Private Helpers ────────────────────────────────────────────────────────
 
-  static String _generateSkillContent(WorkflowTask workflow, List<PyToolDefinition> pythonTools) {
-    final s = LlmSettingsService.instance;
-
-    // Determine compatibility
-    final hasNativeTools = workflow.internalMcps.any((m) => m.enabled && m.mcpType != 'py_bridge');
-    final compatibility = hasNativeTools ? 'TealKit-Native' : 'Universal';
-
-    final requiredCapabilities = workflow.internalMcps
-        .where((m) => m.enabled && m.mcpType != 'py_bridge')
-        .map((m) => _capabilityMap[m.mcpType] ?? m.mcpType)
-        .toList();
-
-    final yamlMap = {
-      'name': sanitizeSkillName(workflow.name),
-      'description': workflow.description ?? '',
-      'compatibility': compatibility,
-      'metadata': {
-        'original_name': workflow.name,
-        'author': 'TealKit',
-        'required_capabilities': requiredCapabilities,
-        'llm_settings': {
-          'provider': workflow.llmConfig?.provider ?? s.provider.configKey,
-          'model': workflow.llmConfig?.model ?? s.model,
-          'temperature': workflow.llmConfig?.temperature ?? s.temperature,
-          'max_tokens': workflow.llmConfig?.maxTokens ?? s.maxTokens,
-          'is_slm': (workflow.llmConfig?.extraParams['is_slm'] as bool?) ?? s.isSlm,
-          'is_multi_modal': (workflow.llmConfig?.extraParams['is_multi_modal'] as bool?) ?? s.isMultiModal,
-          'thinking': (workflow.llmConfig?.extraParams['thinking'] as bool?) ?? s.thinking,
-          'use_native_tool_call': workflow.llmConfig?.useNativeToolCall ?? s.useNativeToolCall,
-          'use_safe_tool_call': (workflow.llmConfig?.extraParams['use_safe_tool_call'] as bool?) ?? s.useSafeToolCall,
-          'enable_tool_parameter_auto_recovery': s.enableToolParameterAutoRecovery,
-        },
-        'mcp_servers': workflow.mcpTools.map((t) => _sanitizeMcpConfig(t.toJson())).toList(),
-        'python_tools': pythonTools.map((t) => t.toJson()).toList(),
-        'workflow': {
-          'prompt': workflow.prompt,
-          'chat_mode': workflow.chatMode,
-          'stop_after_tool_call': workflow.stopAfterToolCall,
-          'agents': workflow.agents.map((a) => {
-            'id': a.id,
-            'name': a.name,
-            'system_prompt': a.systemPrompt ?? '',
-            'prompt': a.prompt,
-            'chat_mode': a.chatMode,
-            'stop_after_tool_call': a.stopAfterToolCall,
-            'mcp_tools': a.mcpTools.map((t) => t.name).toList(),
-            'internal_mcps': a.internalMcps.map((m) => m.mcpType).toList(),
-          }).toList(),
-          'edges': workflow.edges.map((e) => {
-            'id': e.id,
-            'source_agent_id': e.sourceAgentId,
-            'variable': e.variable,
-            'operator': e.operator,
-            'value': e.value,
-            'target_agent_id': e.targetAgentId,
-          }).toList(),
+  static String _generateSkillContent(
+    WorkflowTask workflow,
+    List<PyToolDefinition> pythonTools,
+  ) {
+    // Gather required toolsets from agent internal_mcps
+    final allInternalMcpTypes = <String>{};
+    for (final a in workflow.agents) {
+      for (final m in a.internalMcps) {
+        if (m.enabled && m.mcpType != 'py_bridge') {
+          allInternalMcpTypes.add(m.mcpType);
         }
       }
+    }
+    for (final m in workflow.internalMcps) {
+      if (m.enabled && m.mcpType != 'py_bridge') {
+        allInternalMcpTypes.add(m.mcpType);
+      }
+    }
+
+    // Map internal MCP types to agentskills.io capability names
+    final requiresToolsets = allInternalMcpTypes
+        .map((t) => _capabilityMap[t] ?? t)
+        .toList();
+
+    // Collect tags from name, description, toolsets
+    final tags = <String>{...requiresToolsets};
+    tags.add(sanitizeSkillName(workflow.name));
+    if (workflow.description != null && workflow.description!.isNotEmpty) {
+      // Extract meaningful words from description as tags (max 8)
+      final words = workflow.description!
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+          .split(RegExp(r'\s+'))
+          .where((w) => w.length > 3)
+          .take(8);
+      tags.addAll(words);
+    }
+
+    final yamlMap = <String, dynamic>{
+      'name': sanitizeSkillName(workflow.name),
+      'description': workflow.description ?? '',
+      'version': '1.0.0',
+      'author': 'tealkit',
+      'license': 'MIT',
+      'platforms': ['linux', 'macos', 'windows', 'android', 'ios'],
+      'metadata': {
+        'hermes': {
+          'tags': tags.toList(),
+          'category': 'data',
+          'requires_toolsets': requiresToolsets,
+        },
+      },
     };
 
     final yamlString = _toYaml(yamlMap);
 
+    // Build markdown body from agent system prompt + procedure
     final markdown = StringBuffer();
     markdown.writeln('---');
     markdown.writeln(yamlString.trim());
     markdown.writeln('---');
-    markdown.writeln('# ${workflow.name}');
     markdown.writeln();
-    if (workflow.description != null && workflow.description!.isNotEmpty) {
-      markdown.writeln(workflow.description);
-      markdown.writeln();
-    }
 
-    if (workflow.mcpTools.isNotEmpty || pythonTools.isNotEmpty) {
-      markdown.writeln('## Required Tools');
-      markdown.writeln('You must have the following MCP tools available:');
-      for (final t in workflow.mcpTools) {
-        markdown.writeln('- `${t.name}` (External MCP Server: ${t.serverUrl})');
-      }
-      for (final pt in pythonTools) {
-        markdown.writeln('- `py_${sanitizeSkillName(pt.name).replaceAll("-", "_")}` (Custom Python Tool)');
-      }
-      markdown.writeln();
-    }
+    // Use first agent's system prompt as the skill body, or task prompt as fallback
+    final firstAgent = workflow.agents.isNotEmpty
+        ? workflow.agents.first
+        : null;
+    final bodyContent = (firstAgent?.systemPrompt?.isNotEmpty == true)
+        ? firstAgent!.systemPrompt!
+        : workflow.prompt.isNotEmpty
+        ? workflow.prompt
+        : '';
 
-    if (requiredCapabilities.isNotEmpty) {
-      markdown.writeln('## Required Capabilities');
-      markdown.writeln('This skill requires the following generic capabilities to be provided by the host:');
-      for (final cap in requiredCapabilities) {
-        markdown.writeln('- `$cap`');
-      }
-      markdown.writeln();
+    if (bodyContent.isNotEmpty) {
+      markdown.writeln(bodyContent);
     }
-
-    markdown.writeln('## Procedure');
-    markdown.writeln(workflow.prompt);
-    markdown.writeln();
 
     return markdown.toString();
   }
 
+  // ignore: unused_element
   static Map<String, dynamic> _sanitizeMcpConfig(Map<String, dynamic> config) {
     final sanitized = <String, dynamic>{};
     for (final entry in config.entries) {
@@ -647,7 +730,11 @@ class WorkflowExportService {
 
   static String _escapeYamlValue(dynamic value) {
     if (value is String) {
-      if (value.contains('\n') || value.contains('"') || value.contains(':') || value.contains('[') || value.contains(']')) {
+      if (value.contains('\n') ||
+          value.contains('"') ||
+          value.contains(':') ||
+          value.contains('[') ||
+          value.contains(']')) {
         return jsonEncode(value);
       }
       return '"$value"';
@@ -699,7 +786,11 @@ class WorkflowExportService {
     if (doc is! YamlMap) return null;
 
     final metadata = doc['metadata'] as YamlMap?;
-    final name = metadata?['original_name']?.toString() ?? doc['name']?.toString() ?? _parseMarkdownH1(content) ?? 'Imported Skill';
+    final name =
+        metadata?['original_name']?.toString() ??
+        doc['name']?.toString() ??
+        _parseMarkdownH1(content) ??
+        'Imported Skill';
     final description = doc['description']?.toString();
 
     // Parse custom python scripts if serialized
@@ -714,7 +805,8 @@ class WorkflowExportService {
             final rawSchema = pt['inputSchema'];
             if (rawSchema is YamlMap) {
               // Convert YamlMap to regular Map
-              schema = jsonDecode(jsonEncode(rawSchema)) as Map<String, dynamic>;
+              schema =
+                  jsonDecode(jsonEncode(rawSchema)) as Map<String, dynamic>;
             } else {
               schema = {};
             }
@@ -764,30 +856,83 @@ class WorkflowExportService {
     if (servers is YamlList) {
       for (final s in servers) {
         if (s is YamlMap) {
-          mcpTools.add(McpToolConfig(
-            serverUrl: s['server_url']?.toString() ?? 'http://localhost:8000',
-            name: s['name']?.toString() ?? 'mcp_server',
-            description: s['description']?.toString(),
-            mcpEndpoint: s['mcp_endpoint']?.toString() ?? '/mcp',
-            apiKey: s['api_key']?.toString(),
-          ));
+          mcpTools.add(
+            McpToolConfig(
+              serverUrl: s['server_url']?.toString() ?? 'http://localhost:8000',
+              name: s['name']?.toString() ?? 'mcp_server',
+              description: s['description']?.toString(),
+              mcpEndpoint: s['mcp_endpoint']?.toString() ?? '/mcp',
+              apiKey: s['api_key']?.toString(),
+            ),
+          );
         }
       }
     }
 
     final hermesMap = metadata?['hermes'];
-    final hermesToolsets = hermesMap is YamlMap ? hermesMap['requires_toolsets'] : null;
+    final hermesToolsets = hermesMap is YamlMap
+        ? hermesMap['requires_toolsets']
+        : null;
     final reqCaps = metadata?['required_capabilities'];
+
+    /// Known internal MCP types — maps skill-level tool references to
+    /// actual internal MCP entries instead of creating fake `capability://` URLs.
+    const knownInternalMcpMap = <String>{
+      'web_search',
+      'web-search',
+      'weather',
+      'weather_retrieval',
+      'ssh',
+      'shell',
+      'imap',
+      'email',
+      'chart',
+      'mermaid',
+      'file',
+      'excel',
+      'website_search',
+      'website-search',
+      'web_index',
+      'document',
+      'document_search',
+      'doc-search',
+      'home_assistant',
+      'gmail',
+      'google_calendar',
+      'google_drive',
+      'js_bridge',
+      'js-bridge',
+      'py_bridge',
+      'py-bridge',
+      'toolbox',
+    };
+
+    /// Collects internal MCP types referenced by Hermes requires_toolsets
+    /// or required_capabilities. These become agent-level internalMcps.
+    final requiredInternalMcpTypes = <String>{};
 
     void addRequiredTool(String name) {
       final trimmed = name.trim();
-      if (trimmed.isNotEmpty && !mcpTools.any((t) => t.name == trimmed)) {
-        mcpTools.add(McpToolConfig(
-          serverUrl: 'capability://$trimmed',
-          name: trimmed,
-          description: 'Required tool capability: $trimmed',
-        ));
+      if (trimmed.isEmpty) return;
+      // Normalize hyphenated names to underscores for matching
+      final normalized = trimmed.replaceAll('-', '_');
+      if (knownInternalMcpMap.contains(normalized)) {
+        requiredInternalMcpTypes.add(normalized);
+        return;
       }
+      if (mcpTools.any((t) => t.name == trimmed)) return;
+      // Only add as MCP tool if it looks like an actual server URL
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        mcpTools.add(
+          McpToolConfig(
+            serverUrl: trimmed,
+            name: trimmed,
+            description: 'Required tool capability: $trimmed',
+          ),
+        );
+      }
+      // Otherwise: silently skip — unknown tool references should not
+      // create fake "capability://" entries that break execution.
     }
 
     if (hermesToolsets is YamlList) {
@@ -812,29 +957,54 @@ class WorkflowExportService {
     if (workflowNode is YamlMap) {
       prompt = workflowNode['prompt']?.toString() ?? '';
       chatMode = workflowNode['chat_mode'] as bool? ?? false;
-      stopAfterToolCall = workflowNode['stop_after_tool_call'] as bool? ?? false;
+      stopAfterToolCall =
+          workflowNode['stop_after_tool_call'] as bool? ?? false;
 
       final yamlAgents = workflowNode['agents'];
       if (yamlAgents is YamlList) {
         for (final a in yamlAgents) {
           if (a is YamlMap) {
-            agents.add(Agent(
-              id: a['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              name: a['name']?.toString() ?? 'Agent',
-              systemPrompt: a['system_prompt']?.toString(),
-              prompt: a['prompt']?.toString() ?? '',
-              chatMode: a['chat_mode'] as bool? ?? false,
-              stopAfterToolCall: a['stop_after_tool_call'] as bool? ?? false,
-              mcpTools: (a['mcp_tools'] as YamlList?)?.map((name) {
-                return mcpTools.firstWhere(
-                  (t) => t.name == name.toString(),
-                  orElse: () => McpToolConfig(
-                    serverUrl: 'http://localhost:8000',
-                    name: name.toString(),
-                  ),
-                );
-              }).toList() ?? [],
-            ));
+            agents.add(
+              Agent(
+                id:
+                    a['id']?.toString() ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                name: a['name']?.toString() ?? 'Agent',
+                systemPrompt: a['system_prompt']?.toString(),
+                prompt: a['prompt']?.toString() ?? '',
+                chatMode: a['chat_mode'] as bool? ?? false,
+                stopAfterToolCall: a['stop_after_tool_call'] as bool? ?? false,
+                mcpTools:
+                    (a['mcp_tools'] as YamlList?)
+                        ?.map((name) {
+                          final n = name.toString().trim();
+                          final normalized = n.replaceAll('-', '_');
+                          // Skip known internal MCP types — they go into internalMcps
+                          if (knownInternalMcpMap.contains(normalized)) {
+                            return null;
+                          }
+                          return mcpTools.cast<McpToolConfig?>().firstWhere(
+                            (t) => t?.name == n,
+                            orElse: () => null,
+                          );
+                        })
+                        .whereType<McpToolConfig>()
+                        .toList() ??
+                    const <McpToolConfig>[],
+                internalMcps:
+                    (a['internal_mcps'] as YamlList?)
+                        ?.map(
+                          (m) => InternalMcpEntry(
+                            id: DateTime.now().microsecondsSinceEpoch
+                                .toString(),
+                            mcpType: m.toString().trim().replaceAll('-', '_'),
+                            enabled: true,
+                          ),
+                        )
+                        .toList() ??
+                    [],
+              ),
+            );
           }
         }
       }
@@ -843,14 +1013,18 @@ class WorkflowExportService {
       if (yamlEdges is YamlList) {
         for (final e in yamlEdges) {
           if (e is YamlMap) {
-            edges.add(Edge(
-              id: e['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              sourceAgentId: e['source_agent_id']?.toString() ?? '',
-              variable: e['variable']?.toString() ?? '',
-              operator: e['operator']?.toString() ?? '',
-              value: e['value']?.toString() ?? '',
-              targetAgentId: e['target_agent_id']?.toString() ?? '',
-            ));
+            edges.add(
+              Edge(
+                id:
+                    e['id']?.toString() ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                sourceAgentId: e['source_agent_id']?.toString() ?? '',
+                variable: e['variable']?.toString() ?? '',
+                operator: e['operator']?.toString() ?? '',
+                value: e['value']?.toString() ?? '',
+                targetAgentId: e['target_agent_id']?.toString() ?? '',
+              ),
+            );
           }
         }
       }
@@ -862,8 +1036,9 @@ class WorkflowExportService {
     // be injected when the skill is loaded into the Playground.
     // For skills that already define system_prompt inside workflow.agents we
     // leave systemPrompt null so the agent-level value takes priority.
-    final bool hasAgentSystemPrompt =
-        agents.any((a) => (a.systemPrompt?.isNotEmpty ?? false));
+    final bool hasAgentSystemPrompt = agents.any(
+      (a) => (a.systemPrompt?.isNotEmpty ?? false),
+    );
     String? skillBodySystemPrompt;
     if (!hasAgentSystemPrompt && workflowNode == null) {
       // Parse body: everything after the second '---' line
@@ -874,6 +1049,28 @@ class WorkflowExportService {
         skillBodySystemPrompt = body;
       }
     }
+
+    // If no agents exist (agentskills.io format without workflow block),
+    // create a default agent with the required internal MCPs from Hermes metadata.
+    final effectiveAgents = agents.isNotEmpty
+        ? agents
+        : <Agent>[
+            Agent(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              name: name,
+              systemPrompt: skillBodySystemPrompt,
+              prompt: prompt,
+              internalMcps: requiredInternalMcpTypes
+                  .map(
+                    (t) => InternalMcpEntry(
+                      id: DateTime.now().microsecondsSinceEpoch.toString(),
+                      mcpType: t,
+                      enabled: true,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ];
 
     return WorkflowTask(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -886,8 +1083,17 @@ class WorkflowExportService {
       llmConfig: llmConfig,
       mcpTools: mcpTools,
       executionPlan: const ExecutionPlan(cronExpression: '@manual'),
-      agents: agents,
+      agents: effectiveAgents,
       edges: edges,
+      internalMcps: requiredInternalMcpTypes
+          .map(
+            (t) => InternalMcpEntry(
+              id: DateTime.now().microsecondsSinceEpoch.toString(),
+              mcpType: t,
+              enabled: true,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -903,7 +1109,11 @@ class WorkflowExportService {
     if (nameLower.endsWith('.zip')) {
       final archive = ZipDecoder().decodeBytes(bytes);
       ArchiveFile? skillFile;
-      final archiveScripts = <String, Map<String, String>>{}; // folderPrefix -> (scriptName -> code/reqs)
+      final archiveScripts =
+          <
+            String,
+            Map<String, String>
+          >{}; // folderPrefix -> (scriptName -> code/reqs)
 
       for (final f in archive) {
         if (!f.isFile) continue;
@@ -918,7 +1128,8 @@ class WorkflowExportService {
 
         // Detect scripts
         if (normalizedName.contains('/scripts/')) {
-          final folderPrefix = pathParts.first; // top level folder e.g. "battery-check"
+          final folderPrefix =
+              pathParts.first; // top level folder e.g. "battery-check"
           final fileName = pathParts.last;
           final fileContent = utf8.decode(f.content as List<int>);
 
@@ -944,7 +1155,9 @@ class WorkflowExportService {
       final content = utf8.decode(skillFile.content as List<int>);
       final task = parseSkillContent(content);
       if (task == null) {
-        throw Exception('Failed to parse skills.md inside the zip. Invalid format.');
+        throw Exception(
+          'Failed to parse skills.md inside the zip. Invalid format.',
+        );
       }
 
       // Handle restoring custom scripts for this workflow
@@ -959,10 +1172,7 @@ class WorkflowExportService {
             final reqKey = '${scriptName}_requirements.txt';
             final requirements = localScripts[reqKey] ?? '';
 
-            final inputSchema = {
-              'type': 'object',
-              'properties': {},
-            };
+            final inputSchema = {'type': 'object', 'properties': {}};
             final newTool = PyToolDefinition.create(
               name: scriptName,
               description: 'Imported script tool from skill "${task.name}"',
@@ -971,7 +1181,9 @@ class WorkflowExportService {
               requirements: requirements,
             );
 
-            final existingTool = PyToolLibraryService.instance.getByName(scriptName);
+            final existingTool = PyToolLibraryService.instance.getByName(
+              scriptName,
+            );
             final toolToSave = existingTool != null
                 ? PyToolDefinition(
                     id: existingTool.id,
@@ -998,11 +1210,15 @@ class WorkflowExportService {
       final content = utf8.decode(bytes);
       final task = parseSkillContent(content);
       if (task == null) {
-        throw Exception('Failed to parse skill markdown file. Missing or invalid YAML frontmatter.');
+        throw Exception(
+          'Failed to parse skill markdown file. Missing or invalid YAML frontmatter.',
+        );
       }
       return task;
     } else {
-      throw Exception('Unsupported file type. Please select a .zip or .md file.');
+      throw Exception(
+        'Unsupported file type. Please select a .zip or .md file.',
+      );
     }
   }
 }

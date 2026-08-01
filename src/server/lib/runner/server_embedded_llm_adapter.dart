@@ -6,45 +6,9 @@ import 'package:path/path.dart' as p;
 
 import '../config/server_config_service.dart';
 import '../models/mcp_models.dart';
+import 'server_embedded_types.dart';
 
-class ServerEmbeddedToolCall {
-  final String? id;
-  final String name;
-  final Map<String, dynamic> arguments;
-
-  const ServerEmbeddedToolCall({this.id, required this.name, required this.arguments});
-}
-
-enum ServerEmbeddedChatRole { system, human, ai, tool }
-
-class ServerEmbeddedChatMessage {
-  final ServerEmbeddedChatRole role;
-  final String content;
-  final List<ServerEmbeddedToolCall> toolCalls;
-  final String? toolCallId;
-  final String? toolName;
-
-  const ServerEmbeddedChatMessage({required this.role, required this.content, this.toolCalls = const [], this.toolCallId, this.toolName});
-
-  factory ServerEmbeddedChatMessage.system(String content) =>
-      ServerEmbeddedChatMessage(role: ServerEmbeddedChatRole.system, content: content);
-
-  factory ServerEmbeddedChatMessage.human(String content) =>
-      ServerEmbeddedChatMessage(role: ServerEmbeddedChatRole.human, content: content);
-
-  factory ServerEmbeddedChatMessage.ai(String content, {List<ServerEmbeddedToolCall> toolCalls = const []}) =>
-      ServerEmbeddedChatMessage(role: ServerEmbeddedChatRole.ai, content: content, toolCalls: toolCalls);
-
-  factory ServerEmbeddedChatMessage.toolResult({required String toolCallId, required String toolName, required String content}) =>
-      ServerEmbeddedChatMessage(role: ServerEmbeddedChatRole.tool, content: content, toolCallId: toolCallId, toolName: toolName);
-}
-
-class ServerEmbeddedGenerationResult {
-  final String content;
-  final List<ServerEmbeddedToolCall> toolCalls;
-
-  const ServerEmbeddedGenerationResult({required this.content, required this.toolCalls});
-}
+export 'server_embedded_types.dart'; // Re-export for backward compatibility
 
 class ServerEmbeddedLlmAdapter {
   ServerEmbeddedLlmAdapter._();
@@ -69,7 +33,10 @@ class ServerEmbeddedLlmAdapter {
     return _backend!;
   }
 
-  Future<T> runExclusive<T>(Future<T> Function() action, {Duration? waitTimeout}) async {
+  Future<T> runExclusive<T>(
+    Future<T> Function() action, {
+    Duration? waitTimeout,
+  }) async {
     if (_exclusiveRunActive) {
       final waiter = Completer<void>();
       _runWaiters.add(waiter);
@@ -96,7 +63,11 @@ class ServerEmbeddedLlmAdapter {
     }
   }
 
-  Future<void> initialize(String modelPath, {int? gpuLayers, int contextSize = _defaultContextSize}) async {
+  Future<void> initialize(
+    String modelPath, {
+    int? gpuLayers,
+    int contextSize = _defaultContextSize,
+  }) async {
     if (_loadedModelPath == modelPath && isLoaded) return;
 
     if (_loadingCompleter != null) {
@@ -131,7 +102,10 @@ class ServerEmbeddedLlmAdapter {
       _engine ??= LlamaEngine(_getBackend());
       await _engine!.loadModel(
         modelPath,
-        modelParams: ModelParams(contextSize: contextSize, gpuLayers: targetGpuLayers),
+        modelParams: ModelParams(
+          contextSize: contextSize,
+          gpuLayers: targetGpuLayers,
+        ),
       );
       _loadedModelPath = modelPath;
       completer.complete();
@@ -188,18 +162,24 @@ class ServerEmbeddedLlmAdapter {
     }
 
     final session = ChatSession(engine);
-    final systemMsg = messages.lastWhereOrNull((m) => m.role == ServerEmbeddedChatRole.system);
+    final systemMsg = messages.lastWhereOrNull(
+      (m) => m.role == ServerEmbeddedChatRole.system,
+    );
     if (systemMsg != null) {
       session.systemPrompt = systemMsg.content;
     }
 
-    final nonSystem = messages.where((m) => m.role != ServerEmbeddedChatRole.system).toList();
+    final nonSystem = messages
+        .where((m) => m.role != ServerEmbeddedChatRole.system)
+        .toList();
     if (nonSystem.isEmpty) {
       throw ArgumentError('No user messages in conversation.');
     }
 
     final lastIsToolResult = nonSystem.last.role == ServerEmbeddedChatRole.tool;
-    final historySlice = lastIsToolResult ? nonSystem : nonSystem.take(nonSystem.length - 1).toList();
+    final historySlice = lastIsToolResult
+        ? nonSystem
+        : nonSystem.take(nonSystem.length - 1).toList();
     _populateHistory(session, historySlice);
 
     final inputParts = <LlamaContentPart>[];
@@ -207,11 +187,23 @@ class ServerEmbeddedLlmAdapter {
       inputParts.add(LlamaTextContent(nonSystem.last.content));
     }
 
-    final toolDefs = availableTools != null && availableTools.isNotEmpty ? _convertTools(availableTools) : null;
-    final params = GenerationParams(maxTokens: maxTokens, temp: temperature, topK: topK, topP: topP, penalty: penalty);
+    final toolDefs = availableTools != null && availableTools.isNotEmpty
+        ? _convertTools(availableTools)
+        : null;
+    final params = GenerationParams(
+      maxTokens: maxTokens,
+      temp: temperature,
+      topK: topK,
+      topP: topP,
+      penalty: penalty,
+    );
 
     var fullText = '';
-    await for (final chunk in session.create(inputParts, tools: toolDefs, params: params)) {
+    await for (final chunk in session.create(
+      inputParts,
+      tools: toolDefs,
+      params: params,
+    )) {
       if (chunk.choices.isNotEmpty) {
         final content = chunk.choices.first.delta.content;
         if (content != null && content.isNotEmpty) {
@@ -224,20 +216,37 @@ class ServerEmbeddedLlmAdapter {
     final toolCalls =
         lastHistoryMsg?.parts
             .whereType<LlamaToolCallContent>()
-            .map((tc) => ServerEmbeddedToolCall(id: tc.id, name: tc.name, arguments: tc.arguments))
+            .map(
+              (tc) => ServerEmbeddedToolCall(
+                id: tc.id,
+                name: tc.name,
+                arguments: tc.arguments,
+              ),
+            )
             .toList() ??
         const <ServerEmbeddedToolCall>[];
 
-    return ServerEmbeddedGenerationResult(content: fullText, toolCalls: toolCalls);
+    return ServerEmbeddedGenerationResult(
+      content: fullText,
+      toolCalls: toolCalls,
+    );
   }
 
-  void _populateHistory(ChatSession session, List<ServerEmbeddedChatMessage> messages) {
+  void _populateHistory(
+    ChatSession session,
+    List<ServerEmbeddedChatMessage> messages,
+  ) {
     var index = 0;
     while (index < messages.length) {
       final msg = messages[index];
 
       if (msg.role == ServerEmbeddedChatRole.human) {
-        session.addMessage(LlamaChatMessage.fromText(role: LlamaChatRole.user, text: msg.content));
+        session.addMessage(
+          LlamaChatMessage.fromText(
+            role: LlamaChatRole.user,
+            text: msg.content,
+          ),
+        );
         index++;
         continue;
       }
@@ -245,7 +254,8 @@ class ServerEmbeddedLlmAdapter {
       if (msg.role == ServerEmbeddedChatRole.ai) {
         final toolResults = <ServerEmbeddedChatMessage>[];
         var lookahead = index + 1;
-        while (lookahead < messages.length && messages[lookahead].role == ServerEmbeddedChatRole.tool) {
+        while (lookahead < messages.length &&
+            messages[lookahead].role == ServerEmbeddedChatRole.tool) {
           toolResults.add(messages[lookahead]);
           lookahead++;
         }
@@ -257,18 +267,30 @@ class ServerEmbeddedLlmAdapter {
                   id: toolResult.toolCallId,
                   name: toolResult.toolName ?? 'tool',
                   arguments: const <String, dynamic>{},
-                  rawJson: jsonEncode({'name': toolResult.toolName ?? 'tool', 'arguments': const <String, dynamic>{}}),
+                  rawJson: jsonEncode({
+                    'name': toolResult.toolName ?? 'tool',
+                    'arguments': const <String, dynamic>{},
+                  }),
                 ),
               )
               .toList(growable: false);
-          session.addMessage(LlamaChatMessage.withContent(role: LlamaChatRole.assistant, content: parts));
+          session.addMessage(
+            LlamaChatMessage.withContent(
+              role: LlamaChatRole.assistant,
+              content: parts,
+            ),
+          );
 
           for (final toolResult in toolResults) {
             session.addMessage(
               LlamaChatMessage.withContent(
                 role: LlamaChatRole.tool,
                 content: [
-                  LlamaToolResultContent(id: toolResult.toolCallId, name: toolResult.toolName ?? 'tool', result: toolResult.content),
+                  LlamaToolResultContent(
+                    id: toolResult.toolCallId,
+                    name: toolResult.toolName ?? 'tool',
+                    result: toolResult.content,
+                  ),
                 ],
               ),
             );
@@ -278,7 +300,12 @@ class ServerEmbeddedLlmAdapter {
           continue;
         }
 
-        session.addMessage(LlamaChatMessage.fromText(role: LlamaChatRole.assistant, text: msg.content));
+        session.addMessage(
+          LlamaChatMessage.fromText(
+            role: LlamaChatRole.assistant,
+            text: msg.content,
+          ),
+        );
         index++;
         continue;
       }
@@ -287,7 +314,13 @@ class ServerEmbeddedLlmAdapter {
         session.addMessage(
           LlamaChatMessage.withContent(
             role: LlamaChatRole.tool,
-            content: [LlamaToolResultContent(id: msg.toolCallId, name: msg.toolName ?? 'tool', result: msg.content)],
+            content: [
+              LlamaToolResultContent(
+                id: msg.toolCallId,
+                name: msg.toolName ?? 'tool',
+                result: msg.content,
+              ),
+            ],
           ),
         );
         index++;
@@ -302,16 +335,25 @@ class ServerEmbeddedLlmAdapter {
     return tools
         .map((tool) {
           final params = _schemaToParams(tool.inputSchema);
-          return ToolDefinition(name: tool.name, description: tool.description ?? '', parameters: params, handler: (_) async => null);
+          return ToolDefinition(
+            name: tool.name,
+            description: tool.description ?? '',
+            parameters: params,
+            handler: (_) async => null,
+          );
         })
         .toList(growable: false);
   }
 
   List<ToolParam> _schemaToParams(Map<String, dynamic>? schema) {
     final rawProps = schema?['properties'];
-    final props = rawProps == null ? <String, dynamic>{} : (rawProps as Map).cast<String, dynamic>();
+    final props = rawProps == null
+        ? <String, dynamic>{}
+        : (rawProps as Map).cast<String, dynamic>();
     final rawRequired = schema?['required'];
-    final required = rawRequired == null ? <String>[] : (rawRequired as List).cast<String>();
+    final required = rawRequired == null
+        ? <String>[]
+        : (rawRequired as List).cast<String>();
 
     return props.entries
         .map((entry) {
@@ -322,19 +364,45 @@ class ServerEmbeddedLlmAdapter {
 
           switch (type) {
             case 'integer':
-              return ToolParam.integer(entry.key, description: desc, required: isRequired);
+              return ToolParam.integer(
+                entry.key,
+                description: desc,
+                required: isRequired,
+              );
             case 'number':
-              return ToolParam.number(entry.key, description: desc, required: isRequired);
+              return ToolParam.number(
+                entry.key,
+                description: desc,
+                required: isRequired,
+              );
             case 'boolean':
-              return ToolParam.boolean(entry.key, description: desc, required: isRequired);
+              return ToolParam.boolean(
+                entry.key,
+                description: desc,
+                required: isRequired,
+              );
             case 'array':
-              return ToolParam.array(entry.key, itemType: ToolParam.string('item'), description: desc, required: isRequired);
+              return ToolParam.array(
+                entry.key,
+                itemType: ToolParam.string('item'),
+                description: desc,
+                required: isRequired,
+              );
             default:
               final enumVals = (def['enum'] as List?)?.cast<String>();
               if (enumVals != null && enumVals.isNotEmpty) {
-                return ToolParam.enumType(entry.key, values: enumVals, description: desc, required: isRequired);
+                return ToolParam.enumType(
+                  entry.key,
+                  values: enumVals,
+                  description: desc,
+                  required: isRequired,
+                );
               }
-              return ToolParam.string(entry.key, description: desc, required: isRequired);
+              return ToolParam.string(
+                entry.key,
+                description: desc,
+                required: isRequired,
+              );
           }
         })
         .toList(growable: false);

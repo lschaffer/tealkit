@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_theme.dart';
+import '../providers/server_mode_provider.dart';
 import '../utils/example_tasks_service.dart';
 
 /// A bottom sheet that shows predefined example tasks the user can pick from.
@@ -10,7 +12,7 @@ import '../utils/example_tasks_service.dart';
 /// final example = await ExamplePickerDialog.show(context);
 /// if (example != null) { /* apply example */ }
 /// ```
-class ExamplePickerDialog extends StatefulWidget {
+class ExamplePickerDialog extends ConsumerStatefulWidget {
   const ExamplePickerDialog({super.key, this.requiredToolType, this.excludedToolType, this.title, this.subtitle});
 
   final String? requiredToolType;
@@ -37,10 +39,10 @@ class ExamplePickerDialog extends StatefulWidget {
   }
 
   @override
-  State<ExamplePickerDialog> createState() => _ExamplePickerDialogState();
+  ConsumerState<ExamplePickerDialog> createState() => _ExamplePickerDialogState();
 }
 
-class _ExamplePickerDialogState extends State<ExamplePickerDialog> {
+class _ExamplePickerDialogState extends ConsumerState<ExamplePickerDialog> {
   List<ExampleTask>? _examples;
 
   @override
@@ -59,7 +61,14 @@ class _ExamplePickerDialogState extends State<ExamplePickerDialog> {
   }
 
   List<ExampleTask> _filtered(String langCode) {
-    final all = _examples ?? [];
+    var all = _examples ?? [];
+
+    // In Light Server mode, hide heavy unavailable tools (document search, website search)
+    final serverState = ref.read(serverModeProvider).value;
+    if (serverState != null && serverState.isRemote && serverState.isLightMode) {
+      all = all.where((e) => !e.tools.contains('document') && !e.tools.contains('website_search')).toList();
+    }
+
     final byRequired = widget.requiredToolType == null ? all : all.where((e) => e.tools.contains(widget.requiredToolType)).toList();
     final byTool = widget.excludedToolType == null
         ? byRequired

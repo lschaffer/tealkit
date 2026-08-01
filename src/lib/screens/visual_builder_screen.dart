@@ -202,9 +202,7 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
     }
 
     // Find routing targets for this agent
-    final rules = _task.edges
-        .where((r) => r.sourceAgentId == nodeId)
-        .toList();
+    final rules = _task.edges.where((r) => r.sourceAgentId == nodeId).toList();
     if (rules.isNotEmpty) {
       if (rules.first.operator == 'stop') {
         return const [];
@@ -299,7 +297,8 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     if (nodeId == 'orchestrator') {
-      final bool showEntrypointProgress = _isRunning &&
+      final bool showEntrypointProgress =
+          _isRunning &&
           !_executorStatus.values.any((status) => status == 'running');
       final String progressText = 'Thinking...';
 
@@ -645,13 +644,10 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
 
     if (confirm != true) return;
 
-    final updatedExecutors = List<Agent>.from(_task.agents)
-      ..removeAt(index);
+    final updatedExecutors = List<Agent>.from(_task.agents)..removeAt(index);
     // Cleanup rules
     final updatedRules = _task.edges
-        .where(
-          (r) => r.sourceAgentId != exec.id && r.targetAgentId != exec.id,
-        )
+        .where((r) => r.sourceAgentId != exec.id && r.targetAgentId != exec.id)
         .toList();
 
     final updatedTask = _task.copyWith(
@@ -697,10 +693,7 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
     bool skipLine = false,
   }) {
     final rules = _task.edges
-        .where(
-          (r) =>
-              r.sourceAgentId == parentId && r.targetAgentId == childId,
-        )
+        .where((r) => r.sourceAgentId == parentId && r.targetAgentId == childId)
         .toList();
     final rule = rules.isNotEmpty ? rules.first : null;
 
@@ -1069,32 +1062,32 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
         },
         child: SafeArea(
           child: Stack(
-          children: [
-            InteractiveViewer(
-              transformationController: _transformationController,
-              boundaryMargin: const EdgeInsets.all(1000),
-              minScale: 0.2,
-              maxScale: 2.0,
-              constrained: false,
-              child: CustomPaint(
-                key: _canvasKey,
-                painter: GridBackgroundPainter(
-                  brightness: Theme.of(context).brightness,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(250),
-                  child: canvasContent,
+            children: [
+              InteractiveViewer(
+                transformationController: _transformationController,
+                boundaryMargin: const EdgeInsets.all(1000),
+                minScale: 0.2,
+                maxScale: 2.0,
+                constrained: false,
+                child: CustomPaint(
+                  key: _canvasKey,
+                  painter: GridBackgroundPainter(
+                    brightness: Theme.of(context).brightness,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(250),
+                    child: canvasContent,
+                  ),
                 ),
               ),
-            ),
-            if (_showLogsFloat && MediaQuery.of(context).size.width >= 800)
-              _buildFloatingLogWindow(context),
-          ],
+              if (_showLogsFloat && MediaQuery.of(context).size.width >= 800)
+                _buildFloatingLogWindow(context),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildOutputChannelIcon(BuildContext context, Agent exec) {
     IconData icon;
@@ -1246,14 +1239,11 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
                   GestureDetector(
                     onPanUpdate: (details) {
                       setLocalState(() {
-                        _logLeft = ((_logLeft ?? initialLeft) + details.delta.dx).clamp(
-                          0.0,
-                          screenWidth - 400.0,
-                        );
-                        _logTop = ((_logTop ?? initialTop) + details.delta.dy).clamp(
-                          0.0,
-                          screenHeight - 480.0,
-                        );
+                        _logLeft =
+                            ((_logLeft ?? initialLeft) + details.delta.dx)
+                                .clamp(0.0, screenWidth - 400.0);
+                        _logTop = ((_logTop ?? initialTop) + details.delta.dy)
+                            .clamp(0.0, screenHeight - 480.0);
                       });
                     },
                     onPanEnd: (_) {
@@ -1272,66 +1262,66 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
                       ),
                       child: Row(
                         children: [
-                      const Icon(
-                        Icons.receipt_long,
-                        color: Colors.white,
-                        size: 18,
+                          const Icon(
+                            Icons.receipt_long,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Execution Log',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.copy,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            onPressed: () => _copyLogsToClipboard(),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _showLogsFloat = false;
+                              });
+                            },
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Execution Log',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.copy,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        onPressed: () => _copyLogsToClipboard(),
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _showLogsFloat = false;
-                          });
-                        },
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: _executionLogs.isEmpty
+                        ? const Center(child: Text('No log entries yet.'))
+                        : ListView.builder(
+                            controller: _logScroll,
+                            padding: const EdgeInsets.all(12),
+                            itemCount: _executionLogs.length,
+                            itemBuilder: (context, i) =>
+                                _buildEntryTile(_executionLogs[i], isDark),
+                          ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: _executionLogs.isEmpty
-                    ? const Center(child: Text('No log entries yet.'))
-                    : ListView.builder(
-                        controller: _logScroll,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _executionLogs.length,
-                        itemBuilder: (context, i) =>
-                            _buildEntryTile(_executionLogs[i], isDark),
-                      ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }
@@ -1481,16 +1471,16 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
 
     final logText = sb.toString().trim();
     if (logText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No log entries to copy')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No log entries to copy')));
       return;
     }
 
     Clipboard.setData(ClipboardData(text: logText));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logs copied to clipboard')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Logs copied to clipboard')));
   }
 
   void _addEntry(String type, String text, {String? details}) {
@@ -1580,8 +1570,8 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
       final lowerText = entry.text.toLowerCase();
       final lowerExec = exec.name.toLowerCase();
       return lowerText.contains('[$lowerExec]') ||
-             lowerText.contains('executing step "$lowerExec"') ||
-             lowerText.contains('step "$lowerExec"');
+          lowerText.contains('executing step "$lowerExec"') ||
+          lowerText.contains('step "$lowerExec"');
     }).toList();
 
     if (isMobile) {
@@ -1596,7 +1586,8 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.copy),
-                    onPressed: () => _copyLogsToClipboard(customLogs: matchedLogs),
+                    onPressed: () =>
+                        _copyLogsToClipboard(customLogs: matchedLogs),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -1812,8 +1803,6 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
         }
       }
 
-
-
       final lastServerEntry = history.isNotEmpty ? history.first : null;
       final bool? serverSuccess = lastServerEntry?['success'] as bool?;
       final taskSuccess =
@@ -1966,7 +1955,10 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
                 final shortPreview = preview.length > 120
                     ? '${preview.substring(0, 120)}…'
                     : preview;
-                _addEntry('info', '[$execName] Sending prompt to AI: $shortPreview');
+                _addEntry(
+                  'info',
+                  '[$execName] Sending prompt to AI: $shortPreview',
+                );
               }
               break;
             case ChatRole.tool:
@@ -2149,7 +2141,10 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
         if (rules.isNotEmpty && !hasStopRule) {
           for (final rule in rules) {
             final valueToCheck = previousStepOutput;
-            _addEntry('info', '[$execName] Evaluating routing condition: "${rule.value}"');
+            _addEntry(
+              'info',
+              '[$execName] Evaluating routing condition: "${rule.value}"',
+            );
             final met = await evaluateCondition(
               llmService: active!.llmService!,
               locationService: active.chatService!.locationService,
@@ -2158,7 +2153,10 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
               operator: rule.operator,
               value: rule.value,
             );
-            _addEntry('info', '[$execName] Condition "${rule.value}" result: ${met ? "MET (True)" : "NOT MET (False)"}');
+            _addEntry(
+              'info',
+              '[$execName] Condition "${rule.value}" result: ${met ? "MET (True)" : "NOT MET (False)"}',
+            );
             if (met) {
               nextExecutorId = rule.targetAgentId;
               _addEntry(
@@ -2207,8 +2205,6 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
           }
         }
       }
-
-
 
       if (taskSuccess) {
         _addEntry('success', l.execCompleted);
@@ -2431,8 +2427,10 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       _isSlm = llm.extraParams['is_slm'] as bool? ?? false;
       _isMultiModal = llm.extraParams['is_multi_modal'] as bool? ?? true;
       _thinking = llm.extraParams['thinking'] as bool? ?? false;
-      _useNativeToolCall = llm.extraParams['use_native_tool_call'] as bool? ?? true;
-      _useSafeToolCall = llm.extraParams['use_safe_tool_call'] as bool? ?? false;
+      _useNativeToolCall =
+          llm.extraParams['use_native_tool_call'] as bool? ?? true;
+      _useSafeToolCall =
+          llm.extraParams['use_safe_tool_call'] as bool? ?? false;
     } else {
       _overrideLlm = false;
       _llmProviderCtrl = TextEditingController(text: 'gemini');
@@ -2459,17 +2457,50 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     // Populate missing internal MCP servers as disabled (so they are showable in checklist)
     final registry = InternalMcpRegistry();
     final serverInfos = List<InternalMcpInfo>.from(registry.availableServers);
+    final isLightServer =
+        ref.read(serverModeProvider).value?.isLightMode == true;
+    final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
     for (final info in serverInfos) {
-      if (info.type == 'toolbox' || info.type == 'traffic' || info.type.startsWith('gh_mcp_')) continue;
-      if (!_localInternalMcps.any((m) => m.mcpType == info.type)) {
-        _localInternalMcps.add(InternalMcpEntry(
-          id: const Uuid().v4(),
-          mcpType: info.type,
-          label: info.displayName,
-          enabled: false,
-          initParams: const {},
-        ));
+      if (info.type == 'toolbox' ||
+          info.type == 'traffic' ||
+          info.type.startsWith('gh_mcp_'))
+        continue;
+      if (isServerMode &&
+          (info.type == 'ps_bridge' ||
+              info.type == 'chart' ||
+              info.type == 'gmail' ||
+              info.type == 'google_calendar' ||
+              info.type == 'google_drive' ||
+              info.type == 'pdf')) {
+        continue;
       }
+      if (isServerMode &&
+          isLightServer &&
+          (info.type == 'website_search' ||
+              info.type == 'document' ||
+              info.type == 'excel'))
+        continue;
+      if (!_localInternalMcps.any((m) => m.mcpType == info.type)) {
+        _localInternalMcps.add(
+          InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: info.type,
+            label: info.displayName,
+            enabled: false,
+            initParams: const {},
+          ),
+        );
+      }
+    }
+
+    // Remove unsupported types from existing internalMcps in light server mode
+    if (isServerMode && isLightServer) {
+      _localInternalMcps.removeWhere(
+        (m) =>
+            m.mcpType == 'website_search' ||
+            m.mcpType == 'document' ||
+            m.mcpType == 'excel',
+      );
     }
 
     _localMcpTools = List<McpToolConfig>.from(widget.executor.mcpTools);
@@ -2641,12 +2672,13 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     }
     try {
       final tools = await client.getMcpServerTools(serverId);
-      final names = tools
-          .map((t) => (t['name'] ?? '').toString().trim())
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final names =
+          tools
+              .map((t) => (t['name'] ?? '').toString().trim())
+              .where((n) => n.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
       return names;
     } catch (e) {
       print('[AgentEdit] getMcpServerTools failed for $serverId: $e');
@@ -2665,7 +2697,9 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
         final def = GithubMcpLibraryService.instance.findById(serverId);
         if (def != null && def.isInstalled) {
           if (_prefetchedRemoteMcpTools[serverId]?.isNotEmpty == true) continue;
-          GithubMcpRuntimeService.instance.discoverLocalMcpTools(def).then((names) {
+          GithubMcpRuntimeService.instance.discoverLocalMcpTools(def).then((
+            names,
+          ) {
             if (names.isNotEmpty && mounted) {
               setState(() {
                 _prefetchedRemoteMcpTools[serverId] = names;
@@ -2688,16 +2722,20 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       if (idx >= 0) {
         if (!_sameStringList(_localMcpTools[idx].discoveredTools, names)) {
           setState(() {
-            _localMcpTools[idx] = _localMcpTools[idx].copyWith(discoveredTools: names);
+            _localMcpTools[idx] = _localMcpTools[idx].copyWith(
+              discoveredTools: names,
+            );
           });
         }
       } else {
         setState(() {
-          _localMcpTools.add(McpToolConfig(
-            name: Uri.tryParse(url)?.host ?? 'Global Server',
-            serverUrl: url,
-            discoveredTools: names,
-          ));
+          _localMcpTools.add(
+            McpToolConfig(
+              name: Uri.tryParse(url)?.host ?? 'Global Server',
+              serverUrl: url,
+              discoveredTools: names,
+            ),
+          );
         });
       }
     }
@@ -2768,7 +2806,10 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       if (match != null) {
         hasAnyExplicitTools = true;
         final listStr = match.group(1)!;
-        final tools = listStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty);
+        final tools = listStr
+            .split(',')
+            .map((t) => t.trim())
+            .where((t) => t.isNotEmpty);
         allToolNames.addAll(tools);
       }
     }
@@ -2823,7 +2864,9 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
         final seen = <String>{};
         skills = filteredList.where((s) => seen.add(s.toolName)).toList();
       } else {
-        skills = await FunctionHintDatabaseService().getEnabledForTools(filtered);
+        skills = await FunctionHintDatabaseService().getEnabledForTools(
+          filtered,
+        );
       }
       if (skills.isEmpty) return '';
       final buffer = StringBuffer();
@@ -2875,7 +2918,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
 
   List<ToolGroup> get _availableToolGroups {
     final groups = <ToolGroup>[];
-    
+
     // Add toolbox tools if toolbox is enabled
     if (_toolboxEnabled) {
       final toolbox = InternalMcpRegistry().create('toolbox');
@@ -2907,10 +2950,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
         final list = _prefetchedRemoteMcpTools[serverId];
         if (list != null && list.isNotEmpty) {
           groups.add(
-            ToolGroup(
-              name: mcp.label ?? mcp.mcpType,
-              toolNames: list,
-            ),
+            ToolGroup(name: mcp.label ?? mcp.mcpType, toolNames: list),
           );
         }
       }
@@ -3250,17 +3290,30 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       );
     }
 
-    final availableBuiltins = serverInfos
-        .where(
-          (server) =>
-              server.type != 'toolbox' &&
-              server.type != 'traffic' &&
-              !server.type.startsWith('gh_mcp_') &&
-              !(isServerMode &&
-                  (server.type == 'ps_bridge' || server.type == 'chart')),
-        )
-        .toList()
-      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+    final isLightServer =
+        ref.read(serverModeProvider).value?.isLightMode == true;
+    final availableBuiltins =
+        serverInfos
+            .where(
+              (server) =>
+                  server.type != 'toolbox' &&
+                  server.type != 'traffic' &&
+                  !server.type.startsWith('gh_mcp_') &&
+                  !(isServerMode &&
+                      (server.type == 'ps_bridge' ||
+                          server.type == 'chart' ||
+                          server.type == 'gmail' ||
+                          server.type == 'google_calendar' ||
+                          server.type == 'google_drive' ||
+                          server.type == 'pdf')) &&
+                  !(isServerMode &&
+                      isLightServer &&
+                      (server.type == 'website_search' ||
+                          server.type == 'document' ||
+                          server.type == 'excel')),
+            )
+            .toList()
+          ..sort((a, b) => a.displayName.compareTo(b.displayName));
 
     final globalServers = ExternalToolsSettingsService.instance.selectedServers;
 
@@ -3400,8 +3453,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
             else
               ..._remoteGithubMcpServers.map((def) {
                 final key = 'gh_mcp_${def.id}';
-                final idx = _localInternalMcps.indexWhere((m) => m.mcpType == key);
-                final isEnabled = idx >= 0 ? _localInternalMcps[idx].enabled : false;
+                final idx = _localInternalMcps.indexWhere(
+                  (m) => m.mcpType == key,
+                );
+                final isEnabled = idx >= 0
+                    ? _localInternalMcps[idx].enabled
+                    : false;
                 return CheckboxListTile(
                   title: Text(def.name),
                   subtitle: Text(
@@ -3413,15 +3470,18 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
                     if (val == null) return;
                     setState(() {
                       if (idx >= 0) {
-                        _localInternalMcps[idx] = _localInternalMcps[idx].copyWith(enabled: val);
+                        _localInternalMcps[idx] = _localInternalMcps[idx]
+                            .copyWith(enabled: val);
                       } else {
-                        _localInternalMcps.add(InternalMcpEntry(
-                          id: const Uuid().v4(),
-                          mcpType: key,
-                          label: def.name,
-                          enabled: val,
-                          initParams: const {},
-                        ));
+                        _localInternalMcps.add(
+                          InternalMcpEntry(
+                            id: const Uuid().v4(),
+                            mcpType: key,
+                            label: def.name,
+                            enabled: val,
+                            initParams: const {},
+                          ),
+                        );
                       }
                     });
                     if (val) {
@@ -3435,7 +3495,9 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
               }),
           ] else ...[
             FutureBuilder<List<GithubMcpServerDefinition>>(
-              future: Future.value(GithubMcpLibraryService.instance.installedServers),
+              future: Future.value(
+                GithubMcpLibraryService.instance.installedServers,
+              ),
               builder: (context, snapshot) {
                 final list = snapshot.data ?? [];
                 if (list.isEmpty) {
@@ -3450,8 +3512,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
                 return Column(
                   children: list.map((def) {
                     final key = 'gh_mcp_${def.id}';
-                    final idx = _localInternalMcps.indexWhere((m) => m.mcpType == key);
-                    final isEnabled = idx >= 0 ? _localInternalMcps[idx].enabled : false;
+                    final idx = _localInternalMcps.indexWhere(
+                      (m) => m.mcpType == key,
+                    );
+                    final isEnabled = idx >= 0
+                        ? _localInternalMcps[idx].enabled
+                        : false;
                     return CheckboxListTile(
                       title: Text(def.name),
                       subtitle: Text(
@@ -3463,15 +3529,18 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
                         if (val == null) return;
                         setState(() {
                           if (idx >= 0) {
-                            _localInternalMcps[idx] = _localInternalMcps[idx].copyWith(enabled: val);
+                            _localInternalMcps[idx] = _localInternalMcps[idx]
+                                .copyWith(enabled: val);
                           } else {
-                            _localInternalMcps.add(InternalMcpEntry(
-                              id: const Uuid().v4(),
-                              mcpType: key,
-                              label: def.name,
-                              enabled: val,
-                              initParams: const {},
-                            ));
+                            _localInternalMcps.add(
+                              InternalMcpEntry(
+                                id: const Uuid().v4(),
+                                mcpType: key,
+                                label: def.name,
+                                enabled: val,
+                                initParams: const {},
+                              ),
+                            );
                           }
                         });
                         if (val) {
@@ -3641,8 +3710,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
 
   Widget _buildLlmTabContent() {
     final settings = ref.read(llmSettingsProvider);
-    final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
-    final serverClient = isServerMode ? ref.read(serverApiClientProvider) : null;
+    final serverState = ref.watch(serverModeProvider).value;
+    final isServerMode = serverState?.isRemote ?? false;
+    final isLightMode = serverState?.isLightMode ?? false;
+    final serverClient = isServerMode
+        ? ref.read(serverApiClientProvider)
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3678,6 +3751,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
             serverClient: serverClient,
             showLlm2Option: true,
             showNoneOption: true,
+            showEmbeddedOption: !isLightMode,
             onProviderChanged: (key) {
               setState(() {
                 _llmProviderCtrl.text = key;
@@ -3813,9 +3887,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       initialValue:
-                          otherExecutors.any(
-                            (e) => e.id == rule.targetAgentId,
-                          )
+                          otherExecutors.any((e) => e.id == rule.targetAgentId)
                           ? rule.targetAgentId
                           : (otherExecutors.isNotEmpty
                                 ? otherExecutors.first.id
@@ -3833,9 +3905,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
                       onChanged: (val) {
                         if (val == null) return;
                         setState(() {
-                          _localRules[idx] = rule.copyWith(
-                            targetAgentId: val,
-                          );
+                          _localRules[idx] = rule.copyWith(targetAgentId: val);
                         });
                       },
                     ),
@@ -4030,7 +4100,16 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DropdownButtonFormField<String>(
-          initialValue: ['none', 'download', 'sftp', 'email', 'slack', 'whatsapp', 'push'].contains(_outputType)
+          initialValue:
+              [
+                'none',
+                'download',
+                'sftp',
+                'email',
+                'slack',
+                'whatsapp',
+                'push',
+              ].contains(_outputType)
               ? _outputType
               : 'none',
           decoration: const InputDecoration(
@@ -4188,7 +4267,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: ['always', 'on_success', 'on_failure'].contains(_emailSendConditionCtrl.text)
+            initialValue:
+                [
+                  'always',
+                  'on_success',
+                  'on_failure',
+                ].contains(_emailSendConditionCtrl.text)
                 ? _emailSendConditionCtrl.text
                 : 'always',
             decoration: const InputDecoration(
@@ -4214,7 +4298,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: ['always', 'on_success', 'on_failure'].contains(_slackSendCondition)
+            initialValue:
+                [
+                  'always',
+                  'on_success',
+                  'on_failure',
+                ].contains(_slackSendCondition)
                 ? _slackSendCondition
                 : 'always',
             decoration: const InputDecoration(
@@ -4241,7 +4330,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: ['always', 'on_success', 'on_failure'].contains(_whatsappSendCondition)
+            initialValue:
+                [
+                  'always',
+                  'on_success',
+                  'on_failure',
+                ].contains(_whatsappSendCondition)
                 ? _whatsappSendCondition
                 : 'always',
             decoration: const InputDecoration(
@@ -4268,7 +4362,12 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: ['always', 'on_success', 'on_failure'].contains(_pushSendCondition)
+            initialValue:
+                [
+                  'always',
+                  'on_success',
+                  'on_failure',
+                ].contains(_pushSendCondition)
                 ? _pushSendCondition
                 : 'always',
             decoration: const InputDecoration(

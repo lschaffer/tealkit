@@ -1059,6 +1059,24 @@ class _McpToolsViewerScreenState extends ConsumerState<_McpToolsViewerScreen> {
           log.info('[MCP Tools Viewer] Trying $uri');
           final tools = await _fetchViaJsonRpc(uri, headers);
           if (!mounted) return;
+
+          final toolNames = tools.map((t) => t.name).toList();
+          final toolSchemas = tools
+              .map(
+                (t) => {
+                  'name': t.name,
+                  if (t.description.isNotEmpty) 'description': t.description,
+                  if (t.inputSchema != null) 'inputSchema': t.inputSchema,
+                },
+              )
+              .toList();
+
+          final updatedServer = widget.server.copyWith(
+            discoveredTools: toolNames,
+            discoveredToolSchemas: toolSchemas,
+          );
+          await ExternalToolsSettingsService.instance.upsertSelectedServer(updatedServer);
+
           setState(() {
             _tools = tools;
             _resolvedUrl = uri.toString();

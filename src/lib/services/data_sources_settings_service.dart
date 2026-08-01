@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
@@ -148,6 +149,16 @@ enum CloudStorageProvider {
 class DataSourcesSettingsService extends ChangeNotifier {
   static final DataSourcesSettingsService instance = DataSourcesSettingsService._();
   DataSourcesSettingsService._();
+
+  @override
+  void notifyListeners() {
+    final binding = SchedulerBinding.instance;
+    if (binding.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      binding.addPostFrameCallback((_) => super.notifyListeners());
+    } else {
+      super.notifyListeners();
+    }
+  }
 
   static const List<String> gmailOAuthScopes = [
     'https://www.googleapis.com/auth/gmail.readonly',

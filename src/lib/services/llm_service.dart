@@ -125,20 +125,21 @@ class _MistralPatchClient extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     http.BaseRequest requestToSend = request;
 
+    if (targetProvider != null && targetProvider!.isNotEmpty) {
+      request.headers['X-Llm-Provider'] = targetProvider!;
+    }
+    if (targetBaseUrl != null && targetBaseUrl!.isNotEmpty) {
+      request.headers['X-Llm-Base-Url'] = targetBaseUrl!;
+    }
+    if (targetApiKey != null && targetApiKey!.isNotEmpty) {
+      request.headers['X-Llm-Api-Key'] = targetApiKey!;
+    }
+
     // Patch outgoing chat/completions requests for strict Mistral ordering.
     if (request.method.toUpperCase() == 'POST' &&
         request.url.path.contains('chat/completions') &&
         request is http.Request) {
       try {
-        if (targetProvider != null && targetProvider!.isNotEmpty) {
-          request.headers['X-Llm-Provider'] = targetProvider!;
-        }
-        if (targetBaseUrl != null && targetBaseUrl!.isNotEmpty) {
-          request.headers['X-Llm-Base-Url'] = targetBaseUrl!;
-        }
-        if (targetApiKey != null && targetApiKey!.isNotEmpty) {
-          request.headers['X-Llm-Api-Key'] = targetApiKey!;
-        }
         final decoded = jsonDecode(request.body);
         if (decoded is Map<String, dynamic>) {
           final patchedPayload = _sanitizeMistralChatRequest(decoded);
@@ -1320,9 +1321,19 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         headers['Authorization'] = 'Bearer $apiKey';
       }
 
+      talker.info('[OllamaService] initializeOllama - input baseUrl: "$baseUrl"');
+      var cleanedBaseUrl = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+      talker.info('[OllamaService] cleanedBaseUrl after strip trailing: "$cleanedBaseUrl"');
+      if (cleanedBaseUrl.endsWith('/api')) {
+        cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 4).replaceAll(RegExp(r'/+$'), '');
+        talker.info('[OllamaService] cleanedBaseUrl after endsWith("/api") check: "$cleanedBaseUrl"');
+      }
+      final finalBaseUrl = cleanedBaseUrl.isNotEmpty ? cleanedBaseUrl : 'http://localhost:11434';
+      talker.info('[OllamaService] final target baseUrl config for OllamaClient: "$finalBaseUrl"');
+
       _ollamaClient = ollama.OllamaClient(
         config: ollama.OllamaConfig(
-          baseUrl: baseUrl,
+          baseUrl: finalBaseUrl,
           defaultHeaders: headers,
         ),
       );
@@ -4522,9 +4533,16 @@ class LLMService extends ChangeNotifier with ServiceLogging {
               headers['Authorization'] = 'Bearer $_ollamaApiKey';
             }
 
+
+            var cleanedBaseUrl = _ollamaUrl!.trim().replaceAll(RegExp(r'/+$'), '');
+            if (cleanedBaseUrl.endsWith('/api')) {
+              cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 4).replaceAll(RegExp(r'/+$'), '');
+            }
+            final finalBaseUrl = cleanedBaseUrl.isNotEmpty ? cleanedBaseUrl : 'http://localhost:11434';
+
             final client = ollama.OllamaClient(
               config: ollama.OllamaConfig(
-                baseUrl: _ollamaUrl!,
+                baseUrl: finalBaseUrl,
                 defaultHeaders: headers,
               ),
             );

@@ -2,6 +2,20 @@
 
 This file tracks release changes by version.
 
+## v1.5.5 / v1.0.181 - Server Light Edition, Skill Import/Export Improvements & Output Cleanup
+
+### New Features
+- **Server Light Edition**: New lightweight server variant (`server_light`) designed for ARM devices and low-RAM environments (≤1 GB). Uses SQLite instead of DuckDB, excludes embedded model support, semantic search, website/document indexing, and PDF/chart tools. Shares the exact same REST API as the full server via a database adapter architecture — simply swap the backend at startup.
+- **Skill Import Tool Detection**: Importing skills now shows a dialog listing all required capabilities (from `hermes.requires_toolsets`). Each tool can be individually enabled/disabled, with already-enabled tools shown as green checkmarks and missing tools pre-selected. After import, the playground stays on the setup screen instead of auto-starting.
+- **Skill Export Hermes Format**: Exporting workflows now produces `agentskills.io` Hermes-compatible skill files with `metadata.hermes.requires_toolsets`, standard `version`/`author`/`license`/`platforms` fields, and the agent system prompt as the markdown body — no more proprietary `workflow` block or `capability://` URLs.
+- **Server Output Auto-Cleanup**: Both server variants now run a periodic cleanup timer (every 30 minutes) that scans the output directory recursively and removes files/directories older than the configured retention days. Full logging shows scanned task/run counts, purged directories, and final summary.
+
+### Bug Fixes & Improvements
+- **DuckDB Connection Singleton**: Fixed a regression where the new adapter created multiple DuckDB connections to the same file, causing "file already open" errors from concurrent indexing/scheduler services.
+- **Skill Import "capability://" Removal**: Eliminated fake `capability://` MCP tool entries that were created for unknown tools during skill import, which previously broke workflow execution.
+- **Windows Data Directory**: Fixed server path resolution on Windows — now correctly uses `USERPROFILE` instead of falling back to `/root`.
+- **Skill Import System Prompt**: Fixed an issue where the skill's system prompt text was duplicated into the initial prompt field on import.
+
 ## v1.5.4 / v1.0.175 - Automated Prompt Test & LLM Proxy Embedded Routing
 
 ### New Features

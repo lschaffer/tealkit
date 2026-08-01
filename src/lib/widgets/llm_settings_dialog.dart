@@ -22,11 +22,13 @@ import 'llm_settings_form_widget.dart';
 class LlmSettingsDialog extends StatefulWidget {
   final LlmSettingsService service;
   final ServerApiClient? serverClient;
+  final bool isLightMode;
 
   const LlmSettingsDialog({
     super.key,
     required this.service,
     this.serverClient,
+    this.isLightMode = false,
   });
 
   /// Open the dialog and return `true` when saved, `null` when cancelled.
@@ -34,12 +36,16 @@ class LlmSettingsDialog extends StatefulWidget {
     BuildContext context,
     LlmSettingsService service, {
     ServerApiClient? serverClient,
+    bool isLightMode = false,
   }) {
     return Navigator.of(context).push<bool>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) =>
-            LlmSettingsDialog(service: service, serverClient: serverClient),
+        builder: (_) => LlmSettingsDialog(
+          service: service,
+          serverClient: serverClient,
+          isLightMode: isLightMode,
+        ),
       ),
     );
   }
@@ -78,6 +84,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   bool _thinking = false;
   bool _useNativeToolCall = true;
   bool _useSafeToolCall = false;
+  bool _isLightMode = false;
   bool _enableToolParameterAutoRecovery = true;
   Timer? _priceRefreshDebounce;
 
@@ -120,6 +127,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   bool get _isBaseUrlProvider =>
       _provider == LlmProvider.ollama ||
       _provider == LlmProvider.openaiCompatible ||
+      _provider == LlmProvider.openai ||
       _provider == LlmProvider.mistral;
 
   bool get _isEmbeddedProvider => _provider == LlmProvider.embedded;
@@ -129,12 +137,15 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   bool get _isBaseUrlProvider2 =>
       _provider2 == LlmProvider.ollama ||
       _provider2 == LlmProvider.openaiCompatible ||
+      _provider2 == LlmProvider.openai ||
       _provider2 == LlmProvider.mistral;
 
   @override
+  @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _isLightMode = widget.isLightMode;
+    _tabController = TabController(length: _isLightMode ? 2 : 3, vsync: this);
     // Re-load from secure storage to guarantee we have the latest values
     _initFromService();
   }
@@ -224,7 +235,8 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         _thinking2 = remote.containsKey('thinking2')
             ? (remote['thinking2'] as bool? ?? false)
             : s.thinking2;
-        _enableToolParameterAutoRecovery = remote.containsKey('enable_tool_parameter_auto_recovery')
+        _enableToolParameterAutoRecovery =
+            remote.containsKey('enable_tool_parameter_auto_recovery')
             ? (remote['enable_tool_parameter_auto_recovery'] as bool? ?? true)
             : s.enableToolParameterAutoRecovery;
       } else {
@@ -528,7 +540,8 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             'thinking': _thinking,
             'use_native_tool_call': _useNativeToolCall,
             'use_safe_tool_call': _useSafeToolCall,
-            'enable_tool_parameter_auto_recovery': _enableToolParameterAutoRecovery,
+            'enable_tool_parameter_auto_recovery':
+                _enableToolParameterAutoRecovery,
             'max_tool_output_size':
                 int.tryParse(_maxToolOutputSizeCtrl.text) ?? 2560000,
             'token_warning_threshold':
@@ -567,8 +580,10 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             baseUrl: _isBaseUrlProvider ? _baseUrlCtrl.text : '',
             temperature: double.tryParse(_temperatureCtrl.text) ?? 0.2,
             maxTokens: int.tryParse(_maxTokensCtrl.text) ?? 0,
-            maxToolOutputSize: int.tryParse(_maxToolOutputSizeCtrl.text) ?? 2560000,
-            tokenWarningThreshold: int.tryParse(_tokenWarningThresholdCtrl.text) ?? 1500000,
+            maxToolOutputSize:
+                int.tryParse(_maxToolOutputSizeCtrl.text) ?? 2560000,
+            tokenWarningThreshold:
+                int.tryParse(_tokenWarningThresholdCtrl.text) ?? 1500000,
             isSlm: _isSlm,
             isMultiModal: _isMultiModal,
             topK: int.tryParse(_topKCtrl.text.trim()),
@@ -587,8 +602,10 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             baseUrl: _isBaseUrlProvider2 ? _baseUrlCtrl2.text : '',
             temperature: double.tryParse(_temperatureCtrl2.text) ?? 0.2,
             maxTokens: int.tryParse(_maxTokensCtrl2.text) ?? 0,
-            maxToolOutputSize2: int.tryParse(_maxToolOutputSizeCtrl2.text) ?? 2560000,
-            tokenWarningThreshold2: int.tryParse(_tokenWarningThresholdCtrl2.text) ?? 1500000,
+            maxToolOutputSize2:
+                int.tryParse(_maxToolOutputSizeCtrl2.text) ?? 2560000,
+            tokenWarningThreshold2:
+                int.tryParse(_tokenWarningThresholdCtrl2.text) ?? 1500000,
             isSlm2: _isSlm2,
             isMultiModal2: _isMultiModal2,
             topK2: int.tryParse(_topKCtrl2.text.trim()),
@@ -601,7 +618,9 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           );
           // ignore: unawaited_futures
           LlmTaskResyncService.resyncLlm2Tasks();
-          log.info('[LLM Settings] Pushed updated settings to server and saved locally.');
+          log.info(
+            '[LLM Settings] Pushed updated settings to server and saved locally.',
+          );
         } catch (e) {
           log.warning('[LLM Settings] Failed to push settings to server: $e');
         }
@@ -762,10 +781,10 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          tabs: const [
-            Tab(text: 'LLM 1 (Primary)'),
-            Tab(text: 'LLM 2 (Coding)'),
-            Tab(text: 'Embedded'),
+          tabs: [
+            const Tab(text: 'LLM 1 (Primary)'),
+            const Tab(text: 'LLM 2 (Coding)'),
+            if (!_isLightMode) const Tab(text: 'Embedded'),
           ],
         ),
       ),
@@ -831,7 +850,8 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
                           thinking: _thinking,
                           useNativeToolCall: _useNativeToolCall,
                           useSafeToolCall: _useSafeToolCall,
-                          enableToolParameterAutoRecovery: _enableToolParameterAutoRecovery,
+                          enableToolParameterAutoRecovery:
+                              _enableToolParameterAutoRecovery,
                           service: widget.service,
                           serverClient: widget.serverClient,
                           showConsent: true,
@@ -861,8 +881,11 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
                               setState(() => _useNativeToolCall = v),
                           onUseSafeToolCallChanged: (v) =>
                               setState(() => _useSafeToolCall = v),
+                          showEmbeddedOption: !_isLightMode,
                           onEnableToolParameterAutoRecoveryChanged: (v) =>
-                              setState(() => _enableToolParameterAutoRecovery = v),
+                              setState(
+                                () => _enableToolParameterAutoRecovery = v,
+                              ),
                         ),
 
                         const SizedBox(height: 24),
@@ -891,7 +914,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
                       ],
                     ),
                     _buildLlm2Tab(l, theme),
-                    _buildEmbeddedTab(l, theme),
+                    if (!_isLightMode) _buildEmbeddedTab(l, theme),
                   ],
                 ),
               ),
@@ -1185,6 +1208,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
               setState(() => _useNativeToolCall2 = v),
           onUseSafeToolCallChanged: (v) =>
               setState(() => _useSafeToolCall2 = v),
+          showEmbeddedOption: !_isLightMode,
         ),
         const SizedBox(height: 24),
         FilledButton.icon(

@@ -1,0 +1,25 @@
+name: server_light
+description: TealKit Server Light - Lightweight ARM/Microcontroller Server Edition
+version: 1.0.0
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  tealkit_server:
+    path: ../server
+  sqlite3: ^2.1.0
+
+dev_dependencies:
+  lints: ^2.1.0
+  test: ^1.24.0
+
+# dart_duckdb and llamadart are listed as dependencies in tealkit_server's
+# pubspec.yaml, which forces pub to resolve them even though server_light
+# never imports them. Override with local stubs that have no Flutter SDK
+# requirement and no native build hooks.
+dependency_overrides:
+  dart_duckdb:
+    path: ../third_party/dart_duckdb_light
+  llamadart:
+    path: ../third_party/llamadart_stub

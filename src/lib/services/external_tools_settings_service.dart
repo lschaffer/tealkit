@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -11,6 +12,16 @@ import 'app_logger.dart';
 class ExternalToolsSettingsService extends ChangeNotifier {
   static final ExternalToolsSettingsService instance = ExternalToolsSettingsService._();
   ExternalToolsSettingsService._();
+
+  @override
+  void notifyListeners() {
+    final binding = SchedulerBinding.instance;
+    if (binding.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      binding.addPostFrameCallback((_) => super.notifyListeners());
+    } else {
+      super.notifyListeners();
+    }
+  }
 
   static const _storage = FlutterSecureStorage();
   static const _prefix = 'ext_tools_';

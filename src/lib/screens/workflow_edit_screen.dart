@@ -549,7 +549,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         final seen = <String>{};
         skills = filteredList.where((s) => seen.add(s.toolName)).toList();
       } else {
-        skills = await FunctionHintDatabaseService().getEnabledForTools(filtered);
+        skills = await FunctionHintDatabaseService().getEnabledForTools(
+          filtered,
+        );
       }
       if (!_skillsWarningShown && filtered.isNotEmpty) {
         final missing = filtered
@@ -754,17 +756,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     }
 
     // MCP Servers — separate task-specific from global ones
-    final globalUrls = ExternalToolsSettingsService.instance.selectedServers
-        .map((s) => s.serverUrl)
-        .toSet();
     final allMcpTools = List<McpToolConfig>.from(t?.mcpTools ?? []);
-    _selectedGlobalServerUrls = allMcpTools
-        .where((s) => globalUrls.contains(s.serverUrl))
-        .map((s) => s.serverUrl)
-        .toSet();
-    _mcpServers = allMcpTools
-        .where((s) => !globalUrls.contains(s.serverUrl))
-        .toList();
+    _selectedGlobalServerUrls = allMcpTools.map((s) => s.serverUrl).toSet();
+    _mcpServers = allMcpTools;
 
     // Internal MCPs — strip toolbox from the list (tracked separately via _toolboxEnabled)
     _toolboxEnabled = !(t?.internalMcps ?? []).any(
@@ -1201,9 +1195,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         final removedId = _executors[index].id;
         _executors.removeAt(index);
         _routingRules.removeWhere(
-          (r) =>
-              r.sourceAgentId == removedId ||
-              r.targetAgentId == removedId,
+          (r) => r.sourceAgentId == removedId || r.targetAgentId == removedId,
         );
 
         if (_selectedExecutorIndex >= _executors.length) {
@@ -1264,7 +1256,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     if (exec.executionPlan != null) {
       routingType = 'scheduled';
     } else {
-      final rules = _routingRules.where((r) => r.sourceAgentId == exec.id).toList();
+      final rules = _routingRules
+          .where((r) => r.sourceAgentId == exec.id)
+          .toList();
       if (rules.isNotEmpty) {
         final first = rules.first;
         if (first.operator == 'stop') {
@@ -1581,10 +1575,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   Widget _buildAgentSchedulePicker(Agent exec) {
     final int index = _executors.indexWhere((e) => e.id == exec.id);
     final bool isEnabled = _isAgentSchedulingEnabled(exec, index);
-    print('[SCHEDULER_DIAGNOSTIC] index=$index, id=${exec.id}, _isSubtask=$_isSubtask, isEnabled=$isEnabled, agents=${_executors.map((e) => e.id).toList()}');
+    print(
+      '[SCHEDULER_DIAGNOSTIC] index=$index, id=${exec.id}, _isSubtask=$_isSubtask, isEnabled=$isEnabled, agents=${_executors.map((e) => e.id).toList()}',
+    );
 
     final plan = isEnabled
-        ? (exec.executionPlan ?? const ExecutionPlan(cronExpression: '0 8 * * *'))
+        ? (exec.executionPlan ??
+              const ExecutionPlan(cronExpression: '0 8 * * *'))
         : const ExecutionPlan(cronExpression: '0 8 * * *');
 
     final l = L.of(context);
@@ -1604,7 +1601,10 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   Expanded(
                     child: Text(
                       l.schedulingDisabledWarning,
-                      style: const TextStyle(fontSize: 12, color: Colors.orange),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange,
+                      ),
                     ),
                   ),
                 ],
@@ -1624,33 +1624,35 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             hintText: '0 8 * * *',
             suffixIcon: IconButton(
               icon: const Icon(Icons.calendar_month),
-              onPressed: isEnabled ? () async {
-                final res = await showDialog<Map<String, String>>(
-                  context: context,
-                  builder: (ctx) => SchedulePickerDialog(
-                    initialCron: plan.cronExpression,
-                    allowSubHourly: true,
-                  ),
-                );
-                if (res != null && res['cron'] != null) {
-                  final cronStr = res['cron']!;
-                  final hintStr = res['hint'];
-                  setState(() {
-                    if (index == 0) {
-                      _cronCtrl.text = cronStr;
-                      _scheduleHintCtrl.text = hintStr ?? '';
+              onPressed: isEnabled
+                  ? () async {
+                      final res = await showDialog<Map<String, String>>(
+                        context: context,
+                        builder: (ctx) => SchedulePickerDialog(
+                          initialCron: plan.cronExpression,
+                          allowSubHourly: true,
+                        ),
+                      );
+                      if (res != null && res['cron'] != null) {
+                        final cronStr = res['cron']!;
+                        final hintStr = res['hint'];
+                        setState(() {
+                          if (index == 0) {
+                            _cronCtrl.text = cronStr;
+                            _scheduleHintCtrl.text = hintStr ?? '';
+                          }
+                          _executors[index] = exec.copyWith(
+                            executionPlan: ExecutionPlan(
+                              cronExpression: cronStr,
+                              scheduleHint: hintStr ?? plan.scheduleHint,
+                              maxRetries: plan.maxRetries,
+                              retryDelayMinutes: plan.retryDelayMinutes,
+                            ),
+                          );
+                        });
+                      }
                     }
-                    _executors[index] = exec.copyWith(
-                      executionPlan: ExecutionPlan(
-                        cronExpression: cronStr,
-                        scheduleHint: hintStr ?? plan.scheduleHint,
-                        maxRetries: plan.maxRetries,
-                        retryDelayMinutes: plan.retryDelayMinutes,
-                      ),
-                    );
-                  });
-                }
-              } : null,
+                  : null,
             ),
           ),
           onChanged: (val) {
@@ -1674,38 +1676,41 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         Wrap(
           spacing: 8,
           runSpacing: 4,
-          children: [
-            { l.scheduleEveryNMinutes(15): '*/15 * * * *' },
-            { l.cronHourly: '0 * * * *' },
-            { l.cronDaily8am: '0 8 * * *' },
-            { l.cronDaily6pm: '0 18 * * *' },
-            { l.cronMonFri9am: '0 9 * * 1-5' },
-            { l.cronWeeklyMon: '0 8 * * 1' },
-            { l.cronMonthly1st: '0 8 1 * *' },
-          ].map((presetMap) {
-            final label = presetMap.keys.first;
-            final cronVal = presetMap.values.first;
-            return ActionChip(
-              label: Text(label, style: const TextStyle(fontSize: 12)),
-              onPressed: isEnabled ? () {
-                setState(() {
-                  if (index == 0) {
-                    _cronCtrl.text = cronVal;
-                    _scheduleHintCtrl.text = label;
-                  }
-                  _executors[index] = exec.copyWith(
-                    executionPlan: ExecutionPlan(
-                      cronExpression: cronVal,
-                      scheduleHint: label,
-                      maxRetries: plan.maxRetries,
-                      retryDelayMinutes: plan.retryDelayMinutes,
-                    ),
-                  );
-                });
-              } : null,
-              visualDensity: VisualDensity.compact,
-            );
-          }).toList(),
+          children:
+              [
+                {l.scheduleEveryNMinutes(15): '*/15 * * * *'},
+                {l.cronHourly: '0 * * * *'},
+                {l.cronDaily8am: '0 8 * * *'},
+                {l.cronDaily6pm: '0 18 * * *'},
+                {l.cronMonFri9am: '0 9 * * 1-5'},
+                {l.cronWeeklyMon: '0 8 * * 1'},
+                {l.cronMonthly1st: '0 8 1 * *'},
+              ].map((presetMap) {
+                final label = presetMap.keys.first;
+                final cronVal = presetMap.values.first;
+                return ActionChip(
+                  label: Text(label, style: const TextStyle(fontSize: 12)),
+                  onPressed: isEnabled
+                      ? () {
+                          setState(() {
+                            if (index == 0) {
+                              _cronCtrl.text = cronVal;
+                              _scheduleHintCtrl.text = label;
+                            }
+                            _executors[index] = exec.copyWith(
+                              executionPlan: ExecutionPlan(
+                                cronExpression: cronVal,
+                                scheduleHint: label,
+                                maxRetries: plan.maxRetries,
+                                retryDelayMinutes: plan.retryDelayMinutes,
+                              ),
+                            );
+                          });
+                        }
+                      : null,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
         ),
         const SizedBox(height: 12),
         TextFormField(
@@ -1836,29 +1841,59 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
   Future<List<String>> _fetchRemoteMcpToolNames(String serverId) async {
     final client = ref.read(serverApiClientProvider);
-    if (client == null) return const [];
+    if (client != null) {
+      try {
+        await client.startMcpServer(serverId);
+      } catch (e) {
+        // Non-fatal: server may already be started or temporarily unavailable.
+        log.warning('[TaskEdit] startMcpServer warning for $serverId: $e');
+      }
 
-    try {
-      await client.startMcpServer(serverId);
-    } catch (e) {
-      // Non-fatal: server may already be started or temporarily unavailable.
-      log.warning('[TaskEdit] startMcpServer warning for $serverId: $e');
+      try {
+        final tools = await client.getMcpServerTools(serverId);
+        final names =
+            tools
+                .map((t) => (t['name'] ?? '').toString().trim())
+                .where((n) => n.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
+        if (names.isNotEmpty) return names;
+      } catch (e) {
+        log.warning('[TaskEdit] getMcpServerTools failed for $serverId: $e');
+      }
     }
 
-    try {
-      final tools = await client.getMcpServerTools(serverId);
-      final names =
-          tools
-              .map((t) => (t['name'] ?? '').toString().trim())
-              .where((n) => n.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return names;
-    } catch (e) {
-      log.warning('[TaskEdit] getMcpServerTools failed for $serverId: $e');
-      return const [];
+    // Direct HTTP fallback for remote HTTPS MCP endpoints if server API is unavailable or returns empty tools list
+    if (serverId.startsWith('http://') || serverId.startsWith('https://')) {
+      try {
+        final matchingServer = _mcpServers
+            .where((s) => s.serverUrl == serverId)
+            .firstOrNull;
+        final res = await ExternalToolsSettingsService.instance.testMcpServer(
+          serverUrl: serverId,
+          mcpEndpoint: matchingServer?.mcpEndpoint,
+          apiKey: matchingServer?.apiKey,
+          apiPassword: matchingServer?.apiPassword,
+        );
+        final rawTools = res['tools'] as List<dynamic>? ?? [];
+        final names =
+            rawTools
+                .map(
+                  (t) => (t is Map ? (t['name'] ?? '') : t).toString().trim(),
+                )
+                .where((n) => n.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
+        return names;
+      } catch (e) {
+        log.warning(
+          '[TaskEdit] Direct testMcpServer fallback failed for $serverId: $e',
+        );
+      }
     }
+    return const [];
   }
 
   bool _sameStringList(List<String> a, List<String> b) {
@@ -1879,6 +1914,38 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   }
 
   Future<void> _eagerDiscoverSelectedRemoteMcpTools() async {
+    // In both Local and Server Mode, discover tools for any remote HTTPS endpoints!
+    for (final server in _mcpServers) {
+      if (server.serverUrl.startsWith('http://') ||
+          server.serverUrl.startsWith('https://')) {
+        if (_prefetchedRemoteMcpTools[server.serverUrl]?.isNotEmpty == true)
+          continue;
+        try {
+          final res = await ExternalToolsSettingsService.instance.testMcpServer(
+            serverUrl: server.serverUrl,
+            mcpEndpoint: server.mcpEndpoint,
+            apiKey: server.apiKey,
+            apiPassword: server.apiPassword,
+          );
+          final rawTools = res['tools'] as List<dynamic>? ?? [];
+          final names =
+              rawTools
+                  .map(
+                    (t) => (t is Map ? (t['name'] ?? '') : t).toString().trim(),
+                  )
+                  .where((n) => n.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          if (names.isNotEmpty && mounted) {
+            setState(() {
+              _prefetchedRemoteMcpTools[server.serverUrl] = names;
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
     final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
     if (!isServerMode) {
       // In local mode, eagerly discover selected local GitHub MCP tools in the background!
@@ -1957,7 +2024,10 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       extSvc.applyInMemory(selectedServers: updatedGlobalServers);
     }
 
-    if (mounted && taskServersChanged) {
+    if (mounted &&
+        (globalChanged ||
+            taskServersChanged ||
+            _prefetchedRemoteMcpTools.isNotEmpty)) {
       setState(() {
         _mcpServers = updatedTaskServers;
       });
@@ -2093,7 +2163,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
     final exec = _executors[_selectedExecutorIndex];
 
-    final List<InternalMcpEntry> agentInternalMcps = List.from(exec.internalMcps);
+    final List<InternalMcpEntry> agentInternalMcps = List.from(
+      exec.internalMcps,
+    );
     if (!_toolboxEnabled) {
       agentInternalMcps.add(
         InternalMcpEntry(
@@ -2127,23 +2199,21 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       systemPrompt: exec.systemPrompt?.trim().isNotEmpty == true
           ? exec.systemPrompt!.trim()
           : null,
-      llmProvider: cfg != null && cfg.provider.isNotEmpty
-          ? cfg.provider
-          : null,
-      llmModel: cfg != null && cfg.model.isNotEmpty
-          ? cfg.model
-          : null,
-      llmApiKey: cfg?.apiKey?.isNotEmpty == true
-          ? cfg!.apiKey
-          : null,
-      llmBaseUrl: cfg?.baseUrl?.isNotEmpty == true
-          ? cfg!.baseUrl
-          : null,
+      llmProvider: cfg != null && cfg.provider.isNotEmpty ? cfg.provider : null,
+      llmModel: cfg != null && cfg.model.isNotEmpty ? cfg.model : null,
+      llmApiKey: cfg?.apiKey?.isNotEmpty == true ? cfg!.apiKey : null,
+      llmBaseUrl: cfg?.baseUrl?.isNotEmpty == true ? cfg!.baseUrl : null,
       temperature: cfg?.temperature,
       maxTokens: cfg?.maxTokens,
-      maxToolOutputSize: cfg?.extraParams != null ? (cfg!.extraParams['max_tool_output_size'] as num?)?.toInt() : null,
-      tokenWarningThreshold: cfg?.extraParams != null ? (cfg!.extraParams['token_warning_threshold'] as num?)?.toInt() : null,
-      isMultiModal: cfg?.extraParams != null ? cfg!.extraParams['is_multi_modal'] as bool? : null,
+      maxToolOutputSize: cfg?.extraParams != null
+          ? (cfg!.extraParams['max_tool_output_size'] as num?)?.toInt()
+          : null,
+      tokenWarningThreshold: cfg?.extraParams != null
+          ? (cfg!.extraParams['token_warning_threshold'] as num?)?.toInt()
+          : null,
+      isMultiModal: cfg?.extraParams != null
+          ? cfg!.extraParams['is_multi_modal'] as bool?
+          : null,
     );
 
     return (task, overrides);
@@ -2154,16 +2224,21 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     final exec = _executors[_selectedExecutorIndex];
     final settings = ref.read(llmSettingsProvider);
     final isRemote = ref.read(serverModeProvider).value?.isRemote ?? false;
-    
+
     // Check if the current agent has overrides
     final hasOverride = exec.llmConfig != null;
-    final provider = hasOverride ? exec.llmConfig!.provider : settings.provider.configKey;
+    final provider = hasOverride
+        ? exec.llmConfig!.provider
+        : settings.provider.configKey;
     final model = hasOverride ? exec.llmConfig!.model : settings.model;
-    
-    if (!isRemote && (provider.isEmpty || provider == 'none' || model.isEmpty)) {
+
+    if (!isRemote &&
+        (provider.isEmpty || provider == 'none' || model.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Kein gültiges Modell konfiguriert. Bitte wählen Sie ein LLM-Modell in den Einstellungen.'),
+          content: Text(
+            'Kein gültiges Modell konfiguriert. Bitte wählen Sie ein LLM-Modell in den Einstellungen.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -2310,14 +2385,20 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           final execSteps = parseWorkflowSteps(exec.prompt);
           for (int j = 0; j < execSteps.length; j++) {
             final s = execSteps[j];
-            final stepTools = s.enabledToolNames ?? (tabToolNames.isNotEmpty ? tabToolNames : null);
-            final stepSatc = s.stopAfterToolCall || (j == execSteps.length - 1 && exec.stopAfterToolCall);
+            final stepTools =
+                s.enabledToolNames ??
+                (tabToolNames.isNotEmpty ? tabToolNames : null);
+            final stepSatc =
+                s.stopAfterToolCall ||
+                (j == execSteps.length - 1 && exec.stopAfterToolCall);
 
-            workflowSteps.add(Step(
-              text: s.text,
-              enabledToolNames: stepTools,
-              stopAfterToolCall: stepSatc,
-            ));
+            workflowSteps.add(
+              Step(
+                text: s.text,
+                enabledToolNames: stepTools,
+                stopAfterToolCall: stepSatc,
+              ),
+            );
           }
         }
         combinedPrompt = serializeWorkflowSteps(workflowSteps);
@@ -2325,9 +2406,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             .map((e) => e.systemPrompt ?? '')
             .join('\n++#++\n');
       } else {
-        combinedPrompt = _executors.isNotEmpty
-            ? _executors.first.prompt
-            : '';
+        combinedPrompt = _executors.isNotEmpty ? _executors.first.prompt : '';
         combinedSystemPrompt = _executors.isNotEmpty
             ? (_executors.first.systemPrompt ?? '')
             : null;
@@ -2475,13 +2554,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         actions: [
           if (widget.isEditing && widget.task != null)
             IconButton(
-              icon: const Icon(
-                Icons.ios_share,
-                color: Colors.amber,
-              ),
+              icon: const Icon(Icons.ios_share, color: Colors.amber),
               tooltip: 'Export as Skill',
               onPressed: () async {
-                final res = await WorkflowExportService.exportWorkflow(context, widget.task!);
+                final res = await WorkflowExportService.exportWorkflow(
+                  context,
+                  widget.task!,
+                );
                 if (!mounted) return;
                 if (res.error != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -2489,7 +2568,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   );
                 } else if (res.savedPath != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Workflow exported to: ${res.savedPath}')),
+                    SnackBar(
+                      content: Text('Workflow exported to: ${res.savedPath}'),
+                    ),
                   );
                 }
               },
@@ -2756,7 +2837,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
   bool _isAgentSchedulingEnabled(Agent exec, int index) {
     if (index == 0) return true;
-    final isTarget = _routingRules.any((r) => r.targetAgentId == exec.id && r.operator != 'stop' && r.sourceAgentId != exec.id);
+    final isTarget = _routingRules.any(
+      (r) =>
+          r.targetAgentId == exec.id &&
+          r.operator != 'stop' &&
+          r.sourceAgentId != exec.id,
+    );
     return !isTarget;
   }
 
@@ -2767,14 +2853,20 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       if (visited.contains(curr)) return false;
       visited.add(curr);
       final children = <String>[];
-      final currRules = _routingRules.where((r) => r.sourceAgentId == curr).toList();
+      final currRules = _routingRules
+          .where((r) => r.sourceAgentId == curr)
+          .toList();
       if (currRules.isNotEmpty && currRules.first.operator != 'stop') {
-        children.addAll(currRules.map((r) => r.targetAgentId).where((id) => id.isNotEmpty));
+        children.addAll(
+          currRules.map((r) => r.targetAgentId).where((id) => id.isNotEmpty),
+        );
       } else if (currRules.isEmpty) {
         final idx = _executors.indexWhere((e) => e.id == curr);
         if (idx != -1 && idx < _executors.length - 1) {
           final nextId = _executors[idx + 1].id;
-          final isTargetOfAnyRule = _routingRules.any((r) => r.targetAgentId == nextId && r.operator != 'stop');
+          final isTargetOfAnyRule = _routingRules.any(
+            (r) => r.targetAgentId == nextId && r.operator != 'stop',
+          );
           if (!isTargetOfAnyRule) {
             children.add(nextId);
           }
@@ -2785,12 +2877,15 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       }
       return false;
     }
+
     return dfs(candidateId);
   }
 
   void _cleanRoutingRulesForTarget(String targetId, String sourceId) {
-    _routingRules.removeWhere((r) => r.targetAgentId == targetId && r.sourceAgentId != sourceId);
-    
+    _routingRules.removeWhere(
+      (r) => r.targetAgentId == targetId && r.sourceAgentId != sourceId,
+    );
+
     // Also clean up executionPlan if it gets disabled
     for (int i = 0; i < _executors.length; i++) {
       final e = _executors[i];
@@ -2799,7 +2894,6 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       }
     }
   }
-
 
   Widget _buildDesktopSubSectionsTabBar(L l) {
     final sections = [
@@ -2992,9 +3086,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                     targetAgentId: '',
                   ),
                 );
-                _executors[_selectedExecutorIndex] = exec.copyWith(clearExecutionPlan: true);
+                _executors[_selectedExecutorIndex] = exec.copyWith(
+                  clearExecutionPlan: true,
+                );
               } else if (val == 'sequential') {
-                _executors[_selectedExecutorIndex] = exec.copyWith(clearExecutionPlan: true);
+                _executors[_selectedExecutorIndex] = exec.copyWith(
+                  clearExecutionPlan: true,
+                );
                 final targetId = otherExecutors.isNotEmpty
                     ? otherExecutors.first.id
                     : exec.id;
@@ -3013,7 +3111,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   _cleanRoutingRulesForTarget(targetId, exec.id);
                 }
               } else if (val == 'conditional') {
-                _executors[_selectedExecutorIndex] = exec.copyWith(clearExecutionPlan: true);
+                _executors[_selectedExecutorIndex] = exec.copyWith(
+                  clearExecutionPlan: true,
+                );
                 final targetId = otherExecutors.isNotEmpty
                     ? otherExecutors.first.id
                     : exec.id;
@@ -3039,26 +3139,30 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         const SizedBox(height: 16),
         if (currentRoutingType == 'sequential' && currentRule != null) ...[
           DropdownButtonFormField<String>(
-            initialValue: otherExecutors.any((e) => e.id == currentRule.targetAgentId)
+            initialValue:
+                otherExecutors.any((e) => e.id == currentRule.targetAgentId)
                 ? currentRule.targetAgentId
-                : (otherExecutors.isNotEmpty ? otherExecutors.first.id : exec.id),
+                : (otherExecutors.isNotEmpty
+                      ? otherExecutors.first.id
+                      : exec.id),
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Target Agent',
               border: OutlineInputBorder(),
             ),
             items: otherExecutors.map((e) {
-              return DropdownMenuItem(
-                value: e.id,
-                child: Text(e.name),
-              );
+              return DropdownMenuItem(value: e.id, child: Text(e.name));
             }).toList(),
             onChanged: (targetId) {
               if (targetId == null) return;
               setState(() {
-                final ruleIdx = _routingRules.indexWhere((r) => r.id == currentRule.id);
+                final ruleIdx = _routingRules.indexWhere(
+                  (r) => r.id == currentRule.id,
+                );
                 if (ruleIdx != -1) {
-                  _routingRules[ruleIdx] = currentRule.copyWith(targetAgentId: targetId);
+                  _routingRules[ruleIdx] = currentRule.copyWith(
+                    targetAgentId: targetId,
+                  );
                 }
                 _cleanRoutingRulesForTarget(targetId, exec.id);
               });
@@ -3089,34 +3193,57 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   children: [
                     Row(
                       children: [
-                        Text('Branch #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
+                        Text(
+                          'Branch #${idx + 1}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple,
+                          ),
+                        ),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                            size: 18,
+                          ),
                           onPressed: () {
                             setState(() {
                               _routingRules.removeWhere((r) => r.id == rule.id);
                             });
                           },
-                        )
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      initialValue: otherExecutors.any((e) => e.id == rule.targetAgentId)
+                      initialValue:
+                          otherExecutors.any((e) => e.id == rule.targetAgentId)
                           ? rule.targetAgentId
-                          : (otherExecutors.isNotEmpty ? otherExecutors.first.id : null),
+                          : (otherExecutors.isNotEmpty
+                                ? otherExecutors.first.id
+                                : null),
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Target Agent', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Target Agent',
+                        border: OutlineInputBorder(),
+                      ),
                       items: otherExecutors.map((e) {
-                        return DropdownMenuItem(value: e.id, child: Text(e.name));
+                        return DropdownMenuItem(
+                          value: e.id,
+                          child: Text(e.name),
+                        );
                       }).toList(),
                       onChanged: (val) {
                         if (val == null) return;
                         setState(() {
-                          final ruleIdx = _routingRules.indexWhere((r) => r.id == rule.id);
+                          final ruleIdx = _routingRules.indexWhere(
+                            (r) => r.id == rule.id,
+                          );
                           if (ruleIdx != -1) {
-                            _routingRules[ruleIdx] = rule.copyWith(targetAgentId: val);
+                            _routingRules[ruleIdx] = rule.copyWith(
+                              targetAgentId: val,
+                            );
                           }
                           _cleanRoutingRulesForTarget(val, exec.id);
                         });
@@ -3132,9 +3259,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                       ),
                       onChanged: (val) {
                         setState(() {
-                          final ruleIdx = _routingRules.indexWhere((r) => r.id == rule.id);
+                          final ruleIdx = _routingRules.indexWhere(
+                            (r) => r.id == rule.id,
+                          );
                           if (ruleIdx != -1) {
-                            _routingRules[ruleIdx] = rule.copyWith(value: val.trim());
+                            _routingRules[ruleIdx] = rule.copyWith(
+                              value: val.trim(),
+                            );
                           }
                         });
                       },
@@ -3147,7 +3278,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           ElevatedButton.icon(
             onPressed: () {
               setState(() {
-                final targetId = otherExecutors.isNotEmpty ? otherExecutors.first.id : exec.id;
+                final targetId = otherExecutors.isNotEmpty
+                    ? otherExecutors.first.id
+                    : exec.id;
                 _routingRules.add(
                   Edge(
                     id: const Uuid().v4(),
@@ -3979,10 +4112,15 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       }
     }
     final globalServers = ExternalToolsSettingsService.instance.selectedServers;
+    final processedUrls = <String>{};
     for (final url in _selectedGlobalServerUrls) {
+      if (!processedUrls.add(url)) continue;
+      final taskMatchingServer = _mcpServers
+          .where((m) => m.serverUrl == url)
+          .firstOrNull;
       final s = globalServers.firstWhere(
         (s) => s.serverUrl == url,
-        orElse: () => McpToolConfig(serverUrl: url),
+        orElse: () => taskMatchingServer ?? McpToolConfig(serverUrl: url),
       );
       List<String> names = const [];
       if (activeMgr != null) {
@@ -3996,11 +4134,20 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       if (names.isEmpty) {
         names = s.discoveredTools.isNotEmpty
             ? s.discoveredTools
-            : (_prefetchedRemoteMcpTools[url] ?? const <String>[]);
+            : ((taskMatchingServer?.discoveredTools.isNotEmpty == true)
+                  ? taskMatchingServer!.discoveredTools
+                  : (_prefetchedRemoteMcpTools[url] ?? const <String>[]));
       }
-      groups.add(ToolGroup(name: s.name ?? url, toolNames: names));
+      final displayName = (s.name != null && s.name!.trim().isNotEmpty)
+          ? s.name!.trim()
+          : ((taskMatchingServer?.name != null &&
+                    taskMatchingServer!.name!.trim().isNotEmpty)
+                ? taskMatchingServer.name!.trim()
+                : url);
+      groups.add(ToolGroup(name: displayName, toolNames: names));
     }
     for (final server in _mcpServers) {
+      if (!processedUrls.add(server.serverUrl)) continue;
       List<String> names = const [];
       if (activeMgr != null) {
         final clientDef = activeMgr.clients
@@ -4018,9 +4165,11 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             ? server.discoveredTools
             : (_prefetchedRemoteMcpTools[server.serverUrl] ?? const <String>[]);
       }
-      groups.add(
-        ToolGroup(name: server.name ?? server.serverUrl, toolNames: names),
-      );
+      final displayName =
+          (server.name != null && server.name!.trim().isNotEmpty)
+          ? server.name!.trim()
+          : server.serverUrl;
+      groups.add(ToolGroup(name: displayName, toolNames: names));
     }
     return groups;
   }
@@ -4106,7 +4255,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     final l = L.of(context);
     final llmSettings = ref.read(llmSettingsProvider);
     final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
-    final serverClient = isServerMode ? ref.read(serverApiClientProvider) : null;
+    final serverClient = isServerMode
+        ? ref.read(serverApiClientProvider)
+        : null;
 
     return [
       _sectionTitle(l.llmOverride),
@@ -4139,6 +4290,8 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           serverClient: serverClient,
           showLlm2Option: true,
           showNoneOption: true,
+          showEmbeddedOption:
+              !(ref.read(serverModeProvider).value?.isLightMode ?? false),
           onApplyDefault: llmSettings.isConfigured
               ? () {
                   _applyLlmDefaults(llmSettings);
@@ -4158,8 +4311,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           onThinkingChanged: (v) => setState(() => _thinking = v),
           onUseNativeToolCallChanged: (v) =>
               setState(() => _useNativeToolCall = v),
-          onUseSafeToolCallChanged: (v) =>
-              setState(() => _useSafeToolCall = v),
+          onUseSafeToolCallChanged: (v) => setState(() => _useSafeToolCall = v),
         ),
       ],
     ];
@@ -4556,6 +4708,8 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       );
     }
 
+    final isLightServer =
+        ref.read(serverModeProvider).value?.isLightMode == true;
     final available =
         serverInfos
             .where(
@@ -4564,7 +4718,16 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   server.type != 'traffic' &&
                   !server.type.startsWith('gh_mcp_') &&
                   !(isServerMode &&
-                      (server.type == 'ps_bridge' || server.type == 'chart')),
+                      (server.type == 'ps_bridge' ||
+                          server.type == 'chart' ||
+                          server.type == 'gmail' ||
+                          server.type == 'google_calendar' ||
+                          server.type == 'google_drive' ||
+                          server.type == 'pdf')) &&
+                  !(isServerMode &&
+                      isLightServer &&
+                      (server.type == 'website_search' ||
+                          server.type == 'document')),
             )
             .toList()
           ..sort((a, b) => a.displayName.compareTo(b.displayName));
@@ -9096,10 +9259,7 @@ class _PromptTestDialog extends ConsumerStatefulWidget {
   final WorkflowTask task;
   final TaskLlmOverrides overrides;
 
-  const _PromptTestDialog({
-    required this.task,
-    required this.overrides,
-  });
+  const _PromptTestDialog({required this.task, required this.overrides});
 
   @override
   ConsumerState<_PromptTestDialog> createState() => _PromptTestDialogState();
@@ -9144,7 +9304,7 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
     try {
       await activeNotifier.setTask(widget.task, overrides: widget.overrides);
       final activeState = ref.read(activeTaskProvider);
-      
+
       if (activeState == null) {
         throw StateError('Could not initialize active task state.');
       }
@@ -9154,8 +9314,11 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
       }
 
       // Check if LLM is actually configured
-      if (activeState.llmService == null || !activeState.llmService!.isConfigured) {
-        throw StateError('No LLM configured. Please check your settings or overrides.');
+      if (activeState.llmService == null ||
+          !activeState.llmService!.isConfigured) {
+        throw StateError(
+          'No LLM configured. Please check your settings or overrides.',
+        );
       }
 
       // Once the provider is ready, subscribe to ChatService
@@ -9190,19 +9353,20 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
       setState(() {
         _status = 'Running prompt steps...';
       });
-      await chatService.sendChatMessage(ChatMessage(
-        id: const Uuid().v4(),
-        content: widget.task.prompt,
-        role: ChatRole.user,
-        timestamp: DateTime.now(),
-      ));
+      await chatService.sendChatMessage(
+        ChatMessage(
+          id: const Uuid().v4(),
+          content: widget.task.prompt,
+          role: ChatRole.user,
+          timestamp: DateTime.now(),
+        ),
+      );
 
       setState(() {
         _done = true;
         _running = false;
         _status = 'Prompt sequence completed successfully.';
       });
-
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -9238,7 +9402,11 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Row(
             children: [
-              Icon(Icons.play_circle_outline, color: theme.colorScheme.primary, size: 24),
+              Icon(
+                Icons.play_circle_outline,
+                color: theme.colorScheme.primary,
+                size: 24,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Prompt Execution Test',
@@ -9259,7 +9427,7 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
           ),
         ),
         const Divider(height: 1),
-        
+
         // Status bar
         Container(
           color: isDark ? Colors.grey[900] : Colors.grey[100],
@@ -9269,7 +9437,9 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
             style: TextStyle(
               fontSize: 12,
               fontStyle: FontStyle.italic,
-              color: _initError != null ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,
+              color: _initError != null
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -9286,7 +9456,9 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
                       const SizedBox(height: 16),
                       Text(
                         'Initializing agent runtime...',
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
                       ),
                     ],
                   ),
@@ -9295,7 +9467,8 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
                   controller: _scroll,
                   padding: const EdgeInsets.all(12),
                   itemCount: _messages.length,
-                  itemBuilder: (_, i) => _buildMessageTile(_messages[i], isDark),
+                  itemBuilder: (_, i) =>
+                      _buildMessageTile(_messages[i], isDark),
                 ),
         ),
         const Divider(height: 1),
@@ -9329,16 +9502,20 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
     };
 
     final contentText = msg.content;
-    
+
     // Nice style container for each message/log entry
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.03)
+            : Colors.black.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Row(

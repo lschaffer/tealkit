@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -508,6 +509,16 @@ class LlmSettingsService extends ChangeNotifier {
   // Singleton for app-wide access
   static final LlmSettingsService instance = LlmSettingsService._();
   LlmSettingsService._();
+
+  @override
+  void notifyListeners() {
+    final binding = SchedulerBinding.instance;
+    if (binding.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      binding.addPostFrameCallback((_) => super.notifyListeners());
+    } else {
+      super.notifyListeners();
+    }
+  }
 
   static const _storage = FlutterSecureStorage(aOptions: AndroidOptions());
 

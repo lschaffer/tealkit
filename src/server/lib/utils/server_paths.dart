@@ -3,7 +3,15 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 String resolveServerDataDir() {
-  return Platform.environment['TEALKIT_DATA_DIR'] ?? p.join(Platform.environment['HOME'] ?? '/root', '.tealkit-server');
+  final configured = Platform.environment['TEALKIT_DATA_DIR']?.trim();
+  if (configured != null && configured.isNotEmpty) return configured;
+
+  final home = Platform.isWindows
+      ? (Platform.environment['USERPROFILE'] ??
+            Platform.environment['HOMEDRIVE'] ??
+            'C:\\')
+      : (Platform.environment['HOME'] ?? '/root');
+  return p.join(home, '.tealkit-server');
 }
 
 String resolveServerFilesDir() {

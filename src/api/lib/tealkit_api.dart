@@ -1,5 +1,5 @@
 /// Shared API and Models for TealKit
-library tealkit_api;
+library;
 
 export 'src/models/workflow_task.dart';
 export 'src/models/mcp_models.dart';

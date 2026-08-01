@@ -483,9 +483,8 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
                     .toList()
               : allTaskMcpToolNames;
           if (taskMcpToolNames.isNotEmpty) {
-            final skills = await FunctionHintDatabaseService().getEnabledForTools(
-              taskMcpToolNames,
-            );
+            final skills = await FunctionHintDatabaseService()
+                .getEnabledForTools(taskMcpToolNames);
             if (skills.isNotEmpty) {
               // For compact models always use the short SLM text.
               final useSlmText =
@@ -558,9 +557,8 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
                 isCompact ||
                 llmService.useSimplifiedPrompts ||
                 llmService.isSlm;
-            final extSkills = await FunctionHintDatabaseService().getEnabledForTools(
-              extToolNames,
-            );
+            final extSkills = await FunctionHintDatabaseService()
+                .getEnabledForTools(extToolNames);
             if (extSkills.isNotEmpty) {
               final newLines = extSkills
                   .where(
@@ -741,15 +739,25 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
           ? await _resolveRemoteEmbeddedModel(api, requestedModel)
           : (requestedModel.isNotEmpty ? requestedModel : serverModel);
       final requestedApiKey = _overrides?.llmApiKey ?? task.llmConfig?.apiKey;
-      final requestedBaseUrl = _overrides?.llmBaseUrl ?? task.llmConfig?.baseUrl;
+      final requestedBaseUrl =
+          _overrides?.llmBaseUrl ?? task.llmConfig?.baseUrl;
       final proxyBase =
           '${modeState.serverUrl.trimRight().replaceAll(RegExp(r'/+$'), '')}/api/v1/${isLlm2 ? 'llm2' : 'llm'}';
+      final isOverrideProvider =
+          requestedProvider.isNotEmpty &&
+          requestedProvider != 'none' &&
+          requestedProvider != 'llm' &&
+          requestedProvider != 'llm2';
+      final finalTargetProvider = isOverrideProvider
+          ? requestedProvider
+          : serverProvider;
+
       await llmService.initializeOpenAICompatible(
         baseUrl: proxyBase,
         apiKey: modeState.apiKey.isNotEmpty ? modeState.apiKey : null,
         model: effectiveModel,
         forceMistralCompat: forceMistralCompat,
-        targetProvider: requestedProvider,
+        targetProvider: finalTargetProvider,
         targetBaseUrl: requestedBaseUrl,
         targetApiKey: requestedApiKey,
       );
@@ -783,6 +791,18 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
       if (apiKey == null || apiKey.isEmpty) apiKey = settings.apiKey2;
       if (baseUrl == null || baseUrl.isEmpty) baseUrl = settings.baseUrl2;
       useNativeToolCall = settings.useNativeToolCall2;
+    }
+
+    // If provider is 'embedded' and server is in light mode, fall back to LLM1
+    if (provider?.toLowerCase() == 'embedded') {
+      final isLightMode = ref.read(isLightModeProvider);
+      if (isLightMode) {
+        provider = settings.provider.configKey;
+        if (model == null || model.isEmpty) model = settings.model;
+        if (apiKey == null || apiKey.isEmpty) apiKey = settings.apiKey;
+        if (baseUrl == null || baseUrl.isEmpty) baseUrl = settings.baseUrl;
+        useNativeToolCall = settings.useNativeToolCall;
+      }
     }
 
     // Fall back to global defaults
@@ -900,9 +920,15 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
           break;
       }
 
-      final extraParams = task.llmConfig?.extraParams ?? const <String, dynamic>{};
-      final bool resolvedIsMultiModal = _overrides?.isMultiModal ??
-          (extraParams['is_multi_modal'] as bool?) ??
+      final extraParams =
+          task.llmConfig?.extraParams ?? const <String, dynamic>{};
+      final bool resolvedIsMultiModal =
+          _overrides?.isMultiModal ??
+          (extraParams['is_multi_modal'] is bool
+              ? extraParams['is_multi_modal'] as bool
+              : extraParams['is_multi_modal'] is int
+              ? (extraParams['is_multi_modal'] as int) != 0
+              : null) ??
           (() {
             final lowerProvider = provider?.toLowerCase() ?? '';
             if (lowerProvider == 'llm2') {
@@ -910,12 +936,18 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
             }
             final providerEnum = LlmProvider.fromConfigKey(lowerProvider);
             if (providerEnum == LlmProvider.embedded) {
-              return LlmSettingsService.detectDefaultMultiModal(LlmProvider.embedded, model ?? '');
+              return LlmSettingsService.detectDefaultMultiModal(
+                LlmProvider.embedded,
+                model ?? '',
+              );
             }
             if (providerEnum == settings.provider) {
               return settings.isMultiModal;
             }
-            return LlmSettingsService.detectDefaultMultiModal(providerEnum, model ?? '');
+            return LlmSettingsService.detectDefaultMultiModal(
+              providerEnum,
+              model ?? '',
+            );
           })();
       llmService.setIsMultiModal(resolvedIsMultiModal);
 
@@ -925,7 +957,9 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
         tokenWarningThreshold: effectiveTokenWarningThreshold,
       );
 
-      log.info('[ActiveTask] LLM configured: $provider / $model (isMultiModal: $resolvedIsMultiModal)');
+      log.info(
+        '[ActiveTask] LLM configured: $provider / $model (isMultiModal: $resolvedIsMultiModal)',
+      );
     } catch (e) {
       log.error('[ActiveTask] LLM config failed: $e');
       rethrow;

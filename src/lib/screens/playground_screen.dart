@@ -373,13 +373,19 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   @override
   void initState() {
     super.initState();
+    final serverState = ref.read(serverModeProvider).value;
+    final isLightServer =
+        serverState != null && serverState.isRemote && serverState.isLightMode;
+
     _availableMcpInfos =
         InternalMcpRegistry().availableServers
             .where(
               (s) =>
                   s.type != 'toolbox' &&
                   s.type != 'traffic' &&
-                  !s.type.startsWith('gh_mcp_'),
+                  !s.type.startsWith('gh_mcp_') &&
+                  (!isLightServer ||
+                      (s.type != 'document' && s.type != 'website_search')),
             )
             .toList()
           ..sort((a, b) => a.displayName.compareTo(b.displayName));
@@ -694,14 +700,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       ));
     }
     if (task.mcpTools.isNotEmpty) {
-      _selectedExternalServerUrls = task.mcpTools.map((t) => t.serverUrl).toSet();
+      _selectedExternalServerUrls = task.mcpTools
+          .map((t) => t.serverUrl)
+          .toSet();
     }
     _prefetchedRemoteMcpTools.clear();
     final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
     Future.microtask(() => _getSelectableGithubMcpServers(isServerMode));
     for (final toolConfig in task.mcpTools) {
       if (toolConfig.discoveredTools.isNotEmpty) {
-        _prefetchedRemoteMcpTools[toolConfig.serverUrl] = List<String>.from(toolConfig.discoveredTools);
+        _prefetchedRemoteMcpTools[toolConfig.serverUrl] = List<String>.from(
+          toolConfig.discoveredTools,
+        );
       }
     }
     for (final mcp in task.internalMcps.where((m) => m.enabled)) {
@@ -716,18 +726,21 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         llmCfg.provider != 'llm2') {
       final skillProvider = LlmProvider.fromConfigKey(llmCfg.provider);
 
-
       bool isAvailable = true;
       if (skillProvider == LlmProvider.none) {
         isAvailable = false;
       } else if (skillProvider == LlmProvider.embedded) {
-        final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
-        if (isServerMode) {
+        final serverState = ref.read(serverModeProvider).value;
+        if (serverState?.isLightMode == true) {
+          isAvailable = false;
+        } else if (serverState?.isRemote == true) {
           isAvailable = llmCfg.model.isNotEmpty;
         } else {
-          final downloaded = await EmbeddedModelManager.instance.listDownloadedFilenames();
+          final downloaded = await EmbeddedModelManager.instance
+              .listDownloadedFilenames();
           if (llmCfg.model.isEmpty ||
-              (!downloaded.contains(llmCfg.model) && !downloaded.any((f) => f.contains(llmCfg.model)))) {
+              (!downloaded.contains(llmCfg.model) &&
+                  !downloaded.any((f) => f.contains(llmCfg.model)))) {
             isAvailable = false;
           }
         }
@@ -764,10 +777,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               context: context,
               builder: (ctx) => AlertDialog(
                 title: Text(loc.llmWarning),
-                content: Text(loc.skillLlmNotConfigured(
-                  skillProvider.label,
-                  llmCfg.model,
-                )),
+                content: Text(
+                  loc.skillLlmNotConfigured(skillProvider.label, llmCfg.model),
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(ctx).pop(),
@@ -799,7 +811,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         _playgroundMaxToolOutputSizeCtrl.text =
             (llmCfg.extraParams['max_tool_output_size'] ?? 2560000).toString();
         _playgroundTokenWarningThresholdCtrl.text =
-            (llmCfg.extraParams['token_warning_threshold'] ?? 1500000).toString();
+            (llmCfg.extraParams['token_warning_threshold'] ?? 1500000)
+                .toString();
         _customUseNativeToolCall =
             (llmCfg.extraParams['use_native_tool_call'] as bool?) ?? true;
         _customIsSlm = (llmCfg.extraParams['is_slm'] as bool?) ?? false;
@@ -812,58 +825,172 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     } else {
       _overrideLlm = false;
     }
-    // Auto-start chat; also rebuild skills so stale/empty saved skills are refreshed.
+    // Rebuild skills section so stale/empty saved skills are refreshed.
     _skillsWarningShown = false;
 
-    // Check for required capabilities / toolsets from imported skill
-    final requiredCaps = task.mcpTools
-        .where((t) => t.serverUrl.startsWith('capability://'))
-        .map((t) => t.name)
-        .toList();
-    if (requiredCaps.isNotEmpty) {
-      final missingCaps = <String>[];
-      for (final cap in requiredCaps) {
-        final capName = cap?.trim() ?? '';
-        final capLower = capName.toLowerCase();
-        if (capLower == 'terminal' || capLower == 'shell' || capLower == 'bash') {
-          final hasTerminal = _selectedMcpTypes.contains('local_shell') ||
-              _selectedMcpTypes.contains('ssh') ||
-              _selectedMcpTypes.contains('ps_bridge');
-          if (!hasTerminal) {
-            missingCaps.add(capName);
-          }
-        } else if (capName.isNotEmpty) {
-          missingCaps.add(capName);
-        }
-      }
-
-      if (missingCaps.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            final loc = L.of(context);
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: Text(loc.toolWarning),
-                content: Text(loc.skillRequiresTools(missingCaps.join(', '))),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-            );
-          }
-        });
+    // Collect required internal MCP types from task + agent internalMcps
+    final requiredMcpTypes = <String>{};
+    for (final m in task.internalMcps) {
+      if (m.enabled) requiredMcpTypes.add(m.mcpType);
+    }
+    for (final a in task.agents) {
+      for (final m in a.internalMcps) {
+        if (m.enabled) requiredMcpTypes.add(m.mcpType);
       }
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (requiredMcpTypes.isNotEmpty) {
+      // Check which tools are already enabled
+      final enabledTypes = Set<String>.from(_selectedMcpTypes);
+      final missingTypes = requiredMcpTypes
+          .where((t) => !enabledTypes.contains(t))
+          .toList();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showRequiredToolsDialog(missingTypes, requiredMcpTypes.toList());
+        }
+      });
+    } else {
+      // No required tools — stay on init screen, don't auto-start
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _eagerDiscoverSelectedRemoteMcpTools();
+        _updateSkillsSection();
+      });
+    }
+  }
+
+  /// Shows a dialog listing required tools from the imported skill
+  /// with options to enable them.
+  Future<void> _showRequiredToolsDialog(
+    List<String> missingTypes,
+    List<String> allRequired,
+  ) async {
+    final loc = L.of(context);
+    final theme = Theme.of(context);
+
+    // Human-readable labels for common MCP types
+    const typeLabels = <String, String>{
+      'web_search': 'Web Search',
+      'weather': 'Weather',
+      'ssh': 'SSH / Remote Shell',
+      'imap': 'Email (IMAP)',
+      'gmail': 'Gmail',
+      'google_calendar': 'Google Calendar',
+      'google_drive': 'Google Drive',
+      'home_assistant': 'Home Assistant',
+      'website_search': 'Website Index Search',
+      'document': 'Document Search',
+      'chart': 'Chart Generation',
+      'mermaid': 'Mermaid Diagrams',
+      'file': 'File Operations',
+      'excel': 'Excel Operations',
+      'js_bridge': 'JavaScript Tools',
+      'py_bridge': 'Python Tools',
+      'toolbox': 'Toolbox',
+    };
+
+    String labelFor(String type) =>
+        typeLabels[type] ?? type.replaceAll('_', ' ');
+
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final toEnable = List<String>.from(missingTypes);
+          return AlertDialog(
+            title: Text(loc.toolWarning),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This skill requires the following capabilities:',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  ...allRequired.map((type) {
+                    final isMissing = missingTypes.contains(type);
+                    return CheckboxListTile(
+                      value: !isMissing || toEnable.contains(type),
+                      onChanged: isMissing
+                          ? (v) {
+                              setDialogState(() {
+                                if (v == true) {
+                                  toEnable.add(type);
+                                } else {
+                                  toEnable.remove(type);
+                                }
+                              });
+                            }
+                          : null,
+                      title: Text(labelFor(type)),
+                      subtitle: Text(
+                        isMissing ? 'Not currently enabled' : 'Already enabled',
+                        style: TextStyle(
+                          color: isMissing ? Colors.orange : Colors.green,
+                          fontSize: 12,
+                        ),
+                      ),
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    );
+                  }),
+                  if (missingTypes.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('All required tools are already enabled.'),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Skip'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  // Apply selected tools
+                  setState(() {
+                    for (final t in toEnable) {
+                      if (!_selectedMcpTypes.contains(t)) {
+                        _selectedMcpTypes.add(t);
+                      }
+                    }
+                  });
+                  Navigator.of(ctx).pop(true);
+                },
+                child: Text(
+                  missingTypes.isEmpty
+                      ? 'Done'
+                      : 'Enable Selected (${toEnable.length})',
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    // Stay on init screen — do NOT auto-start chat
+    if (mounted) {
       _eagerDiscoverSelectedRemoteMcpTools();
       _updateSkillsSection();
-      _startChat();
-    });
+    }
   }
 
   @override
@@ -910,7 +1037,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       }
       String resolvedBaseUrl = baseUrl;
       if (resolvedBaseUrl.isEmpty) {
-        resolvedBaseUrl = LlmSettingsService.instance.getBaseUrlForProvider(provider);
+        resolvedBaseUrl = LlmSettingsService.instance.getBaseUrlForProvider(
+          provider,
+        );
       }
 
       bool success = false;
@@ -919,34 +1048,49 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       switch (provider) {
         case LlmProvider.ollama:
           final ollamaBase =
-              (resolvedBaseUrl.isEmpty ? 'http://localhost:11434' : resolvedBaseUrl).replaceAll(
-                RegExp(r'/+$'),
-                '',
-              );
-          final ollamaTagsBase = ollamaBase.endsWith('/api') ? ollamaBase : '$ollamaBase/api';
+              (resolvedBaseUrl.isEmpty
+                      ? 'http://localhost:11434'
+                      : resolvedBaseUrl)
+                  .replaceAll(RegExp(r'/+$'), '');
+          final ollamaTagsBase = ollamaBase.endsWith('/api')
+              ? ollamaBase
+              : '$ollamaBase/api';
           final url = Uri.parse('$ollamaTagsBase/tags');
-          final headers = apiKey.isNotEmpty ? {'Authorization': 'Bearer $apiKey'} : <String, String>{};
-          final resp = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+          final headers = apiKey.isNotEmpty
+              ? {'Authorization': 'Bearer $apiKey'}
+              : <String, String>{};
+          final resp = await http
+              .get(url, headers: headers)
+              .timeout(const Duration(seconds: 15));
           success = resp.statusCode >= 200 && resp.statusCode < 300;
           if (!success) errorMsg = 'HTTP ${resp.statusCode}';
           break;
         case LlmProvider.openaiCompatible:
-          final base = resolvedBaseUrl.isEmpty ? 'http://localhost:8080/v1' : resolvedBaseUrl;
+          final base = resolvedBaseUrl.isEmpty
+              ? 'http://localhost:8080/v1'
+              : resolvedBaseUrl;
           final url = Uri.parse('$base/models');
-          final headers = apiKey.isNotEmpty ? {'Authorization': 'Bearer $apiKey'} : <String, String>{};
-          final resp = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+          final headers = apiKey.isNotEmpty
+              ? {'Authorization': 'Bearer $apiKey'}
+              : <String, String>{};
+          final resp = await http
+              .get(url, headers: headers)
+              .timeout(const Duration(seconds: 15));
           success = resp.statusCode >= 200 && resp.statusCode < 300;
           if (!success) errorMsg = 'HTTP ${resp.statusCode}';
           break;
         case LlmProvider.openai:
           final url = Uri.parse('https://api.openai.com/v1/models');
-          final resp = await http.get(url, headers: {'Authorization': 'Bearer $apiKey'}).timeout(const Duration(seconds: 15));
+          final resp = await http
+              .get(url, headers: {'Authorization': 'Bearer $apiKey'})
+              .timeout(const Duration(seconds: 15));
           success = resp.statusCode >= 200 && resp.statusCode < 300;
           if (!success) errorMsg = 'HTTP ${resp.statusCode}';
           break;
         case LlmProvider.gemini:
           if (apiKey.isEmpty) {
-            errorMsg = 'API key is empty. Please provide a valid Gemini API key.';
+            errorMsg =
+                'API key is empty. Please provide a valid Gemini API key.';
             success = false;
             break;
           }
@@ -959,17 +1103,28 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           break;
         case LlmProvider.claude:
           final url = Uri.parse('https://api.anthropic.com/v1/models');
-          final resp = await http.get(url, headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          }).timeout(const Duration(seconds: 15));
+          final resp = await http
+              .get(
+                url,
+                headers: {
+                  'x-api-key': apiKey,
+                  'anthropic-version': '2023-06-01',
+                },
+              )
+              .timeout(const Duration(seconds: 15));
           success = resp.statusCode >= 200 && resp.statusCode < 300;
           if (!success) errorMsg = 'HTTP ${resp.statusCode}';
           break;
         case LlmProvider.mistral:
-          final base = resolvedBaseUrl.isEmpty ? 'https://api.mistral.ai/v1' : resolvedBaseUrl;
-          final url = Uri.parse('${base.replaceAll(RegExp(r'/+$'), '')}/models');
-          final resp = await http.get(url, headers: {'Authorization': 'Bearer $apiKey'}).timeout(const Duration(seconds: 15));
+          final base = resolvedBaseUrl.isEmpty
+              ? 'https://api.mistral.ai/v1'
+              : resolvedBaseUrl;
+          final url = Uri.parse(
+            '${base.replaceAll(RegExp(r'/+$'), '')}/models',
+          );
+          final resp = await http
+              .get(url, headers: {'Authorization': 'Bearer $apiKey'})
+              .timeout(const Duration(seconds: 15));
           success = resp.statusCode >= 200 && resp.statusCode < 300;
           if (!success) errorMsg = 'HTTP ${resp.statusCode}';
           break;
@@ -990,7 +1145,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Connection failed: ${errorMsg ?? "Unknown error"}'),
+              content: Text(
+                'Connection failed: ${errorMsg ?? "Unknown error"}',
+              ),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
@@ -1316,10 +1473,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
           ],
         ],
-        if (selectedProvider != LlmProvider.none && selectedProvider != LlmProvider.embedded) ...[
+        if (selectedProvider != LlmProvider.none &&
+            selectedProvider != LlmProvider.embedded) ...[
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: _testingLlmConnection ? null : _testPlaygroundLlmConnection,
+            onPressed: _testingLlmConnection
+                ? null
+                : _testPlaygroundLlmConnection,
             icon: _testingLlmConnection
                 ? const SizedBox(
                     width: 16,
@@ -2547,19 +2707,21 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         final serverId = type.substring('gh_mcp_'.length);
         if (!combinedGhServers.containsKey(serverId)) {
           final def = _findGithubMcpById(serverId);
-          combinedGhServers[serverId] = def ?? GithubMcpServerDefinition(
-            id: serverId,
-            name: 'Remote MCP ($serverId)',
-            displayName: 'Remote MCP ($serverId)',
-            description: 'Remote GitHub MCP server',
-            githubUrl: '',
-            language: 'python',
-            installType: 'uvx',
-            packageName: '',
-            createdAt: DateTime.now(),
-            isInstalled: true,
-            isActive: true,
-          );
+          combinedGhServers[serverId] =
+              def ??
+              GithubMcpServerDefinition(
+                id: serverId,
+                name: 'Remote MCP ($serverId)',
+                displayName: 'Remote MCP ($serverId)',
+                description: 'Remote GitHub MCP server',
+                githubUrl: '',
+                language: 'python',
+                installType: 'uvx',
+                packageName: '',
+                createdAt: DateTime.now(),
+                isInstalled: true,
+                isActive: true,
+              );
         }
       }
     }
@@ -3081,9 +3243,29 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       );
     }
 
+    final isLightMode = ref.read(serverModeProvider).value?.isLightMode == true;
+
     return infos.where((info) {
-      if (!isServerMode) return true;
-      return info.type != 'ps_bridge' && info.type != 'chart';
+      // Any server mode: hide google services and pdf (not available on remote server)
+      if (isServerMode) {
+        if (info.type == 'gmail' ||
+            info.type == 'google_calendar' ||
+            info.type == 'google_drive' ||
+            info.type == 'pdf' ||
+            info.type == 'ps_bridge' ||
+            info.type == 'chart') {
+          return false;
+        }
+      }
+      // Server light: additionally hide document, excel, website search
+      if (isServerMode && isLightMode) {
+        if (info.type == 'document' ||
+            info.type == 'excel' ||
+            info.type == 'website_search') {
+          return false;
+        }
+      }
+      return true;
     }).toList();
   }
 
@@ -4157,21 +4339,29 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                     width: 1.2,
                   ),
                 ),
-                child: CheckboxListTile(
-                  title: const Text(
-                    'Generate system prompt',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                child: Material(
+                  color: Colors.transparent,
+                  clipBehavior: Clip.antiAlias,
+                  borderRadius: BorderRadius.circular(16),
+                  child: CheckboxListTile(
+                    title: const Text(
+                      'Generate system prompt',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Auto-fill the system prompt based on selected tools',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _pgGenerateOnToolSelect,
+                    onChanged: (v) =>
+                        setState(() => _pgGenerateOnToolSelect = v ?? true),
+                    activeColor: const Color(0xFF7C3AED),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
                   ),
-                  subtitle: const Text(
-                    'Auto-fill the system prompt based on selected tools',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                  value: _pgGenerateOnToolSelect,
-                  onChanged: (v) =>
-                      setState(() => _pgGenerateOnToolSelect = v ?? true),
-                  activeColor: const Color(0xFF7C3AED),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  dense: true,
                 ),
               )
             : Card(
@@ -4216,22 +4406,30 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                     width: 1.2,
                   ),
                 ),
-                child: CheckboxListTile(
-                  title: const Text(
-                    'Chat mode',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                child: Material(
+                  color: Colors.transparent,
+                  clipBehavior: Clip.antiAlias,
+                  borderRadius: BorderRadius.circular(16),
+                  child: CheckboxListTile(
+                    title: const Text(
+                      'Chat mode',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Direct LLM chat — no system prompt, no tools. Fastest for SLMs doing simple tasks (formatting, translation, etc.)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _chatMode,
+                    onChanged: (v) => setState(() => _chatMode = v ?? false),
+                    activeColor: theme.brightness == Brightness.dark
+                        ? const Color(0xFF06B6D4)
+                        : const Color(0xFF34D399),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
                   ),
-                  subtitle: const Text(
-                    'Direct LLM chat — no system prompt, no tools. Fastest for SLMs doing simple tasks (formatting, translation, etc.)',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                  value: _chatMode,
-                  onChanged: (v) => setState(() => _chatMode = v ?? false),
-                  activeColor: theme.brightness == Brightness.dark
-                      ? const Color(0xFF06B6D4)
-                      : const Color(0xFF34D399),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  dense: true,
                 ),
               )
             : Card(
@@ -7156,7 +7354,8 @@ class _LoadWorkflowsDialog extends ConsumerStatefulWidget {
   const _LoadWorkflowsDialog();
 
   @override
-  ConsumerState<_LoadWorkflowsDialog> createState() => _LoadWorkflowsDialogState();
+  ConsumerState<_LoadWorkflowsDialog> createState() =>
+      _LoadWorkflowsDialogState();
 }
 
 class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
@@ -7189,24 +7388,24 @@ class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
         .toList();
 
     // Sort by name case-insensitively
-    workflows.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    workflows.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
 
     // Filter by search query
     final filteredWorkflows = _searchQuery.isEmpty
         ? workflows
         : workflows.where((task) {
             return task.name.toLowerCase().contains(_searchQuery) ||
-                (task.description?.toLowerCase().contains(_searchQuery) ?? false) ||
+                (task.description?.toLowerCase().contains(_searchQuery) ??
+                    false) ||
                 task.prompt.toLowerCase().contains(_searchQuery);
           }).toList();
 
     final l = L.of(context);
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 32,
-      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 560,
@@ -7253,15 +7452,18 @@ class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
                           throw Exception('Could not read file content.');
                         }
 
-                        final serverClient = (ref.read(serverModeProvider).value?.isRemote ?? false)
+                        final serverClient =
+                            (ref.read(serverModeProvider).value?.isRemote ??
+                                false)
                             ? ref.read(serverApiClientProvider)
                             : null;
 
-                        final task = await WorkflowExportService.parseWorkflowFile(
-                          bytes: bytes,
-                          filename: file.name,
-                          serverClient: serverClient,
-                        );
+                        final task =
+                            await WorkflowExportService.parseWorkflowFile(
+                              bytes: bytes,
+                              filename: file.name,
+                              serverClient: serverClient,
+                            );
 
                         if (context.mounted) {
                           Navigator.pop(context, task);
@@ -7272,7 +7474,9 @@ class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
                             context: context,
                             builder: (c) => AlertDialog(
                               title: const Text('Import Error'),
-                              content: Text(e.toString().replaceFirst('Exception: ', '')),
+                              content: Text(
+                                e.toString().replaceFirst('Exception: ', ''),
+                              ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(c),

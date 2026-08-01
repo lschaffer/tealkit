@@ -1,0 +1,11 @@
+name: llamadart
+description: Lightweight stub of llamadart for server_light. No native build hooks.
+version: 0.8.10
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  async: ^2.11.0
+  collection: ^1.17.0
+  meta: ^1.8.0

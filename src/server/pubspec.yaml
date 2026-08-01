@@ -1,10 +1,10 @@
 name: tealkit_server
 description: "TealKit Server — headless Docker/Linux daemon with REST API"
 publish_to: 'none'
-version: 1.0.178
+version: 1.0.181
 
 environment:
-  sdk: ^3.10.7
+  sdk: ^3.8.0
 
 dependencies:
   # HTTP server
@@ -23,6 +23,9 @@ dependencies:
 
   # DuckDB — pinned to same version as main app
   dart_duckdb: 1.4.2
+
+  # SQLite — lightweight alternative for server_light (≤1GB RAM)
+  sqlite3: ^2.1.0
 
   # HTTP client (for LLM API calls + MCP client)
   http: ^1.2.1

@@ -111,6 +111,7 @@ class FunctionHintGenerationService {
   /// surface the failure to the user and abort.  Per-tool serialisation /
   /// content errors are still caught internally and logged.
   Future<void> ensureSkillsForBuiltInTools() async {
+    if (await _db.isServerMode()) return;
     if (_busyBuiltIn) return;
     _busyBuiltIn = true;
     _cancelRequested = false;

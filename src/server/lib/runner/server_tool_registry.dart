@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../database/server_duckdb_service.dart';
+import '../database/server_database_adapter.dart';
 import '../models/agentic_task.dart';
 import '../services/server_external_tools_service.dart';
 import '../utils/server_live_log.dart';
@@ -100,7 +100,7 @@ class StdioMcpProcess {
 /// Call [callTool] to invoke any registered tool.
 /// Call [dispose] when the task finishes.
 class ServerToolRegistry {
-  final ServerDuckDbService _db;
+  final ServerDatabaseAdapter _db;
 
   final List<ServerMcpClient> _clients = [];
   final List<RegisteredTool> _tools = [];
@@ -150,7 +150,11 @@ class ServerToolRegistry {
         final resolvedTuple = await ServerExternalToolsService.instance
             .resolveSmitheryEndpoint(baseUrl, apiKey);
         final resolvedBase = resolvedTuple.$1;
-        final resolvedKey = resolvedTuple.$2;
+        var resolvedKey = resolvedTuple.$2;
+
+        if (resolvedKey != null && resolvedKey.isNotEmpty && cfg.apiPassword != null && cfg.apiPassword!.isNotEmpty) {
+          resolvedKey = '$resolvedKey:${cfg.apiPassword}';
+        }
 
         final parsedResolved = Uri.parse(resolvedBase);
         final resolvedUrl = parsedResolved.path.toLowerCase().endsWith('/mcp')
@@ -667,10 +671,11 @@ class ServerToolRegistry {
     log.info(
       '[ToolRegistry] Installing Node MCP dependencies in ${serverDir.path}',
     );
+    final executable = Platform.isWindows ? 'npm.cmd' : 'npm';
     final proc = await Process.start(
-      'npm',
+      executable,
       <String>['install', '--prefix', serverDir.path],
-      runInShell: false,
+      runInShell: Platform.isWindows,
       environment: Platform.environment,
     );
     final stdoutText = await proc.stdout

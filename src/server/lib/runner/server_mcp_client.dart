@@ -61,7 +61,16 @@ class ServerMcpClient {
 
   Map<String, String> _headers({Map<String, String>? extra}) {
     final h = <String, String>{'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'};
-    if (_effectiveBearerToken != null) h['Authorization'] = 'Bearer $_effectiveBearerToken';
+    if (_effectiveBearerToken != null) {
+      final token = _effectiveBearerToken!.trim();
+      if (token.contains(':')) {
+        final bytes = utf8.encode(token);
+        final base64Str = base64.encode(bytes);
+        h['Authorization'] = 'Basic $base64Str';
+      } else {
+        h['Authorization'] = 'Bearer $token';
+      }
+    }
     if (_sessionId != null) h['Mcp-Session-Id'] = _sessionId!;
     if (extra != null) h.addAll(extra);
     return h;

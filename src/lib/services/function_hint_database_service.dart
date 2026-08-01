@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import '../database/duckdb_service.dart';
 import '../models/function_hint.dart';
 import 'app_logger.dart';
@@ -18,9 +19,15 @@ class FunctionHintDatabaseService {
 
   final DuckDbService _db = DuckDbService();
 
+  Future<bool> isServerMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getString('server_mode') ?? 'local') == 'remote';
+  }
+
   // ──────────────────────────────────────────────────────────────────────
 
   Future<void> save(FunctionHint skill) async {
+    if (await isServerMode()) return;
     try {
       await _db.saveToolSkill(
         id: skill.id,
@@ -38,13 +45,14 @@ class FunctionHintDatabaseService {
   }
 
   Future<List<FunctionHint>> getAll({String? mcpType}) async {
+    if (await isServerMode()) return [];
     final rows = await _db.getAllToolSkills(mcpType: mcpType);
     return rows.map(_fromRow).toList();
   }
 
   /// Returns only enabled skills whose tool name appears in [toolNames].
   Future<List<FunctionHint>> getEnabledForTools(List<String> toolNames) async {
-    if (toolNames.isEmpty) return [];
+    if (toolNames.isEmpty || await isServerMode()) return [];
     final rows = await _db.getEnabledSkillsForTools(toolNames);
     final list = rows.map(_fromRow).toList();
     final seen = <String>{};
@@ -52,11 +60,20 @@ class FunctionHintDatabaseService {
   }
 
   /// Returns the set of tool names that already have a DB record.
-  Future<Set<String>> getExistingToolNames() => _db.getToolNamesWithSkills();
+  Future<Set<String>> getExistingToolNames() async {
+    if (await isServerMode()) return <String>{};
+    return _db.getToolNamesWithSkills();
+  }
 
-  Future<void> delete(String id) => _db.deleteToolSkill(id);
+  Future<void> delete(String id) async {
+    if (await isServerMode()) return;
+    await _db.deleteToolSkill(id);
+  }
 
-  Future<void> deleteByToolName(String toolName) => _db.deleteToolSkillsByToolName(toolName);
+  Future<void> deleteByToolName(String toolName) async {
+    if (await isServerMode()) return;
+    await _db.deleteToolSkillsByToolName(toolName);
+  }
 
   /// Exports all skills as a list of JSON maps (for vault backup).
   Future<List<Map<String, dynamic>>> exportToJson() async {

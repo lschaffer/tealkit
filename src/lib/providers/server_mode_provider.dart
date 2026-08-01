@@ -32,11 +32,7 @@ class ServerConnectionConfig {
     required this.apiKey,
   });
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'url': url,
-        'apiKey': apiKey,
-      };
+  Map<String, dynamic> toJson() => {'name': name, 'url': url, 'apiKey': apiKey};
 
   factory ServerConnectionConfig.fromJson(Map<String, dynamic> json) {
     return ServerConnectionConfig(
@@ -52,6 +48,7 @@ class ServerModeState {
   final String serverUrl;
   final String apiKey;
   final bool isConnected;
+  final bool isLightMode;
   final List<ServerConnectionConfig> connections;
   final String? activeConnectionName;
 
@@ -60,6 +57,7 @@ class ServerModeState {
     this.serverUrl = '',
     this.apiKey = '',
     this.isConnected = false,
+    this.isLightMode = false,
     this.connections = const [],
     this.activeConnectionName,
   });
@@ -71,6 +69,7 @@ class ServerModeState {
     String? serverUrl,
     String? apiKey,
     bool? isConnected,
+    bool? isLightMode,
     List<ServerConnectionConfig>? connections,
     String? activeConnectionName,
   }) {
@@ -79,6 +78,7 @@ class ServerModeState {
       serverUrl: serverUrl ?? this.serverUrl,
       apiKey: apiKey ?? this.apiKey,
       isConnected: isConnected ?? this.isConnected,
+      isLightMode: isLightMode ?? this.isLightMode,
       connections: connections ?? this.connections,
       activeConnectionName: activeConnectionName ?? this.activeConnectionName,
     );
@@ -100,7 +100,7 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
   Future<ServerModeState> build() async {
     final prefs = await SharedPreferences.getInstance();
     final modeStr = prefs.getString(_kMode) ?? 'local';
-    
+
     // Load connections
     final connJson = prefs.getString(_kConnections);
     List<ServerConnectionConfig> connections = [];
@@ -108,7 +108,11 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
       try {
         final decoded = jsonDecode(connJson) as List;
         connections = decoded
-            .map((item) => ServerConnectionConfig.fromJson(Map<String, dynamic>.from(item as Map)))
+            .map(
+              (item) => ServerConnectionConfig.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
             .toList();
       } catch (e) {
         log.warning('[ServerMode] Failed to decode server connections: $e');
@@ -128,7 +132,10 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
       );
       connections.add(defaultConn);
       activeName = 'Default Server';
-      await prefs.setString(_kConnections, jsonEncode(connections.map((c) => c.toJson()).toList()));
+      await prefs.setString(
+        _kConnections,
+        jsonEncode(connections.map((c) => c.toJson()).toList()),
+      );
       await prefs.setString(_kActiveName, activeName);
     }
 
@@ -141,7 +148,10 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
       await prefs.setString(_kKey, key);
       await prefs.setString(_kActiveName, activeName);
     } else if (activeName != null) {
-      final activeConn = connections.firstWhere((c) => c.name == activeName, orElse: () => connections.first);
+      final activeConn = connections.firstWhere(
+        (c) => c.name == activeName,
+        orElse: () => connections.first,
+      );
       url = activeConn.url;
       key = activeConn.apiKey;
       if (activeConn.name != activeName) {
@@ -170,14 +180,25 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
   }
 
   Future<void> _hydrateRemoteRuntimeState(ServerModeState baseline) async {
-    final client = ServerApiClient(serverUrl: baseline.serverUrl, apiKey: baseline.apiKey.isNotEmpty ? baseline.apiKey : null);
-    final ok = await _loadRemoteRuntimeState(client, requestTimeout: const Duration(seconds: 12));
+    final client = ServerApiClient(
+      serverUrl: baseline.serverUrl,
+      apiKey: baseline.apiKey.isNotEmpty ? baseline.apiKey : null,
+    );
+    final ok = await _loadRemoteRuntimeState(
+      client,
+      requestTimeout: const Duration(seconds: 12),
+    );
 
     final current = state.value;
     if (current == null) return;
     if (!current.isRemote) return;
-    if (current.serverUrl != baseline.serverUrl || current.apiKey != baseline.apiKey) return;
-    state = AsyncData(current.copyWith(isConnected: ok));
+    if (current.serverUrl != baseline.serverUrl ||
+        current.apiKey != baseline.apiKey) {
+      return;
+    }
+    Future.microtask(() {
+      state = AsyncData(current.copyWith(isConnected: ok));
+    });
   }
 
   Future<void> _loadLocalRuntimeState() async {
@@ -186,40 +207,69 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
     await ExternalToolsSettingsService.instance.load();
   }
 
-  Future<bool> _loadRemoteRuntimeState(ServerApiClient client, {Duration? requestTimeout}) async {
+  Future<bool> _loadRemoteRuntimeState(
+    ServerApiClient client, {
+    Duration? requestTimeout,
+  }) async {
     var isConnected = false;
+    var isLightMode = false;
     try {
       isConnected = await client.validateAuthorization(timeout: requestTimeout);
+      final healthInfo = await client.getHealthStatus(timeout: requestTimeout);
+      isLightMode = healthInfo['mode'] == 'light';
     } catch (e) {
       log.warning('[ServerMode] Authorization check failed: $e');
     }
 
+    final current = state.value;
+    if (current != null) {
+      Future.microtask(() {
+        state = AsyncData(
+          current.copyWith(isConnected: isConnected, isLightMode: isLightMode),
+        );
+      });
+    }
+
     try {
       final llm = await client.getLlmSettings(timeout: requestTimeout);
-      LlmSettingsService.instance.applyRemoteState(llm);
+      Future.microtask(() {
+        LlmSettingsService.instance.applyRemoteState(llm);
+      });
     } catch (e) {
       log.warning('[ServerMode] Failed to load remote LLM settings: $e');
     }
 
     try {
-      final dataSources = await client.getDataSourcesSettings(timeout: requestTimeout);
-      DataSourcesSettingsService.instance.applyRemoteState(dataSources);
+      final dataSources = await client.getDataSourcesSettings(
+        timeout: requestTimeout,
+      );
+      Future.microtask(() {
+        DataSourcesSettingsService.instance.applyRemoteState(dataSources);
+      });
     } catch (e) {
       log.warning('[ServerMode] Failed to load remote data sources: $e');
     }
 
     try {
-      final external = await client.getExternalToolsSettings(timeout: requestTimeout);
-      final servers = (external['selected_servers'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map>()
-          .map((entry) => McpToolConfig.fromJson(Map<String, dynamic>.from(entry)))
-          .toList();
-      ExternalToolsSettingsService.instance.applyInMemory(
-        catalogBaseUrl: external['catalog_base_url'] as String?,
-        catalogSource: external['catalog_source'] as String?,
-        selectedServers: servers,
-        smitheryApiKey: external['smithery_api_key'] as String?,
+      final external = await client.getExternalToolsSettings(
+        timeout: requestTimeout,
       );
+      final servers =
+          (external['selected_servers'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (entry) =>
+                    McpToolConfig.fromJson(Map<String, dynamic>.from(entry)),
+              )
+              .toList();
+      Future.microtask(() {
+        ExternalToolsSettingsService.instance.applyInMemory(
+          catalogBaseUrl: external['catalog_base_url'] as String?,
+          catalogSource: external['catalog_source'] as String?,
+          selectedServers: servers,
+          smitheryApiKey: external['smithery_api_key'] as String?,
+        );
+      });
     } catch (e) {
       log.warning('[ServerMode] Failed to load remote external tools: $e');
     }
@@ -233,18 +283,27 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
     if (current == null || !current.isRemote || current.serverUrl.isEmpty) {
       return false;
     }
-    final client = ServerApiClient(serverUrl: current.serverUrl, apiKey: current.apiKey.isNotEmpty ? current.apiKey : null);
+    final client = ServerApiClient(
+      serverUrl: current.serverUrl,
+      apiKey: current.apiKey.isNotEmpty ? current.apiKey : null,
+    );
     final ok = await client.validateAuthorization();
     state = AsyncData(current.copyWith(isConnected: ok));
     return ok;
   }
 
   /// Connect using a specific connection configuration.
-  Future<bool> connect(ServerConnectionConfig conn, {void Function(ServerConnectPhase phase)? onPhase}) async {
+  Future<bool> connect(
+    ServerConnectionConfig conn, {
+    void Function(ServerConnectPhase phase)? onPhase,
+  }) async {
     onPhase?.call(ServerConnectPhase.connecting);
     final prefs = await SharedPreferences.getInstance();
 
-    final client = ServerApiClient(serverUrl: conn.url, apiKey: conn.apiKey.isNotEmpty ? conn.apiKey : null);
+    final client = ServerApiClient(
+      serverUrl: conn.url,
+      apiKey: conn.apiKey.isNotEmpty ? conn.apiKey : null,
+    );
 
     log.info('[ServerMode] Connecting to ${conn.name} (${conn.url})...');
 
@@ -254,7 +313,9 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
       return false;
     }
 
-    final ok = await client.validateAuthorization(timeout: const Duration(seconds: 15));
+    final ok = await client.validateAuthorization(
+      timeout: const Duration(seconds: 15),
+    );
     log.info('[ServerMode] Connection ${ok ? "OK" : "FAILED"}');
     if (!ok) {
       return false;
@@ -293,6 +354,7 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
       (current ?? const ServerModeState()).copyWith(
         mode: ServerMode.local,
         isConnected: false,
+        isLightMode: false,
       ),
     );
     await _loadLocalRuntimeState();
@@ -307,15 +369,22 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
     final current = state.value;
     if (current == null) return;
 
-    final updated = List<ServerConnectionConfig>.from(current.connections)..add(conn);
+    final updated = List<ServerConnectionConfig>.from(current.connections)
+      ..add(conn);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kConnections, jsonEncode(updated.map((c) => c.toJson()).toList()));
+    await prefs.setString(
+      _kConnections,
+      jsonEncode(updated.map((c) => c.toJson()).toList()),
+    );
 
     state = AsyncData(current.copyWith(connections: updated));
     log.info('[ServerMode] Added connection: ${conn.name}');
   }
 
-  Future<void> editConnection(String oldName, ServerConnectionConfig conn) async {
+  Future<void> editConnection(
+    String oldName,
+    ServerConnectionConfig conn,
+  ) async {
     final current = state.value;
     if (current == null) return;
 
@@ -325,7 +394,10 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
     }).toList();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kConnections, jsonEncode(updated.map((c) => c.toJson()).toList()));
+    await prefs.setString(
+      _kConnections,
+      jsonEncode(updated.map((c) => c.toJson()).toList()),
+    );
 
     String? activeName = current.activeConnectionName;
     String activeUrl = current.serverUrl;
@@ -357,7 +429,10 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
 
     final updated = current.connections.where((c) => c.name != name).toList();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kConnections, jsonEncode(updated.map((c) => c.toJson()).toList()));
+    await prefs.setString(
+      _kConnections,
+      jsonEncode(updated.map((c) => c.toJson()).toList()),
+    );
 
     String? activeName = current.activeConnectionName;
     String activeUrl = current.serverUrl;
@@ -402,7 +477,17 @@ class ServerModeNotifier extends AsyncNotifier<ServerModeState> {
 // Providers
 // ═══════════════════════════════════════════════════════════════
 
-final serverModeProvider = AsyncNotifierProvider<ServerModeNotifier, ServerModeState>(ServerModeNotifier.new);
+final serverModeProvider =
+    AsyncNotifierProvider<ServerModeNotifier, ServerModeState>(
+      ServerModeNotifier.new,
+    );
+
+/// Whether the currently connected remote server is running in light mode
+/// (no embedded model support, SQLite backend, ≤1GB RAM).
+final isLightModeProvider = Provider<bool>((ref) {
+  final modeAsync = ref.watch(serverModeProvider);
+  return modeAsync.whenOrNull(data: (state) => state.isLightMode) ?? false;
+});
 
 /// Convenience provider: the ServerApiClient for the current remote server.
 /// Returns `null` when in local mode.
@@ -411,7 +496,10 @@ final serverApiClientProvider = Provider<ServerApiClient?>((ref) {
   return modeAsync.whenOrNull(
     data: (state) {
       if (!state.isRemote || state.serverUrl.isEmpty) return null;
-      return ServerApiClient(serverUrl: state.serverUrl, apiKey: state.apiKey.isNotEmpty ? state.apiKey : null);
+      return ServerApiClient(
+        serverUrl: state.serverUrl,
+        apiKey: state.apiKey.isNotEmpty ? state.apiKey : null,
+      );
     },
   );
 });

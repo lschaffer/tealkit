@@ -17,7 +17,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:http/http.dart' as http;
 
-import '../database/server_duckdb_service.dart';
+import '../database/server_database_adapter.dart';
 import '../models/mcp_models.dart';
 import '../services/server_data_sources_service.dart';
 import '../services/server_indexing_service.dart';
@@ -4691,7 +4691,7 @@ class ServerDocumentMcp extends ServerInternalMcp {
   Future<Map<String, dynamic>> _listDocuments(Map<String, dynamic> args) async {
     final fileType = (args['fileType'] as String?)?.trim();
     final limit = ((args['limit'] as int?) ?? 100).clamp(1, 1000);
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final where = StringBuffer('WHERE ${_rootPathInClause()}');
     if (fileType != null && fileType.isNotEmpty) {
       where.write(" AND file_type = '${_esc(fileType.toLowerCase())}'");
@@ -4745,7 +4745,7 @@ class ServerDocumentMcp extends ServerInternalMcp {
     final limit = ((args['limit'] as int?) ?? 20).clamp(1, 200);
     final searchMode = (args['searchMode'] as String? ?? 'hybrid')
         .toLowerCase();
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final words = query
         .toLowerCase()
         .split(RegExp(r'\s+'))
@@ -4860,7 +4860,7 @@ class ServerDocumentMcp extends ServerInternalMcp {
     if (filePath == null || filePath.isEmpty) {
       return {'error': 'Parameter "filePath" is required.'};
     }
-    final db = ServerDuckDbService();
+    final db = serverDb;
     try {
       final rows = await db.query('''
         SELECT file_path, file_name, file_type, file_size, content_text, last_modified
@@ -5059,9 +5059,7 @@ class ServerJsBridgeMcp extends ServerInternalMcp {
   }
 
   Future<Map<String, dynamic>> _listTools() async {
-    final rows = await ServerDuckDbService().getAllJsTools(
-      activeOnly: !_allowInactive,
-    );
+    final rows = await serverDb.getAllJsTools(activeOnly: !_allowInactive);
     await _rebuildDynamicTools();
     return {
       'count': rows.length,
@@ -5084,9 +5082,7 @@ class ServerJsBridgeMcp extends ServerInternalMcp {
     _dynamicTools.clear();
     _toolNameToId.clear();
     final usedNames = <String>{'list_js_tools', 'run_js_tool'};
-    final rows = await ServerDuckDbService().getAllJsTools(
-      activeOnly: !_allowInactive,
-    );
+    final rows = await serverDb.getAllJsTools(activeOnly: !_allowInactive);
     for (final row in rows) {
       final id = row['id']?.toString() ?? '';
       final displayName = row['name']?.toString() ?? '';
@@ -5145,9 +5141,7 @@ class ServerJsBridgeMcp extends ServerInternalMcp {
     }
 
     if (toolName != null && toolName.isNotEmpty) {
-      final rows = await ServerDuckDbService().getAllJsTools(
-        activeOnly: !_allowInactive,
-      );
+      final rows = await serverDb.getAllJsTools(activeOnly: !_allowInactive);
       final lower = toolName.toLowerCase();
       final row = rows.firstWhere(
         (t) =>
@@ -5172,7 +5166,7 @@ class ServerJsBridgeMcp extends ServerInternalMcp {
     Map<String, dynamic> args,
     int timeoutMs,
   ) async {
-    final rows = await ServerDuckDbService().getAllJsTools(activeOnly: false);
+    final rows = await serverDb.getAllJsTools(activeOnly: false);
     final row = rows.where((t) => t['id']?.toString() == toolId).firstOrNull;
     if (row == null) {
       return {'error': 'Tool not found: $toolId'};
@@ -5182,7 +5176,7 @@ class ServerJsBridgeMcp extends ServerInternalMcp {
       return {'error': 'Tool is disabled: ${row['name'] ?? toolId}'};
     }
 
-    final dataDir = ServerDuckDbService().dataDir;
+    final dataDir = serverDb.dataDir;
     final scriptsDir = Directory('$dataDir/js_scripts');
     await scriptsDir.create(recursive: true);
 
@@ -5445,7 +5439,7 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
   }
 
   Future<Map<String, dynamic>> _listTools() async {
-    final rows = await ServerDuckDbService().getAllPyTools();
+    final rows = await serverDb.getAllPyTools();
     await _rebuildDynamicTools();
     final filtered = _allowInactive
         ? rows
@@ -5471,7 +5465,7 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
     _dynamicTools.clear();
     _toolNameToId.clear();
     final usedNames = <String>{'list_py_tools', 'init_py_tool', 'run_py_tool'};
-    final rows = await ServerDuckDbService().getAllPyTools();
+    final rows = await serverDb.getAllPyTools();
     final source = _allowInactive
         ? rows
         : rows.where((t) => t['is_active'] as bool? ?? true).toList();
@@ -5591,7 +5585,7 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
         }
       }
 
-      await ServerDuckDbService().setPyToolVenvReady(toolId, true);
+      await serverDb.setPyToolVenvReady(toolId, true);
       return {
         'success': true,
         'message': 'Venv ready for "$toolName"',
@@ -5634,7 +5628,7 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
     Map<String, dynamic> args,
     int? overrideTimeoutSeconds,
   ) async {
-    final rows = await ServerDuckDbService().getAllPyTools();
+    final rows = await serverDb.getAllPyTools();
     final tool = rows.where((t) => t['id']?.toString() == id).firstOrNull;
     if (tool == null) return {'error': 'Tool not found: $id'};
 
@@ -5649,12 +5643,15 @@ class ServerPyBridgeMcp extends ServerInternalMcp {
     final venvReady = tool['venv_ready'] as bool? ?? false;
     if (!venvReady) {
       // Auto-initialize the venv on first use instead of failing
-      log.info('[PyBridge] venv not ready for "${tool['name']}" — auto-initializing…');
+      log.info(
+        '[PyBridge] venv not ready for "${tool['name']}" — auto-initializing…',
+      );
       final initResult = await _initTool({'toolId': id, 'timeoutSeconds': 300});
       if (initResult['success'] != true) {
         return {
           'success': false,
-          'error': 'Auto-init failed: ${initResult['error'] ?? 'unknown error'}',
+          'error':
+              'Auto-init failed: ${initResult['error'] ?? 'unknown error'}',
           'toolId': id,
           'toolName': tool['name'],
         };
@@ -5758,7 +5755,7 @@ except Exception as e:
   }
 
   Future<Map<String, dynamic>?> _resolveTool(Map<String, dynamic> args) async {
-    final rows = await ServerDuckDbService().getAllPyTools();
+    final rows = await serverDb.getAllPyTools();
     final source = _allowInactive
         ? rows
         : rows.where((t) => t['is_active'] as bool? ?? true).toList();
@@ -5776,7 +5773,7 @@ except Exception as e:
   }
 
   Future<Directory> _ensureToolFiles(Map<String, dynamic> tool) async {
-    final dataDir = ServerDuckDbService().dataDir;
+    final dataDir = serverDb.dataDir;
     final toolId = tool['id'].toString();
     final dir = Directory('$dataDir/py_scripts/$toolId');
     await dir.create(recursive: true);
@@ -5977,7 +5974,7 @@ class ServerWebsiteSearchMcp extends ServerInternalMcp {
       );
     } else if (_indexingStrategy == 'before_first_run' &&
         _seedUrls.isNotEmpty) {
-      final db = ServerDuckDbService();
+      final db = serverDb;
       try {
         final seedIn = _seedUrls
             .map((s) => "'${_esc(_wsNormalizeUrl(s))}'")
@@ -6126,7 +6123,7 @@ class ServerWebsiteSearchMcp extends ServerInternalMcp {
   ) async {
     final domain = (args['domain'] as String?)?.trim().toLowerCase();
     final limit = ((args['limit'] as int?) ?? 50).clamp(1, 500);
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final where = StringBuffer('WHERE ${_wsSeedScopeClause()}');
     if (domain != null && domain.isNotEmpty) {
       where.write(" AND domain = '${_esc(domain)}'");
@@ -6182,7 +6179,7 @@ class ServerWebsiteSearchMcp extends ServerInternalMcp {
     final domain = (args['domain'] as String?)?.trim().toLowerCase();
     final limit = ((args['limit'] as int?) ?? 20).clamp(1, 200);
     final mode = (args['searchMode'] as String? ?? 'hybrid').toLowerCase();
-    final db = ServerDuckDbService();
+    final db = serverDb;
     final where = StringBuffer(
       "WHERE ${_wsSeedScopeClause()} AND content_text IS NOT NULL AND content_text != ''",
     );
@@ -6318,7 +6315,7 @@ class ServerWebsiteSearchMcp extends ServerInternalMcp {
       return {'error': 'Parameter "url" is required.'};
     }
     final normalized = _wsNormalizeUrl(Uri.parse(url));
-    final db = ServerDuckDbService();
+    final db = serverDb;
     try {
       final rows = await db.query('''
         SELECT url, domain, title, content_text, indexed_at
