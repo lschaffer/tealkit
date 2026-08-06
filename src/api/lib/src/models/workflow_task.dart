@@ -1,8 +1,9 @@
 import 'package:uuid/uuid.dart';
 
-typedef ParamsEncryptor = Map<String, dynamic> Function(Map<String, dynamic> params);
-typedef ParamsDecryptor = Map<String, dynamic> Function(Map<String, dynamic> params);
-
+typedef ParamsEncryptor =
+    Map<String, dynamic> Function(Map<String, dynamic> params);
+typedef ParamsDecryptor =
+    Map<String, dynamic> Function(Map<String, dynamic> params);
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN MODEL: WorkflowTask
@@ -210,13 +211,18 @@ class WorkflowTask {
     var rawExecutors = (json['agents'] ?? json['executors']) as List<dynamic>?;
     List<Agent> parsedExecutors = [];
     if (rawExecutors != null) {
-      parsedExecutors = rawExecutors.map((e) => Agent.fromJson(e as Map<String, dynamic>)).toList();
+      parsedExecutors = rawExecutors
+          .map((e) => Agent.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
 
     // ON-THE-FLY MIGRATION: If agents list is empty but we have a flat prompt/config, migrate it!
-    if (parsedExecutors.isEmpty && (json['prompt'] as String? ?? '').isNotEmpty) {
+    if (parsedExecutors.isEmpty &&
+        (json['prompt'] as String? ?? '').isNotEmpty) {
       final legacyNotification = json['notification'] != null
-          ? TaskNotification.fromJson(json['notification'] as Map<String, dynamic>)
+          ? TaskNotification.fromJson(
+              json['notification'] as Map<String, dynamic>,
+            )
           : const TaskNotification();
       parsedExecutors = [
         Agent(
@@ -225,14 +231,22 @@ class WorkflowTask {
           prompt: json['prompt'] as String? ?? '',
           systemPrompt: json['system_prompt'] as String?,
           llmConfig: json['llm_config'] != null
-              ? TaskLlmConfig.fromJson(json['llm_config'] as Map<String, dynamic>)
+              ? TaskLlmConfig.fromJson(
+                  json['llm_config'] as Map<String, dynamic>,
+                )
               : null,
-          mcpTools: (json['mcp_tools'] as List<dynamic>?)
-                  ?.map((e) => McpToolConfig.fromJson(e as Map<String, dynamic>))
+          mcpTools:
+              (json['mcp_tools'] as List<dynamic>?)
+                  ?.map(
+                    (e) => McpToolConfig.fromJson(e as Map<String, dynamic>),
+                  )
                   .toList() ??
               [],
-          internalMcps: (json['internal_mcps'] as List<dynamic>?)
-                  ?.map((e) => InternalMcpEntry.fromJson(e as Map<String, dynamic>))
+          internalMcps:
+              (json['internal_mcps'] as List<dynamic>?)
+                  ?.map(
+                    (e) => InternalMcpEntry.fromJson(e as Map<String, dynamic>),
+                  )
                   .toList() ??
               [],
           chatMode: json['chat_mode'] as bool? ?? false,
@@ -245,7 +259,9 @@ class WorkflowTask {
     var rawRouting = (json['edges'] ?? json['routing_rules']) as List<dynamic>?;
     List<Edge> parsedRouting = [];
     if (rawRouting != null) {
-      parsedRouting = rawRouting.map((e) => Edge.fromJson(e as Map<String, dynamic>)).toList();
+      parsedRouting = rawRouting
+          .map((e) => Edge.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
 
     return WorkflowTask(
@@ -287,7 +303,9 @@ class WorkflowTask {
           : const TaskNotification(),
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       chainConfig: json['chain_config'] != null
-          ? TaskChainConfig.fromJson(json['chain_config'] as Map<String, dynamic>)
+          ? TaskChainConfig.fromJson(
+              json['chain_config'] as Map<String, dynamic>,
+            )
           : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -1393,6 +1411,7 @@ class WhatsAppNotification {
 class InternalMcpEntry {
   static ParamsEncryptor? encryptor;
   static ParamsDecryptor? decryptor;
+
   /// Unique ID for this entry.
   final String id;
 
@@ -1576,6 +1595,7 @@ class Agent {
   final TaskNotification notification;
   final DateTime? lastRun;
   final DateTime? nextRun;
+  final String? skillDefId;
 
   const Agent({
     required this.id,
@@ -1591,55 +1611,62 @@ class Agent {
     this.notification = const TaskNotification(),
     this.lastRun,
     this.nextRun,
+    this.skillDefId,
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'system_prompt': systemPrompt,
-        'prompt': prompt,
-        'llm_config': llmConfig?.toJson(),
-        'mcp_tools': mcpTools.map((t) => t.toJson()).toList(),
-        'internal_mcps': internalMcps.map((m) => m.toJson()).toList(),
-        'chat_mode': chatMode,
-        'stop_after_tool_call': stopAfterToolCall,
-        'notification': notification.toJson(),
-        if (executionPlan != null) 'execution_plan': executionPlan!.toJson(),
-        if (lastRun != null) 'last_run': lastRun!.toUtc().toIso8601String(),
-        if (nextRun != null) 'next_run': nextRun!.toUtc().toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'system_prompt': systemPrompt,
+    'prompt': prompt,
+    'llm_config': llmConfig?.toJson(),
+    'mcp_tools': mcpTools.map((t) => t.toJson()).toList(),
+    'internal_mcps': internalMcps.map((m) => m.toJson()).toList(),
+    'chat_mode': chatMode,
+    'stop_after_tool_call': stopAfterToolCall,
+    'notification': notification.toJson(),
+    if (executionPlan != null) 'execution_plan': executionPlan!.toJson(),
+    if (lastRun != null) 'last_run': lastRun!.toUtc().toIso8601String(),
+    if (nextRun != null) 'next_run': nextRun!.toUtc().toIso8601String(),
+    if (skillDefId != null) 'skill_def_id': skillDefId,
+  };
 
   factory Agent.fromJson(Map<String, dynamic> json) => Agent(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        systemPrompt: json['system_prompt'] as String?,
-        prompt: json['prompt'] as String,
-        llmConfig: json['llm_config'] != null
-            ? TaskLlmConfig.fromJson(json['llm_config'] as Map<String, dynamic>)
-            : null,
-        mcpTools: (json['mcp_tools'] as List<dynamic>?)
-                ?.map((e) => McpToolConfig.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        internalMcps: (json['internal_mcps'] as List<dynamic>?)
-                ?.map((e) => InternalMcpEntry.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        chatMode: json['chat_mode'] as bool? ?? false,
-        stopAfterToolCall: json['stop_after_tool_call'] as bool? ?? false,
-        executionPlan: json['execution_plan'] != null
-            ? ExecutionPlan.fromJson(json['execution_plan'] as Map<String, dynamic>)
-            : null,
-        notification: json['notification'] != null
-            ? TaskNotification.fromJson(json['notification'] as Map<String, dynamic>)
-            : const TaskNotification(),
-        lastRun: json['last_run'] != null
-            ? DateTime.parse(json['last_run'] as String).toLocal()
-            : null,
-        nextRun: json['next_run'] != null
-            ? DateTime.parse(json['next_run'] as String).toLocal()
-            : null,
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    systemPrompt: json['system_prompt'] as String?,
+    prompt: json['prompt'] as String,
+    llmConfig: json['llm_config'] != null
+        ? TaskLlmConfig.fromJson(json['llm_config'] as Map<String, dynamic>)
+        : null,
+    mcpTools:
+        (json['mcp_tools'] as List<dynamic>?)
+            ?.map((e) => McpToolConfig.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [],
+    internalMcps:
+        (json['internal_mcps'] as List<dynamic>?)
+            ?.map((e) => InternalMcpEntry.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [],
+    chatMode: json['chat_mode'] as bool? ?? false,
+    stopAfterToolCall: json['stop_after_tool_call'] as bool? ?? false,
+    executionPlan: json['execution_plan'] != null
+        ? ExecutionPlan.fromJson(json['execution_plan'] as Map<String, dynamic>)
+        : null,
+    notification: json['notification'] != null
+        ? TaskNotification.fromJson(
+            json['notification'] as Map<String, dynamic>,
+          )
+        : const TaskNotification(),
+    lastRun: json['last_run'] != null
+        ? DateTime.parse(json['last_run'] as String).toLocal()
+        : null,
+    nextRun: json['next_run'] != null
+        ? DateTime.parse(json['next_run'] as String).toLocal()
+        : null,
+    skillDefId: json['skill_def_id'] as String?,
+  );
 
   Agent copyWith({
     String? name,
@@ -1656,6 +1683,8 @@ class Agent {
     TaskNotification? notification,
     DateTime? lastRun,
     DateTime? nextRun,
+    String? skillDefId,
+    bool clearSkillDefId = false,
   }) {
     return Agent(
       id: id,
@@ -1667,10 +1696,13 @@ class Agent {
       internalMcps: internalMcps ?? this.internalMcps,
       chatMode: chatMode ?? this.chatMode,
       stopAfterToolCall: stopAfterToolCall ?? this.stopAfterToolCall,
-      executionPlan: clearExecutionPlan ? null : (executionPlan ?? this.executionPlan),
+      executionPlan: clearExecutionPlan
+          ? null
+          : (executionPlan ?? this.executionPlan),
       notification: notification ?? this.notification,
       lastRun: lastRun ?? this.lastRun,
       nextRun: nextRun ?? this.nextRun,
+      skillDefId: clearSkillDefId ? null : (skillDefId ?? this.skillDefId),
     );
   }
 }
@@ -1699,22 +1731,24 @@ class Edge {
        targetAgentId = targetAgentId ?? targetExecutorId ?? '';
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'source_agent_id': sourceAgentId,
-        'variable': variable,
-        'operator': operator,
-        'value': value,
-        'target_agent_id': targetAgentId,
-      };
+    'id': id,
+    'source_agent_id': sourceAgentId,
+    'variable': variable,
+    'operator': operator,
+    'value': value,
+    'target_agent_id': targetAgentId,
+  };
 
   factory Edge.fromJson(Map<String, dynamic> json) => Edge(
-        id: json['id'] as String,
-        sourceAgentId: (json['source_agent_id'] ?? json['source_executor_id']) as String,
-        variable: json['variable'] as String,
-        operator: json['operator'] as String,
-        value: json['value'] as String,
-        targetAgentId: (json['target_agent_id'] ?? json['target_executor_id']) as String,
-      );
+    id: json['id'] as String,
+    sourceAgentId:
+        (json['source_agent_id'] ?? json['source_executor_id']) as String,
+    variable: json['variable'] as String,
+    operator: json['operator'] as String,
+    value: json['value'] as String,
+    targetAgentId:
+        (json['target_agent_id'] ?? json['target_executor_id']) as String,
+  );
 
   Edge copyWith({
     String? sourceAgentId,
@@ -1733,4 +1767,3 @@ class Edge {
     );
   }
 }
-

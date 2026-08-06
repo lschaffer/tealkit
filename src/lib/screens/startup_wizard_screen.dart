@@ -34,6 +34,7 @@ import 'server_settings_screen.dart';
 import 'function_hints_screen.dart';
 import '../widgets/particle_background.dart';
 import '../widgets/tool_list_export_sheet.dart';
+import 'skills_list_screen.dart';
 
 /// Settings page — shows all 3 configuration cards on a single scrollable page.
 ///
@@ -437,6 +438,14 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
 
           // ── Tool Hints ──
           _SkillsCard(onOpen: () => FunctionHintsScreen.show(context)),
+          const SizedBox(height: 16),
+
+          // ── Skills (AgentSkills.io editor) ──
+          _SkillEditorCard(
+            onOpen: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SkillsListScreen())),
+          ),
           const SizedBox(height: 16),
 
           // ── 4. Generic ── rebuild whenever prefs change
@@ -870,6 +879,56 @@ class _SkillsCard extends StatelessWidget {
                 onPressed: onOpen,
                 icon: const Icon(Icons.manage_search),
                 label: const Text('Manage Function Hints'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// AgentSkills.io Skill Editor card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SkillEditorCard extends StatelessWidget {
+  final VoidCallback onOpen;
+  const _SkillEditorCard({required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: Colors.amber[600], size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  'Skills',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create, import, and export AgentSkills.io format skills. '
+              'Use the Skill Wizard to generate skill definitions from a goal description using AI.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: onOpen,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Manage Skills'),
               ),
             ),
           ],

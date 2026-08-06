@@ -60,20 +60,21 @@ class PyToolLibraryService {
     try {
       final db = DuckDbService();
       final rows = await db.getAllPyTools();
-      if (rows.isEmpty) {
-        log.info('[PyToolLibrary] No tools found — seeding defaults');
+      final existingIds = rows.map((r) => r['id'] as String).toSet();
+      if (existingIds.isEmpty) {
+        log.info('[PyToolLibrary] No tools found — seeding all defaults');
         for (final tool in defaultPyTools) {
-          await db.savePyTool(tool);
-          final dir = await toolDir(tool.id);
-          await File(
-            p.join(dir, 'main.py'),
-          ).writeAsString(tool.code, flush: true);
-          await File(
-            p.join(dir, 'requirements.txt'),
-          ).writeAsString(tool.requirements, flush: true);
-          log.info(
-            '[PyToolLibrary] Seeded default tool: ${tool.id} "${tool.name}"',
-          );
+          await _seedTool(db, tool);
+        }
+      } else {
+        // Ensure all default tools are present (handles newly added defaults)
+        for (final tool in defaultPyTools) {
+          if (!existingIds.contains(tool.id)) {
+            log.info(
+              '[PyToolLibrary] Missing default tool — seeding: ${tool.id} "${tool.name}"',
+            );
+            await _seedTool(db, tool);
+          }
         }
       }
       final refreshed = await db.getAllPyTools();
@@ -84,9 +85,23 @@ class PyToolLibraryService {
     }
   }
 
+  /// Persists a single default tool's DB entry and on-disk files.
+  Future<void> _seedTool(DuckDbService db, PyToolDefinition tool) async {
+    await db.savePyTool(tool);
+    final dir = await toolDir(tool.id);
+    await File(p.join(dir, 'main.py')).writeAsString(tool.code, flush: true);
+    await File(
+      p.join(dir, 'requirements.txt'),
+    ).writeAsString(tool.requirements, flush: true);
+    log.info('[PyToolLibrary] Seeded default tool: ${tool.id} "${tool.name}"');
+  }
+
   // ─── Save (create / update) ───────────────────────────────────────────────
 
-  Future<PyToolDefinition> save(PyToolDefinition def, [ServerApiClient? client]) async {
+  Future<PyToolDefinition> save(
+    PyToolDefinition def, [
+    ServerApiClient? client,
+  ]) async {
     // 1. Always persist locally
     try {
       final db = DuckDbService();

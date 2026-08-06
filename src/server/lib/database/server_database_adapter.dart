@@ -83,6 +83,13 @@ abstract class ServerDatabaseAdapter {
   Future<void> deleteToolSkillsByToolName(String toolName);
   Future<List<String>> getToolNamesWithSkills({String? mcpType});
 
+  // ── Skill Definitions ──────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getAllSkillDefs();
+  Future<Map<String, dynamic>?> getSkillDef(String id);
+  Future<void> saveSkillDef(Map<String, dynamic> skillDef);
+  Future<void> deleteSkillDef(String id);
+
   // ── Playground Sessions ────────────────────────────────────
 
   Future<void> savePlaygroundSession(Map<String, dynamic> session);

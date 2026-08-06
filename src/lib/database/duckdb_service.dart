@@ -9,7 +9,6 @@ import 'package:uuid/uuid.dart';
 import '../services/app_logger.dart';
 import '../models/workflow_task.dart';
 
-
 /// Central DuckDB service — single database for the entire app.
 ///
 /// Provides:
@@ -52,14 +51,18 @@ class DuckDbService {
       await _openDatabase(dbPath);
     } catch (e) {
       if (_isWalReplayError(e)) {
-        log.warning('[DuckDB] WAL replay failed. Attempting recovery by archiving WAL and reopening. Error: $e');
+        log.warning(
+          '[DuckDB] WAL replay failed. Attempting recovery by archiving WAL and reopening. Error: $e',
+        );
         await _archiveWalFile(dbPath);
         await _openDatabase(dbPath);
       } else if (_isAlreadyOpenError(e)) {
         // Hot-restart on Windows/Linux: Dart VM resets _db to null but the native
         // DuckDB library still holds the OS file lock from the previous run.
         // Deleting the lock file releases it so we can re-open cleanly.
-        log.warning('[DuckDB] Database appears locked (hot-restart?). Releasing lock file and retrying. Error: $e');
+        log.warning(
+          '[DuckDB] Database appears locked (hot-restart?). Releasing lock file and retrying. Error: $e',
+        );
         await _deleteLockFile(dbPath);
         await _openDatabase(dbPath);
       } else {
@@ -72,7 +75,6 @@ class DuckDbService {
     await _createTables();
     await _migrateTasksToOrchestratorPattern();
   }
-
 
   Future<void> _openDatabase(String dbPath) async {
     _db = await duckdb.open(dbPath);
@@ -121,7 +123,11 @@ class DuckDbService {
     if (await newDbFile.exists()) return;
 
     final legacyDocsDir = await getApplicationDocumentsDirectory();
-    final legacyDbPath = p.join(legacyDocsDir.path, 'mobile_ai_agent', _dbFileName);
+    final legacyDbPath = p.join(
+      legacyDocsDir.path,
+      'mobile_ai_agent',
+      _dbFileName,
+    );
     final legacyDbFile = File(legacyDbPath);
     if (!await legacyDbFile.exists()) return;
 
@@ -142,7 +148,6 @@ class DuckDbService {
     await _createTables();
     await _migrateTasksToOrchestratorPattern();
   }
-
 
   /// Get a connection (auto-initializes if needed).
   Future<Connection> get connection async {
@@ -210,7 +215,9 @@ class DuckDbService {
     ''');
 
     try {
-      await conn.execute('ALTER TABLE document_index ADD COLUMN IF NOT EXISTS embedding_json TEXT');
+      await conn.execute(
+        'ALTER TABLE document_index ADD COLUMN IF NOT EXISTS embedding_json TEXT',
+      );
     } catch (_) {
       // no-op for engines without ADD COLUMN IF NOT EXISTS support
     }
@@ -272,7 +279,9 @@ class DuckDbService {
     ''');
 
     try {
-      await conn.execute('ALTER TABLE github_mcp_servers ADD COLUMN IF NOT EXISTS is_manual BOOLEAN DEFAULT FALSE');
+      await conn.execute(
+        'ALTER TABLE github_mcp_servers ADD COLUMN IF NOT EXISTS is_manual BOOLEAN DEFAULT FALSE',
+      );
     } catch (_) {
       // no-op — column already exists or engine variant doesn't support IF NOT EXISTS
     }
@@ -302,6 +311,20 @@ class DuckDbService {
       )
     ''');
 
+    // ── Skill definitions table — persisted AgentSkills.io skills ──────
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS skill_defs (
+        id          VARCHAR PRIMARY KEY,
+        name        VARCHAR NOT NULL,
+        goal        TEXT DEFAULT '',
+        description TEXT DEFAULT '',
+        skill_def   TEXT NOT NULL,
+        tool_names  VARCHAR[],
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     log.info('[DuckDB] Tables created / verified');
   }
 
@@ -310,7 +333,14 @@ class DuckDbService {
   // ──────────────────────────────────────────────
 
   /// Upsert a task (insert or replace).
-  Future<void> saveTask(String id, String name, bool enabled, String? agentId, List<String> tags, Map<String, dynamic> data) async {
+  Future<void> saveTask(
+    String id,
+    String name,
+    bool enabled,
+    String? agentId,
+    List<String> tags,
+    Map<String, dynamic> data,
+  ) async {
     final conn = await connection;
     final jsonStr = _esc(jsonEncode(data));
     final tagsStr = tags.map((t) => "'$t'").join(', ');
@@ -347,7 +377,10 @@ class DuckDbService {
   }
 
   /// Get all tasks, optionally filtered.
-  Future<List<Map<String, dynamic>>> getAllTasks({String? agentId, bool? enabledOnly}) async {
+  Future<List<Map<String, dynamic>>> getAllTasks({
+    String? agentId,
+    bool? enabledOnly,
+  }) async {
     final conn = await connection;
 
     final conditions = <String>[];
@@ -355,9 +388,13 @@ class DuckDbService {
     if (enabledOnly == true) conditions.add('enabled = TRUE');
 
     final where = conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}';
-    final result = await conn.query('SELECT data FROM tasks $where ORDER BY updated_at DESC');
+    final result = await conn.query(
+      'SELECT data FROM tasks $where ORDER BY updated_at DESC',
+    );
     final rows = result.fetchAll();
-    log.info('[DuckDB] getAllTasks: found ${rows.length} tasks (agentId=$agentId, enabledOnly=$enabledOnly)');
+    log.info(
+      '[DuckDB] getAllTasks: found ${rows.length} tasks (agentId=$agentId, enabledOnly=$enabledOnly)',
+    );
     final tasks = <Map<String, dynamic>>[];
     for (final row in rows) {
       try {
@@ -399,21 +436,27 @@ class DuckDbService {
     log.info('[DuckDB] deleteTask: id=$id');
     await conn.execute("DELETE FROM tasks WHERE id = '$id'");
     // Also clean up internal MCP configs for this task
-    await conn.execute("DELETE FROM internal_mcp_configs WHERE task_id = '$id'");
+    await conn.execute(
+      "DELETE FROM internal_mcp_configs WHERE task_id = '$id'",
+    );
     log.info('[DuckDB] deleteTask: OK');
   }
 
   /// Delete all tasks for an agent.
   Future<int> deleteTasksByAgent(String agentId) async {
     final conn = await connection;
-    final res = await conn.query("SELECT id FROM tasks WHERE agent_id = '${_esc(agentId)}'");
+    final res = await conn.query(
+      "SELECT id FROM tasks WHERE agent_id = '${_esc(agentId)}'",
+    );
     final ids = res.fetchAll().map((r) => r[0].toString()).toList();
     if (ids.isEmpty) return 0;
 
     await conn.execute("DELETE FROM tasks WHERE agent_id = '${_esc(agentId)}'");
     // Clean up internal MCP configs
     for (final id in ids) {
-      await conn.execute("DELETE FROM internal_mcp_configs WHERE task_id = '$id'");
+      await conn.execute(
+        "DELETE FROM internal_mcp_configs WHERE task_id = '$id'",
+      );
     }
     return ids.length;
   }
@@ -452,7 +495,10 @@ class DuckDbService {
   }
 
   /// Update only the execution state (partial update via JSON merge).
-  Future<void> updateExecution(String taskId, Map<String, dynamic> executionJson) async {
+  Future<void> updateExecution(
+    String taskId,
+    Map<String, dynamic> executionJson,
+  ) async {
     final conn = await connection;
     final existing = await getTask(taskId);
     if (existing == null) return;
@@ -490,7 +536,13 @@ class DuckDbService {
   // ──────────────────────────────────────────────
 
   /// Save an internal MCP configuration for a task.
-  Future<void> saveInternalMcpConfig(String id, String taskId, String mcpType, Map<String, dynamic> params, bool enabled) async {
+  Future<void> saveInternalMcpConfig(
+    String id,
+    String taskId,
+    String mcpType,
+    Map<String, dynamic> params,
+    bool enabled,
+  ) async {
     final conn = await connection;
     final jsonStr = _esc(jsonEncode(params));
     final now = DateTime.now().toIso8601String();
@@ -504,7 +556,9 @@ class DuckDbService {
   }
 
   /// Get all internal MCP configs for a task.
-  Future<List<Map<String, dynamic>>> getInternalMcpConfigs(String taskId) async {
+  Future<List<Map<String, dynamic>>> getInternalMcpConfigs(
+    String taskId,
+  ) async {
     final conn = await connection;
     final result = await conn.query('''
       SELECT id, mcp_type, params, enabled FROM internal_mcp_configs
@@ -574,7 +628,9 @@ class DuckDbService {
         final raw = r[3];
         schema = raw is Map<String, dynamic>
             ? raw
-            : (raw is Map ? Map<String, dynamic>.from(raw) : jsonDecode(raw.toString()) as Map<String, dynamic>);
+            : (raw is Map
+                  ? Map<String, dynamic>.from(raw)
+                  : jsonDecode(raw.toString()) as Map<String, dynamic>);
       } catch (_) {
         schema = {};
       }
@@ -610,22 +666,31 @@ class DuckDbService {
     final conn = await connection;
     final id = _esc(def['id'] as String);
     final name = _esc(def['name'] as String);
-    final displayName = _esc(def['displayName'] as String? ?? def['name'] as String);
+    final displayName = _esc(
+      def['displayName'] as String? ?? def['name'] as String,
+    );
     final description = _esc(def['description'] as String? ?? '');
     final githubUrl = _esc(def['githubUrl'] as String? ?? '');
     final language = _esc(def['language'] as String? ?? 'python');
     final installType = _esc(def['installType'] as String? ?? 'uvx');
     final packageName = _esc(def['packageName'] as String);
-    final entryPoint = def['entryPoint'] != null ? "'${_esc(def['entryPoint'] as String)}'" : 'NULL';
+    final entryPoint = def['entryPoint'] != null
+        ? "'${_esc(def['entryPoint'] as String)}'"
+        : 'NULL';
     final launchArgs = _esc(jsonEncode(def['launchArgs'] ?? []));
     final requiredEnvVars = _esc(jsonEncode(def['requiredEnvVars'] ?? []));
     final envVars = _esc(jsonEncode(def['envVars'] ?? {}));
     final category = _esc(def['category'] as String? ?? 'other');
-    final isInstalled = (def['isInstalled'] as bool? ?? false) ? 'TRUE' : 'FALSE';
+    final isInstalled = (def['isInstalled'] as bool? ?? false)
+        ? 'TRUE'
+        : 'FALSE';
     final isActive = (def['isActive'] as bool? ?? false) ? 'TRUE' : 'FALSE';
     final isManual = (def['isManual'] as bool? ?? false) ? 'TRUE' : 'FALSE';
-    final installedAt = def['installedAt'] != null ? "'${def['installedAt']}'" : 'NULL';
-    final createdAt = def['createdAt'] as String? ?? DateTime.now().toIso8601String();
+    final installedAt = def['installedAt'] != null
+        ? "'${def['installedAt']}'"
+        : 'NULL';
+    final createdAt =
+        def['createdAt'] as String? ?? DateTime.now().toIso8601String();
 
     await conn.execute('''
       INSERT OR REPLACE INTO github_mcp_servers
@@ -684,7 +749,9 @@ class DuckDbService {
   /// Delete a GitHub MCP server by ID.
   Future<void> deleteGithubMcpServer(String id) async {
     final conn = await connection;
-    await conn.execute("DELETE FROM github_mcp_servers WHERE id = '${_esc(id)}'");
+    await conn.execute(
+      "DELETE FROM github_mcp_servers WHERE id = '${_esc(id)}'",
+    );
     log.info('[DuckDB] deleteGithubMcpServer: $id');
     try {
       await conn.execute('CHECKPOINT');
@@ -815,7 +882,9 @@ class DuckDbService {
   }
 
   /// Return skills only for a specific set of tool names (used during prompt injection).
-  Future<List<Map<String, dynamic>>> getEnabledSkillsForTools(List<String> toolNames) async {
+  Future<List<Map<String, dynamic>>> getEnabledSkillsForTools(
+    List<String> toolNames,
+  ) async {
     if (toolNames.isEmpty) return [];
     final conn = await connection;
     final inList = toolNames.map((t) => "'${_esc(t)}'").join(', ');
@@ -854,7 +923,9 @@ class DuckDbService {
   /// Delete all skills for a specific tool_name (e.g. when a JS tool is removed).
   Future<void> deleteToolSkillsByToolName(String toolName) async {
     final conn = await connection;
-    await conn.execute("DELETE FROM tool_skills WHERE tool_name = '${_esc(toolName)}'");
+    await conn.execute(
+      "DELETE FROM tool_skills WHERE tool_name = '${_esc(toolName)}'",
+    );
   }
 
   // ──────────────────────────────────────────────
@@ -898,7 +969,7 @@ class DuckDbService {
     try {
       final result = await conn.query("SELECT id, data FROM tasks");
       final rows = result.fetchAll();
-      
+
       final Map<String, Map<String, dynamic>> allTasks = {};
       for (final row in rows) {
         final id = row[0] as String;
@@ -909,108 +980,122 @@ class DuckDbService {
 
       for (final id in allTasks.keys) {
         final data = allTasks[id]!;
-        
+
         // Phase 1 migration: ensure it has agents
         bool modified = false;
-        if ((!data.containsKey('agents') && !data.containsKey('executors')) || 
-            ((data['agents'] ?? data['executors']) as List?) == null || 
+        if ((!data.containsKey('agents') && !data.containsKey('executors')) ||
+            ((data['agents'] ?? data['executors']) as List?) == null ||
             ((data['agents'] ?? data['executors']) as List).isEmpty) {
           if ((data['prompt'] as String? ?? '').isNotEmpty) {
-            log.info('[DuckDB Migration] Migrating task $id to orchestrator-executor pattern...');
+            log.info(
+              '[DuckDB Migration] Migrating task $id to orchestrator-executor pattern...',
+            );
             final task = WorkflowTask.fromJson(data);
             allTasks[id] = task.toJson(); // This will auto-migrate via fromJson
             modified = true;
           }
         }
-        
+
         // Phase 1.5 migration: legacy chaining
         final currentData = allTasks[id]!;
-        final chainConfig = currentData['chain_config'] as Map<String, dynamic>?;
-        if (chainConfig != null && (chainConfig['is_subtask'] == null || chainConfig['is_subtask'] == false)) {
+        final chainConfig =
+            currentData['chain_config'] as Map<String, dynamic>?;
+        if (chainConfig != null &&
+            (chainConfig['is_subtask'] == null ||
+                chainConfig['is_subtask'] == false)) {
           // This is a root task with chaining!
-          if (chainConfig['on_match_task_id'] != null || chainConfig['on_no_match_task_id'] != null) {
-             log.info('[DuckDB Migration] Migrating legacy chains for root task $id...');
-             
-             final rootTask = WorkflowTask.fromJson(currentData);
-             List<Agent> agents = List.from(rootTask.agents);
-             List<Edge> edges = List.from(rootTask.edges);
-             
-             String currentSourceId = agents.isNotEmpty ? agents.first.id : id;
-             
-             String? currentNextId = chainConfig['on_match_task_id'] as String?;
-             String? currentCondition = chainConfig['trigger_condition'] as String?;
-             
-             while (currentNextId != null && allTasks.containsKey(currentNextId)) {
-                final childData = allTasks[currentNextId]!;
-                final childTask = WorkflowTask.fromJson(childData);
-                
-                // Add as executor
-                final newExecutorId = const Uuid().v4();
-                agents.add(
-                  Agent(
-                    id: newExecutorId,
-                    name: childTask.name.isNotEmpty ? childTask.name : 'Agent ${agents.length + 1}',
-                    systemPrompt: childTask.systemPrompt,
-                    prompt: childTask.prompt,
-                    llmConfig: childTask.llmConfig,
-                    mcpTools: childTask.mcpTools,
-                    internalMcps: childTask.internalMcps,
-                    chatMode: childTask.chatMode,
-                    stopAfterToolCall: childTask.stopAfterToolCall,
-                  )
-                );
-                
-                // Add routing rule
-                edges.add(
-                   Edge(
-                     id: const Uuid().v4(),
-                     sourceAgentId: currentSourceId,
-                     variable: 'task_result',
-                     operator: currentCondition != null ? 'contains' : 'contains',
-                     value: currentCondition ?? '',
-                     targetAgentId: newExecutorId,
-                   )
-                );
-                
-                tasksToDelete.add(currentNextId);
-                
-                currentSourceId = newExecutorId;
-                final childChain = childTask.chainConfig;
-                if (childChain != null) {
-                   currentNextId = childChain.onMatchTaskId;
-                   currentCondition = childChain.triggerCondition;
-                } else {
-                   currentNextId = null;
-                   currentCondition = null;
-                }
-             }
-             
-             final updatedRoot = rootTask.copyWith(
-               agents: agents,
-               edges: edges,
-               clearChainConfig: true,
-             );
-             allTasks[id] = updatedRoot.toJson();
-             modified = true;
+          if (chainConfig['on_match_task_id'] != null ||
+              chainConfig['on_no_match_task_id'] != null) {
+            log.info(
+              '[DuckDB Migration] Migrating legacy chains for root task $id...',
+            );
+
+            final rootTask = WorkflowTask.fromJson(currentData);
+            List<Agent> agents = List.from(rootTask.agents);
+            List<Edge> edges = List.from(rootTask.edges);
+
+            String currentSourceId = agents.isNotEmpty ? agents.first.id : id;
+
+            String? currentNextId = chainConfig['on_match_task_id'] as String?;
+            String? currentCondition =
+                chainConfig['trigger_condition'] as String?;
+
+            while (currentNextId != null &&
+                allTasks.containsKey(currentNextId)) {
+              final childData = allTasks[currentNextId]!;
+              final childTask = WorkflowTask.fromJson(childData);
+
+              // Add as executor
+              final newExecutorId = const Uuid().v4();
+              agents.add(
+                Agent(
+                  id: newExecutorId,
+                  name: childTask.name.isNotEmpty
+                      ? childTask.name
+                      : 'Agent ${agents.length + 1}',
+                  systemPrompt: childTask.systemPrompt,
+                  prompt: childTask.prompt,
+                  llmConfig: childTask.llmConfig,
+                  mcpTools: childTask.mcpTools,
+                  internalMcps: childTask.internalMcps,
+                  chatMode: childTask.chatMode,
+                  stopAfterToolCall: childTask.stopAfterToolCall,
+                ),
+              );
+
+              // Add routing rule
+              edges.add(
+                Edge(
+                  id: const Uuid().v4(),
+                  sourceAgentId: currentSourceId,
+                  variable: 'task_result',
+                  operator: currentCondition != null ? 'contains' : 'contains',
+                  value: currentCondition ?? '',
+                  targetAgentId: newExecutorId,
+                ),
+              );
+
+              tasksToDelete.add(currentNextId);
+
+              currentSourceId = newExecutorId;
+              final childChain = childTask.chainConfig;
+              if (childChain != null) {
+                currentNextId = childChain.onMatchTaskId;
+                currentCondition = childChain.triggerCondition;
+              } else {
+                currentNextId = null;
+                currentCondition = null;
+              }
+            }
+
+            final updatedRoot = rootTask.copyWith(
+              agents: agents,
+              edges: edges,
+              clearChainConfig: true,
+            );
+            allTasks[id] = updatedRoot.toJson();
+            modified = true;
           }
         }
-        
+
         if (modified) {
           final escData = _esc(jsonEncode(allTasks[id]!));
           final now = DateTime.now().toIso8601String();
-          await conn.execute("UPDATE tasks SET data = '$escData'::JSON, updated_at = '$now' WHERE id = '$id'");
+          await conn.execute(
+            "UPDATE tasks SET data = '$escData'::JSON, updated_at = '$now' WHERE id = '$id'",
+          );
           log.info('[DuckDB Migration] Saved updated task $id');
         }
       }
-      
-      for (final delId in tasksToDelete) {
-         log.info('[DuckDB Migration] Deleting legacy subtask $delId');
-         await conn.execute("DELETE FROM tasks WHERE id = '$delId'");
-      }
 
+      for (final delId in tasksToDelete) {
+        log.info('[DuckDB Migration] Deleting legacy subtask $delId');
+        await conn.execute("DELETE FROM tasks WHERE id = '$delId'");
+      }
     } catch (e) {
-      log.warning('[DuckDB Migration] Failed to run orchestrator migration: $e');
+      log.warning(
+        '[DuckDB Migration] Failed to run orchestrator migration: $e',
+      );
     }
   }
 }
-

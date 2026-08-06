@@ -11,7 +11,12 @@ List<PyToolDefinition> get defaultPyTools {
     1,
     1,
   ); // fixed anchor — user will see these as "old"
-  return [_csvAnalyzer(now), _jsonQuery(now), _textClassify(now)];
+  return [
+    _csvAnalyzer(now),
+    _jsonQuery(now),
+    _textClassify(now),
+    _runPython(now),
+  ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -425,4 +430,88 @@ def execute(args):
         "best_score": best[0]["score"] if best else 0.0,
         "matched_highlights": highlights[:10],
     }
+''';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Run Python (arbitrary code execution)
+// ─────────────────────────────────────────────────────────────────────────────
+
+PyToolDefinition _runPython(DateTime now) => PyToolDefinition(
+  id: '_default_run_python',
+  name: 'run_python',
+  venvReady: false,
+  description:
+      'Execute arbitrary Python code and return stdout output. '
+      'STDLIB ONLY — no third-party packages (no pip install, no fpdf, '
+      'no reportlab, no requests). Use built-in modules only: os, sys, '
+      'json, csv, io, re, math, pathlib, sqlite3, etc. '
+      'For libraries that need pip, create a named Python tool instead.',
+  inputSchema: {
+    'type': 'object',
+    'properties': {
+      'code': {
+        'type': 'string',
+        'description':
+            'Python source code to execute. STDLIB ONLY — use only '
+            'built-in modules. print() goes to output. '
+            'Do NOT use pip or subprocess to install packages.',
+      },
+      'timeoutSeconds': {
+        'type': 'integer',
+        'description': 'Max execution time in seconds (default: 30).',
+        'default': 30,
+      },
+    },
+    'required': ['code'],
+  },
+  code: _runPythonCode,
+  requirements: '',
+  generationPrompt: '',
+  isActive: true,
+  createdAt: now,
+  updatedAt: now,
+);
+
+const _runPythonCode = '''import io, sys, traceback
+
+def execute(args):
+    code = args.get("code", "")
+    if not code.strip():
+        return {"error": "code is empty"}
+
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    sys.stdout = captured_out
+    sys.stderr = captured_err
+
+    try:
+        exec(code, {"__builtins__": __builtins__})
+        stdout_text = captured_out.getvalue()
+        stderr_text = captured_err.getvalue()
+        result = {"output": stdout_text}
+        if stderr_text.strip():
+            result["stderr"] = stderr_text.strip()
+        return result
+    except ModuleNotFoundError as e:
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": f"Missing Python library: {e.name}. "
+                     f"This tool is stdlib-only — no third-party packages. "
+                     f"Use only built-in modules (os, sys, json, csv, io, re, "
+                     f"math, pathlib, sqlite3, etc.) or create a named Python "
+                     f"tool with the required pip packages.",
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    except Exception:
+        exc_text = traceback.format_exc()
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": exc_text.strip(),
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
 ''';

@@ -23,7 +23,8 @@ class PyBridgeMcpServer extends InternalMcpServer {
   String get displayName => 'Python tools';
 
   @override
-  String get description => 'Run user-generated Python tools on this desktop machine.';
+  String get description =>
+      'Run user-generated Python tools on this desktop machine.';
 
   @override
   String get iconName => 'terminal';
@@ -32,23 +33,39 @@ class PyBridgeMcpServer extends InternalMcpServer {
   Map<String, dynamic> get initParamSchema => {
     'type': 'object',
     'properties': {
-      'allowInactive': {'type': 'boolean', 'description': 'Include inactive tools in list_py_tools output.', 'default': false},
-      'timeoutSeconds': {'type': 'integer', 'description': 'Execution timeout per tool call in seconds (default 60).', 'default': 60},
+      'allowInactive': {
+        'type': 'boolean',
+        'description': 'Include inactive tools in list_py_tools output.',
+        'default': false,
+      },
+      'timeoutSeconds': {
+        'type': 'integer',
+        'description':
+            'Execution timeout per tool call in seconds (default 60).',
+        'default': 60,
+      },
     },
     'required': [],
   };
 
   @override
-  Map<String, dynamic> get defaultInitParams => {'allowInactive': false, 'timeoutSeconds': 60};
+  Map<String, dynamic> get defaultInitParams => {
+    'allowInactive': false,
+    'timeoutSeconds': 60,
+  };
 
   @override
   String get defaultSystemPrompt =>
-      'You can run user-created Python tools on this desktop machine. '
-      'First call list_py_tools to discover available tools with their schemas. '
-      'Use init_py_tool before the first run of a new tool (creates its virtualenv). '
-      'Then call run_py_tool or the dynamic py_<name> tool directly. '
-      'To create a new tool: ask the user to describe it, generate the code, '
-      'and store it via the TealKit Python tool generator.';
+      'You can run Python code on this machine. '
+      'Use run_py_tool with toolName: "run_python" to execute ANY ad-hoc Python '
+      'script — great for one-off data processing, file generation (PDF, CSV, '
+      'JSON), calculations, or scripts from skill instructions. '
+      'First call list_py_tools to see all available tools. '
+      'Use init_py_tool before first run of a tool to create its virtualenv. '
+      'To create a reusable named tool: ask the user to describe it, '
+      'generate the code, and store it via the TealKit Python tool generator. '
+      'IMPORTANT: When a skill or instruction provides Python code examples, '
+      'DO NOT just output them as text — EXECUTE them via run_py_tool!';
 
   bool _allowInactive = false;
   int _timeoutSeconds = 60;
@@ -67,7 +84,9 @@ class PyBridgeMcpServer extends InternalMcpServer {
     _toolNameToId.clear();
 
     final usedNames = <String>{'list_py_tools', 'init_py_tool', 'run_py_tool'};
-    final source = _allowInactive ? PyToolLibraryService.instance.tools : PyToolLibraryService.instance.activeTools;
+    final source = _allowInactive
+        ? PyToolLibraryService.instance.tools
+        : PyToolLibraryService.instance.activeTools;
 
     for (final tool in source) {
       var dynName = 'py_${_sanitize(tool.name)}';
@@ -82,24 +101,38 @@ class PyBridgeMcpServer extends InternalMcpServer {
       // can override the default timeout at the individual call level.
       final baseSchema = tool.inputSchema.isNotEmpty
           ? tool.inputSchema
-          : const <String, dynamic>{'type': 'object', 'properties': <String, dynamic>{}};
+          : const <String, dynamic>{
+              'type': 'object',
+              'properties': <String, dynamic>{},
+            };
       final schemaWithTimeout = Map<String, dynamic>.from(baseSchema);
-      final props = Map<String, dynamic>.from((schemaWithTimeout['properties'] as Map<String, dynamic>?) ?? {});
-      props['timeoutSeconds'] = {'type': 'integer', 'description': 'Override execution timeout in seconds for this call.'};
+      final props = Map<String, dynamic>.from(
+        (schemaWithTimeout['properties'] as Map<String, dynamic>?) ?? {},
+      );
+      props['timeoutSeconds'] = {
+        'type': 'integer',
+        'description': 'Override execution timeout in seconds for this call.',
+      };
       schemaWithTimeout['properties'] = props;
 
       _dynamicTools.add(
         McpToolDescriptor(
           name: dynName,
-          description: tool.description.isNotEmpty ? tool.description : 'Python tool: ${tool.name}',
+          description: tool.description.isNotEmpty
+              ? tool.description
+              : 'Python tool: ${tool.name}',
           inputSchema: schemaWithTimeout,
         ),
       );
     }
   }
 
-  String _sanitize(String s) =>
-      s.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]+'), '_').replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
+  String _sanitize(String s) => s
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9_]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
 
   // ─── Tools list ──────────────────────────────────────────────────────────
 
@@ -118,22 +151,39 @@ class PyBridgeMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'toolId': {'type': 'string', 'description': 'Tool ID (from list_py_tools).'},
-          'toolName': {'type': 'string', 'description': 'Tool name (alternative to toolId).'},
+          'toolId': {
+            'type': 'string',
+            'description': 'Tool ID (from list_py_tools).',
+          },
+          'toolName': {
+            'type': 'string',
+            'description': 'Tool name (alternative to toolId).',
+          },
         },
         'required': [],
       },
     ),
     const McpToolDescriptor(
       name: 'run_py_tool',
-      description: 'Execute a Python tool by id or name, passing args as a JSON object.',
+      description:
+          'Execute a Python tool by id or name, passing args as a JSON object.',
       inputSchema: {
         'type': 'object',
         'properties': {
           'toolId': {'type': 'string', 'description': 'Tool ID.'},
-          'toolName': {'type': 'string', 'description': 'Tool name (alternative to toolId).'},
-          'args': {'type': 'object', 'description': 'Arguments forwarded to the Python execute(args) function.'},
-          'timeoutSeconds': {'type': 'integer', 'description': 'Override timeout for this call.'},
+          'toolName': {
+            'type': 'string',
+            'description': 'Tool name (alternative to toolId).',
+          },
+          'args': {
+            'type': 'object',
+            'description':
+                'Arguments forwarded to the Python execute(args) function.',
+          },
+          'timeoutSeconds': {
+            'type': 'integer',
+            'description': 'Override timeout for this call.',
+          },
         },
         'required': [],
       },
@@ -144,7 +194,10 @@ class PyBridgeMcpServer extends InternalMcpServer {
   // ─── Dispatch ────────────────────────────────────────────────────────────
 
   @override
-  Future<Map<String, dynamic>> executeTool(String toolName, Map<String, dynamic> arguments) async {
+  Future<Map<String, dynamic>> executeTool(
+    String toolName,
+    Map<String, dynamic> arguments,
+  ) async {
     switch (toolName) {
       case 'list_py_tools':
         return _listTools(arguments);
@@ -158,7 +211,8 @@ class PyBridgeMcpServer extends InternalMcpServer {
         if (id != null) {
           // Extract timeoutSeconds before forwarding args to the Python tool.
           final overrideTimeout = arguments['timeoutSeconds'] as int?;
-          final toolArgs = Map<String, dynamic>.from(arguments)..remove('timeoutSeconds');
+          final toolArgs = Map<String, dynamic>.from(arguments)
+            ..remove('timeoutSeconds');
           return _runById(id, toolArgs, overrideTimeout);
         }
         return {'error': 'Unknown tool: $toolName'};
@@ -198,12 +252,19 @@ class PyBridgeMcpServer extends InternalMcpServer {
     }
 
     final messages = <String>[];
-    final err = await PyToolRuntimeService.instance.initTool(def, onProgress: (p) => messages.add(p.message));
+    final err = await PyToolRuntimeService.instance.initTool(
+      def,
+      onProgress: (p) => messages.add(p.message),
+    );
 
     if (err != null) {
       return {'success': false, 'error': err, 'log': messages};
     }
-    return {'success': true, 'message': 'Venv ready for "${def.name}"', 'log': messages};
+    return {
+      'success': true,
+      'message': 'Venv ready for "${def.name}"',
+      'log': messages,
+    };
   }
 
   // ─── run_py_tool ──────────────────────────────────────────────────────────
@@ -218,13 +279,23 @@ class PyBridgeMcpServer extends InternalMcpServer {
     return _runById(def.id, callArgs, overrideTimeout);
   }
 
-  Future<Map<String, dynamic>> _runById(String id, Map<String, dynamic> args, int? overrideTimeoutSeconds) async {
+  Future<Map<String, dynamic>> _runById(
+    String id,
+    Map<String, dynamic> args,
+    int? overrideTimeoutSeconds,
+  ) async {
     final def = PyToolLibraryService.instance.getById(id);
     if (def == null) return {'error': 'Tool not found: $id'};
 
-    final timeout = Duration(seconds: overrideTimeoutSeconds ?? _timeoutSeconds);
+    final timeout = Duration(
+      seconds: overrideTimeoutSeconds ?? _timeoutSeconds,
+    );
     try {
-      final result = await PyToolRuntimeService.instance.execute(def, args, timeout: timeout);
+      final result = await PyToolRuntimeService.instance.execute(
+        def,
+        args,
+        timeout: timeout,
+      );
       return {'success': true, 'result': result};
     } on PyToolError catch (e) {
       log.warning('[PyBridge] executeTool error: $e');

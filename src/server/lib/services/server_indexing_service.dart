@@ -262,8 +262,9 @@ class ServerIndexingService {
 
   /// Signal the running document indexer to cancel.
   Map<String, dynamic> stopDocumentIndex() {
-    if (!_documentRunning)
+    if (!_documentRunning) {
       return {'message': 'No document indexing in progress'};
+    }
     _documentCancelRequested = true;
     return {'message': 'Cancel requested'};
   }
@@ -910,8 +911,9 @@ class ServerIndexingService {
     for (final match in regex.allMatches(html)) {
       final href = (match.group(1) ?? '').trim();
       if (href.isEmpty) continue;
-      if (href.startsWith('javascript:') || href.startsWith('mailto:'))
+      if (href.startsWith('javascript:') || href.startsWith('mailto:')) {
         continue;
+      }
       if (href.contains('{{') || href.contains('}}')) continue;
       try {
         final candidate = Uri.parse(href);
@@ -933,8 +935,9 @@ class ServerIndexingService {
             .where((s) => s.isNotEmpty);
         if (pathParts.any(
           (seg) => _kSkipPathSegments.contains(seg.split('?').first),
-        ))
+        )) {
           continue;
+        }
 
         links.add(resolved);
       } catch (_) {}

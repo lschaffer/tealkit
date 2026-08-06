@@ -2,6 +2,31 @@
 
 This file tracks release changes by version.
 
+## v1.5.8 / v1.0.185 - Skill Gallery, Python Execution & Deduplication
+
+### New Features
+- **Skill Gallery — Browse & Import from OpenSkills.space**: New "Gallery" button in the Skills List screen opens the Skill Gallery dialog, which fetches the public skill catalog from `https://openskills.space/api/skills`. Browse, search, and multi-select skills, then import them directly into the local skill database. The API endpoint is read-only to ensure a curated experience. Imported skills are automatically validated against the agentskills.io YAML front matter format.
+- **`run_python` Default Tool — Arbitrary Python Execution**: A new built-in Python tool (`run_python`) is automatically seeded into the Python Tool Library on first launch (or on next restart for existing installations). It accepts arbitrary Python code via the `code` parameter, executes it in a sandboxed process, captures stdout/stderr, and returns the output. This bridges the gap between LLM-generated Python code (from skills like PDF, data analysis, etc.) and actual execution — the LLM can now call `run_py_tool(toolName: "run_python", args: {code: "..."})` to run generated code instead of just outputting it as text.
+- **Auto-Seeding of Missing Default Tools**: All database backends (client DuckDB, server DuckDB, server SQLite, server_light DuckDB) now check for missing default Python tools at startup and seed any that are absent. New installations get all four defaults (`csv_analyzer`, `json_query`, `text_classify`, `run_python`); existing installations automatically receive `run_python` on next restart without manual intervention.
+
+### Improvements
+- **Skill Import Deduplication**: `importFromFile()` now checks for existing skills by name (case-insensitive) before creating a new entry. Attempting to import a skill with a duplicate name throws a clear error message identifying the conflicting skill. This prevents accidental duplicate imports from the gallery, file picker, and all other import paths.
+- **Gallery URL Read-Only**: The API endpoint field in the Skill Gallery dialog is now read-only, preventing accidental modification of the OpenSkills.space catalog URL.
+
+## v1.5.7 / v1.0.183 - Skills Storage, Persistence & Management
+
+### New Features
+- **Skills Database & Persistence**: New `skill_defs` table in DuckDB (local/server) stores persistent AgentSkills.io skill definitions with name, goal, description, full skill markdown, and tool references. Skills survive app restarts and sync between sessions.
+- **Skills List Screen**: New management screen in Global Settings (replaces the previous Skills card). Full CRUD: add new skills, edit existing ones, import from `.md`/`.zip` files with validation, export to `.md` files, and delete with confirmation. Each skill card shows name, description, and tool count.
+- **Agent Model Extension**: Added `skillDefId` field to the Agent model in the `tealkit_api` package. When a skill is applied to a workflow agent, the skill ID is persisted in the workflow JSON. On workflow load, the skill is automatically looked up and applied.
+- **Skill Wizard — Save/Cancel Mode**: When opened from the Skills List, the wizard shows Save + Cancel buttons instead of Apply. Skills are persisted to the database on save. Export and Import remain available; Generate Skill from Goal works as before.
+- **Skill Import Validation**: Imported `.md` files are validated for valid agentskills.io YAML front matter (`---` delimiters, required `name` field). Invalid files are rejected with a clear error message.
+
+### Playground & Workflow Editor
+- **Skill Chip in Playground**: Applied skills appear as a clickable chip above the prompt (not injected directly into system prompt). Click reveals full skill text; wizard icon re-edits; X removes.
+- **Skill Chip in Workflow Editor Agents**: Same chip pattern per agent. Click reveals skill in dialog; wizard button reopens pre-filled.
+- **Settings Skills Section**: "Manage Skills" card opens the full Skills List Screen for browsing, editing, importing, and exporting skill definitions.
+
 ## v1.5.5 / v1.0.181 - Server Light Edition, Skill Import/Export Improvements & Output Cleanup
 
 ### New Features

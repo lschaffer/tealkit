@@ -591,21 +591,27 @@ class ServerDuckDbService {
   Future<void> _seedDefaultPyTools() async {
     try {
       final conn = await connection;
-      final count =
-          (await conn.query(
-                'SELECT COUNT(*) FROM py_tools',
-              )).fetchAll().firstOrNull?[0]
-              as int? ??
-          0;
-      if (count > 0) return;
+      final rows = (await conn.query('SELECT id FROM py_tools')).fetchAll();
+      final existingIds = rows.map((r) => r[0] as String).toSet();
+      final defaults = _defaultPyTools(DateTime.now().toIso8601String());
 
-      log.info('[DuckDB] Seeding default Python tools');
-      final now = DateTime.now().toIso8601String();
-      final defaults = _defaultPyTools(now);
-      for (final tool in defaults) {
-        await savePyTool(tool);
+      if (existingIds.isEmpty) {
+        log.info('[DuckDB] No tools found — seeding all defaults');
+        for (final tool in defaults) {
+          await savePyTool(tool);
+        }
+      } else {
+        for (final tool in defaults) {
+          final id = tool['id'] as String;
+          if (!existingIds.contains(id)) {
+            log.info(
+              '[DuckDB] Missing default tool — seeding: $id "${tool['name']}"',
+            );
+            await savePyTool(tool);
+          }
+        }
       }
-      log.info('[DuckDB] Seeded ${defaults.length} default Python tools');
+      log.info('[DuckDB] Default Python tools check complete');
     } catch (e) {
       log.warning('[DuckDB] Failed to seed default Python tools: $e');
     }
@@ -759,6 +765,36 @@ class ServerDuckDbService {
           'required': ['text', 'rules'],
         },
         'code': _textClassifyCode,
+        'requirements': '',
+        'venv_ready': false,
+        'is_active': true,
+        'generation_prompt': '',
+      },
+      {
+        'id': '_default_run_python',
+        'name': 'run_python',
+        'description':
+            'Execute arbitrary Python code and return stdout output. '
+            'STDLIB ONLY — no third-party packages. '
+            'Use built-in modules only: os, sys, json, csv, io, re, math, pathlib, sqlite3, etc.',
+        'input_schema': {
+          'type': 'object',
+          'properties': {
+            'code': {
+              'type': 'string',
+              'description':
+                  'Python source code to execute. STDLIB ONLY — use only built-in modules. '
+                  'Do NOT use pip or subprocess to install packages.',
+            },
+            'timeoutSeconds': {
+              'type': 'integer',
+              'description': 'Max execution time in seconds (default: 30).',
+              'default': 30,
+            },
+          },
+          'required': ['code'],
+        },
+        'code': _runPythonCode,
         'requirements': '',
         'venv_ready': false,
         'is_active': true,
@@ -1551,4 +1587,48 @@ def execute(args):
         "best_score": best[0]["score"] if best else 0.0,
         "matched_highlights": highlights[:10],
     }
+''';
+
+const _runPythonCode = '''import io, sys, traceback
+
+def execute(args):
+    code = args.get("code", "")
+    if not code.strip():
+        return {"error": "code is empty"}
+
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    sys.stdout = captured_out
+    sys.stderr = captured_err
+
+    try:
+        exec(code, {"__builtins__": __builtins__})
+        stdout_text = captured_out.getvalue()
+        stderr_text = captured_err.getvalue()
+        result = {"output": stdout_text}
+        if stderr_text.strip():
+            result["stderr"] = stderr_text.strip()
+        return result
+    except ModuleNotFoundError as e:
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": f"Missing Python library: {e.name}. "
+                     f"This tool is stdlib-only — no third-party packages. "
+                     f"Use only built-in modules (os, sys, json, csv, io, re, "
+                     f"math, pathlib, sqlite3, etc.) or create a named Python "
+                     f"tool with the required pip packages.",
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    except Exception:
+        exc_text = traceback.format_exc()
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": exc_text.strip(),
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
 ''';

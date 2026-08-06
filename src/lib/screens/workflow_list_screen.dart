@@ -545,16 +545,6 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                   ),
                 ),
                 const PopupMenuItem(
-                  value: 'import',
-                  child: Row(
-                    children: [
-                      Icon(Icons.upload_file, size: 20),
-                      SizedBox(width: 8),
-                      Text('Import Skills to Workflows'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
                   value: 'export_all',
                   child: Row(
                     children: [
@@ -598,34 +588,7 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
               icon: const Icon(Icons.import_export),
               tooltip: 'Workflow Import/Export',
               onSelected: (value) async {
-                if (value == 'import') {
-                  final serverMode = ref.read(serverModeProvider).value;
-                  final isRemote = serverMode?.isRemote ?? false;
-                  final serverClient = isRemote
-                      ? ref.read(serverApiClientProvider)
-                      : null;
-                  final res = await WorkflowExportService.importWorkflow(
-                    context,
-                    ref.read(taskRepositoryProvider),
-                    serverClient: serverClient,
-                  );
-                  if (!mounted) return;
-                  if (res.error != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Import failed: ${res.error}')),
-                    );
-                  } else if (res.importedTasks != null &&
-                      res.importedTasks!.isNotEmpty) {
-                    final count = res.importedTasks!.length;
-                    final message = count == 1
-                        ? 'Workflow "${res.importedTasks!.first.name}" imported successfully.'
-                        : 'Successfully imported $count workflows.';
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(message)));
-                    ref.invalidate(taskListProvider);
-                  }
-                } else if (value == 'export_all') {
+                if (value == 'export_all') {
                   final res = await WorkflowExportService.exportAllWorkflows(
                     context,
                     ref.read(taskRepositoryProvider),
@@ -647,16 +610,6 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'import',
-                  child: Row(
-                    children: [
-                      Icon(Icons.upload_file, size: 20),
-                      SizedBox(width: 8),
-                      Text('Import Skills to Workflows'),
-                    ],
-                  ),
-                ),
                 const PopupMenuItem(
                   value: 'export_all',
                   child: Row(

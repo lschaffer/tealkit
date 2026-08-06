@@ -680,6 +680,13 @@ Future<void> startHttpServer({
   router.post('/api/v1/skills/build', _handleBuildSkills);
   router.get('/api/v1/skills/build/status', _handleGetSkillsBuildStatus);
 
+  // ── Skill Definitions ── (persisted AgentSkills.io skills)
+  router.get('/api/v1/skill-defs', _handleListSkillDefs);
+  router.get('/api/v1/skill-defs/<id>', _handleGetSkillDef);
+  router.post('/api/v1/skill-defs', _handleSaveSkillDef);
+  router.put('/api/v1/skill-defs/<id>', _handleSaveSkillDef);
+  router.delete('/api/v1/skill-defs/<id>', _handleDeleteSkillDef);
+
   // ── Playground Sessions ───────────────────────────────────────
   router.get('/api/v1/playground/sessions', _handleListPlaygroundSessions);
   router.post('/api/v1/playground/sessions', _handleSavePlaygroundSession);
@@ -4648,6 +4655,56 @@ Future<Response> _handleBuildSkills(Request request) async {
 /// GET /api/v1/skills/build/status — return current build progress.
 Future<Response> _handleGetSkillsBuildStatus(Request request) async {
   return _json(ServerSkillService.instance.getStatus());
+}
+
+// ── Skill Definitions ── (persisted AgentSkills.io skills) ────
+
+/// GET /api/v1/skill-defs — list all skill definitions.
+Future<Response> _handleListSkillDefs(Request request) async {
+  try {
+    final skills = await _db.getAllSkillDefs();
+    return _json(skills);
+  } catch (e) {
+    log.error('[API] GET /skill-defs failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
+}
+
+/// GET /api/v1/skill-defs/<id> — get a single skill definition.
+Future<Response> _handleGetSkillDef(Request request, String id) async {
+  try {
+    final skill = await _db.getSkillDef(id);
+    if (skill == null) return _jsonError('Skill not found', status: 404);
+    return _json(skill);
+  } catch (e) {
+    log.error('[API] GET /skill-defs/$id failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
+}
+
+/// POST/PUT /api/v1/skill-defs[/<id>] — create or update a skill definition.
+Future<Response> _handleSaveSkillDef(Request request, [String? id]) async {
+  try {
+    final body = await request.readAsString();
+    final data = jsonDecode(body) as Map<String, dynamic>;
+    if (id != null) data['id'] = id;
+    await _db.saveSkillDef(data);
+    return _json({'ok': true});
+  } catch (e) {
+    log.error('[API] PUT /skill-defs failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
+}
+
+/// DELETE /api/v1/skill-defs/<id> — delete a skill definition.
+Future<Response> _handleDeleteSkillDef(Request request, String id) async {
+  try {
+    await _db.deleteSkillDef(id);
+    return _json({'ok': true});
+  } catch (e) {
+    log.error('[API] DELETE /skill-defs/$id failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
 }
 
 // ── Playground Sessions ───────────────────────────────────────

@@ -20,6 +20,7 @@ import '../mcp/servers/document_mcp_server.dart';
 import '../mcp/servers/py_bridge_mcp_server.dart';
 import '../mcp/servers/website_search_mcp_server.dart';
 import '../models/workflow_task.dart';
+import '../models/skill_def.dart';
 import '../models/github_mcp_server_definition.dart';
 import '../models/mcp_models.dart';
 import '../providers/active_task_provider.dart';
@@ -46,6 +47,8 @@ import '../widgets/example_picker_dialog.dart';
 import '../widgets/sftp_explorer_dialog.dart';
 import '../widgets/tools_drawer.dart';
 import '../widgets/tool_list_export_sheet.dart';
+import '../widgets/skill_wizard_dialog.dart';
+import 'skills_list_screen.dart';
 import '../widgets/embedded_llm/embedded_model_picker_widget.dart';
 import '../widgets/llm_advanced_params_widget.dart';
 import '../widgets/step_list_editor.dart';
@@ -191,6 +194,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   /// The workflow that was last loaded (if any). Used to offer in-place update on save.
   WorkflowTask? _activeLoadedWorkflow;
+
+  /// The currently active skill (if any). Shown as a chip above the prompt.
+  SkillWizardResult? _activeSkill;
 
   /// Incremented on each session load to force MultimediaInputWidget remount.
   final int _chatInputKey = 0;
@@ -2130,6 +2136,71 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
   }
 
+  // ── Skill Wizard ──
+
+  Future<void> _showSkillsPicker() async {
+    final selected = await SkillsListScreen.showPicker(context);
+    if (selected != null && mounted) {
+      _applySkillDef(selected);
+    }
+  }
+
+  void _applySkillDef(SkillDef skill) {
+    setState(() {
+      _activeSkill = SkillWizardResult(
+        name: skill.name,
+        goal: skill.goal,
+        description: skill.description,
+        skillContent: skill.skillDef,
+        selectedMcpTypes: skill.toolNames.toSet(),
+        selectedExternalServerUrls: {},
+        toolboxEnabled: true,
+      );
+
+      if (skill.toolNames.isNotEmpty) {
+        _selectedMcpTypes = skill.toolNames.toSet();
+      }
+    });
+    _updateSkillsSection();
+  }
+
+  Future<void> _showSkillWizardDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => SkillWizardDialog(
+        prefillName: _activeSkill?.name,
+        prefillGoal: _activeSkill?.goal,
+        prefillSkill: _activeSkill?.skillContent,
+        prefillMcpTypes: _activeSkill?.selectedMcpTypes,
+        prefillExternalUrls: _activeSkill?.selectedExternalServerUrls,
+        prefillToolboxEnabled: _activeSkill?.toolboxEnabled ?? true,
+        onApply: (result) => _applySkillFromWizard(result),
+      ),
+    );
+  }
+
+  void _applySkillFromWizard(SkillWizardResult result) {
+    // Store skill state — do NOT modify prompt/system prompt directly.
+    // Instead, show a chip above the prompt.
+    setState(() {
+      _activeSkill = result;
+
+      // Set tools from the skill
+      if (result.selectedMcpTypes.isNotEmpty) {
+        _selectedMcpTypes = Set<String>.from(result.selectedMcpTypes);
+      }
+      if (result.selectedExternalServerUrls.isNotEmpty) {
+        _selectedExternalServerUrls = Set<String>.from(
+          result.selectedExternalServerUrls,
+        );
+      }
+      _pgToolboxEnabled = result.toolboxEnabled;
+    });
+
+    // Refresh skills section
+    _updateSkillsSection();
+  }
+
   // ── Chat subscription ──
 
   void _subscribeToChatService(ChatService chatService) {
@@ -3823,6 +3894,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
           ],
           (
+            icon: Icons.auto_awesome,
+            label: 'Skills',
+            onTap: _showSkillsPicker,
+            pin: true,
+          ),
+          (
             icon: Icons.bookmarks_outlined,
             label: l.loadWorkflowsAndImportSkills,
             onTap: _showSetupSessionsDialog,
@@ -4581,6 +4658,70 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             );
           },
         ),
+
+        // Active skill chip
+        if (_activeSkill != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    color: Colors.amber.withAlpha(25),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.amber.withAlpha(80)),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: _showSkillWizardDialog,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              color: Colors.amber,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Skill: ${_activeSkill!.name}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              size: 18,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: 'Remove skill',
+                  onPressed: () {
+                    setState(() => _activeSkill = null);
+                    _updateSkillsSection();
+                  },
+                ),
+              ],
+            ),
+          ),
 
         // Initial prompt
         Text(
@@ -6127,6 +6268,69 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
     Widget chatContent = Column(
       children: [
+        // Active skill chip (shown in chat view too)
+        if (_activeSkill != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    color: Colors.amber.withAlpha(25),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.amber.withAlpha(80)),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: _showSkillWizardDialog,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              color: Colors.amber,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Skill: ${_activeSkill!.name}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16),
+                  tooltip: 'Remove skill',
+                  onPressed: () {
+                    setState(() => _activeSkill = null);
+                    _updateSkillsSection();
+                  },
+                ),
+              ],
+            ),
+          ),
         // System prompt info bar (tap to view/edit)
         if (taskState.effectiveSystemPrompt != null &&
             taskState.effectiveSystemPrompt!.isNotEmpty)
@@ -7424,72 +7628,13 @@ class _LoadWorkflowsDialogState extends ConsumerState<_LoadWorkflowsDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      l.loadWorkflowsAndImportSkills,
+                      'Load Workflows',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
                   ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.file_upload_outlined, size: 18),
-                    label: const Text('Import Skill'),
-                    onPressed: () async {
-                      try {
-                        final result = await FilePicker.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['zip', 'md'],
-                        );
-                        if (result == null || result.files.isEmpty) return;
-
-                        final file = result.files.first;
-                        final List<int> bytes;
-                        if (file.bytes != null) {
-                          bytes = file.bytes!;
-                        } else if (file.path != null) {
-                          bytes = await File(file.path!).readAsBytes();
-                        } else {
-                          throw Exception('Could not read file content.');
-                        }
-
-                        final serverClient =
-                            (ref.read(serverModeProvider).value?.isRemote ??
-                                false)
-                            ? ref.read(serverApiClientProvider)
-                            : null;
-
-                        final task =
-                            await WorkflowExportService.parseWorkflowFile(
-                              bytes: bytes,
-                              filename: file.name,
-                              serverClient: serverClient,
-                            );
-
-                        if (context.mounted) {
-                          Navigator.pop(context, task);
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          showDialog(
-                            context: context,
-                            builder: (c) => AlertDialog(
-                              title: const Text('Import Error'),
-                              content: Text(
-                                e.toString().replaceFirst('Exception: ', ''),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(c),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +39,7 @@ import 'screens/workflow_list_screen.dart';
 import 'providers/server_mode_provider.dart';
 import 'providers/database_providers.dart';
 import 'services/app_logger.dart';
+import 'services/skill_def_database_service.dart';
 import 'package:tealkit_api/tealkit_api.dart';
 import 'services/github_mcp_library_service.dart';
 import 'mcp/internal_mcp_registry.dart';
@@ -59,7 +59,8 @@ class _SchedulerActivityDialog extends StatefulWidget {
   const _SchedulerActivityDialog();
 
   @override
-  State<_SchedulerActivityDialog> createState() => _SchedulerActivityDialogState();
+  State<_SchedulerActivityDialog> createState() =>
+      _SchedulerActivityDialogState();
 }
 
 class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
@@ -85,8 +86,14 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
   (IconData, Color) _iconFor(SchedulerEventType event) {
     return switch (event) {
       SchedulerEventType.fired => (Icons.play_circle_outline, Colors.blue),
-      SchedulerEventType.started => (Icons.hourglass_top_outlined, Colors.orange),
-      SchedulerEventType.completed => (Icons.check_circle_outline, Colors.green),
+      SchedulerEventType.started => (
+        Icons.hourglass_top_outlined,
+        Colors.orange,
+      ),
+      SchedulerEventType.completed => (
+        Icons.check_circle_outline,
+        Colors.green,
+      ),
       SchedulerEventType.failed => (Icons.error_outline, Colors.red),
       SchedulerEventType.skipped => (Icons.skip_next_outlined, Colors.grey),
       _ => (Icons.circle_outlined, Colors.grey),
@@ -103,16 +110,26 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
             const SizedBox(width: 6),
             Text(
               _formatTime(entry.timestamp),
-              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: AppTheme.primaryBlue),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.primaryBlue,
+              ),
             ),
             const SizedBox(width: 4),
-            Text(entry.taskName, style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.primaryBlue)),
+            Text(
+              entry.taskName,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppTheme.primaryBlue,
+              ),
+            ),
             if (entry.detail != null) ...[
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   entry.detail!,
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -129,9 +146,19 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(entry.taskName, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+            child: Text(
+              entry.taskName,
+              style: theme.textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          Text(_formatTime(entry.timestamp), style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600], fontSize: 11)),
+          Text(
+            _formatTime(entry.timestamp),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
+          ),
         ],
       ),
     );
@@ -144,15 +171,29 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
     final entries = _entries;
     // Activity dialog: show only terminal events (completed / failed / skipped)
     // plus alarm ticks. Hide fired/started — they're intermediate noise.
-    const terminalEvents = {SchedulerEventType.completed, SchedulerEventType.failed, SchedulerEventType.skipped, SchedulerEventType.alarm};
-    final visible = entries?.where((e) => terminalEvents.contains(e.event)).toList();
+    const terminalEvents = {
+      SchedulerEventType.completed,
+      SchedulerEventType.failed,
+      SchedulerEventType.skipped,
+      SchedulerEventType.alarm,
+    };
+    final visible = entries
+        ?.where((e) => terminalEvents.contains(e.event))
+        .toList();
     final screenHeight = MediaQuery.sizeOf(context).height;
     final isSmallScreen = screenHeight < 700;
     final verticalInset = isSmallScreen ? 0.0 : 48.0;
     final radius = isSmallScreen ? 0.0 : 16.0;
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-      insetPadding: EdgeInsets.fromLTRB(isSmallScreen ? 0 : 16, verticalInset, isSmallScreen ? 0 : 16, verticalInset),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      insetPadding: EdgeInsets.fromLTRB(
+        isSmallScreen ? 0 : 16,
+        verticalInset,
+        isSmallScreen ? 0 : 16,
+        verticalInset,
+      ),
       child: Column(
         children: [
           Padding(
@@ -162,7 +203,12 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
                 Icon(Icons.history, color: AppTheme.primaryBlue, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(l.schedulerActivityTitle, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  child: Text(
+                    l.schedulerActivityTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
@@ -174,11 +220,17 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
           ),
           const Divider(height: 1),
           if (entries == null)
-            const Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator.adaptive())
+            const Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator.adaptive(),
+            )
           else if (visible!.isEmpty)
             Expanded(
               child: Center(
-                child: Text(l.noSchedulerLog, style: const TextStyle(color: Colors.grey)),
+                child: Text(
+                  l.noSchedulerLog,
+                  style: const TextStyle(color: Colors.grey),
+                ),
               ),
             )
           else
@@ -199,9 +251,12 @@ void _showAboutDialog(BuildContext context) {
   final l = L.of(context);
   final theme = Theme.of(context);
   final isDE = Localizations.localeOf(context).languageCode == 'de';
-  final guideUrl = isDE ? 'https://lschaffer.github.io/tealkit/guide/de/' : 'https://lschaffer.github.io/tealkit/guide/';
+  final guideUrl = isDE
+      ? 'https://lschaffer.github.io/tealkit/guide/de/'
+      : 'https://lschaffer.github.io/tealkit/guide/';
   const privacyUrl = 'https://lschaffer.github.io/tealkit/';
-  const releaseNotesUrl = 'https://lschaffer.github.io/tealkit/release_notes.md';
+  const releaseNotesUrl =
+      'https://lschaffer.github.io/tealkit/release_notes.md';
   const isDeveloperMode = !kReleaseMode;
 
   showDialog<void>(
@@ -213,19 +268,32 @@ void _showAboutDialog(BuildContext context) {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/icons/app_icon_transparent.png', width: 72, height: 72),
+          Image.asset(
+            'assets/icons/app_icon_transparent.png',
+            width: 72,
+            height: 72,
+          ),
           const SizedBox(height: 12),
           Text(
             'TealKit',
-            style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(color: AppTheme.primaryBlue, fontWeight: FontWeight.w800),
+            style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(
+              color: AppTheme.primaryBlue,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
-          Text('Version $_appVersion', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+          Text(
+            'Version $_appVersion',
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => launchUrl(Uri.parse('https://github.com/lschaffer/tealkit'), mode: LaunchMode.externalApplication),
+              onPressed: () => launchUrl(
+                Uri.parse('https://github.com/lschaffer/tealkit'),
+                mode: LaunchMode.externalApplication,
+              ),
               icon: const Icon(Icons.code_outlined, size: 18),
               label: const Text('Readme'),
             ),
@@ -234,7 +302,10 @@ void _showAboutDialog(BuildContext context) {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => launchUrl(Uri.parse(releaseNotesUrl), mode: LaunchMode.externalApplication),
+              onPressed: () => launchUrl(
+                Uri.parse(releaseNotesUrl),
+                mode: LaunchMode.externalApplication,
+              ),
               icon: const Icon(Icons.new_releases_outlined, size: 18),
               label: const Text('Release Notes'),
             ),
@@ -243,7 +314,10 @@ void _showAboutDialog(BuildContext context) {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => launchUrl(Uri.parse(guideUrl), mode: LaunchMode.externalApplication),
+              onPressed: () => launchUrl(
+                Uri.parse(guideUrl),
+                mode: LaunchMode.externalApplication,
+              ),
               icon: const Icon(Icons.menu_book_outlined, size: 18),
               label: Text(l.userGuide),
             ),
@@ -252,7 +326,10 @@ void _showAboutDialog(BuildContext context) {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => launchUrl(Uri.parse(privacyUrl), mode: LaunchMode.externalApplication),
+              onPressed: () => launchUrl(
+                Uri.parse(privacyUrl),
+                mode: LaunchMode.externalApplication,
+              ),
               icon: const Icon(Icons.privacy_tip_outlined, size: 18),
               label: Text(l.privacyPolicy),
             ),
@@ -269,7 +346,10 @@ void _showAboutDialog(BuildContext context) {
                     MaterialPageRoute(
                       builder: (_) => TalkerScreen(
                         talker: talkerInstance,
-                        theme: TalkerScreenTheme(backgroundColor: theme.scaffoldBackgroundColor, cardColor: theme.cardColor),
+                        theme: TalkerScreenTheme(
+                          backgroundColor: theme.scaffoldBackgroundColor,
+                          cardColor: theme.cardColor,
+                        ),
                       ),
                     ),
                   );
@@ -285,7 +365,10 @@ void _showAboutDialog(BuildContext context) {
             child: OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(ctx);
-                showDialog<void>(context: context, builder: (_) => const _SchedulerActivityDialog());
+                showDialog<void>(
+                  context: context,
+                  builder: (_) => const _SchedulerActivityDialog(),
+                );
               },
               icon: const Icon(Icons.history, size: 18),
               label: Text(l.schedulerActivity),
@@ -294,7 +377,9 @@ void _showAboutDialog(BuildContext context) {
           const SizedBox(height: 8),
         ],
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.close))],
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.close)),
+      ],
     ),
   );
 }
@@ -306,7 +391,8 @@ void main() async {
   // Initialize DuckDB
   try {
     final prefs = await SharedPreferences.getInstance();
-    final isRemoteMode = (prefs.getString('server_mode') ?? 'local') == 'remote';
+    final isRemoteMode =
+        (prefs.getString('server_mode') ?? 'local') == 'remote';
     if (!isRemoteMode) {
       await DuckDbService().init();
       log.info('DuckDB initialized successfully');
@@ -314,7 +400,9 @@ void main() async {
       log.info('Skipping local DuckDB initialization in server mode');
     }
   } catch (e) {
-    log.warning('Could not initialize DuckDB (e.g. running in multi-instance or server mode): $e');
+    log.warning(
+      'Could not initialize DuckDB (e.g. running in multi-instance or server mode): $e',
+    );
   }
 
   // Initialize credential cipher (must run before any task is loaded from DB).
@@ -438,14 +526,17 @@ void main() async {
   // Sync all enabled tasks to the scheduler.
   try {
     final prefs = await SharedPreferences.getInstance();
-    final isRemoteMode = (prefs.getString('server_mode') ?? 'local') == 'remote';
+    final isRemoteMode =
+        (prefs.getString('server_mode') ?? 'local') == 'remote';
     if (isRemoteMode) {
       await appScheduler.cancelAll();
       log.info('Scheduler disabled locally because remote mode is active');
     } else {
       final tasks = await TaskDatabaseService().getAllTasks();
       await appScheduler.syncAllTasks(tasks);
-      log.info('Scheduler synced ${tasks.where((t) => t.enabled).length} enabled tasks');
+      log.info(
+        'Scheduler synced ${tasks.where((t) => t.enabled).length} enabled tasks',
+      );
     }
   } catch (e) {
     log.error('Failed to sync scheduler: $e');
@@ -453,7 +544,8 @@ void main() async {
 
   // Re-register the website auto-index alarm so it survives app updates / reinstalls.
   try {
-    final websiteIndexCron = DataSourcesSettingsService.instance.websiteIndexCron;
+    final websiteIndexCron =
+        DataSourcesSettingsService.instance.websiteIndexCron;
     await scheduleWebsiteIndexAlarm(websiteIndexCron);
     if (websiteIndexCron.isNotEmpty) {
       log.info('Website auto-index alarm registered (cron: $websiteIndexCron)');
@@ -474,13 +566,17 @@ void main() async {
   try {
     await GithubMcpLibraryService.instance.load();
     InternalMcpRegistry().registerGithubMcpServers();
-    log.info('GitHub MCP library loaded (${GithubMcpLibraryService.instance.activeServers.length} active)');
+    log.info(
+      'GitHub MCP library loaded (${GithubMcpLibraryService.instance.activeServers.length} active)',
+    );
   } catch (e) {
     log.error('Failed to load GitHub MCP library: $e');
   }
 
   // Trigger background skill generation for built-in tools (fire-and-forget).
-  unawaited(FunctionHintGenerationService.instance.ensureSkillsForBuiltInTools());
+  unawaited(
+    FunctionHintGenerationService.instance.ensureSkillsForBuiltInTools(),
+  );
 
   runApp(const ProviderScope(child: MobileAIAgentApp()));
 }
@@ -492,7 +588,8 @@ class MobileAIAgentApp extends StatefulWidget {
   State<MobileAIAgentApp> createState() => _MobileAIAgentAppState();
 }
 
-class _MobileAIAgentAppState extends State<MobileAIAgentApp> with WidgetsBindingObserver {
+class _MobileAIAgentAppState extends State<MobileAIAgentApp>
+    with WidgetsBindingObserver {
   Timer? _foregroundPingTimer;
 
   @override
@@ -500,6 +597,7 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp> with WidgetsBinding
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startPing();
+    SkillDefDatabaseService.init(context);
   }
 
   @override
@@ -517,7 +615,8 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp> with WidgetsBinding
       _stopPing();
       // On detached (app terminated) or hidden (desktop window closed), close
       // DuckDB so the WAL is checkpointed before the process exits.
-      if (state == AppLifecycleState.detached || state == AppLifecycleState.hidden) {
+      if (state == AppLifecycleState.detached ||
+          state == AppLifecycleState.hidden) {
         DuckDbService().close().catchError((_) {});
       }
     }
@@ -527,18 +626,28 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp> with WidgetsBinding
   /// The background isolate treats the app as active only if the stamp is recent.
   void _startPing() {
     _writePing();
-    _foregroundPingTimer ??= Timer.periodic(const Duration(seconds: 30), (_) => _writePing());
+    _foregroundPingTimer ??= Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _writePing(),
+    );
   }
 
   void _stopPing() {
     _foregroundPingTimer?.cancel();
     _foregroundPingTimer = null;
-    SharedPreferences.getInstance().then((p) => p.remove('app_is_foreground')).catchError((_) => false);
+    SharedPreferences.getInstance()
+        .then((p) => p.remove('app_is_foreground'))
+        .catchError((_) => false);
   }
 
   void _writePing() {
     SharedPreferences.getInstance()
-        .then((p) => p.setInt('app_is_foreground', DateTime.now().millisecondsSinceEpoch))
+        .then(
+          (p) => p.setInt(
+            'app_is_foreground',
+            DateTime.now().millisecondsSinceEpoch,
+          ),
+        )
         .catchError((_) => false);
   }
 
@@ -553,12 +662,17 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp> with WidgetsBinding
         final prefs = AppPreferencesService.instance;
         return Consumer(
           builder: (_, ref, _) {
-            final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
+            final isServerMode =
+                ref.watch(serverModeProvider).value?.isRemote ?? false;
             return MaterialApp(
               title: 'TealKit',
               debugShowCheckedModeBanner: false,
-              theme: isServerMode ? AppTheme.serverLightTheme : AppTheme.lightTheme,
-              darkTheme: isServerMode ? AppTheme.serverDarkTheme : AppTheme.darkTheme,
+              theme: isServerMode
+                  ? AppTheme.serverLightTheme
+                  : AppTheme.lightTheme,
+              darkTheme: isServerMode
+                  ? AppTheme.serverDarkTheme
+                  : AppTheme.darkTheme,
               themeMode: prefs.themeMode,
               locale: Locale(prefs.locale),
               localizationsDelegates: L.localizationsDelegates,
@@ -592,7 +706,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // If the app was last used in server mode, route to server settings first
       // so the user explicitly reconnects before continuing.
       if (mode.isRemote && mounted) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ServerSettingsScreen()));
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const ServerSettingsScreen()));
         return;
       }
       // Check if LLM is configured; if not, show warning popup and redirect to settings.
@@ -617,11 +733,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange[600], size: 24),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('Configuration Required'),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange[600],
+              size: 24,
             ),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Configuration Required')),
           ],
         ),
         content: const Text(
@@ -644,13 +762,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final screenWidth = MediaQuery.sizeOf(context).width;
       if (screenWidth > 1200) {
         setState(() {
-          _selectedScreenIndex = 2; // Redirect to Settings screen in desktop view
+          _selectedScreenIndex =
+              2; // Redirect to Settings screen in desktop view
         });
       } else {
         // On mobile/compact mode, push the StartupWizardScreen
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const StartupWizardScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const StartupWizardScreen()));
       }
     }
   }
@@ -700,7 +819,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Icon(Icons.toll_outlined, color: Colors.amber, size: 18),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text('Skills are generated by your configured LLM — tokens will be used.', style: TextStyle(fontSize: 13)),
+                    child: Text(
+                      'Skills are generated by your configured LLM — tokens will be used.',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ),
                 ],
               ),
@@ -708,7 +830,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Later')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Later'),
+          ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.auto_awesome, size: 18),
@@ -734,8 +859,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             'The remote server database stays separate and is not synchronized.',
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Switch')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Switch'),
+            ),
           ],
         ),
       );
@@ -749,7 +880,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     if (!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ServerSettingsScreen()));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ServerSettingsScreen()));
   }
 
   @override
@@ -757,7 +890,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l = L.of(context);
     final theme = Theme.of(context);
     final isDE = Localizations.localeOf(context).languageCode == 'de';
-    final guideUrl = isDE ? 'https://lschaffer.github.io/tealkit/guide/de/' : 'https://lschaffer.github.io/tealkit/guide/';
+    final guideUrl = isDE
+        ? 'https://lschaffer.github.io/tealkit/guide/de/'
+        : 'https://lschaffer.github.io/tealkit/guide/';
     final llmSettings = ref.watch(llmSettingsProvider);
     final dsSettings = ref.watch(dataSourcesSettingsProvider);
     final externalToolsSettings = ref.watch(externalToolsSettingsProvider);
@@ -822,10 +957,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             duration: const Duration(milliseconds: 250),
                             opacity: sidebarOpen ? 1.0 : 0.0,
                             child: GestureDetector(
-                              onTap: () => ref.read(sidebarOpenProvider.notifier).state = false,
-                              child: Container(
-                                color: Colors.black54,
-                              ),
+                              onTap: () =>
+                                  ref.read(sidebarOpenProvider.notifier).state =
+                                      false,
+                              child: Container(color: Colors.black54),
                             ),
                           ),
                         ),
@@ -842,7 +977,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         width: sidebarOpen ? 190 : 0,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.95),
+                          color: isDark
+                              ? const Color(0xFF0F172A).withValues(alpha: 0.92)
+                              : Colors.white.withValues(alpha: 0.95),
                           border: Border(
                             right: BorderSide(
                               color: isDark ? Colors.white12 : Colors.black12,
@@ -855,13 +992,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     color: Colors.black.withValues(alpha: 0.35),
                                     blurRadius: 16,
                                     offset: const Offset(4, 0),
-                                  )
+                                  ),
                                 ]
                               : null,
                         ),
                         child: ClipRect(
                           child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+                            filter: ImageFilter.blur(
+                              sigmaX: 12.0,
+                              sigmaY: 12.0,
+                            ),
                             child: OverflowBox(
                               alignment: Alignment.topLeft,
                               minWidth: 190,
@@ -869,20 +1009,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: SizedBox(
                                 width: 190,
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 24,
+                                    horizontal: 8,
+                                  ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       // Logo, title, and sticky pin icon
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Image.asset(
                                                     'assets/icons/app_icon_transparent.png',
@@ -892,33 +1041,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                   const SizedBox(height: 16),
                                                   Text(
                                                     'TealKit',
-                                                    style: theme.textTheme.titleLarge?.copyWith(
-                                                      color: isDark ? Colors.white : const Color(0xFF1F2937),
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .titleLarge
+                                                        ?.copyWith(
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF1F2937,
+                                                                ),
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     'Local AI Task Orchestrator',
-                                                    style: theme.textTheme.bodySmall?.copyWith(
-                                                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                                      fontSize: 11,
-                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .bodySmall
+                                                        ?.copyWith(
+                                                          color: isDark
+                                                              ? Colors.grey[400]
+                                                              : Colors
+                                                                    .grey[600],
+                                                          fontSize: 11,
+                                                        ),
                                                   ),
                                                 ],
                                               ),
                                             ),
                                             IconButton(
                                               icon: Icon(
-                                                sidebarSticky ? Icons.push_pin : Icons.push_pin_outlined,
+                                                sidebarSticky
+                                                    ? Icons.push_pin
+                                                    : Icons.push_pin_outlined,
                                                 size: 18,
                                                 color: sidebarSticky
                                                     ? const Color(0xFF7C3AED)
-                                                    : (isDark ? Colors.white54 : Colors.black54),
+                                                    : (isDark
+                                                          ? Colors.white54
+                                                          : Colors.black54),
                                               ),
-                                              tooltip: sidebarSticky ? 'Unpin menu' : 'Pin menu',
+                                              tooltip: sidebarSticky
+                                                  ? 'Unpin menu'
+                                                  : 'Pin menu',
                                               onPressed: () {
-                                                ref.read(sidebarStickyProvider.notifier).state = !sidebarSticky;
+                                                ref
+                                                        .read(
+                                                          sidebarStickyProvider
+                                                              .notifier,
+                                                        )
+                                                        .state =
+                                                    !sidebarSticky;
                                               },
                                             ),
                                           ],
@@ -933,7 +1108,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         selected: activeIndex == 0,
                                         enabled: llmReady,
                                         onTap: () {
-                                          setState(() => _selectedScreenIndex = 0);
+                                          setState(
+                                            () => _selectedScreenIndex = 0,
+                                          );
                                           closeSidebarIfNeeded();
                                         },
                                       ),
@@ -943,7 +1120,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         selected: activeIndex == 1,
                                         enabled: llmReady,
                                         onTap: () {
-                                          setState(() => _selectedScreenIndex = 1);
+                                          setState(
+                                            () => _selectedScreenIndex = 1,
+                                          );
                                           closeSidebarIfNeeded();
                                         },
                                       ),
@@ -953,7 +1132,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         selected: activeIndex == 2,
                                         enabled: true,
                                         onTap: () {
-                                          setState(() => _selectedScreenIndex = 2);
+                                          setState(
+                                            () => _selectedScreenIndex = 2,
+                                          );
                                           closeSidebarIfNeeded();
                                         },
                                       ),
@@ -962,13 +1143,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                                       // Theme switcher, About, User Guide
                                       _SidebarButton(
-                                        icon: AppPreferencesService.instance.themeModeIcon,
+                                        icon: AppPreferencesService
+                                            .instance
+                                            .themeModeIcon,
                                         label: 'Theme',
-                                        subtitle: 'Current: ${AppPreferencesService.instance.themeModeLabel}',
+                                        subtitle:
+                                            'Current: ${AppPreferencesService.instance.themeModeLabel}',
                                         selected: false,
                                         enabled: true,
                                         onTap: () {
-                                          AppPreferencesService.instance.cycleTheme();
+                                          AppPreferencesService.instance
+                                              .cycleTheme();
                                           closeSidebarIfNeeded();
                                         },
                                       ),
@@ -987,7 +1172,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                                       // Compact Mode toggle at the bottom of the sidebar
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
                                         child: _ModeToggle(
                                           isRemote: isRemote,
                                           onChanged: _onServerModeToggled,
@@ -1017,27 +1204,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 24,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset('assets/icons/app_icon_transparent.png', width: 96, height: 96),
+                        Image.asset(
+                          'assets/icons/app_icon_transparent.png',
+                          width: 96,
+                          height: 96,
+                        ),
                         const SizedBox(height: 24),
                         Text(
                           l.appTitle,
-                          style: theme.textTheme.headlineLarge?.copyWith(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           l.appSubtitle,
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.brightness == Brightness.dark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                            color: theme.brightness == Brightness.dark
+                                ? AppTheme.textSecondaryDark
+                                : AppTheme.textSecondaryLight,
                           ),
                         ),
                         const SizedBox(height: 32),
 
                         // ── Mode toggle ────────────────────────────────────
-                        _ModeToggle(isRemote: isRemote, onChanged: _onServerModeToggled),
+                        _ModeToggle(
+                          isRemote: isRemote,
+                          onChanged: _onServerModeToggled,
+                        ),
 
                         const SizedBox(height: 32),
                         SizedBox(
@@ -1049,7 +1251,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               FilledButton.icon(
                                 onPressed: llmReady
                                     ? () {
-                                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlaygroundScreen()));
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const PlaygroundScreen(),
+                                          ),
+                                        );
                                       }
                                     : null,
                                 icon: const Icon(Icons.science_outlined),
@@ -1057,8 +1264,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 style: FilledButton.styleFrom(
                                   minimumSize: const Size.fromHeight(52),
                                   backgroundColor: AppTheme.primaryBlue,
-                                  disabledBackgroundColor: theme.disabledColor.withAlpha(40),
-                                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  disabledBackgroundColor: theme.disabledColor
+                                      .withAlpha(40),
+                                  textStyle: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -1067,7 +1278,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               FilledButton.icon(
                                 onPressed: llmReady
                                     ? () {
-                                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkflowListScreen()));
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const WorkflowListScreen(),
+                                          ),
+                                        );
                                       }
                                     : null,
                                 icon: const Icon(Icons.task_alt),
@@ -1075,8 +1291,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 style: FilledButton.styleFrom(
                                   minimumSize: const Size.fromHeight(52),
                                   backgroundColor: AppTheme.accent,
-                                  disabledBackgroundColor: theme.disabledColor.withAlpha(40),
-                                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  disabledBackgroundColor: theme.disabledColor
+                                      .withAlpha(40),
+                                  textStyle: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1088,7 +1308,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         if (!llmReady) ...[
                           Text(
                             l.configureLlmFirst,
-                            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.warning),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppTheme.warning,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 12),
@@ -1097,19 +1319,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           width: 260,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StartupWizardScreen()));
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const StartupWizardScreen(),
+                                ),
+                              );
                             },
-                            icon: Icon(llmReady ? Icons.settings : Icons.flag_outlined, size: 18, color: llmReady ? null : AppTheme.warning),
+                            icon: Icon(
+                              llmReady ? Icons.settings : Icons.flag_outlined,
+                              size: 18,
+                              color: llmReady ? null : AppTheme.warning,
+                            ),
                             label: Text(
                               llmReady ? l.settings : l.firstStep,
                               style: TextStyle(
                                 color: llmReady ? null : AppTheme.warning,
-                                fontWeight: llmReady ? FontWeight.normal : FontWeight.bold,
+                                fontWeight: llmReady
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(44),
-                              side: llmReady ? null : BorderSide(color: AppTheme.warning, width: 2),
+                              side: llmReady
+                                  ? null
+                                  : BorderSide(
+                                      color: AppTheme.warning,
+                                      width: 2,
+                                    ),
                             ),
                           ),
                         ),
@@ -1117,17 +1354,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         // ── Footer links ──
                         const SizedBox(height: 24),
                         TextButton.icon(
-                          onPressed: () => launchUrl(Uri.parse(guideUrl), mode: LaunchMode.externalApplication),
+                          onPressed: () => launchUrl(
+                            Uri.parse(guideUrl),
+                            mode: LaunchMode.externalApplication,
+                          ),
                           icon: const Icon(Icons.menu_book_outlined, size: 16),
                           label: Text(l.userGuide),
-                          style: TextButton.styleFrom(foregroundColor: Colors.grey[500], textStyle: const TextStyle(fontSize: 13)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey[500],
+                            textStyle: const TextStyle(fontSize: 13),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         TextButton.icon(
                           onPressed: () => _showAboutDialog(context),
                           icon: const Icon(Icons.info_outline, size: 16),
                           label: Text(l.aboutTitle),
-                          style: TextButton.styleFrom(foregroundColor: Colors.grey[500], textStyle: const TextStyle(fontSize: 13)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey[500],
+                            textStyle: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ],
                     ),
@@ -1152,15 +1398,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 400),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 36,
+                    ),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.65),
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.25)
+                          : Colors.white.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.35),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.white.withValues(alpha: 0.35),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -1175,12 +1431,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset('assets/icons/app_icon_transparent.png', width: 90, height: 90),
+                        Image.asset(
+                          'assets/icons/app_icon_transparent.png',
+                          width: 90,
+                          height: 90,
+                        ),
                         const SizedBox(height: 20),
                         Text(
                           l.appTitle,
                           style: theme.textTheme.headlineLarge?.copyWith(
-                            color: isDark ? Colors.white : const Color(0xFF1F2937),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1F2937),
                             fontWeight: FontWeight.bold,
                             letterSpacing: -0.5,
                           ),
@@ -1189,14 +1451,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Text(
                           l.appSubtitle,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                            color: isDark
+                                ? const Color(0xFF9CA3AF)
+                                : const Color(0xFF6B7280),
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 28),
 
                         // Mode toggle
-                        _ModeToggle(isRemote: isRemote, onChanged: _onServerModeToggled),
+                        _ModeToggle(
+                          isRemote: isRemote,
+                          onChanged: _onServerModeToggled,
+                        ),
                         const SizedBox(height: 28),
 
                         // Actions
@@ -1207,7 +1474,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             children: [
                               _ModernMenuButton(
                                 onPressed: llmReady
-                                    ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlaygroundScreen()))
+                                    ? () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const PlaygroundScreen(),
+                                        ),
+                                      )
                                     : null,
                                 icon: Icons.science_outlined,
                                 label: l.playground,
@@ -1216,7 +1488,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               const SizedBox(height: 12),
                               _ModernMenuButton(
                                 onPressed: llmReady
-                                    ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkflowListScreen()))
+                                    ? () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const WorkflowListScreen(),
+                                        ),
+                                      )
                                     : null,
                                 icon: Icons.task_alt,
                                 label: l.tasks,
@@ -1231,7 +1508,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         if (!llmReady) ...[
                           Text(
                             l.configureLlmFirst,
-                            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.warning),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppTheme.warning,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 12),
@@ -1240,14 +1519,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           width: 260,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StartupWizardScreen()));
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const StartupWizardScreen(),
+                                ),
+                              );
                             },
-                            icon: Icon(llmReady ? Icons.settings : Icons.flag_outlined, size: 18, color: llmReady ? null : AppTheme.warning),
+                            icon: Icon(
+                              llmReady ? Icons.settings : Icons.flag_outlined,
+                              size: 18,
+                              color: llmReady ? null : AppTheme.warning,
+                            ),
                             label: Text(
                               llmReady ? l.settings : l.firstStep,
                               style: TextStyle(
                                 color: llmReady ? null : AppTheme.warning,
-                                fontWeight: llmReady ? FontWeight.normal : FontWeight.bold,
+                                fontWeight: llmReady
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
@@ -1258,7 +1547,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     : AppTheme.warning,
                                 width: llmReady ? 1 : 2,
                               ),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
                             ),
                           ),
                         ),
@@ -1270,8 +1561,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           runSpacing: 4,
                           children: [
                             TextButton.icon(
-                              onPressed: () => launchUrl(Uri.parse(guideUrl), mode: LaunchMode.externalApplication),
-                              icon: const Icon(Icons.menu_book_outlined, size: 15),
+                              onPressed: () => launchUrl(
+                                Uri.parse(guideUrl),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                              icon: const Icon(
+                                Icons.menu_book_outlined,
+                                size: 15,
+                              ),
                               label: Text(l.userGuide),
                               style: TextButton.styleFrom(
                                 foregroundColor: Colors.grey[500],
@@ -1329,8 +1626,18 @@ class _ModeToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ModeChip(selected: !isRemote, icon: Icons.storage_outlined, label: 'Local', onTap: () => onChanged(false)),
-          _ModeChip(selected: isRemote, icon: Icons.dns_outlined, label: 'Server', onTap: () => onChanged(true)),
+          _ModeChip(
+            selected: !isRemote,
+            icon: Icons.storage_outlined,
+            label: 'Local',
+            onTap: () => onChanged(false),
+          ),
+          _ModeChip(
+            selected: isRemote,
+            icon: Icons.dns_outlined,
+            label: 'Server',
+            onTap: () => onChanged(true),
+          ),
         ],
       ),
     );
@@ -1343,7 +1650,12 @@ class _ModeChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _ModeChip({required this.selected, required this.icon, required this.label, required this.onTap});
+  const _ModeChip({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1357,9 +1669,9 @@ class _ModeChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected 
-                ? (isDark ? cs.primary : const Color(0xFF7C3AED)) 
-                : Colors.transparent, 
+            color: selected
+                ? (isDark ? cs.primary : const Color(0xFF7C3AED))
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: selected && !isDark
                 ? [
@@ -1367,14 +1679,18 @@ class _ModeChip extends StatelessWidget {
                       color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
-                    )
+                    ),
                   ]
                 : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: selected ? cs.onPrimary : cs.onSurfaceVariant),
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? cs.onPrimary : cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -1428,7 +1744,7 @@ class _ModernMenuButton extends StatelessWidget {
                   color: gradientColors.first.withValues(alpha: 0.35),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
-                )
+                ),
               ]
             : null,
       ),
@@ -1442,10 +1758,7 @@ class _ModernMenuButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: enabled ? Colors.white : theme.disabledColor,
-                ),
+                Icon(icon, color: enabled ? Colors.white : theme.disabledColor),
                 const SizedBox(width: 10),
                 Text(
                   label,
@@ -1487,7 +1800,7 @@ class _SidebarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     Color textColor;
     Color iconColor;
     BoxDecoration decoration;
@@ -1511,7 +1824,7 @@ class _SidebarButton extends StatelessWidget {
             color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
             blurRadius: 8,
             offset: const Offset(0, 2),
-          )
+          ),
         ],
       );
     } else {
@@ -1545,7 +1858,9 @@ class _SidebarButton extends StatelessWidget {
                           label,
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: textColor,
-                            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: selected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1572,4 +1887,3 @@ class _SidebarButton extends StatelessWidget {
     );
   }
 }
-

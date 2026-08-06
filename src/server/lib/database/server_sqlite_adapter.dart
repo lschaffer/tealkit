@@ -177,6 +177,20 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
       )
     ''');
 
+    // ── Skill definitions table ──
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS skill_defs (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        goal        TEXT DEFAULT '',
+        description TEXT DEFAULT '',
+        skill_def   TEXT NOT NULL,
+        tool_names  TEXT DEFAULT '[]',
+        created_at  TEXT DEFAULT (datetime('now')),
+        updated_at  TEXT DEFAULT (datetime('now'))
+      )
+    ''');
+
     db.execute('''
       CREATE TABLE IF NOT EXISTS playground_sessions (
         id          TEXT PRIMARY KEY,
@@ -682,6 +696,86 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
     return result.map((row) => row['tool_name'] as String).toList();
   }
 
+  // ── Skill Definitions ──────────────────────────────────────
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllSkillDefs() async {
+    final db = _requireDb;
+    final result = db.select(
+      'SELECT * FROM skill_defs ORDER BY updated_at DESC',
+    );
+    return result
+        .map(
+          (r) => {
+            'id': r['id'] as String,
+            'name': r['name'] as String,
+            'goal': r['goal'] as String? ?? '',
+            'description': r['description'] as String? ?? '',
+            'skill_def': r['skill_def'] as String,
+            'tool_names': _parseJsonArray(r['tool_names'] as String?),
+            'created_at': r['created_at'] as String,
+            'updated_at': r['updated_at'] as String,
+          },
+        )
+        .toList();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getSkillDef(String id) async {
+    final db = _requireDb;
+    final result = db.select('SELECT * FROM skill_defs WHERE id = ?', [id]);
+    if (result.isEmpty) return null;
+    final r = result.first;
+    return {
+      'id': r['id'] as String,
+      'name': r['name'] as String,
+      'goal': r['goal'] as String? ?? '',
+      'description': r['description'] as String? ?? '',
+      'skill_def': r['skill_def'] as String,
+      'tool_names': _parseJsonArray(r['tool_names'] as String?),
+      'created_at': r['created_at'] as String,
+      'updated_at': r['updated_at'] as String,
+    };
+  }
+
+  @override
+  Future<void> saveSkillDef(Map<String, dynamic> skillDef) async {
+    final db = _requireDb;
+    final toolNamesJson = jsonEncode(
+      (skillDef['tool_names'] as List?)?.cast<String>() ?? [],
+    );
+    db.execute(
+      '''INSERT INTO skill_defs (id, name, goal, description, skill_def, tool_names, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+         ON CONFLICT (id) DO UPDATE SET
+           name = excluded.name, goal = excluded.goal,
+           description = excluded.description, skill_def = excluded.skill_def,
+           tool_names = excluded.tool_names, updated_at = datetime('now')''',
+      [
+        skillDef['id'] as String,
+        skillDef['name'] as String,
+        skillDef['goal'] as String? ?? '',
+        skillDef['description'] as String? ?? '',
+        skillDef['skill_def'] as String,
+        toolNamesJson,
+      ],
+    );
+  }
+
+  @override
+  Future<void> deleteSkillDef(String id) async {
+    _requireDb.execute('DELETE FROM skill_defs WHERE id = ?', [id]);
+  }
+
+  List<String> _parseJsonArray(String? json) {
+    if (json == null || json.isEmpty || json == '[]') return [];
+    try {
+      return (jsonDecode(json) as List).cast<String>();
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ── Playground Sessions ────────────────────────────────────
 
   @override
@@ -771,18 +865,27 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
   Future<void> _seedDefaultPyTools() async {
     try {
       final db = _requireDb;
-      final countResult = db.select('SELECT COUNT(*) AS cnt FROM py_tools');
-      final count = countResult.first['cnt'] as int? ?? 0;
-      if (count > 0) return;
+      final rows = db.select('SELECT id FROM py_tools');
+      final existingIds = rows.map((r) => r['id'] as String).toSet();
+      final defaults = _defaultPyTools(DateTime.now().toIso8601String());
 
-      log.info('[SQLite] Seeding default Python tools');
-      final now = DateTime.now().toIso8601String();
-      for (final tool in _defaultPyTools(now)) {
-        await savePyTool(tool);
+      if (existingIds.isEmpty) {
+        log.info('[SQLite] No tools found — seeding all defaults');
+        for (final tool in defaults) {
+          await savePyTool(tool);
+        }
+      } else {
+        for (final tool in defaults) {
+          final id = tool['id'] as String;
+          if (!existingIds.contains(id)) {
+            log.info(
+              '[SQLite] Missing default tool — seeding: $id "${tool['name']}"',
+            );
+            await savePyTool(tool);
+          }
+        }
       }
-      log.info(
-        '[SQLite] Seeded ${_defaultPyTools(now).length} default Python tools',
-      );
+      log.info('[SQLite] Default Python tools check complete');
     } catch (e) {
       log.warning('[SQLite] Failed to seed default Python tools: $e');
     }
@@ -917,6 +1020,36 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
         'required': ['text', 'rules'],
       },
       'code': _textClassifyCode,
+      'requirements': '',
+      'venv_ready': false,
+      'is_active': true,
+      'generation_prompt': '',
+    },
+    {
+      'id': '_default_run_python',
+      'name': 'run_python',
+      'description':
+          'Execute arbitrary Python code and return stdout output. '
+          'STDLIB ONLY — no third-party packages. '
+          'Use built-in modules only: os, sys, json, csv, io, re, math, pathlib, sqlite3, etc.',
+      'input_schema': const {
+        'type': 'object',
+        'properties': {
+          'code': {
+            'type': 'string',
+            'description':
+                'Python source code to execute. STDLIB ONLY — use only built-in modules. '
+                'Do NOT use pip or subprocess to install packages.',
+          },
+          'timeoutSeconds': {
+            'type': 'integer',
+            'description': 'Max execution time in seconds (default: 30).',
+            'default': 30,
+          },
+        },
+        'required': ['code'],
+      },
+      'code': _runPythonCode,
       'requirements': '',
       'venv_ready': false,
       'is_active': true,
@@ -1091,6 +1224,50 @@ def execute(args):
     if limit and isinstance(result, list):
         result = result[:int(limit)]
     return {"original_count": original_count, "filtered_count": len(items) if isinstance(items, list) else None, "result": result}
+''';
+
+const _runPythonCode = '''import io, sys, traceback
+
+def execute(args):
+    code = args.get("code", "")
+    if not code.strip():
+        return {"error": "code is empty"}
+
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    sys.stdout = captured_out
+    sys.stderr = captured_err
+
+    try:
+        exec(code, {"__builtins__": __builtins__})
+        stdout_text = captured_out.getvalue()
+        stderr_text = captured_err.getvalue()
+        result = {"output": stdout_text}
+        if stderr_text.strip():
+            result["stderr"] = stderr_text.strip()
+        return result
+    except ModuleNotFoundError as e:
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": f"Missing Python library: {e.name}. "
+                     f"This tool is stdlib-only — no third-party packages. "
+                     f"Use only built-in modules (os, sys, json, csv, io, re, "
+                     f"math, pathlib, sqlite3, etc.) or create a named Python "
+                     f"tool with the required pip packages.",
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    except Exception:
+        exc_text = traceback.format_exc()
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": exc_text.strip(),
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
 ''';
 
 const _textClassifyCode = '''import re

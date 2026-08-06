@@ -42,9 +42,12 @@ import 'powershell_tool_library_screen.dart';
 import 'script_library_screen.dart';
 import 'function_hints_screen.dart';
 import '../providers/server_mode_provider.dart';
-import '../services/workflow_export_service.dart';
 
 import '../models/function_hint.dart';
+import '../models/skill_def.dart';
+import '../widgets/skill_wizard_dialog.dart';
+import '../services/skill_def_database_service.dart';
+import 'skills_list_screen.dart';
 import '../services/function_hint_database_service.dart';
 import '../l10n/app_localizations.dart';
 
@@ -77,6 +80,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   int _selectedExecutorIndex = 0;
   int _activeSubSectionIndex = 0;
   late TextEditingController _executorNameCtrl;
+
+  /// Currently active skill for the selected agent (if any).
+  SkillWizardResult? _activeSkill;
 
   final _formKey = GlobalKey<FormState>();
   late TabController _tabController;
@@ -2247,6 +2253,196 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     return true;
   }
 
+  Future<void> _saveAsSkill() async {
+    if (_executors.isEmpty) return;
+
+    // Concatenate all agent prompts with edge conditions
+    final buf = StringBuffer();
+    for (int i = 0; i < _executors.length; i++) {
+      final exec = _executors[i];
+      buf.writeln('Agent: ${exec.name}');
+      if (exec.systemPrompt?.isNotEmpty == true) {
+        buf.writeln('System: ${exec.systemPrompt}');
+      }
+      buf.writeln('Prompt: ${exec.prompt}');
+      final rules = _routingRules
+          .where((r) => r.sourceAgentId == exec.id)
+          .toList();
+      for (final rule in rules) {
+        buf.writeln(
+          'If ${rule.variable} ${rule.operator} ${rule.value} → Agent ${rule.targetAgentId}',
+        );
+      }
+      buf.writeln();
+    }
+    final goal = buf.toString().trim();
+
+    final result = await showDialog<SkillWizardResult>(
+      context: context,
+      builder: (_) => SkillWizardDialog(
+        prefillName: _nameCtrl.text.isNotEmpty ? _nameCtrl.text : null,
+        prefillGoal: goal,
+        onSave: (r) => Navigator.of(context).pop(r),
+        onCancel: () => Navigator.of(context).pop(),
+      ),
+    );
+
+    if (result != null && mounted) {
+      final now = DateTime.now();
+      final skillDef = SkillDef(
+        id: const Uuid().v4(),
+        name: result.name,
+        goal: result.goal,
+        description: result.description,
+        skillDef: result.skillContent,
+        toolNames: result.selectedMcpTypes.toList(),
+        createdAt: now,
+        updatedAt: now,
+      );
+      await SkillDefDatabaseService.instance.saveSkill(skillDef);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Skill "${result.name}" saved.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAgentSkillWizard() async {
+    if (_executors.isEmpty) return;
+
+    // Open skills picker first, then fall back to wizard for creating new skills
+    final selected = await SkillsListScreen.showPicker(context);
+    if (selected != null && mounted) {
+      _applySkillDefToAgent(selected);
+    }
+  }
+
+  void _applySkillDefToAgent(SkillDef skill) {
+    if (_executors.isEmpty) return;
+
+    setState(() {
+      _activeSkill = SkillWizardResult(
+        name: skill.name,
+        goal: skill.goal,
+        description: skill.description,
+        skillContent: skill.skillDef,
+        selectedMcpTypes: skill.toolNames.toSet(),
+        selectedExternalServerUrls: {},
+        toolboxEnabled: true,
+      );
+
+      final exec = _executors[_selectedExecutorIndex];
+      final newInternalMcps = <InternalMcpEntry>[];
+      for (final type in skill.toolNames) {
+        final existing = exec.internalMcps.firstWhere(
+          (m) => m.mcpType == type,
+          orElse: () => InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: type,
+            enabled: true,
+            initParams: const {},
+          ),
+        );
+        newInternalMcps.add(existing.copyWith(enabled: true));
+      }
+
+      _executors[_selectedExecutorIndex] = exec.copyWith(
+        internalMcps: newInternalMcps,
+        skillDefId: skill.id,
+      );
+    });
+
+    _updateSkillsSection();
+  }
+
+  void _applySkillToAgent(SkillWizardResult result) {
+    if (_executors.isEmpty) return;
+
+    // Store skill state — don't inject into system prompt.
+    // A chip above the prompt shows the active skill.
+    setState(() {
+      _activeSkill = result;
+
+      // Update agent tools
+      final exec = _executors[_selectedExecutorIndex];
+      final newInternalMcps = <InternalMcpEntry>[];
+      if (!result.toolboxEnabled) {
+        newInternalMcps.add(
+          InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: 'toolbox',
+            label: 'Toolbox',
+            enabled: false,
+            initParams: const {},
+          ),
+        );
+      }
+      for (final type in result.selectedMcpTypes) {
+        final existing = exec.internalMcps.firstWhere(
+          (m) => m.mcpType == type,
+          orElse: () => InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: type,
+            enabled: true,
+            initParams: const {},
+          ),
+        );
+        newInternalMcps.add(existing.copyWith(enabled: true));
+      }
+
+      final newMcpTools = result.selectedExternalServerUrls.map((url) {
+        return exec.mcpTools.firstWhere(
+          (t) => t.serverUrl == url,
+          orElse: () => McpToolConfig(serverUrl: url),
+        );
+      }).toList();
+
+      _executors[_selectedExecutorIndex] = exec.copyWith(
+        internalMcps: newInternalMcps,
+        mcpTools: newMcpTools,
+      );
+    });
+
+    _updateSkillsSection();
+  }
+
+  void _showSkillContentDialog() {
+    if (_activeSkill == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.amber),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Skill: ${_activeSkill!.name}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            _activeSkill!.skillContent,
+            style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _runPromptTest() async {
     if (!_validateLlmConfig()) return;
 
@@ -2552,28 +2748,11 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       appBar: AppBar(
         title: Text(widget.isEditing ? l.editTask : l.newTask),
         actions: [
-          if (widget.isEditing && widget.task != null)
+          if (widget.isEditing)
             IconButton(
-              icon: const Icon(Icons.ios_share, color: Colors.amber),
-              tooltip: 'Export as Skill',
-              onPressed: () async {
-                final res = await WorkflowExportService.exportWorkflow(
-                  context,
-                  widget.task!,
-                );
-                if (!mounted) return;
-                if (res.error != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Export failed: ${res.error}')),
-                  );
-                } else if (res.savedPath != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Workflow exported to: ${res.savedPath}'),
-                    ),
-                  );
-                }
-              },
+              icon: const Icon(Icons.auto_awesome, color: Colors.amber),
+              tooltip: 'Save as Skill',
+              onPressed: _saveAsSkill,
             ),
           if (_isSaving)
             const Padding(
@@ -2971,7 +3150,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                 Row(
                   children: [
                     Text(
-                      l.taskPrompt,
+                      'Agent Prompt',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -2991,16 +3170,27 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                       (v == null || v.trim().isEmpty) ? l.promptRequired : null,
                 ),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    onPressed: _runPromptTest,
-                    icon: const Icon(Icons.play_circle_outline, size: 18),
-                    label: const Text('Testen'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.primaryBlue,
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: _runPromptTest,
+                      icon: const Icon(Icons.play_circle_outline, size: 18),
+                      label: const Text('Testen'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _showAgentSkillWizard,
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: const Text('Save as Skill'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -3371,10 +3561,74 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
+                    // Active skill chip (same pattern as playground)
+                    if (_activeSkill != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Card(
+                                color: Colors.amber.withAlpha(25),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: Colors.amber.withAlpha(80),
+                                  ),
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _showSkillContentDialog(),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.auto_awesome,
+                                          color: Colors.amber,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Skill: ${_activeSkill!.name}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.visibility_outlined,
+                                          size: 18,
+                                          color: Colors.amber,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              tooltip: 'Remove skill',
+                              onPressed: () =>
+                                  setState(() => _activeSkill = null),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          l.taskPrompt,
+                          'Agent Prompt',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -3383,7 +3637,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                             ).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         Tooltip(
                           message: 'Prompts testen',
                           child: InkWell(
@@ -3439,6 +3693,36 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: AppTheme.primaryBlue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Save as Skill',
+                          child: InkWell(
+                            onTap: () => _showAgentSkillWizard(),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome,
+                                    size: 16,
+                                    color: Colors.amber,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Skill',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.amber,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),

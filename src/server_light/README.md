@@ -62,7 +62,7 @@ scp server_light/dist/tealkit-server-light user@arm-device:/opt/tealkit/
 
 ### Option 2: Package source for native build on ARM
 
-Creates a minimal tarball (~200 KB) with only the required source files and stub packages:
+Creates a minimal tarball (~1 MB) with only the required source files and stub packages — no binaries, no Flutter SDK:
 
 ```bash
 bash server_light/scripts/package_light.sh
@@ -72,6 +72,10 @@ bash server_light/scripts/package_light.sh
 scp dist/tealkit_light_deploy.tar.gz root@arm-device:/opt/tealkit/
 ```
 
+**Prerequisites on the ARM device:**
+- Dart SDK ≥ 3.8.0 — install with `bash server_light/scripts/install_dart_arm.sh`
+- `libsqlite3-dev` — install with `apt-get install -y libsqlite3-dev`
+
 On the ARM device:
 
 ```bash
@@ -80,7 +84,13 @@ tar xzf tealkit_light_deploy.tar.gz
 bash build_and_run.sh
 ```
 
-This resolves dependencies, compiles a native binary with `dart compile exe`, and starts the server — all on the target device.
+This resolves dependencies (`dart pub get`), compiles a native binary (`dart compile exe`), and starts the server — all on the target device.
+
+For persistent deployment, install as a systemd service:
+
+```bash
+bash server_light/scripts/install_service.sh
+```
 
 ### Option 3: Build directly on the ARM device
 
@@ -147,6 +157,8 @@ server_light/
 │   ├── build_docker_arm.sh     # Docker cross-compile (ARM64)
 │   ├── package_light.sh        # Minimal deployment tarball
 │   ├── install_dart_arm.sh     # Install Dart SDK on ARM Linux
+│   ├── install_service.sh      # Install systemd service for auto-start
+│   ├── install_uv_check_node.sh # Install uv, Python, Node.js deps
 │   └── run_light_arm.sh        # Convenience run script for ARM
 └── dist/                       # Build output directory
 ```

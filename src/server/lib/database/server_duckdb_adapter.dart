@@ -328,6 +328,20 @@ class ServerDuckDbAdapter implements ServerDatabaseAdapter {
       )
     ''');
 
+    // ── Skill definitions table — persisted AgentSkills.io skills ──────
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS skill_defs (
+        id          VARCHAR PRIMARY KEY,
+        name        VARCHAR NOT NULL,
+        goal        VARCHAR DEFAULT '',
+        description VARCHAR DEFAULT '',
+        skill_def   TEXT NOT NULL,
+        tool_names  VARCHAR[],
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     await conn.execute('''
       CREATE TABLE IF NOT EXISTS playground_sessions (
         id          VARCHAR PRIMARY KEY,
@@ -839,6 +853,82 @@ class ServerDuckDbAdapter implements ServerDatabaseAdapter {
     return rows.map((row) => row[0] as String).toList();
   }
 
+  // ── Skill Definitions ──────────────────────────────────────
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllSkillDefs() async {
+    final conn = await _getConn();
+    final rows = (await conn.query(
+      'SELECT * FROM skill_defs ORDER BY updated_at DESC',
+    )).fetchAll();
+    return rows
+        .map(
+          (r) => {
+            'id': r[0] as String,
+            'name': r[1] as String,
+            'goal': r[2] as String? ?? '',
+            'description': r[3] as String? ?? '',
+            'skill_def': r[4] as String,
+            'tool_names': (r[5] as List?)?.cast<String>() ?? <String>[],
+            'created_at': _skillTimeStr(r[6]),
+            'updated_at': _skillTimeStr(r[7]),
+          },
+        )
+        .toList();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getSkillDef(String id) async {
+    final conn = await _getConn();
+    final rows = (await conn.query(
+      "SELECT * FROM skill_defs WHERE id = '${_esc(id)}'",
+    )).fetchAll();
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return {
+      'id': r[0] as String,
+      'name': r[1] as String,
+      'goal': r[2] as String? ?? '',
+      'description': r[3] as String? ?? '',
+      'skill_def': r[4] as String,
+      'tool_names': (r[5] as List?)?.cast<String>() ?? <String>[],
+      'created_at': _skillTimeStr(r[6]),
+      'updated_at': _skillTimeStr(r[7]),
+    };
+  }
+
+  @override
+  Future<void> saveSkillDef(Map<String, dynamic> skillDef) async {
+    final conn = await _getConn();
+    final id = skillDef['id'] as String;
+    final name = skillDef['name'] as String;
+    final goal = skillDef['goal'] as String? ?? '';
+    final description = skillDef['description'] as String? ?? '';
+    final skillDefContent = skillDef['skill_def'] as String;
+    final toolNames =
+        (skillDef['tool_names'] as List?)?.cast<String>() ?? <String>[];
+    final now = DateTime.now().toUtc().toIso8601String();
+    final tagsArray = toolNames.map((t) => "'${_esc(t)}'").join(',');
+    await conn.execute('''
+      INSERT OR REPLACE INTO skill_defs (id, name, goal, description, skill_def, tool_names, created_at, updated_at)
+      VALUES ('${_esc(id)}', '${_esc(name)}', '${_esc(goal)}',
+              '${_esc(description)}', '${_esc(skillDefContent)}',
+              [$tagsArray], '${_esc(now)}', '${_esc(now)}')
+    ''');
+  }
+
+  @override
+  Future<void> deleteSkillDef(String id) async {
+    final conn = await _getConn();
+    await conn.execute("DELETE FROM skill_defs WHERE id = '${_esc(id)}'");
+  }
+
+  static String _skillTimeStr(dynamic v) {
+    if (v is DateTime) return v.toUtc().toIso8601String();
+    if (v is String) return v;
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
   // ── Playground Sessions ────────────────────────────────────
 
   @override
@@ -1101,21 +1191,27 @@ class ServerDuckDbAdapter implements ServerDatabaseAdapter {
   Future<void> _seedDefaultPyTools() async {
     try {
       final conn = await _getConn();
-      final count =
-          (await conn.query(
-                'SELECT COUNT(*) FROM py_tools',
-              )).fetchAll().firstOrNull?[0]
-              as int? ??
-          0;
-      if (count > 0) return;
+      final rows = (await conn.query('SELECT id FROM py_tools')).fetchAll();
+      final existingIds = rows.map((r) => r[0] as String).toSet();
+      final defaults = _defaultPyTools(DateTime.now().toIso8601String());
 
-      log.info('[DuckDB] Seeding default Python tools');
-      final now = DateTime.now().toIso8601String();
-      final defaults = _defaultPyTools(now);
-      for (final tool in defaults) {
-        await savePyTool(tool);
+      if (existingIds.isEmpty) {
+        log.info('[DuckDB] No tools found — seeding all defaults');
+        for (final tool in defaults) {
+          await savePyTool(tool);
+        }
+      } else {
+        for (final tool in defaults) {
+          final id = tool['id'] as String;
+          if (!existingIds.contains(id)) {
+            log.info(
+              '[DuckDB] Missing default tool — seeding: $id "${tool['name']}"',
+            );
+            await savePyTool(tool);
+          }
+        }
       }
-      log.info('[DuckDB] Seeded ${defaults.length} default Python tools');
+      log.info('[DuckDB] Default Python tools check complete');
     } catch (e) {
       log.warning('[DuckDB] Failed to seed default Python tools: $e');
     }
@@ -1260,6 +1356,36 @@ class ServerDuckDbAdapter implements ServerDatabaseAdapter {
         'required': ['text', 'rules'],
       },
       'code': _textClassifyCode,
+      'requirements': '',
+      'venv_ready': false,
+      'is_active': true,
+      'generation_prompt': '',
+    },
+    {
+      'id': '_default_run_python',
+      'name': 'run_python',
+      'description':
+          'Execute arbitrary Python code and return stdout output. '
+          'STDLIB ONLY — no third-party packages. '
+          'Use built-in modules only: os, sys, json, csv, io, re, math, pathlib, sqlite3, etc.',
+      'input_schema': {
+        'type': 'object',
+        'properties': {
+          'code': {
+            'type': 'string',
+            'description':
+                'Python source code to execute. STDLIB ONLY — use only built-in modules. '
+                'Do NOT use pip or subprocess to install packages.',
+          },
+          'timeoutSeconds': {
+            'type': 'integer',
+            'description': 'Max execution time in seconds (default: 30).',
+            'default': 30,
+          },
+        },
+        'required': ['code'],
+      },
+      'code': _runPythonCode,
       'requirements': '',
       'venv_ready': false,
       'is_active': true,
@@ -1520,4 +1646,48 @@ def execute(args):
         "best_score": best[0]["score"] if best else 0.0,
         "matched_highlights": highlights[:10],
     }
+''';
+
+const _runPythonCode = '''import io, sys, traceback
+
+def execute(args):
+    code = args.get("code", "")
+    if not code.strip():
+        return {"error": "code is empty"}
+
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    sys.stdout = captured_out
+    sys.stderr = captured_err
+
+    try:
+        exec(code, {"__builtins__": __builtins__})
+        stdout_text = captured_out.getvalue()
+        stderr_text = captured_err.getvalue()
+        result = {"output": stdout_text}
+        if stderr_text.strip():
+            result["stderr"] = stderr_text.strip()
+        return result
+    except ModuleNotFoundError as e:
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": f"Missing Python library: {e.name}. "
+                     f"This tool is stdlib-only — no third-party packages. "
+                     f"Use only built-in modules (os, sys, json, csv, io, re, "
+                     f"math, pathlib, sqlite3, etc.) or create a named Python "
+                     f"tool with the required pip packages.",
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    except Exception:
+        exc_text = traceback.format_exc()
+        stdout_sofar = captured_out.getvalue()
+        return {
+            "error": exc_text.strip(),
+            "partial_output": stdout_sofar if stdout_sofar.strip() else None,
+        }
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
 ''';

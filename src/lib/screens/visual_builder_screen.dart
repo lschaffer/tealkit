@@ -32,6 +32,7 @@ import '../services/external_tools_settings_service.dart';
 import '../services/github_mcp_library_service.dart';
 import '../services/github_mcp_runtime_service.dart';
 import '../models/github_mcp_server_definition.dart';
+import '../widgets/skill_wizard_dialog.dart';
 import '../mcp/servers/py_bridge_mcp_server.dart';
 import '../models/function_hint.dart';
 import '../services/function_hint_database_service.dart';
@@ -2343,6 +2344,9 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
   late TextEditingController _promptCtrl;
   int _skillsUpdateGeneration = 0;
 
+  /// Currently active skill for this agent (if any).
+  SkillWizardResult? _activeSkill;
+
   // LLM Config Controllers
   bool _overrideLlm = false;
   late TextEditingController _llmProviderCtrl;
@@ -2463,8 +2467,9 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     for (final info in serverInfos) {
       if (info.type == 'toolbox' ||
           info.type == 'traffic' ||
-          info.type.startsWith('gh_mcp_'))
+          info.type.startsWith('gh_mcp_')) {
         continue;
+      }
       if (isServerMode &&
           (info.type == 'ps_bridge' ||
               info.type == 'chart' ||
@@ -2478,8 +2483,9 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
           isLightServer &&
           (info.type == 'website_search' ||
               info.type == 'document' ||
-              info.type == 'excel'))
+              info.type == 'excel')) {
         continue;
+      }
       if (!_localInternalMcps.any((m) => m.mcpType == info.type)) {
         _localInternalMcps.add(
           InternalMcpEntry(
@@ -3026,6 +3032,86 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     }
 
     return dfs(candidateId);
+  }
+
+  Future<void> _showAgentSkillWizard() async {
+    final exec = widget.executor;
+
+    // Collect the current agent's tools
+    final internalMcpTypes = exec.internalMcps
+        .where((m) => m.enabled)
+        .map((m) => m.mcpType)
+        .toSet();
+    final externalUrls = exec.mcpTools.map((t) => t.serverUrl).toSet();
+    final toolboxEnabled = !(exec.internalMcps.any(
+      (m) => m.mcpType == 'toolbox' && !m.enabled,
+    ));
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => SkillWizardDialog(
+        prefillName: _activeSkill?.name ?? exec.name,
+        prefillGoal: _activeSkill?.goal,
+        prefillSkill: _activeSkill?.skillContent,
+        prefillMcpTypes: _activeSkill?.selectedMcpTypes ?? internalMcpTypes,
+        prefillExternalUrls:
+            _activeSkill?.selectedExternalServerUrls ?? externalUrls,
+        prefillToolboxEnabled: _activeSkill?.toolboxEnabled ?? toolboxEnabled,
+        onApply: (result) {
+          setState(() {
+            _activeSkill = result;
+            _localInternalMcps = result.selectedMcpTypes
+                .map(
+                  (type) => InternalMcpEntry(
+                    id: const Uuid().v4(),
+                    mcpType: type,
+                    enabled: true,
+                    initParams: const {},
+                  ),
+                )
+                .toList();
+            _toolboxEnabled = result.toolboxEnabled;
+            _selectedGlobalServerUrls = Set<String>.from(
+              result.selectedExternalServerUrls,
+            );
+          });
+          _updateSkillsSection();
+        },
+      ),
+    );
+  }
+
+  void _showSkillContentDialog() {
+    if (_activeSkill == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.amber),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Skill: ${_activeSkill!.name}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            _activeSkill!.skillContent,
+            style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -3639,6 +3725,66 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Active skill chip
+        if (_activeSkill != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Card(
+                    color: Colors.amber.withAlpha(25),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.amber.withAlpha(80)),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => _showSkillContentDialog(),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              color: Colors.amber,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Skill: ${_activeSkill!.name}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.visibility_outlined,
+                              size: 18,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: 'Remove skill',
+                  onPressed: () => setState(() => _activeSkill = null),
+                ),
+              ],
+            ),
+          ),
         Row(
           children: [
             Text(
@@ -4427,6 +4573,11 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       appBar: AppBar(
         title: Text('Edit Agent: ${widget.executor.name}'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: _showAgentSkillWizard,
+            tooltip: 'Save as Skill',
+          ),
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: _save,
