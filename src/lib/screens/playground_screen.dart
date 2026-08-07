@@ -140,8 +140,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   String get _combinedSystemPrompt {
     final user = _systemPromptUserCtrl.text.trimRight();
     final skills = _systemPromptSkillsCtrl.text.trim();
-    if (skills.isEmpty) return user;
-    return user.isEmpty ? skills : '$user\n\n$skills';
+    final activeSkillPrompt = _activeSkill?.skillContent.trim() ?? '';
+    final parts = <String>[];
+    if (user.isNotEmpty) parts.add(user);
+    if (activeSkillPrompt.isNotEmpty) parts.add(activeSkillPrompt);
+    if (skills.isNotEmpty) parts.add(skills);
+    return parts.join('\n\n');
   }
 
   /// Splits a stored full system prompt into user + skills parts and
@@ -2145,20 +2149,42 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
   }
 
+  (Set<String>, Set<String>) _partitionTools(List<String> toolNames) {
+    final mcpTypes = <String>{};
+    final externalUrls = <String>{};
+    final configuredUrls = ExternalToolsSettingsService.instance.selectedServers
+        .map((s) => s.serverUrl)
+        .toSet();
+    for (final name in toolNames) {
+      if (name.startsWith('http://') ||
+          name.startsWith('https://') ||
+          configuredUrls.contains(name)) {
+        externalUrls.add(name);
+      } else {
+        mcpTypes.add(name);
+      }
+    }
+    return (mcpTypes, externalUrls);
+  }
+
   void _applySkillDef(SkillDef skill) {
+    final (mcpTypes, externalUrls) = _partitionTools(skill.toolNames);
     setState(() {
       _activeSkill = SkillWizardResult(
         name: skill.name,
         goal: skill.goal,
         description: skill.description,
         skillContent: skill.skillDef,
-        selectedMcpTypes: skill.toolNames.toSet(),
-        selectedExternalServerUrls: {},
+        selectedMcpTypes: mcpTypes,
+        selectedExternalServerUrls: externalUrls,
         toolboxEnabled: true,
       );
 
-      if (skill.toolNames.isNotEmpty) {
-        _selectedMcpTypes = skill.toolNames.toSet();
+      if (mcpTypes.isNotEmpty) {
+        _selectedMcpTypes = mcpTypes;
+      }
+      if (externalUrls.isNotEmpty) {
+        _selectedExternalServerUrls = externalUrls;
       }
     });
     _updateSkillsSection();

@@ -15,7 +15,6 @@ import 'package:share_plus/share_plus.dart';
 import '../models/mcp_models.dart';
 import '../services/chat_service.dart';
 import '../mcp/servers/imap_mcp_server.dart';
-import '../mcp/servers/pdf_mcp_server.dart';
 import '../database/duckdb_service.dart';
 import '../utils/logger.dart';
 import '../services/app_preferences_service.dart';
@@ -4312,17 +4311,16 @@ class MultimediaMessageWidget extends StatelessWidget {
   }
 
   /// Show fullscreen HTML preview with integrated export
-  void _showHtmlPreview(BuildContext context, String extractedHtml) {
-    Future(() async {
-      try {
-        final tempDir = Directory.systemTemp;
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final fileName = 'preview_$timestamp.html';
-        final tempFile = File('${tempDir.path}/$fileName');
-        
-        String finalHtml = extractedHtml;
-        if (!finalHtml.toLowerCase().contains('<html')) {
-          finalHtml = '''
+  Future<void> _openHtmlInExternalBrowser(BuildContext context, String extractedHtml) async {
+    try {
+      final tempDir = Directory.systemTemp;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'preview_$timestamp.html';
+      final tempFile = File('${tempDir.path}/$fileName');
+      
+      String finalHtml = extractedHtml;
+      if (!finalHtml.toLowerCase().contains('<html')) {
+        finalHtml = '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -4342,206 +4340,92 @@ class MultimediaMessageWidget extends StatelessWidget {
 </body>
 </html>
 ''';
-        }
-        await tempFile.writeAsString(finalHtml);
-
-        final port = await _ensurePreviewServerRunning();
-        final uri = Uri.parse('http://localhost:$port/$fileName');
-
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          await launchUrl(uri);
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to open HTML in browser: $e')),
-          );
-        }
       }
-    });
+      await tempFile.writeAsString(finalHtml);
 
-    if (1 == 2) {
-      final previewHtml = _injectFullHeightStyles(extractedHtml);
-    final now = DateTime.now();
-    final defaultFilename =
-        '_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-    final filenameController = TextEditingController(text: defaultFilename);
-    String selectedPageSize = 'A4';
-    bool isLandscape = true;
-    double selectedScale = 1.0;
+      final port = await _ensurePreviewServerRunning();
+      final uri = Uri.parse('http://localhost:$port/$fileName');
+
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open HTML in browser: $e')),
+        );
+      }
+    }
+  }
+
+  void _showHtmlPreview(BuildContext context, String extractedHtml) {
+    final previewHtml = _injectFullHeightStyles(extractedHtml);
     final theme = Theme.of(context);
-    bool isSettingsOpen = false;
-
-    // Check if settings differ from defaults
-    bool settingsChanged() {
-      return selectedPageSize != 'A4' || !isLandscape || selectedScale != 1.0;
-    }
-
-    // Get settings tooltip text
-    String getSettingsTooltip() {
-      return 'PDF Settings:\n'
-          'Page: $selectedPageSize\n'
-          'Orientation: ${isLandscape ? 'Landscape' : 'Portrait'}\n'
-          'Scale: ${(selectedScale * 100).toInt()}%';
-    }
 
     showDialog(
       context: context,
       builder: (context) => Dialog(
         insetPadding: EdgeInsets.zero,
         backgroundColor: Colors.transparent,
-        child: StatefulBuilder(
-          builder: (context, setState) => Scaffold(
-            appBar: AppBar(
-              title: const Text('HTML Preview'),
-              actions: [
-                // Filename input field
-                SizedBox(
-                  width: 200,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: TextField(
-                      controller: filenameController,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter filename',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        suffixText: '.pdf',
-                      ),
-                      style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface),
-                    ),
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('HTML Preview'),
+            actions: [
+              // Open in External Browser button aligned to the right
+              Tooltip(
+                message: 'Open HTML in external web browser',
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.open_in_browser, size: 18),
+                  label: const Text('Open in Browser'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.orange.shade800,
+                    foregroundColor: Colors.white,
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Settings button with visual indicator when changed
-                Tooltip(
-                  message: getSettingsTooltip(),
-                  preferBelow: true,
-                  child: Container(
-                    decoration: settingsChanged() ? BoxDecoration(color: theme.colorScheme.primaryContainer, shape: BoxShape.circle) : null,
-                    child: IconButton(
-                      icon: Icon(Icons.settings, color: settingsChanged() ? theme.colorScheme.primary : null),
-                      onPressed: () {
-                        setState(() => isSettingsOpen = !isSettingsOpen);
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Export button
-                IconButton(
-                  icon: const Icon(Icons.picture_as_pdf),
-                  tooltip: 'Export to PDF',
                   onPressed: () async {
-                    final filename = filenameController.text.trim();
-                    if (filename.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a filename')));
-                      return;
-                    }
-                    await _exportHtmlToPdf(
-                      context,
-                      extractedHtml,
-                      filename,
-                      pageSize: selectedPageSize,
-                      landscape: isLandscape,
-                      scale: selectedScale,
-                    );
+                    await _openHtmlInExternalBrowser(context, extractedHtml);
                   },
                 ),
-                const SizedBox(width: 8),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
-              ],
-            ),
-            body: isSettingsOpen
-                ? SingleChildScrollView(
-                    child: Center(
-                      child: Card(
-                        clipBehavior: Clip.antiAlias,
-                        margin: const EdgeInsets.all(32),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: SizedBox(
-                            width: 420,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('PDF Export Settings', style: theme.textTheme.titleLarge),
-                                const SizedBox(height: 24),
-                                // Page Size
-                                Text('Page Size', style: theme.textTheme.titleSmall),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children: ['A2', 'A3', 'A4', 'A5', 'Letter', 'Legal', 'Tabloid']
-                                      .map(
-                                        (size) => ChoiceChip(
-                                          label: Text(size),
-                                          selected: selectedPageSize == size,
-                                          onSelected: (_) => setState(() => selectedPageSize = size),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                                const SizedBox(height: 16),
-                                // Orientation
-                                Text('Orientation', style: theme.textTheme.titleSmall),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children: [
-                                    ChoiceChip(
-                                      label: const Text('Portrait'),
-                                      selected: !isLandscape,
-                                      onSelected: (_) => setState(() => isLandscape = false),
-                                    ),
-                                    ChoiceChip(
-                                      label: const Text('Landscape'),
-                                      selected: isLandscape,
-                                      onSelected: (_) => setState(() => isLandscape = true),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                // Scale
-                                Text('Scale', style: theme.textTheme.titleSmall),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children: [0.5, 0.75, 1.0, 1.25, 1.5]
-                                      .map(
-                                        (scale) => ChoiceChip(
-                                          label: Text('${(scale * 100).toInt()}%'),
-                                          selected: selectedScale == scale,
-                                          onSelected: (_) => setState(() => selectedScale = scale),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                                const SizedBox(height: 24),
-                                // Close button
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton(onPressed: () => setState(() => isSettingsOpen = false), child: const Text('Done')),
-                                ),
-                              ],
-                            ),
-                          ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          body: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                color: Colors.amber.shade900.withValues(alpha: 0.2),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'If this HTML contains interactive JavaScript or charts, use "Open in Browser" in the top bar for full interactive rendering.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 13,
                         ),
                       ),
                     ),
-                  )
-                : HtmlWebView(html: previewHtml),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: HtmlWebView(html: previewHtml),
+              ),
+            ],
           ),
         ),
       ),
     );
-    }
   }
 
   String _injectFullHeightStyles(String html) {
@@ -4567,151 +4451,6 @@ class MultimediaMessageWidget extends StatelessWidget {
     }
 
     return '$styles\n$html';
-  }
-
-  /// Export HTML to PDF
-  Future<void> _exportHtmlToPdf(
-    BuildContext context,
-    String extractedHtml,
-    String filename, {
-    String pageSize = 'A4',
-    bool landscape = true,
-    double scale = 1.0,
-  }) async {
-    try {
-      // Calculate font sizes based on scale
-      final baseFontSize = (8 * scale).toStringAsFixed(1);
-      final headingFontSize = (10 * scale).toStringAsFixed(1);
-      final padding = (4 * scale).toStringAsFixed(1);
-
-      // Create a styled complete HTML document for PDF with proper table rendering
-      final completeHtml =
-          '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: Arial, sans-serif; 
-      padding: 10px; 
-      font-size: ${baseFontSize}px;
-      transform: scale($scale);
-      transform-origin: top left;
-    }
-    h2, h3 { 
-      color: #1a73e8; 
-      margin-bottom: 8px;
-      font-size: ${headingFontSize}px;
-    }
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      margin: 10px 0;
-      table-layout: fixed;
-    }
-    thead {
-      display: table-header-group;
-    }
-    tbody {
-      display: table-row-group;
-    }
-    tr {
-      page-break-inside: avoid;
-    }
-    th, td { 
-      padding: ${padding}px 3px;
-      border: 1px solid #ddd; 
-      text-align: left;
-      font-size: ${baseFontSize}px;
-      word-wrap: break-word;
-      overflow: hidden;
-    }
-    th { 
-      background: linear-gradient(to right, #6dd5ed 0%, #2193b0 100%);
-      color: white; 
-      font-weight: bold;
-      font-size: ${baseFontSize}px;
-    }
-    tr:nth-child(even) { 
-      background-color: #f8f9fa; 
-    }
-    @page {
-      size: $pageSize ${landscape ? 'landscape' : 'portrait'};
-      margin: 10mm;
-    }
-    @media print {
-      thead { display: table-header-group; }
-      tbody { display: table-row-group; }
-      tr { page-break-inside: avoid; }
-    }
-  </style>
-</head>
-<body>
-$extractedHtml
-</body>
-</html>
-''';
-
-      // Call PdfMcpServer directly — no need for it to be active in the playground.
-      final pdfServer = PdfMcpServer();
-      final result = await pdfServer.executeTool('generate_pdf', {
-        'content': completeHtml,
-        'format': pageSize,
-        'landscape': landscape,
-        'printBackground': true,
-        if (scale != 1.0) 'scale': scale,
-      });
-
-      if (result['error'] != null) {
-        throw Exception('PDF generation failed: ${result['error']}');
-      }
-
-      final pdfBase64 = result['content'] as String?;
-      if (pdfBase64 == null || pdfBase64.isEmpty) {
-        throw Exception('No PDF data received');
-      }
-      final pdfBytes = base64Decode(pdfBase64);
-
-      // Save file and open with system viewer
-      {
-        Directory? downloadsDir;
-        try {
-          downloadsDir = await getDownloadsDirectory();
-        } catch (_) {
-          downloadsDir = await getApplicationDocumentsDirectory();
-        }
-
-        if (downloadsDir != null) {
-          final filePath = '${downloadsDir.path}/${filename.trim()}.pdf';
-          final file = File(filePath);
-          await file.writeAsBytes(pdfBytes);
-
-          // Open PDF with system default app
-          final result = await OpenFile.open(filePath);
-          if (result.type != ResultType.done) {
-            talker.warning('âš ï¸ Failed to open PDF: ${result.message}');
-          }
-        }
-      }
-
-      // Show success message
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF saved as ${filename.trim()}.pdf'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    } catch (e) {
-      talker.error('Failed to convert HTML to PDF: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e'), backgroundColor: Colors.red));
-      }
-    }
   }
 
   /// Build HTML content viewer
@@ -5923,16 +5662,19 @@ class _HtmlPreviewThumbnail extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      height: 300,
+      height: 320,
+      width: double.infinity,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(4),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: SingleChildScrollView(child: HtmlRenderer(html: html)),
+        borderRadius: BorderRadius.circular(6),
+        child: SingleChildScrollView(
+          child: HtmlRenderer(html: html),
+        ),
       ),
     );
   }

@@ -8,8 +8,9 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../models/skill_def.dart';
-import '../widgets/skill_gallery_dialog.dart';
+import '../services/external_tools_settings_service.dart';
 import '../services/skill_def_database_service.dart';
+import '../widgets/skill_gallery_dialog.dart';
 import '../widgets/skill_wizard_dialog.dart';
 
 class SkillsListScreen extends ConsumerStatefulWidget {
@@ -59,21 +60,42 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  (Set<String>, Set<String>) _partitionTools(List<String> toolNames) {
+    final mcpTypes = <String>{};
+    final externalUrls = <String>{};
+    final configuredUrls = ExternalToolsSettingsService.instance.selectedServers
+        .map((s) => s.serverUrl)
+        .toSet();
+    for (final name in toolNames) {
+      if (name.startsWith('http://') ||
+          name.startsWith('https://') ||
+          configuredUrls.contains(name)) {
+        externalUrls.add(name);
+      } else {
+        mcpTypes.add(name);
+      }
+    }
+    return (mcpTypes, externalUrls);
+  }
+
   Future<void> _addNewSkill() async {
     final result = await showDialog<SkillWizardResult>(
       context: context,
-      builder: (_) =>
-          SkillWizardDialog(onSave: (r) => Navigator.of(context).pop(r)),
+      builder: (_) => SkillWizardDialog(onSave: (_) {}),
     );
     if (result != null && mounted) {
       final now = DateTime.now();
+      final allTools = [
+        ...result.selectedMcpTypes,
+        ...result.selectedExternalServerUrls,
+      ];
       final skill = SkillDef(
         id: const Uuid().v4(),
         name: result.name,
         goal: result.goal,
         description: result.description,
         skillDef: result.skillContent,
-        toolNames: result.selectedMcpTypes.toList(),
+        toolNames: allTools,
         createdAt: now,
         updatedAt: now,
       );
@@ -83,23 +105,29 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
   }
 
   Future<void> _editSkill(SkillDef skill) async {
+    final (mcpTypes, externalUrls) = _partitionTools(skill.toolNames);
     final result = await showDialog<SkillWizardResult>(
       context: context,
       builder: (_) => SkillWizardDialog(
         prefillName: skill.name,
         prefillGoal: skill.goal,
         prefillSkill: skill.skillDef,
-        prefillMcpTypes: skill.toolNames.toSet(),
-        onSave: (r) => Navigator.of(context).pop(r),
+        prefillMcpTypes: mcpTypes,
+        prefillExternalUrls: externalUrls,
+        onSave: (_) {},
       ),
     );
     if (result != null && mounted) {
+      final allTools = [
+        ...result.selectedMcpTypes,
+        ...result.selectedExternalServerUrls,
+      ];
       final updated = skill.copyWith(
         name: result.name,
         goal: result.goal,
         description: result.description,
         skillDef: result.skillContent,
-        toolNames: result.selectedMcpTypes.toList(),
+        toolNames: allTools,
       );
       await SkillDefDatabaseService.instance.saveSkill(updated);
       await _loadSkills();

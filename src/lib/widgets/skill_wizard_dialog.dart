@@ -221,6 +221,22 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
     }
   }
 
+  String _getExternalServerLabel(String url) {
+    try {
+      final servers = ExternalToolsSettingsService.instance.selectedServers;
+      final config = servers.firstWhere(
+        (s) => s.serverUrl == url,
+        orElse: () => McpToolConfig(serverUrl: url),
+      );
+      if (config.name != null && config.name!.trim().isNotEmpty) {
+        return config.name!.trim();
+      }
+    } catch (_) {}
+    final host = Uri.tryParse(url)?.host;
+    if (host != null && host.isNotEmpty) return host;
+    return url;
+  }
+
   // ── Export ───────────────────────────────────────────────────────────────
 
   Future<void> _onExport() async {
@@ -361,20 +377,19 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
       _showSnack('Please enter a skill name.');
       return;
     }
-    widget.onSave?.call(
-      SkillWizardResult(
-        name: name,
-        goal: _goalCtrl.text.trim(),
-        description: '',
-        skillContent: _skillCtrl.text.trim(),
-        selectedMcpTypes: Set<String>.from(_selectedMcpTypes),
-        selectedExternalServerUrls: Set<String>.from(
-          _selectedExternalServerUrls,
-        ),
-        toolboxEnabled: _toolboxEnabled,
+    final result = SkillWizardResult(
+      name: name,
+      goal: _goalCtrl.text.trim(),
+      description: '',
+      skillContent: _skillCtrl.text.trim(),
+      selectedMcpTypes: Set<String>.from(_selectedMcpTypes),
+      selectedExternalServerUrls: Set<String>.from(
+        _selectedExternalServerUrls,
       ),
+      toolboxEnabled: _toolboxEnabled,
     );
-    Navigator.of(context).pop();
+    widget.onSave?.call(result);
+    Navigator.of(context).pop(result);
   }
 
   Future<void> _doGenerateSkill() async {
@@ -1033,10 +1048,10 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
                                   ),
                                 ),
                             ..._selectedExternalServerUrls.map((url) {
-                              final host = Uri.tryParse(url)?.host ?? url;
+                              final label = _getExternalServerLabel(url);
                               return Chip(
                                 label: Text(
-                                  host,
+                                  label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),

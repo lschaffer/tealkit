@@ -279,8 +279,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   String get _combinedSystemPrompt {
     final user = _systemPromptUserCtrl.text.trimRight();
     final skills = _systemPromptSkillsCtrl.text.trim();
-    if (skills.isEmpty) return user;
-    return user.isEmpty ? skills : '$user\n\n$skills';
+    final activeSkillPrompt = _activeSkill?.skillContent.trim() ?? '';
+    final parts = <String>[];
+    if (user.isNotEmpty) parts.add(user);
+    if (activeSkillPrompt.isNotEmpty) parts.add(activeSkillPrompt);
+    if (skills.isNotEmpty) parts.add(skills);
+    return parts.join('\n\n');
   }
 
   /// Splits a stored full system prompt into user + skills parts.
@@ -2282,20 +2286,24 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       builder: (_) => SkillWizardDialog(
         prefillName: _nameCtrl.text.isNotEmpty ? _nameCtrl.text : null,
         prefillGoal: goal,
-        onSave: (r) => Navigator.of(context).pop(r),
-        onCancel: () => Navigator.of(context).pop(),
+        onSave: (_) {},
+        onCancel: () {},
       ),
     );
 
     if (result != null && mounted) {
       final now = DateTime.now();
+      final allTools = [
+        ...result.selectedMcpTypes,
+        ...result.selectedExternalServerUrls,
+      ];
       final skillDef = SkillDef(
         id: const Uuid().v4(),
         name: result.name,
         goal: result.goal,
         description: result.description,
         skillDef: result.skillContent,
-        toolNames: result.selectedMcpTypes.toList(),
+        toolNames: allTools,
         createdAt: now,
         updatedAt: now,
       );
@@ -2321,45 +2329,43 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     }
   }
 
+  (Set<String>, Set<String>) _partitionTools(List<String> toolNames) {
+    final mcpTypes = <String>{};
+    final externalUrls = <String>{};
+    final configuredUrls = ExternalToolsSettingsService.instance.selectedServers
+        .map((s) => s.serverUrl)
+        .toSet();
+    for (final name in toolNames) {
+      if (name.startsWith('http://') ||
+          name.startsWith('https://') ||
+          configuredUrls.contains(name)) {
+        externalUrls.add(name);
+      } else {
+        mcpTypes.add(name);
+      }
+    }
+    return (mcpTypes, externalUrls);
+  }
+
   void _applySkillDefToAgent(SkillDef skill) {
     if (_executors.isEmpty) return;
+    final (mcpTypes, externalUrls) = _partitionTools(skill.toolNames);
 
-    setState(() {
-      _activeSkill = SkillWizardResult(
+    _applySkillToAgent(
+      SkillWizardResult(
         name: skill.name,
         goal: skill.goal,
         description: skill.description,
         skillContent: skill.skillDef,
-        selectedMcpTypes: skill.toolNames.toSet(),
-        selectedExternalServerUrls: {},
+        selectedMcpTypes: mcpTypes,
+        selectedExternalServerUrls: externalUrls,
         toolboxEnabled: true,
-      );
-
-      final exec = _executors[_selectedExecutorIndex];
-      final newInternalMcps = <InternalMcpEntry>[];
-      for (final type in skill.toolNames) {
-        final existing = exec.internalMcps.firstWhere(
-          (m) => m.mcpType == type,
-          orElse: () => InternalMcpEntry(
-            id: const Uuid().v4(),
-            mcpType: type,
-            enabled: true,
-            initParams: const {},
-          ),
-        );
-        newInternalMcps.add(existing.copyWith(enabled: true));
-      }
-
-      _executors[_selectedExecutorIndex] = exec.copyWith(
-        internalMcps: newInternalMcps,
-        skillDefId: skill.id,
-      );
-    });
-
-    _updateSkillsSection();
+      ),
+      skillDefId: skill.id,
+    );
   }
 
-  void _applySkillToAgent(SkillWizardResult result) {
+  void _applySkillToAgent(SkillWizardResult result, {String? skillDefId}) {
     if (_executors.isEmpty) return;
 
     // Store skill state — don't inject into system prompt.
@@ -2394,16 +2400,21 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         newInternalMcps.add(existing.copyWith(enabled: true));
       }
 
+      final globalServers = ExternalToolsSettingsService.instance.selectedServers;
       final newMcpTools = result.selectedExternalServerUrls.map((url) {
         return exec.mcpTools.firstWhere(
           (t) => t.serverUrl == url,
-          orElse: () => McpToolConfig(serverUrl: url),
+          orElse: () => globalServers.firstWhere(
+            (s) => s.serverUrl == url,
+            orElse: () => McpToolConfig(serverUrl: url),
+          ),
         );
       }).toList();
 
       _executors[_selectedExecutorIndex] = exec.copyWith(
         internalMcps: newInternalMcps,
         mcpTools: newMcpTools,
+        skillDefId: skillDefId ?? exec.skillDefId,
       );
     });
 

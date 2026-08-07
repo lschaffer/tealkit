@@ -27,6 +27,7 @@ import '../services/email_delivery_service.dart';
 import '../services/messaging_delivery_service.dart';
 import '../services/notification_service.dart';
 import '../services/function_hint_database_service.dart';
+import '../services/skill_def_database_service.dart';
 import '../services/scheduler_log_service.dart';
 import '../services/embedded_llm/embedded_llm_adapter.dart';
 import '../services/embedded_llm/embedded_model_manager.dart';
@@ -1049,6 +1050,22 @@ class TaskRunnerService {
     bool isSlm = false,
   }) async {
     var prompt = (executor?.systemPrompt ?? task.systemPrompt ?? '').trim();
+
+    // Look up and inject skill definition prompt if a skillDefId is attached
+    final skillDefId = executor?.skillDefId ?? (task.agents.isNotEmpty ? task.agents.first.skillDefId : null);
+    if (skillDefId != null && skillDefId.isNotEmpty) {
+      try {
+        final skill = await SkillDefDatabaseService.instance.getSkill(skillDefId);
+        if (skill != null && skill.skillDef.trim().isNotEmpty) {
+          final skillContent = skill.skillDef.trim();
+          if (!prompt.contains(skillContent)) {
+            prompt = prompt.isEmpty ? skillContent : '$skillContent\n\n$prompt';
+          }
+        }
+      } catch (e) {
+        log.warning('[TaskRunner] Could not load skill $skillDefId for system prompt: $e');
+      }
+    }
 
     final internalMcps = executor?.internalMcps ?? task.internalMcps;
     // Append toolbox default system prompt (unless explicitly disabled for this task)
