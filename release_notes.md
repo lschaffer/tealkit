@@ -2,6 +2,19 @@
 
 This file tracks release changes by version.
 
+## v1.6.0 / v1.0.186 - LLM SDK Upgrades & Prompt Caching
+
+### Improvements
+- **LLM SDK Major Upgrades**: Upgraded all four LLM provider packages to their latest major versions with zero breaking API changes to existing code:
+  - `googleai_dart`: 8.0.0 → **11.0.0** (Added Environments/Triggers APIs, ASR transcription, Gemini agent configs)
+  - `openai_dart`: 7.0.0 → **8.0.0** (Added GPT-5.6 sync, explicit prompt caching, fast service tier, content provenance checks)
+  - `anthropic_sdk_dart`: 5.0.0 → **7.0.0** (Added Dreams API, mid-conversation tool changes preserving prompt cache, Sonnet 5 support)
+  - `ollama_dart`: 2.3.0 → **2.5.0** (Added tool-calling prompt renderer/parser config, files/adapters for model creation)
+- **OpenAI Prompt Caching**: Automatically caches system prompts when tools are active, reducing token costs by 50%+ on repeated prompt prefixes during tool-calling loops. Cache key is derived from the system prompt content hash. Uses in-memory retention for local mode and 24-hour retention for server mode.
+
+### Bug Fixes
+- **Playground Model Option Fix**: Fixed an analysis error in the playground screen where inlined model option builder methods (`_buildMobileModelOption`/`_buildDesktopModelOption`) were not recognized by the Dart analyzer in large file contexts. Widgets are now built inline at the call site.
+
 ## v1.5.8 / v1.0.185 - Skill Gallery, Python Execution & Deduplication
 
 ### New Features

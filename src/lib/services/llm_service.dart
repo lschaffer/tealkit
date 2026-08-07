@@ -159,7 +159,8 @@ class _MistralPatchClient extends http.BaseClient {
 
     // Check if it is a streaming response (text/event-stream)
     final contentType = (streamed.headers['content-type'] ?? '').toLowerCase();
-    if (contentType.contains('text/event-stream') || contentType.contains('event-stream')) {
+    if (contentType.contains('text/event-stream') ||
+        contentType.contains('event-stream')) {
       final transformer = StreamTransformer<List<int>, List<int>>.fromHandlers(
         handleData: (bytes, sink) {
           final text = utf8.decode(bytes);
@@ -181,7 +182,7 @@ class _MistralPatchClient extends http.BaseClient {
                   if (choices is List) {
                     for (final choice in choices) {
                       if (choice is! Map<String, dynamic>) continue;
-                      
+
                       // Handle streaming delta
                       final delta = choice['delta'];
                       if (delta is Map<String, dynamic>) {
@@ -192,14 +193,15 @@ class _MistralPatchClient extends http.BaseClient {
                         final toolCalls = delta['tool_calls'];
                         if (toolCalls is List) {
                           for (final tc in toolCalls) {
-                            if (tc is Map<String, dynamic> && !tc.containsKey('type')) {
+                            if (tc is Map<String, dynamic> &&
+                                !tc.containsKey('type')) {
                               tc['type'] = 'function';
                               changed = true;
                             }
                           }
                         }
                       }
-                      
+
                       // Handle non-streaming message (fallback)
                       final msg = choice['message'];
                       if (msg is Map<String, dynamic>) {
@@ -210,7 +212,8 @@ class _MistralPatchClient extends http.BaseClient {
                         final toolCalls = msg['tool_calls'];
                         if (toolCalls is List) {
                           for (final tc in toolCalls) {
-                            if (tc is Map<String, dynamic> && !tc.containsKey('type')) {
+                            if (tc is Map<String, dynamic> &&
+                                !tc.containsKey('type')) {
                               tc['type'] = 'function';
                               changed = true;
                             }
@@ -257,7 +260,7 @@ class _MistralPatchClient extends http.BaseClient {
             if (choice is! Map<String, dynamic>) continue;
             final msg = choice['message'];
             if (msg is! Map<String, dynamic>) continue;
-            
+
             if (msg['content'] is List) {
               msg['content'] = null;
               changed = true;
@@ -386,6 +389,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   static const String _hideThinkBlocksKey = 'llm_hide_think_blocks';
   static const String _useSimplifiedPromptsKey = 'llm_use_simplified_prompts';
   static const String _tokenWarningThresholdKey = 'llm_token_warning_threshold';
+  static const String _serviceTierKey = 'llm_service_tier';
+  static const String _reasoningEffortKey = 'llm_reasoning_effort';
 
   // Current plugin ID (used to namespace settings)
   String? _pluginId;
@@ -469,6 +474,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   bool _thinking = false; // Default false - thinking/reasoning output disabled
   int _tokenWarningThreshold =
       150000; // Default 150K tokens - suggest cleanup when reached
+  String? _serviceTier; // null = auto/default, 'fast' = fast service tier
+  String? _reasoningEffort; // null = model default, 'low'|'medium'|'high' etc.
 
   LLMService();
 
@@ -724,6 +731,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   bool get useSimplifiedPrompts => _useSimplifiedPrompts;
   bool get thinking => _thinking;
   int get tokenWarningThreshold => _tokenWarningThreshold;
+  String? get serviceTier => _serviceTier;
+  String? get reasoningEffort => _reasoningEffort;
 
   /// Update hide think blocks setting
   void setHideThinkBlocks(bool value) {
@@ -1024,6 +1033,18 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         _tokenWarningThreshold = savedTokenWarningThreshold;
       }
 
+      // Load service tier and reasoning effort preferences
+      final savedServiceTier = prefs.getString(_getKey(_serviceTierKey));
+      final savedReasoningEffort = prefs.getString(
+        _getKey(_reasoningEffortKey),
+      );
+      if (savedServiceTier != null && savedServiceTier.isNotEmpty) {
+        _serviceTier = savedServiceTier;
+      }
+      if (savedReasoningEffort != null && savedReasoningEffort.isNotEmpty) {
+        _reasoningEffort = savedReasoningEffort;
+      }
+
       final savedProvider = prefs.getString(_getKey(_providerKey));
       final savedModel = prefs.getString(_getKey(_modelKey));
 
@@ -1321,15 +1342,27 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         headers['Authorization'] = 'Bearer $apiKey';
       }
 
-      talker.info('[OllamaService] initializeOllama - input baseUrl: "$baseUrl"');
+      talker.info(
+        '[OllamaService] initializeOllama - input baseUrl: "$baseUrl"',
+      );
       var cleanedBaseUrl = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
-      talker.info('[OllamaService] cleanedBaseUrl after strip trailing: "$cleanedBaseUrl"');
+      talker.info(
+        '[OllamaService] cleanedBaseUrl after strip trailing: "$cleanedBaseUrl"',
+      );
       if (cleanedBaseUrl.endsWith('/api')) {
-        cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 4).replaceAll(RegExp(r'/+$'), '');
-        talker.info('[OllamaService] cleanedBaseUrl after endsWith("/api") check: "$cleanedBaseUrl"');
+        cleanedBaseUrl = cleanedBaseUrl
+            .substring(0, cleanedBaseUrl.length - 4)
+            .replaceAll(RegExp(r'/+$'), '');
+        talker.info(
+          '[OllamaService] cleanedBaseUrl after endsWith("/api") check: "$cleanedBaseUrl"',
+        );
       }
-      final finalBaseUrl = cleanedBaseUrl.isNotEmpty ? cleanedBaseUrl : 'http://localhost:11434';
-      talker.info('[OllamaService] final target baseUrl config for OllamaClient: "$finalBaseUrl"');
+      final finalBaseUrl = cleanedBaseUrl.isNotEmpty
+          ? cleanedBaseUrl
+          : 'http://localhost:11434';
+      talker.info(
+        '[OllamaService] final target baseUrl config for OllamaClient: "$finalBaseUrl"',
+      );
 
       _ollamaClient = ollama.OllamaClient(
         config: ollama.OllamaConfig(
@@ -1603,8 +1636,6 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     }
   }
 
-
-
   /// Returns true if [text] looks like a raw base64-encoded blob.
   ///
   /// Heuristic: ≥ 256 characters of base64 alphabet with no whitespace.
@@ -1616,7 +1647,18 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     return RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(text);
   }
 
+  /// Extracts the system message content from a list of chat messages.
+  static String? _extractSystemMessage(List<ChatMessage> messages) {
+    for (final m in messages) {
+      if (m.role == ChatRole.system) return m.content;
+    }
+    return null;
+  }
 
+  /// Produces a short hex hash of [input] for use as a prompt cache key suffix.
+  static String _hashString(String input) {
+    return input.hashCode.toRadixString(16);
+  }
 
   /// Generate chat completion with tool support
   Future<LLMResponse> generateChatCompletion({
@@ -1911,34 +1953,48 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         if (msg.attachments != null && msg.attachments!.isNotEmpty) {
           for (final attachment in msg.attachments!) {
             if (attachment.bytes != null) {
-              final mimeType = attachment.mimeType ?? 'application/octet-stream';
-              final isSupported = mimeType.startsWith('image/') ||
+              final mimeType =
+                  attachment.mimeType ?? 'application/octet-stream';
+              final isSupported =
+                  mimeType.startsWith('image/') ||
                   mimeType.startsWith('audio/') ||
                   mimeType.startsWith('video/') ||
                   mimeType.startsWith('text/') ||
                   mimeType == 'application/pdf';
               if (isSupported) {
-                parts.add(genai.InlineDataPart(genai.Blob.fromBytes(mimeType, attachment.bytes!)));
+                parts.add(
+                  genai.InlineDataPart(
+                    genai.Blob.fromBytes(mimeType, attachment.bytes!),
+                  ),
+                );
               } else {
-                parts.add(genai.TextPart('\n[Note: Attached file "${attachment.name}" ($mimeType) cannot be processed directly.]'));
+                parts.add(
+                  genai.TextPart(
+                    '\n[Note: Attached file "${attachment.name}" ($mimeType) cannot be processed directly.]',
+                  ),
+                );
               }
             }
           }
         }
         contentList.add(genai.Content(role: 'user', parts: parts));
       } else if (msg.role == ChatRole.assistant) {
-        if (msg.content.contains('Calling tools') || msg.content.contains('Calling additional tools')) {
+        if (msg.content.contains('Calling tools') ||
+            msg.content.contains('Calling additional tools')) {
           continue;
         }
-        contentList.add(genai.Content(role: 'model', parts: [genai.TextPart(msg.content)]));
+        contentList.add(
+          genai.Content(role: 'model', parts: [genai.TextPart(msg.content)]),
+        );
       } else if (msg.role == ChatRole.tool) {
         final toolContent = _truncateLargeToolResults(msg).trim();
         final toolCallId = msg.id.trim();
         if (toolCallId.isNotEmpty) {
-          final toolName = (msg.lastCalledToolName ??
-                  _extractCalledToolName(msg.content) ??
-                  'unknown_tool')
-              .trim();
+          final toolName =
+              (msg.lastCalledToolName ??
+                      _extractCalledToolName(msg.content) ??
+                      'unknown_tool')
+                  .trim();
           final toolArgsJson = extractToolArgumentsJson(msg.content);
 
           contentList.add(
@@ -1957,10 +2013,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
             genai.Content(
               role: 'function',
               parts: [
-                genai.Part.functionResponse(
-                  toolName,
-                  {'content': toolContent},
-                ),
+                genai.Part.functionResponse(toolName, {'content': toolContent}),
               ],
             ),
           );
@@ -1968,9 +2021,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           contentList.add(
             genai.Content(
               role: 'user',
-              parts: [
-                genai.TextPart('Tool result:\n$toolContent'),
-              ],
+              parts: [genai.TextPart('Tool result:\n$toolContent')],
             ),
           );
         }
@@ -2212,14 +2263,17 @@ class LLMService extends ChangeNotifier with ServiceLogging {
             'UNEXPECTED_TOOL_CALL Recovery',
             'Attempting fallback generation without tools',
           );
-          final fallbackResponse = await _googleaiClient!.models.generateContent(
-            model: _currentModel,
-            request: genai.GenerateContentRequest(
-              contents: [
-                genai.Content.text(_buildSimplifiedPrompt(messages, availableTools)),
-              ],
-            ),
-          );
+          final fallbackResponse = await _googleaiClient!.models
+              .generateContent(
+                model: _currentModel,
+                request: genai.GenerateContentRequest(
+                  contents: [
+                    genai.Content.text(
+                      _buildSimplifiedPrompt(messages, availableTools),
+                    ),
+                  ],
+                ),
+              );
 
           if (fallbackResponse.text != null &&
               fallbackResponse.text!.isNotEmpty) {
@@ -2262,7 +2316,10 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       throw Exception('Gemini generation failed: $e');
     }
   }
-    List<ollama.ChatMessage> _convertToOllamaMessages(List<ChatMessage> messages) {
+
+  List<ollama.ChatMessage> _convertToOllamaMessages(
+    List<ChatMessage> messages,
+  ) {
     final List<ollama.ChatMessage> ollamaMsgs = [];
 
     // Helper to extract tool arguments JSON, same as for OpenAI
@@ -2288,10 +2345,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       final message = messages[i];
       if (message.role == ChatRole.tool) {
         final toolContent = _truncateLargeToolResults(message).trim();
-        final toolName = (message.lastCalledToolName ??
-                _extractCalledToolName(message.content) ??
-                'unknown_tool')
-            .trim();
+        final toolName =
+            (message.lastCalledToolName ??
+                    _extractCalledToolName(message.content) ??
+                    'unknown_tool')
+                .trim();
         final toolCallId = message.id.trim();
 
         // Wrap tool execution result in structured JSON to prevent loops
@@ -2314,10 +2372,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         int j = i + 1;
         while (j < messages.length && messages[j].role == ChatRole.tool) {
           final toolMsg = messages[j];
-          final name = (toolMsg.lastCalledToolName ??
-                  _extractCalledToolName(toolMsg.content) ??
-                  'tool')
-              .trim();
+          final name =
+              (toolMsg.lastCalledToolName ??
+                      _extractCalledToolName(toolMsg.content) ??
+                      'tool')
+                  .trim();
           toolCallNames.add(name);
           toolCallArgs.add(extractToolArgumentsJson(toolMsg.content));
           j++;
@@ -2330,7 +2389,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
               ollama.ToolCall(
                 function: ollama.ToolCallFunction(
                   name: toolCallNames[k],
-                  arguments: jsonDecode(toolCallArgs[k]) as Map<String, dynamic>,
+                  arguments:
+                      jsonDecode(toolCallArgs[k]) as Map<String, dynamic>,
                 ),
               ),
             );
@@ -2359,10 +2419,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         final role = _mapToOllamaRole(message.role);
         final processedContent = _truncateLargeToolResults(message);
         ollamaMsgs.add(
-          ollama.ChatMessage(
-            role: role,
-            content: processedContent,
-          ),
+          ollama.ChatMessage(role: role, content: processedContent),
         );
       }
     }
@@ -2496,15 +2553,12 @@ class LLMService extends ChangeNotifier with ServiceLogging {
             if (toolCall.function?.name != null &&
                 toolCall.function?.arguments != null) {
               final name = toolCall.function!.name;
-              final arguments = toolCall.function!.arguments ?? const <String, dynamic>{};
+              final arguments =
+                  toolCall.function!.arguments ?? const <String, dynamic>{};
               final argString = jsonEncode(arguments);
               final id = 'call_${name}_${argString.hashCode.toRadixString(16)}';
               toolCalls.add(
-                LLMToolCall(
-                  id: id,
-                  name: name,
-                  arguments: arguments,
-                ),
+                LLMToolCall(id: id, name: name, arguments: arguments),
               );
             }
           }
@@ -2548,7 +2602,10 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       throw Exception('Ollama generation failed: $e');
     }
   }
-  List<openai.ChatMessage> _convertToOpenAIMessages(List<ChatMessage> messages) {
+
+  List<openai.ChatMessage> _convertToOpenAIMessages(
+    List<ChatMessage> messages,
+  ) {
     final List<openai.ChatMessage> openaiMessages = [];
 
     // Extractor helper function matching the one from compatible
@@ -2576,10 +2633,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         final toolCallId = message.id.trim();
 
         if (toolCallId.isNotEmpty) {
-          final toolName = (message.lastCalledToolName ??
-                  _extractCalledToolName(message.content) ??
-                  'unknown_tool')
-              .trim();
+          final toolName =
+              (message.lastCalledToolName ??
+                      _extractCalledToolName(message.content) ??
+                      'unknown_tool')
+                  .trim();
           final toolArgsJson = extractToolArgumentsJson(message.content);
 
           openaiMessages.add(
@@ -2604,9 +2662,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           );
         } else {
           openaiMessages.add(
-            openai.ChatMessage.user(
-              'Tool result:\n$toolContent',
-            ),
+            openai.ChatMessage.user('Tool result:\n$toolContent'),
           );
         }
         continue;
@@ -2617,7 +2673,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       } else if (message.role == ChatRole.user) {
         if (message.attachments != null && message.attachments!.isNotEmpty) {
           final imageParts = message.attachments!
-              .where((a) => a.bytes != null && (a.mimeType?.startsWith('image/') ?? false))
+              .where(
+                (a) =>
+                    a.bytes != null &&
+                    (a.mimeType?.startsWith('image/') ?? false),
+              )
               .toList();
           if (imageParts.isNotEmpty) {
             final parts = <openai.ContentPart>[
@@ -2627,21 +2687,14 @@ class LLMService extends ChangeNotifier with ServiceLogging {
               final b64 = base64Encode(att.bytes!);
               final mime = att.mimeType ?? 'image/jpeg';
               parts.add(
-                openai.ContentPart.imageBase64(
-                  data: b64,
-                  mediaType: mime,
-                ),
+                openai.ContentPart.imageBase64(data: b64, mediaType: mime),
               );
             }
-            openaiMessages.add(
-              openai.ChatMessage.user(parts),
-            );
+            openaiMessages.add(openai.ChatMessage.user(parts));
             continue;
           }
         }
-        openaiMessages.add(
-          openai.ChatMessage.user(message.content),
-        );
+        openaiMessages.add(openai.ChatMessage.user(message.content));
       } else if (message.role == ChatRole.assistant) {
         if (message.content.contains('Calling tools') ||
             message.content.contains('Calling additional tools')) {
@@ -2690,11 +2743,27 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           return openai.Tool.function(
             name: mcpTool.name,
             description: mcpTool.description ?? 'No description provided',
-            parameters: mcpTool.inputSchema ?? {'type': 'object', 'properties': {}},
+            parameters:
+                mcpTool.inputSchema ?? {'type': 'object', 'properties': {}},
           );
         }).toList();
         talker.info('🔧 Sending ${tools.length} tools to OpenAI API');
       }
+
+      // Generate a stable prompt cache key from the system prompt content
+      // so that repeated requests with the same system prompt benefit from
+      // OpenAI prompt caching (50%+ token savings on cached prefixes).
+      String? promptCacheKey;
+      if (tools != null && tools.isNotEmpty) {
+        final sysMsg = _extractSystemMessage(messages);
+        if (sysMsg != null && sysMsg.isNotEmpty) {
+          promptCacheKey = 'tealkit-openai-${_hashString(sysMsg)}';
+        }
+      }
+
+      // Auto-enable fast service tier for OpenAI direct provider
+      // (up to 2.5x faster, ignored by non-OpenAI endpoints)
+      final effectiveServiceTier = _serviceTier ?? 'auto';
 
       final request = openai.ChatCompletionCreateRequest(
         model: _currentModel,
@@ -2703,6 +2772,16 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         maxTokens: useMaxCompletionTokens ? null : effectiveMaxTokens,
         maxCompletionTokens: useMaxCompletionTokens ? effectiveMaxTokens : null,
         tools: tools,
+        promptCacheKey: promptCacheKey,
+        promptCacheRetention: promptCacheKey != null
+            ? openai.PromptCacheRetention.inMemory
+            : null,
+        serviceTier: effectiveServiceTier == 'auto'
+            ? null
+            : effectiveServiceTier,
+        reasoningEffort: _reasoningEffort != null
+            ? openai.ReasoningEffort.fromJson(_reasoningEffort!)
+            : null,
       );
 
       if (onStreamChunk != null) {
@@ -2792,9 +2871,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         );
       }
 
-      final response = await _openaiClient!.chat.completions.create(
-        request,
-      );
+      final response = await _openaiClient!.chat.completions.create(request);
       final choice = response.choices.first;
       final messageContent = choice.message.content ?? '';
 
@@ -2853,7 +2930,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     }
 
     final openaiMessages = _convertToOpenAIMessages(messages);
-    talker.info('Converted to ${openaiMessages.length} OpenAI-compatible messages');
+    talker.info(
+      'Converted to ${openaiMessages.length} OpenAI-compatible messages',
+    );
 
     try {
       // Convert MCP tools to OpenAI format if available
@@ -2865,10 +2944,13 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           return openai.Tool.function(
             name: mcpTool.name,
             description: mcpTool.description ?? 'No description provided',
-            parameters: mcpTool.inputSchema ?? {'type': 'object', 'properties': {}},
+            parameters:
+                mcpTool.inputSchema ?? {'type': 'object', 'properties': {}},
           );
         }).toList();
-        talker.info('🔧 Sending ${tools.length} tools to OpenAI-compatible API');
+        talker.info(
+          '🔧 Sending ${tools.length} tools to OpenAI-compatible API',
+        );
       }
 
       final request = openai.ChatCompletionCreateRequest(
@@ -2877,6 +2959,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         temperature: effectiveTemperature,
         maxTokens: effectiveMaxTokens,
         tools: tools,
+        reasoningEffort: _reasoningEffort != null
+            ? openai.ReasoningEffort.fromJson(_reasoningEffort!)
+            : null,
       );
 
       // Use streaming when a callback is provided, non-streaming otherwise.
@@ -2888,9 +2973,10 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         final Map<int, Map<String, dynamic>> toolCallAccumulator = {};
 
         try {
-          await for (final chunk in _openaiCompatibleClient!.chat.completions.createStream(
-            request,
-          )) {
+          await for (final chunk
+              in _openaiCompatibleClient!.chat.completions.createStream(
+                request,
+              )) {
             if (chunk.choices != null && chunk.choices!.isNotEmpty) {
               final delta = chunk.choices!.first.delta;
               final chunkContent = delta.content ?? '';
@@ -2938,7 +3024,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
               );
               for (final entry in toolCallAccumulator.entries) {
                 final name = entry.value['name'] as String;
-                final argsStr = (entry.value['args'] as StringBuffer).toString();
+                final argsStr = (entry.value['args'] as StringBuffer)
+                    .toString();
                 final id = entry.value['id'] as String;
                 if (name.isNotEmpty) {
                   try {
@@ -2973,7 +3060,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         } catch (e) {
           final errorText = e.toString();
           final embeddedStreamUnsupported =
-              errorText.contains('Embedded provider does not support streaming') ||
+              errorText.contains(
+                'Embedded provider does not support streaming',
+              ) ||
               errorText.contains('Use non-stream requests');
 
           if (!embeddedStreamUnsupported) {
@@ -2984,7 +3073,10 @@ class LLMService extends ChangeNotifier with ServiceLogging {
             '⚠️ Streaming not supported by embedded server endpoint, retrying as non-stream request',
           );
 
-          final fallbackResponse = await _openaiCompatibleClient!.chat.completions.create(request);
+          final fallbackResponse = await _openaiCompatibleClient!
+              .chat
+              .completions
+              .create(request);
           final fallbackChoice = fallbackResponse.choices.first;
           final fallbackContent = fallbackChoice.message.content ?? '';
 
@@ -3005,7 +3097,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
                   LLMToolCall(
                     id: toolCall.id,
                     name: toolCall.function.name,
-                    arguments: jsonDecode(toolCall.function.arguments.toString()) as Map<String, dynamic>,
+                    arguments:
+                        jsonDecode(toolCall.function.arguments.toString())
+                            as Map<String, dynamic>,
                   ),
                 );
               } catch (parseError) {
@@ -3056,10 +3150,14 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         }
       } else {
         if (!forceNoToolCalls) {
-          talker.debug('No native tool calls, attempting text-based extraction');
+          talker.debug(
+            'No native tool calls, attempting text-based extraction',
+          );
           toolCalls = _extractToolCalls(messageContent);
         } else {
-          talker.debug('forceNoToolCalls=true: skipping text-based tool-call extraction');
+          talker.debug(
+            'forceNoToolCalls=true: skipping text-based tool-call extraction',
+          );
         }
       }
 
@@ -3078,7 +3176,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     }
   }
 
-  List<anthropic.InputMessage> _convertToAnthropicMessages(List<ChatMessage> messages) {
+  List<anthropic.InputMessage> _convertToAnthropicMessages(
+    List<ChatMessage> messages,
+  ) {
     final List<anthropic.InputMessage> anthropicMsgs = [];
 
     // Helper to extract tool arguments JSON, same as for OpenAI
@@ -3106,7 +3206,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       if (msg.role == ChatRole.user) {
         if (msg.attachments != null && msg.attachments!.isNotEmpty) {
           final imageParts = msg.attachments!
-              .where((a) => a.bytes != null && (a.mimeType?.startsWith('image/') ?? false))
+              .where(
+                (a) =>
+                    a.bytes != null &&
+                    (a.mimeType?.startsWith('image/') ?? false),
+              )
               .toList();
           if (imageParts.isNotEmpty) {
             final blocks = <anthropic.InputContentBlock>[];
@@ -3129,7 +3233,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         }
         anthropicMsgs.add(anthropic.InputMessage.user(msg.content));
       } else if (msg.role == ChatRole.assistant) {
-        if (msg.content.contains('Calling tools') || msg.content.contains('Calling additional tools')) {
+        if (msg.content.contains('Calling tools') ||
+            msg.content.contains('Calling additional tools')) {
           continue;
         }
         anthropicMsgs.add(anthropic.InputMessage.assistant(msg.content));
@@ -3137,10 +3242,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         final toolContent = _truncateLargeToolResults(msg).trim();
         final toolCallId = msg.id.trim();
         if (toolCallId.isNotEmpty) {
-          final toolName = (msg.lastCalledToolName ??
-                  _extractCalledToolName(msg.content) ??
-                  'unknown_tool')
-              .trim();
+          final toolName =
+              (msg.lastCalledToolName ??
+                      _extractCalledToolName(msg.content) ??
+                      'unknown_tool')
+                  .trim();
           final toolArgsJson = extractToolArgumentsJson(msg.content);
 
           anthropicMsgs.add(
@@ -3163,9 +3269,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           );
         } else {
           anthropicMsgs.add(
-            anthropic.InputMessage.user(
-              'Tool result:\n$toolContent',
-            ),
+            anthropic.InputMessage.user('Tool result:\n$toolContent'),
           );
         }
       }
@@ -3207,7 +3311,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           : 4096;
 
       final List<anthropic.ToolDefinition> anthropicTools = [];
-      if (!forceNoToolCalls && availableTools != null && availableTools.isNotEmpty) {
+      if (!forceNoToolCalls &&
+          availableTools != null &&
+          availableTools.isNotEmpty) {
         for (final t in availableTools) {
           anthropicTools.add(
             anthropic.ToolDefinition.custom(
@@ -3287,7 +3393,9 @@ class LLMService extends ChangeNotifier with ServiceLogging {
             final id = entry.value['id'] as String;
             if (name.isNotEmpty) {
               try {
-                final args = argsStr.isNotEmpty ? jsonDecode(argsStr) as Map<String, dynamic> : <String, dynamic>{};
+                final args = argsStr.isNotEmpty
+                    ? jsonDecode(argsStr) as Map<String, dynamic>
+                    : <String, dynamic>{};
                 toolCalls.add(LLMToolCall(id: id, name: name, arguments: args));
               } catch (_) {}
             }
@@ -3318,11 +3426,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           textBuffer.write(block.text);
         } else if (block is anthropic.ToolUseBlock) {
           toolCalls.add(
-            LLMToolCall(
-              id: block.id,
-              name: block.name,
-              arguments: block.input,
-            ),
+            LLMToolCall(id: block.id, name: block.name, arguments: block.input),
           );
         }
       }
@@ -3392,11 +3496,20 @@ class LLMService extends ChangeNotifier with ServiceLogging {
               : null,
         );
       case 'integer':
-        return genai.Schema(type: genai.SchemaType.integer, description: description);
+        return genai.Schema(
+          type: genai.SchemaType.integer,
+          description: description,
+        );
       case 'number':
-        return genai.Schema(type: genai.SchemaType.number, description: description);
+        return genai.Schema(
+          type: genai.SchemaType.number,
+          description: description,
+        );
       case 'boolean':
-        return genai.Schema(type: genai.SchemaType.boolean, description: description);
+        return genai.Schema(
+          type: genai.SchemaType.boolean,
+          description: description,
+        );
       case 'string':
       default:
         final enumValues = (jsonSchema['enum'] as List<dynamic>?)
@@ -4325,7 +4438,6 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     }
   }
 
-
   /// Test connection to current LLM provider
   Future<bool> testConnection() async {
     try {
@@ -4533,12 +4645,18 @@ class LLMService extends ChangeNotifier with ServiceLogging {
               headers['Authorization'] = 'Bearer $_ollamaApiKey';
             }
 
-
-            var cleanedBaseUrl = _ollamaUrl!.trim().replaceAll(RegExp(r'/+$'), '');
+            var cleanedBaseUrl = _ollamaUrl!.trim().replaceAll(
+              RegExp(r'/+$'),
+              '',
+            );
             if (cleanedBaseUrl.endsWith('/api')) {
-              cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 4).replaceAll(RegExp(r'/+$'), '');
+              cleanedBaseUrl = cleanedBaseUrl
+                  .substring(0, cleanedBaseUrl.length - 4)
+                  .replaceAll(RegExp(r'/+$'), '');
             }
-            final finalBaseUrl = cleanedBaseUrl.isNotEmpty ? cleanedBaseUrl : 'http://localhost:11434';
+            final finalBaseUrl = cleanedBaseUrl.isNotEmpty
+                ? cleanedBaseUrl
+                : 'http://localhost:11434';
 
             final client = ollama.OllamaClient(
               config: ollama.OllamaConfig(

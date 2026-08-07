@@ -1409,18 +1409,207 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               return const Iterable<String>.empty();
             }
             final suggestions = defaultModels[provider] ?? const <String>[];
-            if (textEditingValue.text.trim().isEmpty) return suggestions;
+            // Sort by model name
+            final sorted = List<String>.from(suggestions)
+              ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+            if (textEditingValue.text.trim().isEmpty) return sorted;
             final q = textEditingValue.text.toLowerCase();
-            return suggestions.where((m) => m.toLowerCase().contains(q));
+            return sorted.where((m) => m.toLowerCase().contains(q));
+          },
+          optionsViewBuilder: (ctx, onSelected, options) {
+            final isMobile = MediaQuery.of(ctx).size.width < 600;
+            final provider = LlmProvider.fromConfigKey(
+              _llmProviderCtrl.text.trim(),
+            );
+            final providerLabel = provider.label;
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: isMobile ? 300 : 400,
+                    maxWidth: isMobile
+                        ? MediaQuery.of(ctx).size.width - 32
+                        : 500,
+                  ),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (ctx, index) {
+                      final modelName = options.elementAt(index);
+                      final isMultimodal =
+                          LlmSettingsService.detectDefaultMultiModal(
+                            provider,
+                            modelName,
+                          );
+                      final price = getModelTokenPrice(
+                        providerKey: provider.configKey,
+                        model: modelName,
+                      );
+                      return InkWell(
+                        onTap: () => onSelected(modelName),
+                        child: isMobile
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      modelName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        if (providerLabel.isNotEmpty &&
+                                            providerLabel != '\u2014')
+                                          Text(
+                                            providerLabel,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                        if (isMultimodal) ...[
+                                          if (providerLabel.isNotEmpty &&
+                                              providerLabel != '\u2014')
+                                            const SizedBox(width: 6),
+                                          Icon(
+                                            Icons.image_outlined,
+                                            size: 14,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                        ],
+                                        if (price != null) ...[
+                                          const Spacer(),
+                                          Text(
+                                            'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontFamily: 'monospace',
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withValues(alpha: 0.55),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            modelName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (providerLabel.isNotEmpty &&
+                                              providerLabel != '\u2014')
+                                            Text(
+                                              providerLabel,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isMultimodal)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 6,
+                                            ),
+                                            child: Tooltip(
+                                              message: 'Multi-modal',
+                                              child: Icon(
+                                                Icons.image_outlined,
+                                                size: 16,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.7),
+                                              ),
+                                            ),
+                                          ),
+                                        if (price != null)
+                                          Text(
+                                            '\$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontFamily: 'monospace',
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withValues(alpha: 0.55),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
             if (controller.text != _llmModelCtrl.text) {
-              controller.value = TextEditingValue(
-                text: _llmModelCtrl.text,
-                selection: TextSelection.collapsed(
-                  offset: _llmModelCtrl.text.length,
-                ),
-              );
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (controller.text != _llmModelCtrl.text) {
+                  controller.value = TextEditingValue(
+                    text: _llmModelCtrl.text,
+                    selection: TextSelection.collapsed(
+                      offset: _llmModelCtrl.text.length,
+                    ),
+                  );
+                }
+              });
             }
             return TextFormField(
               controller: controller,

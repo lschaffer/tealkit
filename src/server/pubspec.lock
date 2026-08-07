@@ -21,10 +21,10 @@ packages:
     dependency: "direct main"
     description:
       name: anthropic_sdk_dart
-      sha256: a5a1cc97d4253dd039c3bc36a8eb2fe14bb59c120765f5b91c5fabb8576129e8
+      sha256: "2765bdb3a3970a5cc292b93d48d3a60150382cf8a5c4f2c37e1f844d0c6a39fa"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.0"
+    version: "7.0.0"
   archive:
     dependency: "direct main"
     description:
@@ -228,10 +228,10 @@ packages:
     dependency: "direct main"
     description:
       name: googleai_dart
-      sha256: "06e8f181a55d548cef39582c4e81d4b8e4e3e3179052dfa7479051cff058da8d"
+      sha256: "48da83de8f930d2f222834ca4d00b56082184d216721fd999b225b32408e52e2"
       url: "https://pub.dev"
     source: hosted
-    version: "8.0.0"
+    version: "11.0.0"
   hooks:
     dependency: transitive
     description:
@@ -380,18 +380,18 @@ packages:
     dependency: "direct main"
     description:
       name: ollama_dart
-      sha256: ec1ed4d10ca53ca5014b50db2c189fe88634e3ba4203b328cb436562f884fe17
+      sha256: "185174c52d626c33187bda1b6cf6cb9f653b40a789a0fef0ca09907ec7ab9a95"
       url: "https://pub.dev"
     source: hosted
-    version: "2.3.0"
+    version: "2.5.0"
   openai_dart:
     dependency: "direct main"
     description:
       name: openai_dart
-      sha256: "17efcb65848c5aeb1f9e8d739bc8549ef0ac72e02098b679d609653c2d6e26e2"
+      sha256: "5d991631235e79fbda823377760243eb8af82b17ce55f37db0a5f6d269b29a30"
       url: "https://pub.dev"
     source: hosted
-    version: "7.0.0"
+    version: "8.0.0"
   package_config:
     dependency: transitive
     description:

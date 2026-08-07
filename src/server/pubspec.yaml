@@ -1,7 +1,7 @@
 name: tealkit_server
 description: "TealKit Server — headless Docker/Linux daemon with REST API"
 publish_to: 'none'
-version: 1.0.186
+version: 1.0.187
 
 environment:
   sdk: ^3.8.0
@@ -37,10 +37,10 @@ dependencies:
   web_socket_channel: ^3.0.2
 
   # LLM providers (same as main app)
-  googleai_dart: ^8.0.0
-  openai_dart: ^7.0.0
-  anthropic_sdk_dart: ^5.0.0
-  ollama_dart: ^2.3.0
+  googleai_dart: ^11.0.0
+  openai_dart: ^8.0.0
+  anthropic_sdk_dart: ^7.0.0
+  ollama_dart: ^2.5.0
 
   # SSH / SFTP
   dartssh2: ^2.18.0

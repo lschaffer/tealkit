@@ -34,17 +34,36 @@ class LlmChatMessage {
   /// For tool result messages: the tool call ID they reply to.
   final String? toolCallId;
 
-  const LlmChatMessage({required this.role, required this.content, this.toolCalls = const [], this.toolCallId});
+  const LlmChatMessage({
+    required this.role,
+    required this.content,
+    this.toolCalls = const [],
+    this.toolCallId,
+  });
 
-  factory LlmChatMessage.system(String content) => LlmChatMessage(role: LlmChatRole.system, content: content);
+  factory LlmChatMessage.system(String content) =>
+      LlmChatMessage(role: LlmChatRole.system, content: content);
 
-  factory LlmChatMessage.human(String content) => LlmChatMessage(role: LlmChatRole.human, content: content);
+  factory LlmChatMessage.human(String content) =>
+      LlmChatMessage(role: LlmChatRole.human, content: content);
 
-  factory LlmChatMessage.ai(String content, {List<LlmToolCall> toolCalls = const []}) =>
-      LlmChatMessage(role: LlmChatRole.ai, content: content, toolCalls: toolCalls);
+  factory LlmChatMessage.ai(
+    String content, {
+    List<LlmToolCall> toolCalls = const [],
+  }) => LlmChatMessage(
+    role: LlmChatRole.ai,
+    content: content,
+    toolCalls: toolCalls,
+  );
 
-  factory LlmChatMessage.toolResult({required String toolCallId, required String content}) =>
-      LlmChatMessage(role: LlmChatRole.tool, content: content, toolCallId: toolCallId);
+  factory LlmChatMessage.toolResult({
+    required String toolCallId,
+    required String content,
+  }) => LlmChatMessage(
+    role: LlmChatRole.tool,
+    content: content,
+    toolCallId: toolCallId,
+  );
 }
 
 class LlmToolCall {
@@ -53,9 +72,9 @@ class LlmToolCall {
   final Map<String, dynamic> arguments;
 
   LlmToolCall({String? id, required this.name, required this.arguments})
-      : id = (id != null && id.isNotEmpty)
-            ? id
-            : 'call_${name}_${jsonEncode(arguments).hashCode.toRadixString(16)}';
+    : id = (id != null && id.isNotEmpty)
+          ? id
+          : 'call_${name}_${jsonEncode(arguments).hashCode.toRadixString(16)}';
 }
 
 class LlmRunResult {
@@ -103,11 +122,22 @@ class _MistralPatchClient extends http.BaseClient {
   final http.Client _inner;
 
   // Fields that are valid for OpenAI but forbidden by Mistral.
-  static const _forbiddenRequestFields = {'parallel_tool_calls', 'stream_options', 'logprobs', 'top_logprobs', 'logit_bias'};
+  static const _forbiddenRequestFields = {
+    'parallel_tool_calls',
+    'stream_options',
+    'logprobs',
+    'top_logprobs',
+    'logit_bias',
+  };
 
-  String _toolCallId(int messageIndex, int toolIndex) => 'mistral_tool_${messageIndex}_$toolIndex';
+  String _toolCallId(int messageIndex, int toolIndex) =>
+      'mistral_tool_${messageIndex}_$toolIndex';
 
-  List<Map<String, dynamic>> _normalizeToolCalls(List toolCalls, {required int messageIndex, List<Map<String, dynamic>>? followingTools}) {
+  List<Map<String, dynamic>> _normalizeToolCalls(
+    List toolCalls, {
+    required int messageIndex,
+    List<Map<String, dynamic>>? followingTools,
+  }) {
     final normalized = <Map<String, dynamic>>[];
     for (int i = 0; i < toolCalls.length; i++) {
       final raw = toolCalls[i];
@@ -117,7 +147,9 @@ class _MistralPatchClient extends http.BaseClient {
       final inferredId = (followingTools != null && i < followingTools.length)
           ? (followingTools[i]['tool_call_id'] ?? '').toString().trim()
           : '';
-      toolCall['id'] = existingId.isNotEmpty ? existingId : (inferredId.isNotEmpty ? inferredId : _toolCallId(messageIndex, i));
+      toolCall['id'] = existingId.isNotEmpty
+          ? existingId
+          : (inferredId.isNotEmpty ? inferredId : _toolCallId(messageIndex, i));
       toolCall['type'] = 'function';
       normalized.add(toolCall);
     }
@@ -130,7 +162,8 @@ class _MistralPatchClient extends http.BaseClient {
 
     // OpenAI SDK ≥1.x renames max_tokens → max_completion_tokens (o-series models).
     // Mistral forbids max_completion_tokens; remap it back to max_tokens.
-    if (payload.containsKey('max_completion_tokens') && !payload.containsKey('max_tokens')) {
+    if (payload.containsKey('max_completion_tokens') &&
+        !payload.containsKey('max_tokens')) {
       payload['max_tokens'] = payload.remove('max_completion_tokens');
     } else {
       payload.remove('max_completion_tokens');
@@ -168,16 +201,23 @@ class _MistralPatchClient extends http.BaseClient {
             lookahead++;
           }
 
-          final normalizedToolCalls = _normalizeToolCalls(rawToolCalls, messageIndex: index, followingTools: followingTools);
+          final normalizedToolCalls = _normalizeToolCalls(
+            rawToolCalls,
+            messageIndex: index,
+            followingTools: followingTools,
+          );
           if (normalizedToolCalls.isNotEmpty) {
             msg['tool_calls'] = normalizedToolCalls;
             if (normalizedToolCalls.length != (rawToolCalls).length) {
               changed = true;
             } else {
               for (int i = 0; i < normalizedToolCalls.length; i++) {
-                final before = rawToolCalls[i] is Map ? Map<String, dynamic>.from(rawToolCalls[i] as Map) : <String, dynamic>{};
+                final before = rawToolCalls[i] is Map
+                    ? Map<String, dynamic>.from(rawToolCalls[i] as Map)
+                    : <String, dynamic>{};
                 final after = normalizedToolCalls[i];
-                if ((before['id'] ?? '').toString().trim() != after['id'] || before['type'] != after['type']) {
+                if ((before['id'] ?? '').toString().trim() != after['id'] ||
+                    before['type'] != after['type']) {
                   changed = true;
                   break;
                 }
@@ -194,10 +234,15 @@ class _MistralPatchClient extends http.BaseClient {
                 'content': null,
                 'tool_calls': [toolCall],
               });
-              final matchingTool = followingTools.cast<Map<String, dynamic>?>().firstWhere(
-                (tool) => tool != null && (tool['tool_call_id'] ?? '').toString().trim() == toolCallId,
-                orElse: () => null,
-              );
+              final matchingTool = followingTools
+                  .cast<Map<String, dynamic>?>()
+                  .firstWhere(
+                    (tool) =>
+                        tool != null &&
+                        (tool['tool_call_id'] ?? '').toString().trim() ==
+                            toolCallId,
+                    orElse: () => null,
+                  );
               if (matchingTool != null) {
                 sanitized.add(matchingTool);
                 emittedToolIds.add(toolCallId);
@@ -218,14 +263,19 @@ class _MistralPatchClient extends http.BaseClient {
 
       if (role == 'tool') {
         final toolCallId = (msg['tool_call_id'] ?? '').toString().trim();
-        final prev = sanitized.isNotEmpty && sanitized.last is Map ? Map<String, dynamic>.from(sanitized.last as Map) : null;
+        final prev = sanitized.isNotEmpty && sanitized.last is Map
+            ? Map<String, dynamic>.from(sanitized.last as Map)
+            : null;
         bool hasMatch = false;
         if (prev != null && prev['role']?.toString() == 'assistant') {
           final tcs = prev['tool_calls'];
           if (tcs is List) {
             hasMatch = tcs.any((tc) {
               if (tc is! Map) return false;
-              return (Map<String, dynamic>.from(tc)['id'] ?? '').toString().trim() == toolCallId;
+              return (Map<String, dynamic>.from(tc)['id'] ?? '')
+                      .toString()
+                      .trim() ==
+                  toolCallId;
             });
           }
         }
@@ -254,7 +304,8 @@ class _MistralPatchClient extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     http.BaseRequest outgoing = request;
 
-    if (request.method.toUpperCase() == 'POST' && request.url.path.contains('chat/completions')) {
+    if (request.method.toUpperCase() == 'POST' &&
+        request.url.path.contains('chat/completions')) {
       String? rawBody;
       try {
         if (request is http.Request) {
@@ -290,7 +341,8 @@ class _MistralPatchClient extends http.BaseClient {
 
     // Check if it is a streaming response (text/event-stream)
     final contentType = (streamed.headers['content-type'] ?? '').toLowerCase();
-    if (contentType.contains('text/event-stream') || contentType.contains('event-stream')) {
+    if (contentType.contains('text/event-stream') ||
+        contentType.contains('event-stream')) {
       final transformer = StreamTransformer<List<int>, List<int>>.fromHandlers(
         handleData: (bytes, sink) {
           final text = utf8.decode(bytes);
@@ -312,7 +364,7 @@ class _MistralPatchClient extends http.BaseClient {
                   if (choices is List) {
                     for (final choice in choices) {
                       if (choice is! Map<String, dynamic>) continue;
-                      
+
                       // Handle streaming delta
                       final delta = choice['delta'];
                       if (delta is Map<String, dynamic>) {
@@ -323,14 +375,15 @@ class _MistralPatchClient extends http.BaseClient {
                         final toolCalls = delta['tool_calls'];
                         if (toolCalls is List) {
                           for (final tc in toolCalls) {
-                            if (tc is Map<String, dynamic> && !tc.containsKey('type')) {
+                            if (tc is Map<String, dynamic> &&
+                                !tc.containsKey('type')) {
                               tc['type'] = 'function';
                               changed = true;
                             }
                           }
                         }
                       }
-                      
+
                       // Handle non-streaming message (fallback)
                       final msg = choice['message'];
                       if (msg is Map<String, dynamic>) {
@@ -341,7 +394,8 @@ class _MistralPatchClient extends http.BaseClient {
                         final toolCalls = msg['tool_calls'];
                         if (toolCalls is List) {
                           for (final tc in toolCalls) {
-                            if (tc is Map<String, dynamic> && !tc.containsKey('type')) {
+                            if (tc is Map<String, dynamic> &&
+                                !tc.containsKey('type')) {
                               tc['type'] = 'function';
                               changed = true;
                             }
@@ -387,7 +441,7 @@ class _MistralPatchClient extends http.BaseClient {
             if (choice is! Map<String, dynamic>) continue;
             final msg = choice['message'];
             if (msg is! Map<String, dynamic>) continue;
-            
+
             if (msg['content'] is List) {
               msg['content'] = null;
               changed = true;
@@ -428,7 +482,9 @@ class _MistralPatchClient extends http.BaseClient {
 // ═══════════════════════════════════════════════════════════════
 
 String _extractBalancedJson(String input, int startIndex) {
-  if (startIndex < 0 || startIndex >= input.length || input[startIndex] != '{') {
+  if (startIndex < 0 ||
+      startIndex >= input.length ||
+      input[startIndex] != '{') {
     return '';
   }
 
@@ -468,9 +524,14 @@ Map<String, dynamic> _parseLooseKeyValueArgs(String input) {
   for (final rawLine in normalized.split('\n')) {
     final line = rawLine.trim();
     if (line.isEmpty) continue;
-    final lineMatch = RegExp(r'^(\w+)\s*=\s*(.+)$', dotAll: true).firstMatch(line);
+    final lineMatch = RegExp(
+      r'^(\w+)\s*=\s*(.+)$',
+      dotAll: true,
+    ).firstMatch(line);
     if (lineMatch != null) {
-      result[lineMatch.group(1)!] = _parseLooseArgValue(lineMatch.group(2)!.trim());
+      result[lineMatch.group(1)!] = _parseLooseArgValue(
+        lineMatch.group(2)!.trim(),
+      );
     }
   }
 
@@ -478,7 +539,9 @@ Map<String, dynamic> _parseLooseKeyValueArgs(String input) {
     return result;
   }
 
-  final pattern = RegExp(r'''(\w+)\s*=\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\[[^\]]*\]|\{[^}]*\}|-?(?:\d+\.?\d*|\.\d+)|\w+)''');
+  final pattern = RegExp(
+    r'''(\w+)\s*=\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\[[^\]]*\]|\{[^}]*\}|-?(?:\d+\.?\d*|\.\d+)|\w+)''',
+  );
   for (final match in pattern.allMatches(normalized)) {
     final key = match.group(1);
     final rawValue = match.group(2);
@@ -489,8 +552,12 @@ Map<String, dynamic> _parseLooseKeyValueArgs(String input) {
 }
 
 dynamic _parseLooseArgValue(String raw) {
-  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-    return raw.substring(1, raw.length - 1).replaceAll(r'\"', '"').replaceAll(r"\'", "'");
+  if ((raw.startsWith('"') && raw.endsWith('"')) ||
+      (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw
+        .substring(1, raw.length - 1)
+        .replaceAll(r'\"', '"')
+        .replaceAll(r"\'", "'");
   }
   if (raw == 'True' || raw == 'true') return true;
   if (raw == 'False' || raw == 'false') return false;
@@ -507,7 +574,10 @@ dynamic _parseLooseArgValue(String raw) {
   if (raw.startsWith('{') && raw.endsWith('}')) {
     try {
       return jsonDecode(
-        raw.replaceAllMapped(RegExp(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)'), (m) => '${m.group(1)}"${m.group(2)}"${m.group(3)}'),
+        raw.replaceAllMapped(
+          RegExp(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)'),
+          (m) => '${m.group(1)}"${m.group(2)}"${m.group(3)}',
+        ),
       );
     } catch (_) {}
   }
@@ -519,7 +589,11 @@ List<LlmToolCall> _extractTextToolCalls(String content) {
   if (content.trim().isEmpty) return out;
 
   // Try to extract XML-style tool calls first: <tool_call>...</tool_call>
-  final xmlToolCallPattern = RegExp(r'<tool_call>\s*(.*?)\s*</tool_call>', dotAll: true, caseSensitive: false);
+  final xmlToolCallPattern = RegExp(
+    r'<tool_call>\s*(.*?)\s*</tool_call>',
+    dotAll: true,
+    caseSensitive: false,
+  );
   final xmlMatches = xmlToolCallPattern.allMatches(content);
   for (final match in xmlMatches) {
     try {
@@ -531,7 +605,9 @@ List<LlmToolCall> _extractTextToolCalls(String content) {
               ? decoded['tool_call'] as Map<String, dynamic>
               : decoded;
           final toolName = inner['name'] as String?;
-          final arguments = (inner['arguments'] ?? inner['parameters']) as Map<String, dynamic>?;
+          final arguments =
+              (inner['arguments'] ?? inner['parameters'])
+                  as Map<String, dynamic>?;
           final id = inner['id']?.toString();
           if (toolName != null && toolName.isNotEmpty && arguments != null) {
             out.add(LlmToolCall(id: id, name: toolName, arguments: arguments));
@@ -542,7 +618,11 @@ List<LlmToolCall> _extractTextToolCalls(String content) {
   }
   if (out.isNotEmpty) return out;
 
-  final multilineJsonPattern = RegExp(r'tool[_ ]?call\s*:?\s*\n\s*([a-zA-Z0-9_]+)\s*\n\s*(\{)', caseSensitive: false, multiLine: true);
+  final multilineJsonPattern = RegExp(
+    r'tool[_ ]?call\s*:?\s*\n\s*([a-zA-Z0-9_]+)\s*\n\s*(\{)',
+    caseSensitive: false,
+    multiLine: true,
+  );
   for (final match in multilineJsonPattern.allMatches(content)) {
     try {
       final name = match.group(1)?.trim();
@@ -637,14 +717,20 @@ List<LlmToolCall> _extractTextToolCalls(String content) {
               ? decoded['tool_call'] as Map<String, dynamic>
               : decoded;
           final toolName = inner['name'] as String?;
-          final arguments = (inner['arguments'] ?? inner['parameters']) as Map<String, dynamic>?;
+          final arguments =
+              (inner['arguments'] ?? inner['parameters'])
+                  as Map<String, dynamic>?;
           final id = inner['id']?.toString();
           if (toolName != null && toolName.isNotEmpty && arguments != null) {
-            final isDuplicate = out.any((tc) =>
-                tc.name == toolName &&
-                jsonEncode(tc.arguments) == jsonEncode(arguments));
+            final isDuplicate = out.any(
+              (tc) =>
+                  tc.name == toolName &&
+                  jsonEncode(tc.arguments) == jsonEncode(arguments),
+            );
             if (!isDuplicate) {
-              out.add(LlmToolCall(id: id, name: toolName, arguments: arguments));
+              out.add(
+                LlmToolCall(id: id, name: toolName, arguments: arguments),
+              );
             }
           }
         }
@@ -664,14 +750,19 @@ MCPTool? _findToolByName(List<MCPTool> tools, String name) {
   return null;
 }
 
-Map<String, dynamic> _coerceArgumentsToSchema(Map<String, dynamic> arguments, MCPTool? tool) {
+Map<String, dynamic> _coerceArgumentsToSchema(
+  Map<String, dynamic> arguments,
+  MCPTool? tool,
+) {
   final inputSchema = tool?.inputSchema;
   final rawProps = inputSchema?['properties'];
   if (inputSchema == null || rawProps == null) {
     return arguments;
   }
 
-  final properties = rawProps is Map<String, dynamic> ? rawProps : Map<String, dynamic>.from(rawProps as Map);
+  final properties = rawProps is Map<String, dynamic>
+      ? rawProps
+      : Map<String, dynamic>.from(rawProps as Map);
   Map<String, dynamic>? patched;
 
   for (final entry in arguments.entries) {
@@ -680,7 +771,10 @@ Map<String, dynamic> _coerceArgumentsToSchema(Map<String, dynamic> arguments, MC
       continue;
     }
 
-    final coerced = _coerceValueForSchema(entry.value, Map<String, dynamic>.from(schema));
+    final coerced = _coerceValueForSchema(
+      entry.value,
+      Map<String, dynamic>.from(schema),
+    );
     if (coerced != entry.value) {
       patched ??= Map<String, dynamic>.from(arguments);
       patched[entry.key] = coerced;
@@ -746,7 +840,9 @@ dynamic _coerceValueForSchema(dynamic value, Map<String, dynamic> schema) {
       final itemSchemaRaw = schema['items'];
       if (itemSchemaRaw is Map) {
         final itemSchema = Map<String, dynamic>.from(itemSchemaRaw);
-        return items.map((item) => _coerceValueForSchema(item, itemSchema)).toList();
+        return items
+            .map((item) => _coerceValueForSchema(item, itemSchema))
+            .toList();
       }
       return items;
     case 'integer':
@@ -812,7 +908,11 @@ List<dynamic> _splitLooseArrayString(String input) {
     return <dynamic>[];
   }
 
-  final parts = input.split(RegExp(r'\s*(?:,|\||;|\n)\s*')).map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+  final parts = input
+      .split(RegExp(r'\s*(?:,|\||;|\n)\s*'))
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
 
   if (parts.length <= 1) {
     return <dynamic>[input];
@@ -880,22 +980,34 @@ class ServerLlmRunner {
 
     if (taskLlmConfig != null) {
       provider = LlmProvider.values.firstWhere(
-        (p) => p.name == taskLlmConfig.provider || p.configKey == taskLlmConfig.provider,
+        (p) =>
+            p.name == taskLlmConfig.provider ||
+            p.configKey == taskLlmConfig.provider,
         orElse: () => usePrimary ? _settings.provider : _settings.provider2,
       );
       model = taskLlmConfig.model;
       final configuredApiKey = taskLlmConfig.apiKey?.trim() ?? '';
       final configuredBaseUrl = taskLlmConfig.baseUrl?.trim() ?? '';
-      apiKey = configuredApiKey.isNotEmpty ? configuredApiKey : (usePrimary ? _settings.apiKey : _settings.apiKey2);
-      baseUrl = configuredBaseUrl.isNotEmpty ? configuredBaseUrl : (usePrimary ? _settings.baseUrl : _settings.baseUrl2);
+      apiKey = configuredApiKey.isNotEmpty
+          ? configuredApiKey
+          : (usePrimary ? _settings.apiKey : _settings.apiKey2);
+      baseUrl = configuredBaseUrl.isNotEmpty
+          ? configuredBaseUrl
+          : (usePrimary ? _settings.baseUrl : _settings.baseUrl2);
       temperature = taskLlmConfig.temperature;
       maxTokens = taskLlmConfig.maxTokens;
-      topK = (taskLlmConfig.extraParams['top_k'] as num?)?.toInt() ?? (usePrimary ? _settings.topK : _settings.topK2);
-      topP = (taskLlmConfig.extraParams['top_p'] as num?)?.toDouble() ?? (usePrimary ? _settings.topP : _settings.topP2);
+      topK =
+          (taskLlmConfig.extraParams['top_k'] as num?)?.toInt() ??
+          (usePrimary ? _settings.topK : _settings.topK2);
+      topP =
+          (taskLlmConfig.extraParams['top_p'] as num?)?.toDouble() ??
+          (usePrimary ? _settings.topP : _settings.topP2);
       repeatPenalty =
           (taskLlmConfig.extraParams['repeat_penalty'] as num?)?.toDouble() ??
           (usePrimary ? _settings.repeatPenalty : _settings.repeatPenalty2);
-      thinking = (taskLlmConfig.extraParams['thinking'] as bool?) ?? (usePrimary ? _settings.thinking : _settings.thinking2);
+      thinking =
+          (taskLlmConfig.extraParams['thinking'] as bool?) ??
+          (usePrimary ? _settings.thinking : _settings.thinking2);
     } else {
       provider = usePrimary ? _settings.provider : _settings.provider2;
       model = usePrimary ? _settings.model : _settings.model2;
@@ -905,19 +1017,31 @@ class ServerLlmRunner {
       maxTokens = usePrimary ? _settings.maxTokens : _settings.maxTokens2;
       topK = usePrimary ? _settings.topK : _settings.topK2;
       topP = usePrimary ? _settings.topP : _settings.topP2;
-      repeatPenalty = usePrimary ? _settings.repeatPenalty : _settings.repeatPenalty2;
+      repeatPenalty = usePrimary
+          ? _settings.repeatPenalty
+          : _settings.repeatPenalty2;
       thinking = usePrimary ? _settings.thinking : _settings.thinking2;
     }
 
-    log.info('[LlmRunner] TaskConfig: ${taskLlmConfig != null ? "provider=${taskLlmConfig.provider} model=${taskLlmConfig.model} baseUrl=${taskLlmConfig.baseUrl}" : "null"}');
-    log.info('[LlmRunner] resolved: provider=${provider.configKey} model=$model baseUrl="$baseUrl" hasApiKey=${apiKey.isNotEmpty}');
+    log.info(
+      '[LlmRunner] TaskConfig: ${taskLlmConfig != null ? "provider=${taskLlmConfig.provider} model=${taskLlmConfig.model} baseUrl=${taskLlmConfig.baseUrl}" : "null"}',
+    );
+    log.info(
+      '[LlmRunner] resolved: provider=${provider.configKey} model=$model baseUrl="$baseUrl" hasApiKey=${apiKey.isNotEmpty}',
+    );
     log.info('[LlmRunner] Provider=${provider.label} Model=$model');
-    _liveLog('Starting execution flow using provider: ${provider.label}, model: $model');
+    _liveLog(
+      'Starting execution flow using provider: ${provider.label}, model: $model',
+    );
     _liveLog('System Prompt: $systemPrompt');
     _liveLog('User Prompt: $userPrompt');
 
     if (provider == LlmProvider.none || model.isEmpty) {
-      return const LlmRunResult(content: '', success: false, error: 'No LLM configured. Set up a provider in settings.');
+      return const LlmRunResult(
+        content: '',
+        success: false,
+        error: 'No LLM configured. Set up a provider in settings.',
+      );
     }
 
     try {
@@ -967,11 +1091,19 @@ class ServerLlmRunner {
       );
     } on Exception catch (e) {
       final msg = e.toString();
-      final isRateLimit = msg.contains('429') || msg.contains('rate') || msg.contains('quota');
-      final isUnavailable = msg.contains('503') || msg.contains('overloaded') || msg.contains('unavailable');
+      final isRateLimit =
+          msg.contains('429') || msg.contains('rate') || msg.contains('quota');
+      final isUnavailable =
+          msg.contains('503') ||
+          msg.contains('overloaded') ||
+          msg.contains('unavailable');
 
-      if (usePrimary && (isRateLimit || isUnavailable) && _settings.isConfigured2) {
-        log.warning('[LlmRunner] Primary provider error ($msg) — falling back to secondary');
+      if (usePrimary &&
+          (isRateLimit || isUnavailable) &&
+          _settings.isConfigured2) {
+        log.warning(
+          '[LlmRunner] Primary provider error ($msg) — falling back to secondary',
+        );
         return run(
           systemPrompt: systemPrompt,
           userPrompt: userPrompt,
@@ -1004,7 +1136,12 @@ class ServerLlmRunner {
     final modelPath = p.join(resolveServerModelsDir(), model);
     final modelFile = File(modelPath);
     if (!await modelFile.exists()) {
-      return LlmRunResult(content: '', success: false, error: 'Embedded model file not found on server: $model. Expected at $modelPath');
+      return LlmRunResult(
+        content: '',
+        success: false,
+        error:
+            'Embedded model file not found on server: $model. Expected at $modelPath',
+      );
     }
 
     final adapter = ServerEmbeddedLlmAdapter.instance;
@@ -1028,10 +1165,15 @@ class ServerLlmRunner {
 
           var effectiveTools = toolsOverride ?? registry.mcpTools;
           final defaultMaxTokens = effectiveTools.isNotEmpty ? 256 : 1024;
-          final effectiveMaxTokens = (maxTokens != null && maxTokens > 0) ? maxTokens : defaultMaxTokens;
+          final effectiveMaxTokens = (maxTokens != null && maxTokens > 0)
+              ? maxTokens
+              : defaultMaxTokens;
           final effectiveTopK = (topK != null && topK > 0) ? topK : 40;
           final effectiveTopP = (topP != null && topP > 0) ? topP : 0.9;
-          final effectiveRepeatPenalty = (repeatPenalty != null && repeatPenalty > 0) ? repeatPenalty : 1.15;
+          final effectiveRepeatPenalty =
+              (repeatPenalty != null && repeatPenalty > 0)
+              ? repeatPenalty
+              : 1.15;
           log.info(
             '[LlmRunner] Embedded params: maxTokens=$effectiveMaxTokens topK=$effectiveTopK topP=$effectiveTopP repeatPenalty=$effectiveRepeatPenalty tools=${effectiveTools.length}',
           );
@@ -1047,7 +1189,10 @@ class ServerLlmRunner {
 
           for (var iteration = 0; iteration < _maxToolIterations; iteration++) {
             _liveLog('Iteration ${iteration + 1}...');
-            sentChars += history.fold<int>(0, (sum, message) => sum + message.content.length);
+            sentChars += history.fold<int>(
+              0,
+              (sum, message) => sum + message.content.length,
+            );
             final response = await adapter
                 .generateResponse(
                   messages: history,
@@ -1069,9 +1214,17 @@ class ServerLlmRunner {
             if (embeddedToolCalls.isEmpty && effectiveTools.isNotEmpty) {
               final textToolCalls = _extractTextToolCalls(response.content);
               if (textToolCalls.isNotEmpty) {
-                log.info('[LlmRunner] iter=$iteration extracted_text_tool_calls=${textToolCalls.length}');
+                log.info(
+                  '[LlmRunner] iter=$iteration extracted_text_tool_calls=${textToolCalls.length}',
+                );
                 embeddedToolCalls = textToolCalls
-                    .map((tc) => ServerEmbeddedToolCall(id: tc.id, name: tc.name, arguments: tc.arguments))
+                    .map(
+                      (tc) => ServerEmbeddedToolCall(
+                        id: tc.id,
+                        name: tc.name,
+                        arguments: tc.arguments,
+                      ),
+                    )
                     .toList();
               }
             }
@@ -1086,20 +1239,33 @@ class ServerLlmRunner {
               break;
             }
 
-            history.add(ServerEmbeddedChatMessage.ai(response.content, toolCalls: embeddedToolCalls));
+            history.add(
+              ServerEmbeddedChatMessage.ai(
+                response.content,
+                toolCalls: embeddedToolCalls,
+              ),
+            );
 
             toolCallCount += embeddedToolCalls.length;
-            log.info('[LlmRunner] iter=$iteration embedded_tool_calls=${embeddedToolCalls.length}');
-            _liveLog('Model requested tool calls: ${embeddedToolCalls.map((tc) => tc.name).join(", ")}');
+            log.info(
+              '[LlmRunner] iter=$iteration embedded_tool_calls=${embeddedToolCalls.length}',
+            );
+            _liveLog(
+              'Model requested tool calls: ${embeddedToolCalls.map((tc) => tc.name).join(", ")}',
+            );
 
             for (final toolCall in embeddedToolCalls) {
               final cleanToolName = toolCall.name;
-              final toolCallId = toolCall.id ?? 'call_${cleanToolName}_$iteration';
+              final toolCallId =
+                  toolCall.id ?? 'call_${cleanToolName}_$iteration';
 
               final toolSchema = _findToolByName(effectiveTools, cleanToolName);
               if (toolSchema == null) {
-                log.warning('[LlmRunner] Model attempted to call tool "$cleanToolName" which is not available/enabled.');
-                final errorText = 'Error: The tool "$cleanToolName" is not available/enabled for this step.';
+                log.warning(
+                  '[LlmRunner] Model attempted to call tool "$cleanToolName" which is not available/enabled.',
+                );
+                final errorText =
+                    'Error: The tool "$cleanToolName" is not available/enabled for this step.';
                 final structuredText = jsonEncode({
                   'tool': cleanToolName,
                   'id': toolCallId,
@@ -1107,29 +1273,44 @@ class ServerLlmRunner {
                   'error': errorText,
                 });
                 history.add(
-                  ServerEmbeddedChatMessage.toolResult(toolCallId: toolCallId, toolName: cleanToolName, content: structuredText),
+                  ServerEmbeddedChatMessage.toolResult(
+                    toolCallId: toolCallId,
+                    toolName: cleanToolName,
+                    content: structuredText,
+                  ),
                 );
                 continue;
               }
-              final schemaArgs = _coerceArgumentsToSchema(toolCall.arguments, toolSchema);
+              final schemaArgs = _coerceArgumentsToSchema(
+                toolCall.arguments,
+                toolSchema,
+              );
               final repairedArgs = _repairMissingRequiredToolArgs(
                 toolName: cleanToolName,
                 arguments: schemaArgs,
                 userPrompt: userPrompt,
                 fallbackWebSearchQuery: lastWebSearchQuery,
               );
-              
-              final toolSignature = '$cleanToolName|${jsonEncode(repairedArgs)}';
-              final isDuplicateId = toolCall.id != null && executedIds.contains(toolCall.id);
-              final isDuplicateSignature = executedSignatures.contains(toolSignature);
+
+              final toolSignature =
+                  '$cleanToolName|${jsonEncode(repairedArgs)}';
+              final isDuplicateId =
+                  toolCall.id != null && executedIds.contains(toolCall.id);
+              final isDuplicateSignature = executedSignatures.contains(
+                toolSignature,
+              );
 
               if (isDuplicateId || isDuplicateSignature) {
-                log.warning('[LlmRunner] Repeated tool call detected for "$cleanToolName" in embedded loop. Intercepting.');
-                
+                log.warning(
+                  '[LlmRunner] Repeated tool call detected for "$cleanToolName" in embedded loop. Intercepting.',
+                );
+
                 String previousResult = 'Executed successfully.';
                 try {
                   final prevMsg = history.lastWhere(
-                    (m) => m.role == ServerEmbeddedChatRole.tool && m.toolName == cleanToolName,
+                    (m) =>
+                        m.role == ServerEmbeddedChatRole.tool &&
+                        m.toolName == cleanToolName,
                   );
                   final parsed = jsonDecode(prevMsg.content);
                   if (parsed is Map && parsed.containsKey('tool_result')) {
@@ -1152,11 +1333,17 @@ class ServerLlmRunner {
                 });
 
                 history.add(
-                  ServerEmbeddedChatMessage.toolResult(toolCallId: toolCallId, toolName: cleanToolName, content: structuredText),
+                  ServerEmbeddedChatMessage.toolResult(
+                    toolCallId: toolCallId,
+                    toolName: cleanToolName,
+                    content: structuredText,
+                  ),
                 );
 
                 effectiveTools = [];
-                _liveLog('Repeated tool call detected. Clearing available tools to force model finalization.');
+                _liveLog(
+                  'Repeated tool call detected. Clearing available tools to force model finalization.',
+                );
                 continue;
               }
 
@@ -1172,7 +1359,9 @@ class ServerLlmRunner {
                 }
               }
               log.info('[LlmRunner] Calling embedded tool "$cleanToolName"');
-              _liveLog('Calling tool "$cleanToolName" with arguments: $repairedArgs');
+              _liveLog(
+                'Calling tool "$cleanToolName" with arguments: $repairedArgs',
+              );
               final result = await registry
                   .callTool(cleanToolName, repairedArgs)
                   .timeout(
@@ -1197,14 +1386,22 @@ class ServerLlmRunner {
                 'tool_result': truncated,
               });
               history.add(
-                ServerEmbeddedChatMessage.toolResult(toolCallId: toolCallId, toolName: cleanToolName, content: structuredText),
+                ServerEmbeddedChatMessage.toolResult(
+                  toolCallId: toolCallId,
+                  toolName: cleanToolName,
+                  content: structuredText,
+                ),
               );
             }
 
             if (stopAfterToolCall) {
-              finalContent = allToolOutputs.isNotEmpty ? allToolOutputs.join('\n\n') : '';
+              finalContent = allToolOutputs.isNotEmpty
+                  ? allToolOutputs.join('\n\n')
+                  : '';
               sawFinalResponse = true;
-              log.info('[LlmRunner] stopAfterToolCall enabled — halting after first embedded tool round-trip');
+              log.info(
+                '[LlmRunner] stopAfterToolCall enabled — halting after first embedded tool round-trip',
+              );
               break;
             }
           }
@@ -1213,12 +1410,22 @@ class ServerLlmRunner {
             _liveLog('Task execution finished. Final response:\n$finalContent');
           }
 
-          final execLogSnippet = _buildExecutionLogSnippetFromEmbedded(history, sawFinalResponse, finalContent);
+          final execLogSnippet = _buildExecutionLogSnippetFromEmbedded(
+            history,
+            sawFinalResponse,
+            finalContent,
+          );
 
           return LlmRunResult(
             content: finalContent,
-            success: finalContent.isNotEmpty || (stopAfterToolCall && toolCallCount > 0),
-            error: (finalContent.isEmpty && (!stopAfterToolCall || toolCallCount == 0)) ? 'LLM returned empty response' : null,
+            success:
+                finalContent.isNotEmpty ||
+                (stopAfterToolCall && toolCallCount > 0),
+            error:
+                (finalContent.isEmpty &&
+                    (!stopAfterToolCall || toolCallCount == 0))
+                ? 'LLM returned empty response'
+                : null,
             promptTokens: 0,
             completionTokens: 0,
             toolCallCount: toolCallCount,
@@ -1251,7 +1458,9 @@ class ServerLlmRunner {
       ),
     );
     try {
-      final effectiveMaxTokens = (maxTokens != null && maxTokens > 0) ? maxTokens : 4096;
+      final effectiveMaxTokens = (maxTokens != null && maxTokens > 0)
+          ? maxTokens
+          : 4096;
       final request = anthropic.MessageCreateRequest(
         model: model,
         messages: [anthropic.InputMessage.user(userPrompt)],
@@ -1305,7 +1514,8 @@ class ServerLlmRunner {
 
     String effectiveSystemPrompt = systemPrompt;
     if (provider == LlmProvider.ollama) {
-      effectiveSystemPrompt += '\n\n'
+      effectiveSystemPrompt +=
+          '\n\n'
           'Tool execution rules:\n'
           '- Each tool execution result is returned in a JSON structure: {"tool": "name", "id": "unique_id", "tool_executed": true, "tool_result": ...}.\n'
           '- Once a tool has been successfully executed (tool_executed is true), you must NEVER call that tool with the same "id" or parameters again.\n'
@@ -1384,7 +1594,9 @@ class ServerLlmRunner {
       toolCallCount += toolCalls.length;
       sentChars += content.length;
       log.info('[LlmRunner] iter=$i tool_calls=${toolCalls.length}');
-      _liveLog('Model requested tool calls: ${toolCalls.map((tc) => tc.name).join(", ")}');
+      _liveLog(
+        'Model requested tool calls: ${toolCalls.map((tc) => tc.name).join(", ")}',
+      );
 
       for (final tc in toolCalls) {
         final cleanToolName = tc.name;
@@ -1392,8 +1604,11 @@ class ServerLlmRunner {
 
         final toolSchema = _findToolByName(mcpTools, cleanToolName);
         if (toolSchema == null) {
-          log.warning('[LlmRunner] Model attempted to call tool "$cleanToolName" which is not available/enabled.');
-          final errorText = 'Error: The tool "$cleanToolName" is not available/enabled. Available tools: ${mcpTools.map((t) => t.name).join(", ")}';
+          log.warning(
+            '[LlmRunner] Model attempted to call tool "$cleanToolName" which is not available/enabled.',
+          );
+          final errorText =
+              'Error: The tool "$cleanToolName" is not available/enabled. Available tools: ${mcpTools.map((t) => t.name).join(", ")}';
           final structuredText = jsonEncode({
             'tool': cleanToolName,
             'id': toolCallId,
@@ -1422,21 +1637,21 @@ class ServerLlmRunner {
         final isDuplicateSignature = executedSignatures.contains(toolSignature);
 
         if (isDuplicateId || isDuplicateSignature) {
-          log.warning('[LlmRunner] Repeated tool call detected for "$cleanToolName" in native loop. Intercepting.');
+          log.warning(
+            '[LlmRunner] Repeated tool call detected for "$cleanToolName" in native loop. Intercepting.',
+          );
 
           String previousResult = 'Executed successfully.';
           try {
-            final prevMsg = history.lastWhere(
-              (m) {
-                if (m.role != LlmChatRole.tool) return false;
-                try {
-                  final parsed = jsonDecode(m.content);
-                  return parsed is Map && parsed['tool'] == cleanToolName;
-                } catch (_) {
-                  return false;
-                }
-              },
-            );
+            final prevMsg = history.lastWhere((m) {
+              if (m.role != LlmChatRole.tool) return false;
+              try {
+                final parsed = jsonDecode(m.content);
+                return parsed is Map && parsed['tool'] == cleanToolName;
+              } catch (_) {
+                return false;
+              }
+            });
             final parsed = jsonDecode(prevMsg.content);
             if (parsed is Map && parsed.containsKey('tool_result')) {
               previousResult = parsed['tool_result'].toString();
@@ -1504,9 +1719,13 @@ class ServerLlmRunner {
       }
 
       if (stopAfterToolCall) {
-        finalContent = allToolOutputs.isNotEmpty ? allToolOutputs.join('\n\n') : '';
+        finalContent = allToolOutputs.isNotEmpty
+            ? allToolOutputs.join('\n\n')
+            : '';
         sawFinalResponse = true;
-        log.info('[LlmRunner] stopAfterToolCall enabled — halting after first tool round-trip');
+        log.info(
+          '[LlmRunner] stopAfterToolCall enabled — halting after first tool round-trip',
+        );
         break;
       }
     }
@@ -1515,16 +1734,26 @@ class ServerLlmRunner {
       _liveLog('Task execution finished. Final response:\n$finalContent');
     }
 
-    final execLogSnippet = _buildExecutionLogSnippetFromNative(history, sawFinalResponse, finalContent);
+    final execLogSnippet = _buildExecutionLogSnippetFromNative(
+      history,
+      sawFinalResponse,
+      finalContent,
+    );
 
     return LlmRunResult(
       content: finalContent,
-      success: finalContent.isNotEmpty || (stopAfterToolCall && toolCallCount > 0),
-      error: (finalContent.isEmpty && (!stopAfterToolCall || toolCallCount == 0)) ? 'LLM returned empty response' : null,
+      success:
+          finalContent.isNotEmpty || (stopAfterToolCall && toolCallCount > 0),
+      error:
+          (finalContent.isEmpty && (!stopAfterToolCall || toolCallCount == 0))
+          ? 'LLM returned empty response'
+          : null,
       promptTokens: promptTokens,
       completionTokens: completionTokens,
       toolCallCount: toolCallCount,
-      rawToolOutput: allToolOutputs.isNotEmpty ? allToolOutputs.join('\n\n') : null,
+      rawToolOutput: allToolOutputs.isNotEmpty
+          ? allToolOutputs.join('\n\n')
+          : null,
       messageCount: history.length + (sawFinalResponse ? 1 : 0),
       sentChars: sentChars,
       executionLogSnippet: execLogSnippet,
@@ -1640,7 +1869,9 @@ class ServerLlmRunner {
                 ),
               );
             } else {
-              openAiMsgs.add(openai.ChatMessage.assistant(content: msg.content));
+              openAiMsgs.add(
+                openai.ChatMessage.assistant(content: msg.content),
+              );
             }
           case LlmChatRole.tool:
             openAiMsgs.add(
@@ -1663,6 +1894,24 @@ class ServerLlmRunner {
         );
       }
 
+      // Generate a stable prompt cache key from the system prompt so repeated
+      // agent task runs with the same system prompt benefit from OpenAI prompt
+      // caching, reducing token costs by 50%+ on cached prefix tokens.
+      String? promptCacheKey;
+      if (tools.isNotEmpty) {
+        final sysMsg = history
+            .firstWhere(
+              (m) => m.role == LlmChatRole.system,
+              orElse: () =>
+                  const LlmChatMessage(role: LlmChatRole.system, content: ''),
+            )
+            .content;
+        if (sysMsg.isNotEmpty) {
+          promptCacheKey =
+              'tealkit-server-${sysMsg.hashCode.toRadixString(16)}';
+        }
+      }
+
       final response = await client.chat.completions.create(
         openai.ChatCompletionCreateRequest(
           model: model,
@@ -1670,6 +1919,10 @@ class ServerLlmRunner {
           tools: tools.isNotEmpty ? tools : null,
           temperature: temperature,
           maxTokens: maxTokens,
+          promptCacheKey: promptCacheKey,
+          promptCacheRetention: promptCacheKey != null
+              ? openai.PromptCacheRetention.h24
+              : null,
         ),
       );
 
@@ -1685,11 +1938,7 @@ class ServerLlmRunner {
               args = jsonDecode(tc.function.arguments) as Map<String, dynamic>;
             } catch (_) {}
             toolCalls.add(
-              LlmToolCall(
-                id: tc.id,
-                name: tc.function.name,
-                arguments: args,
-              ),
+              LlmToolCall(id: tc.id, name: tc.function.name, arguments: args),
             );
           }
         }
@@ -1715,9 +1964,7 @@ class ServerLlmRunner {
     required List<MCPTool> mcpTools,
   }) async {
     final client = genai.GoogleAIClient(
-      config: genai.GoogleAIConfig(
-        authProvider: genai.ApiKeyProvider(apiKey),
-      ),
+      config: genai.GoogleAIConfig(authProvider: genai.ApiKeyProvider(apiKey)),
     );
     try {
       final List<genai.Content> geminiContent = [];
@@ -1726,22 +1973,26 @@ class ServerLlmRunner {
         if (msg.role == LlmChatRole.system) continue;
 
         if (msg.role == LlmChatRole.human) {
-          geminiContent.add(genai.Content(role: 'user', parts: [genai.TextPart(msg.content)]));
+          geminiContent.add(
+            genai.Content(role: 'user', parts: [genai.TextPart(msg.content)]),
+          );
         } else if (msg.role == LlmChatRole.ai) {
           if (msg.toolCalls.isNotEmpty) {
             geminiContent.add(
               genai.Content(
                 role: 'model',
                 parts: msg.toolCalls.map((tc) {
-                  return genai.Part.functionCall(
-                    tc.name,
-                    args: tc.arguments,
-                  );
+                  return genai.Part.functionCall(tc.name, args: tc.arguments);
                 }).toList(),
               ),
             );
           } else {
-            geminiContent.add(genai.Content(role: 'model', parts: [genai.TextPart(msg.content)]));
+            geminiContent.add(
+              genai.Content(
+                role: 'model',
+                parts: [genai.TextPart(msg.content)],
+              ),
+            );
           }
         } else if (msg.role == LlmChatRole.tool) {
           final toolCallName = msg.toolCallId != null
@@ -1751,10 +2002,9 @@ class ServerLlmRunner {
             genai.Content(
               role: 'function',
               parts: [
-                genai.Part.functionResponse(
-                  toolCallName,
-                  {'content': msg.content},
-                ),
+                genai.Part.functionResponse(toolCallName, {
+                  'content': msg.content,
+                }),
               ],
             ),
           );
@@ -1763,7 +2013,8 @@ class ServerLlmRunner {
 
       final systemMsg = history.firstWhere(
         (m) => m.role == LlmChatRole.system,
-        orElse: () => const LlmChatMessage(role: LlmChatRole.system, content: ''),
+        orElse: () =>
+            const LlmChatMessage(role: LlmChatRole.system, content: ''),
       );
 
       final List<genai.Tool>? tools;
@@ -1841,15 +2092,25 @@ class ServerLlmRunner {
     log.info('[OllamaRunner] Input baseUrl: "$baseUrl"');
     var cleanedBaseUrl = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     if (cleanedBaseUrl.endsWith('/api')) {
-      cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 4).replaceAll(RegExp(r'/+$'), '');
-      log.info('[OllamaRunner] baseUrl after strip endsWith("/api"): "$cleanedBaseUrl"');
+      cleanedBaseUrl = cleanedBaseUrl
+          .substring(0, cleanedBaseUrl.length - 4)
+          .replaceAll(RegExp(r'/+$'), '');
+      log.info(
+        '[OllamaRunner] baseUrl after strip endsWith("/api"): "$cleanedBaseUrl"',
+      );
     }
-    final finalUrl = cleanedBaseUrl.isNotEmpty ? cleanedBaseUrl : 'http://localhost:11434';
-    log.info('[OllamaRunner] final target baseUrl config for OllamaClient: "$finalUrl"');
+    final finalUrl = cleanedBaseUrl.isNotEmpty
+        ? cleanedBaseUrl
+        : 'http://localhost:11434';
+    log.info(
+      '[OllamaRunner] final target baseUrl config for OllamaClient: "$finalUrl"',
+    );
     final client = ollama.OllamaClient(
       config: ollama.OllamaConfig(
         baseUrl: finalUrl,
-        defaultHeaders: apiKey.isNotEmpty ? {'Authorization': 'Bearer $apiKey'} : const {},
+        defaultHeaders: apiKey.isNotEmpty
+            ? {'Authorization': 'Bearer $apiKey'}
+            : const {},
       ),
     );
     try {
@@ -1857,9 +2118,19 @@ class ServerLlmRunner {
       for (final msg in history) {
         switch (msg.role) {
           case LlmChatRole.system:
-            ollamaMsgs.add(ollama.ChatMessage(role: ollama.MessageRole.system, content: msg.content));
+            ollamaMsgs.add(
+              ollama.ChatMessage(
+                role: ollama.MessageRole.system,
+                content: msg.content,
+              ),
+            );
           case LlmChatRole.human:
-            ollamaMsgs.add(ollama.ChatMessage(role: ollama.MessageRole.user, content: msg.content));
+            ollamaMsgs.add(
+              ollama.ChatMessage(
+                role: ollama.MessageRole.user,
+                content: msg.content,
+              ),
+            );
           case LlmChatRole.ai:
             if (msg.toolCalls.isNotEmpty) {
               ollamaMsgs.add(
@@ -1877,7 +2148,12 @@ class ServerLlmRunner {
                 ),
               );
             } else {
-              ollamaMsgs.add(ollama.ChatMessage(role: ollama.MessageRole.assistant, content: msg.content));
+              ollamaMsgs.add(
+                ollama.ChatMessage(
+                  role: ollama.MessageRole.assistant,
+                  content: msg.content,
+                ),
+              );
             }
           case LlmChatRole.tool:
             ollamaMsgs.add(
@@ -1974,14 +2250,17 @@ class ServerLlmRunner {
     switch (type) {
       case 'object':
         final rawProps = jsonSchema['properties'];
-        final required = (jsonSchema['required'] as List<dynamic>?)?.cast<String>();
+        final required = (jsonSchema['required'] as List<dynamic>?)
+            ?.cast<String>();
         Map<String, genai.Schema>? schemaProps;
         if (rawProps is Map) {
           schemaProps = {};
           for (final entry in rawProps.entries) {
             final propSchema = _mcpSchemaToGemini(
               entry.value is Map<dynamic, dynamic>
-                  ? Map<String, dynamic>.from(entry.value as Map<dynamic, dynamic>)
+                  ? Map<String, dynamic>.from(
+                      entry.value as Map<dynamic, dynamic>,
+                    )
                   : null,
             );
             if (propSchema != null) {
@@ -1992,7 +2271,9 @@ class ServerLlmRunner {
         return genai.Schema(
           type: genai.SchemaType.object,
           description: description,
-          properties: (schemaProps == null || schemaProps.isEmpty) ? null : schemaProps,
+          properties: (schemaProps == null || schemaProps.isEmpty)
+              ? null
+              : schemaProps,
           required: required,
         );
       case 'array':
@@ -2005,14 +2286,24 @@ class ServerLlmRunner {
               : null,
         );
       case 'integer':
-        return genai.Schema(type: genai.SchemaType.integer, description: description);
+        return genai.Schema(
+          type: genai.SchemaType.integer,
+          description: description,
+        );
       case 'number':
-        return genai.Schema(type: genai.SchemaType.number, description: description);
+        return genai.Schema(
+          type: genai.SchemaType.number,
+          description: description,
+        );
       case 'boolean':
-        return genai.Schema(type: genai.SchemaType.boolean, description: description);
+        return genai.Schema(
+          type: genai.SchemaType.boolean,
+          description: description,
+        );
       case 'string':
       default:
-        final enumValues = (jsonSchema['enum'] as List<dynamic>?)?.cast<String>();
+        final enumValues = (jsonSchema['enum'] as List<dynamic>?)
+            ?.cast<String>();
         return genai.Schema(
           type: genai.SchemaType.string,
           description: description,
@@ -2029,7 +2320,8 @@ class ServerLlmRunner {
 
   Map<String, dynamic> _sanitizeToolSchema(Map<String, dynamic>? schema) {
     if (schema == null) return {'type': 'string'};
-    final sanitized = Map<String, dynamic>.from(schema)..removeWhere((_, value) => value == null);
+    final sanitized = Map<String, dynamic>.from(schema)
+      ..removeWhere((_, value) => value == null);
 
     const unsupportedKeys = {
       'default',
@@ -2048,7 +2340,9 @@ class ServerLlmRunner {
 
     if (sanitized['type'] is List) {
       final typeList = sanitized['type'] as List;
-      sanitized['type'] = typeList.isNotEmpty ? typeList.first.toString() : 'string';
+      sanitized['type'] = typeList.isNotEmpty
+          ? typeList.first.toString()
+          : 'string';
     }
     sanitized['type'] ??= 'string';
 
@@ -2089,7 +2383,9 @@ class ServerLlmRunner {
     for (final c in result.content) {
       if (c.data != null && c.data!.isNotEmpty) {
         final mime = c.mimeType?.trim();
-        parts.add('File created${mime != null && mime.isNotEmpty ? ' ($mime)' : ''}. Binary payload omitted.');
+        parts.add(
+          'File created${mime != null && mime.isNotEmpty ? ' ($mime)' : ''}. Binary payload omitted.',
+        );
         continue;
       }
       final raw = (c.text ?? '').trim();
@@ -2110,14 +2406,20 @@ class ServerLlmRunner {
       return '$name (binary file omitted)';
     });
     out = out.replaceAll(_base64DataUriPattern, '[binary data omitted]');
-    out = out.replaceAllMapped(RegExp(r'([A-Za-z0-9+/=_\-\r\n]{160,}?(?=[^A-Za-z0-9+/=_\-\r\n]|$))'), (match) {
-      final matched = match.group(1) ?? '';
-      if (_looksLikeEncodedPayload(matched.replaceAll(RegExp(r'\s'), ''))) {
-        return '[base64-encoded data omitted]';
-      }
-      return matched;
-    });
-    out = out.replaceAllMapped(RegExp(r'\b[0-9a-fA-F]{256,}\b'), (_) => '[hex payload omitted]');
+    out = out.replaceAllMapped(
+      RegExp(r'([A-Za-z0-9+/=_\-\r\n]{160,}?(?=[^A-Za-z0-9+/=_\-\r\n]|$))'),
+      (match) {
+        final matched = match.group(1) ?? '';
+        if (_looksLikeEncodedPayload(matched.replaceAll(RegExp(r'\s'), ''))) {
+          return '[base64-encoded data omitted]';
+        }
+        return matched;
+      },
+    );
+    out = out.replaceAllMapped(
+      RegExp(r'\b[0-9a-fA-F]{256,}\b'),
+      (_) => '[hex payload omitted]',
+    );
     final trimmed = out.trimLeft();
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
@@ -2142,18 +2444,26 @@ class ServerLlmRunner {
       return arguments;
     }
 
-    final repairedQuery = _buildWebSearchQueryFromPrompt(userPrompt, fallbackQuery: fallbackWebSearchQuery);
+    final repairedQuery = _buildWebSearchQueryFromPrompt(
+      userPrompt,
+      fallbackQuery: fallbackWebSearchQuery,
+    );
     if (repairedQuery.isEmpty) {
       return arguments;
     }
 
     final patched = Map<String, dynamic>.from(arguments);
     patched['query'] = repairedQuery;
-    log.warning('[LlmRunner] Repaired missing web_search.query from prompt context: "$repairedQuery"');
+    log.warning(
+      '[LlmRunner] Repaired missing web_search.query from prompt context: "$repairedQuery"',
+    );
     return patched;
   }
 
-  String _buildWebSearchQueryFromPrompt(String prompt, {String? fallbackQuery}) {
+  String _buildWebSearchQueryFromPrompt(
+    String prompt, {
+    String? fallbackQuery,
+  }) {
     final cleaned = prompt.trim();
     if (cleaned.isNotEmpty) return cleaned;
     final fallback = fallbackQuery?.trim() ?? '';
@@ -2183,7 +2493,9 @@ class ServerLlmRunner {
       m[e.key.toString()] = _scrubBinaryJson(e.value);
     }
     final encoding = (m['encoding'] ?? '').toString().toLowerCase();
-    final mime = (m['mimeType'] ?? m['mimetype'] ?? '').toString().toLowerCase();
+    final mime = (m['mimeType'] ?? m['mimetype'] ?? '')
+        .toString()
+        .toLowerCase();
     final hasBinaryEncoding = encoding == 'base64';
     final hasBinaryMime = _isBinaryMime(mime);
 
@@ -2193,19 +2505,29 @@ class ServerLlmRunner {
       return <String, dynamic>{
         'fileName': fileName.isNotEmpty ? fileName : null,
         'mimeType': mime.isNotEmpty ? mime : null,
-        'message': message.isNotEmpty ? message : 'File created. Binary payload omitted.',
+        'message': message.isNotEmpty
+            ? message
+            : 'File created. Binary payload omitted.',
       }..removeWhere((k, v) => v == null);
     }
 
     for (final key in const ['content', 'data']) {
       final v = m[key];
-      if (v is String && v.length > 256 && RegExp(r'^[A-Za-z0-9+/=_\-\r\n]{100,}$').hasMatch(v)) {
-        final fileName = (m['fileName'] ?? m['filename'] ?? 'file').toString().trim();
-        m[key] = '[base64 file content omitted - use filename "$fileName" instead]';
+      if (v is String &&
+          v.length > 256 &&
+          RegExp(r'^[A-Za-z0-9+/=_\-\r\n]{100,}$').hasMatch(v)) {
+        final fileName = (m['fileName'] ?? m['filename'] ?? 'file')
+            .toString()
+            .trim();
+        m[key] =
+            '[base64 file content omitted - use filename "$fileName" instead]';
       }
       if (v is String && _base64DataUriPattern.hasMatch(v)) {
-        final fileName = (m['fileName'] ?? m['filename'] ?? 'file').toString().trim();
-        m[key] = '[data URI file content omitted - use filename "$fileName" instead]';
+        final fileName = (m['fileName'] ?? m['filename'] ?? 'file')
+            .toString()
+            .trim();
+        m[key] =
+            '[data URI file content omitted - use filename "$fileName" instead]';
       }
     }
     return m;
@@ -2219,7 +2541,10 @@ class ServerLlmRunner {
     if (mime.startsWith('application/octet-stream')) return true;
     if (mime.startsWith('application/zip')) return true;
     if (mime.startsWith('application/vnd.')) return true;
-    return mime.contains('spreadsheet') || mime.contains('officedocument') || mime.contains('excel') || mime.contains('pdf');
+    return mime.contains('spreadsheet') ||
+        mime.contains('officedocument') ||
+        mime.contains('excel') ||
+        mime.contains('pdf');
   }
 
   void _extractAndSaveBinaryFiles(MCPToolResult result, Directory outputDir) {
@@ -2232,17 +2557,27 @@ class ServerLlmRunner {
           final bytes = base64.decode(base64Data.trim());
           final file = File(p.join(outputDir.path, fileName.trim()));
           file.writeAsBytesSync(bytes, flush: true);
-          log.info('[LlmRunner] Saved binary tool result file: ${file.path} (${bytes.length} bytes)');
+          log.info(
+            '[LlmRunner] Saved binary tool result file: ${file.path} (${bytes.length} bytes)',
+          );
         } catch (e) {
-          log.warning('[LlmRunner] Failed to decode/write binary file $fileName: $e');
+          log.warning(
+            '[LlmRunner] Failed to decode/write binary file $fileName: $e',
+          );
         }
       }
 
       void tryAddFromJsonMap(Map<String, dynamic> m) {
-        if (m['fileName'] != null && m['mimeType'] != null && m['encoding'] == 'base64') {
+        if (m['fileName'] != null &&
+            m['mimeType'] != null &&
+            m['encoding'] == 'base64') {
           final payload = m['content'] ?? m['data'];
           if (payload != null) {
-            trySave(m['fileName'].toString(), m['mimeType'].toString(), payload.toString());
+            trySave(
+              m['fileName'].toString(),
+              m['mimeType'].toString(),
+              payload.toString(),
+            );
           }
         }
       }
@@ -2255,7 +2590,8 @@ class ServerLlmRunner {
           try {
             final decoded = jsonDecode(text);
             if (decoded is Map<String, dynamic>) {
-              if (decoded.containsKey('fileName') && !decoded.containsKey('encoding')) {
+              if (decoded.containsKey('fileName') &&
+                  !decoded.containsKey('encoding')) {
                 pendingFileName = decoded['fileName']?.toString();
               }
               tryAddFromJsonMap(decoded);
@@ -2278,7 +2614,9 @@ class ServerLlmRunner {
         }
       }
     } catch (e) {
-      log.warning('[LlmRunner] Error extracting generated files from tool result: $e');
+      log.warning(
+        '[LlmRunner] Error extracting generated files from tool result: $e',
+      );
     }
   }
 
@@ -2298,9 +2636,10 @@ class ServerLlmRunner {
   }
 
   String _buildExecutionLogSnippetFromEmbedded(
-      List<ServerEmbeddedChatMessage> history,
-      bool sawFinalResponse,
-      String finalContent) {
+    List<ServerEmbeddedChatMessage> history,
+    bool sawFinalResponse,
+    String finalContent,
+  ) {
     final execLogBuf = StringBuffer();
     for (final msg in history) {
       if (msg.role == ServerEmbeddedChatRole.system) {
@@ -2313,7 +2652,9 @@ class ServerLlmRunner {
         }
         if (msg.toolCalls.isNotEmpty) {
           for (final tc in msg.toolCalls) {
-            execLogBuf.writeln('Tool Call: ${tc.name} arguments: ${jsonEncode(tc.arguments)}');
+            execLogBuf.writeln(
+              'Tool Call: ${tc.name} arguments: ${jsonEncode(tc.arguments)}',
+            );
           }
         }
       } else if (msg.role == ServerEmbeddedChatRole.tool) {
@@ -2337,9 +2678,10 @@ class ServerLlmRunner {
   }
 
   String _buildExecutionLogSnippetFromNative(
-      List<LlmChatMessage> history,
-      bool sawFinalResponse,
-      String finalContent) {
+    List<LlmChatMessage> history,
+    bool sawFinalResponse,
+    String finalContent,
+  ) {
     final execLogBuf = StringBuffer();
     for (final msg in history) {
       if (msg.role == LlmChatRole.system) {
@@ -2352,7 +2694,9 @@ class ServerLlmRunner {
         }
         if (msg.toolCalls.isNotEmpty) {
           for (final tc in msg.toolCalls) {
-            execLogBuf.writeln('Tool Call: ${tc.name} arguments: ${jsonEncode(tc.arguments)}');
+            execLogBuf.writeln(
+              'Tool Call: ${tc.name} arguments: ${jsonEncode(tc.arguments)}',
+            );
           }
         }
       } else if (msg.role == LlmChatRole.tool) {

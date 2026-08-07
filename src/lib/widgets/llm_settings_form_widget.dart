@@ -695,23 +695,82 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                 final models = (isFetchable && _fetchedModels.isNotEmpty)
                     ? _fetchedModels
                     : (defaultModels[provider] ?? const <String>[]);
+                // Sort by model name
+                final sorted = List<String>.from(models)
+                  ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
                 if (textEditingValue.text.isEmpty) {
-                  return models;
+                  return sorted;
                 }
-                return models.where(
+                return sorted.where(
                   (m) => m.toLowerCase().contains(
                     textEditingValue.text.toLowerCase(),
                   ),
                 );
               },
+              optionsViewBuilder: (ctx, onSelected, options) {
+                final isMobile = MediaQuery.of(ctx).size.width < 600;
+                final providerLabel = provider.label;
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: isMobile ? 300 : 400,
+                        maxWidth: isMobile
+                            ? MediaQuery.of(ctx).size.width - 32
+                            : 500,
+                      ),
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (ctx, index) {
+                          final modelName = options.elementAt(index);
+                          final isMultimodal =
+                              LlmSettingsService.detectDefaultMultiModal(
+                                provider,
+                                modelName,
+                              );
+                          final price = getModelTokenPrice(
+                            providerKey: provider.configKey,
+                            model: modelName,
+                          );
+                          return InkWell(
+                            onTap: () => onSelected(modelName),
+                            child: isMobile
+                                ? _buildMobileModelOption(
+                                    modelName: modelName,
+                                    providerLabel: providerLabel,
+                                    isMultimodal: isMultimodal,
+                                    price: price,
+                                  )
+                                : _buildDesktopModelOption(
+                                    modelName: modelName,
+                                    providerLabel: providerLabel,
+                                    isMultimodal: isMultimodal,
+                                    price: price,
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
               fieldViewBuilder: (ctx, controller, focusNode, onSubmitted) {
                 if (controller.text != widget.modelController.text) {
-                  controller.value = TextEditingValue(
-                    text: widget.modelController.text,
-                    selection: TextSelection.collapsed(
-                      offset: widget.modelController.text.length,
-                    ),
-                  );
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (controller.text != widget.modelController.text) {
+                      controller.value = TextEditingValue(
+                        text: widget.modelController.text,
+                        selection: TextSelection.collapsed(
+                          offset: widget.modelController.text.length,
+                        ),
+                      );
+                    }
+                  });
                 }
                 return TextFormField(
                   controller: controller,
@@ -938,6 +997,142 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
           ],
         ],
       ],
+    );
+  }
+
+  // ── Model option builders for the Autocomplete dropdown ───────────────
+
+  Widget _buildDesktopModelOption({
+    required String modelName,
+    required String providerLabel,
+    required bool isMultimodal,
+    ModelTokenPrice? price,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  modelName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (providerLabel.isNotEmpty && providerLabel != '\u2014')
+                  Text(
+                    providerLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isMultimodal)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Tooltip(
+                    message: 'Multi-modal',
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 16,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              if (price != null)
+                Text(
+                  '\$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileModelOption({
+    required String modelName,
+    required String providerLabel,
+    required bool isMultimodal,
+    ModelTokenPrice? price,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            modelName,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              if (providerLabel.isNotEmpty && providerLabel != '\u2014')
+                Text(
+                  providerLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              if (isMultimodal) ...[
+                if (providerLabel.isNotEmpty && providerLabel != '\u2014')
+                  const SizedBox(width: 6),
+                Icon(
+                  Icons.image_outlined,
+                  size: 14,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.6),
+                ),
+              ],
+              if (price != null) ...[
+                const Spacer(),
+                Text(
+                  'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 
