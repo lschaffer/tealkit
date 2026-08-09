@@ -1059,7 +1059,8 @@ class TaskRunnerService {
         if (skill != null && skill.skillDef.trim().isNotEmpty) {
           final skillContent = skill.skillDef.trim();
           if (!prompt.contains(skillContent)) {
-            prompt = prompt.isEmpty ? skillContent : '$skillContent\n\n$prompt';
+            prompt =
+                prompt.isEmpty ? skillContent : '$prompt\n\n$skillContent';
           }
         }
       } catch (e) {

@@ -1088,6 +1088,8 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                   spacing: 6,
                   runSpacing: 4,
                   children: task.agents.map((exec) {
+                    final hasSkill =
+                        exec.skillDefId != null && exec.skillDefId!.isNotEmpty;
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -1104,13 +1106,28 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                           width: 0.8,
                         ),
                       ),
-                      child: Text(
-                        exec.name.isNotEmpty ? exec.name : 'Agent',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.teal[200] : Colors.teal[800],
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (hasSkill) ...[
+                            const Icon(
+                              Icons.auto_awesome,
+                              size: 13,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            exec.name.isNotEmpty ? exec.name : 'Agent',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isDark
+                                  ? Colors.teal[200]
+                                  : Colors.teal[800],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }).toList(),
@@ -1606,6 +1623,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                         spacing: 6,
                         runSpacing: 4,
                         children: task.agents.map((exec) {
+                          final hasSkill =
+                              exec.skillDefId != null &&
+                              exec.skillDefId!.isNotEmpty;
                           return Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -1623,15 +1643,28 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                                 width: 0.8,
                               ),
                             ),
-                            child: Text(
-                              exec.name.isNotEmpty ? exec.name : 'Agent',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: isDark
-                                    ? Colors.teal[200]
-                                    : Colors.teal[800],
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (hasSkill) ...[
+                                  const Icon(
+                                    Icons.auto_awesome,
+                                    size: 13,
+                                    color: Colors.amber,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  exec.name.isNotEmpty ? exec.name : 'Agent',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark
+                                        ? Colors.teal[200]
+                                        : Colors.teal[800],
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         }).toList(),

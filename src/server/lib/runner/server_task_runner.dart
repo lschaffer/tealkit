@@ -248,7 +248,7 @@ Output formatting: default to concise plain text unless the task specifies a spe
               : _llmSettings.model2;
         }
 
-        final systemPrompt = _buildSystemPrompt(
+        final systemPrompt = await _buildSystemPrompt(
           task,
           executor: currentExecutor,
         );
@@ -853,11 +853,35 @@ Output formatting: default to concise plain text unless the task specifies a spe
     return normalized;
   }
 
-  String _buildSystemPrompt(AgenticTask task, {TaskExecutor? executor}) {
+  Future<String> _buildSystemPrompt(
+    AgenticTask task, {
+    TaskExecutor? executor,
+  }) async {
     var prompt = (executor?.systemPrompt ?? task.systemPrompt ?? '').trim();
     if (prompt.isEmpty) {
       prompt =
           'You are a helpful AI assistant running scheduled tasks for the user.';
+    }
+
+    final skillDefId =
+        executor?.skillDefId ??
+        (task.agents.isNotEmpty ? task.agents.first.skillDefId : null);
+    if (skillDefId != null && skillDefId.isNotEmpty) {
+      try {
+        final skillMap = await _db.getSkillDef(skillDefId);
+        if (skillMap != null) {
+          final skillDefStr = skillMap['skill_def']?.toString().trim();
+          if (skillDefStr != null &&
+              skillDefStr.isNotEmpty &&
+              !prompt.contains(skillDefStr)) {
+            prompt = '$prompt\n\n$skillDefStr';
+          }
+        }
+      } catch (e) {
+        log.warning(
+          '[ServerTaskRunner] Could not load skill $skillDefId for server system prompt: $e',
+        );
+      }
     }
 
     final internalMcps = executor?.internalMcps ?? task.internalMcps;

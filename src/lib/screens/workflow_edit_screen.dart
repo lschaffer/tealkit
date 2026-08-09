@@ -279,10 +279,8 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   String get _combinedSystemPrompt {
     final user = _systemPromptUserCtrl.text.trimRight();
     final skills = _systemPromptSkillsCtrl.text.trim();
-    final activeSkillPrompt = _activeSkill?.skillContent.trim() ?? '';
     final parts = <String>[];
     if (user.isNotEmpty) parts.add(user);
-    if (activeSkillPrompt.isNotEmpty) parts.add(activeSkillPrompt);
     if (skills.isNotEmpty) parts.add(skills);
     return parts.join('\n\n');
   }
@@ -1015,6 +1013,55 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     );
 
     _loadNotificationState(exec.notification);
+    _loadSkillForExecutor(exec);
+  }
+
+  Future<void> _loadSkillForExecutor(Agent exec) async {
+    final skillId = exec.skillDefId;
+    if (skillId == null || skillId.isEmpty) {
+      if (mounted) setState(() => _activeSkill = null);
+      return;
+    }
+    try {
+      SkillDef? skill;
+      final serverClient = ref.read(serverApiClientProvider);
+      if (serverClient != null) {
+        final allRaw = await serverClient.getAllSkillDefs();
+        final match = allRaw.where(
+          (s) =>
+              s['id'] == skillId ||
+              s['name'].toString().toLowerCase() == skillId.toLowerCase(),
+        );
+        if (match.isNotEmpty) {
+          skill = SkillDef.fromJson(match.first);
+        }
+      }
+      skill ??= await SkillDefDatabaseService.instance.getSkill(skillId);
+      if (skill != null && mounted) {
+        final (mcpTypes, externalUrls) = _partitionTools(skill.toolNames);
+        setState(() {
+          _activeSkill = SkillWizardResult(
+            name: skill!.name,
+            goal: skill.goal,
+            description: skill.description,
+            skillContent: skill.skillDef,
+            selectedMcpTypes: mcpTypes,
+            selectedExternalServerUrls: externalUrls,
+            toolboxEnabled: true,
+          );
+          if (skill.skillDef.trim().isNotEmpty) {
+            final sText = skill.skillDef.trim();
+            if (_systemPromptUserCtrl.text.contains(sText)) {
+              _systemPromptUserCtrl.text = _systemPromptUserCtrl.text
+                  .replaceAll(sText, '')
+                  .trim();
+            }
+          }
+        });
+      }
+    } catch (e) {
+      log.warning('[WorkflowEdit] Failed to load skill $skillId: $e');
+    }
   }
 
   TaskNotification _buildNotificationFromUi() {
@@ -3629,8 +3676,18 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                             IconButton(
                               icon: const Icon(Icons.close, size: 18),
                               tooltip: 'Remove skill',
-                              onPressed: () =>
-                                  setState(() => _activeSkill = null),
+                              onPressed: () {
+                                setState(() {
+                                  _activeSkill = null;
+                                  if (_selectedExecutorIndex >= 0 &&
+                                      _selectedExecutorIndex <
+                                          _executors.length) {
+                                    _executors[_selectedExecutorIndex] =
+                                        _executors[_selectedExecutorIndex]
+                                            .copyWith(clearSkillDefId: true);
+                                  }
+                                });
+                              },
                             ),
                           ],
                         ),

@@ -4002,19 +4002,29 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               ? '${l.playground} - ${_activeLoadedWorkflow!.name}'
               : l.playground,
         ),
-        leading: (isModern && MediaQuery.sizeOf(context).width > 1200)
-            ? Consumer(
-                builder: (context, ref, _) {
-                  final isOpen = ref.watch(sidebarOpenProvider);
-                  return IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () {
-                      ref.read(sidebarOpenProvider.notifier).state = !isOpen;
-                    },
-                  );
-                },
-              )
-            : null,
+        leading: Builder(
+          builder: (ctx) {
+            if (Navigator.of(ctx).canPop()) {
+              return IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(ctx).pop(),
+              );
+            }
+            return Consumer(
+              builder: (context, ref, _) {
+                final isOpen = ref.watch(sidebarOpenProvider);
+                return IconButton(
+                  icon: const Icon(Icons.menu),
+                  tooltip: 'Toggle Menu',
+                  onPressed: () {
+                    ref.read(sidebarOpenProvider.notifier).state = !isOpen;
+                  },
+                );
+              },
+            );
+          },
+        ),
         actions: [
           if (isModern && MediaQuery.sizeOf(context).width >= 1000) ...[
             const GlobalAgentStatsWidget(),
@@ -4245,7 +4255,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             icon: Icons.bug_report_outlined,
             label: 'Talker Log Monitor',
             onTap: () => openTalkerScreen(context),
-            pin: true,
+            pin: false,
           ),
         ];
 
