@@ -17,6 +17,7 @@ import '../providers/data_sources_settings_provider.dart';
 import '../providers/external_tools_settings_provider.dart';
 import '../providers/llm_settings_provider.dart';
 import '../providers/server_mode_provider.dart';
+import '../services/app_logger.dart';
 import '../services/app_preferences_service.dart';
 import '../services/import_export_service.dart';
 import '../services/llm_settings_service.dart';
@@ -319,6 +320,11 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.bug_report_outlined),
+            tooltip: 'Talker Log Monitor',
+            onPressed: () => openTalkerScreen(context),
           ),
         ],
       ),

@@ -1460,6 +1460,7 @@ class TaskRunnerService {
 
     final mcpTools = executor?.mcpTools ?? task.mcpTools;
     for (final serverConfig in mcpTools) {
+      if (serverConfig.serverUrl.startsWith('capability://')) continue;
       try {
         final baseUrl = serverConfig.serverUrl.trim().replaceAll(
           RegExp(r'/+$'),

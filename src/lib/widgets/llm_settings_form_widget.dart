@@ -181,6 +181,14 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
             widget.onModelChanged?.call(list.first);
           }
         });
+
+        // Background refresh price & context size for all fetched models
+        for (final m in list) {
+          refreshModelTokenPrice(providerKey: provider.configKey, model: m).then((_) {
+            if (mounted) setState(() {});
+          });
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Successfully fetched ${list.length} models!'),
@@ -807,10 +815,8 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
             const SizedBox(height: 8),
             Row(
               children: [
-                if (provider == LlmProvider.ollama ||
-                    provider == LlmProvider.openaiCompatible ||
-                    provider == LlmProvider.openai ||
-                    provider == LlmProvider.mistral) ...[
+                if (provider != LlmProvider.none &&
+                    provider != LlmProvider.embedded) ...[
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _fetchingModels ? null : _fetchModels,
@@ -1058,14 +1064,20 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                   ),
                 ),
               if (price != null)
-                Text(
-                  '\$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.55),
+                Flexible(
+                  child: Text(
+                    price.formattedContextWindow.isNotEmpty
+                        ? '${price.formattedContextWindow} • \$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}'
+                        : '\$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
                   ),
                 ),
             ],
@@ -1107,7 +1119,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                 ),
               if (isMultimodal) ...[
                 if (providerLabel.isNotEmpty && providerLabel != '\u2014')
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                 Icon(
                   Icons.image_outlined,
                   size: 14,
@@ -1117,15 +1129,22 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                 ),
               ],
               if (price != null) ...[
-                const Spacer(),
-                Text(
-                  'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.55),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    price.formattedContextWindow.isNotEmpty
+                        ? '${price.formattedContextWindow} • in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}'
+                        : 'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontFamily: 'monospace',
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
                   ),
                 ),
               ],

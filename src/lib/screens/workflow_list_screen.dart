@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -463,6 +464,9 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                   case 'examples':
                     _browseExamples();
                     break;
+                  case 'talker_logs':
+                    openTalkerScreen(context);
+                    break;
                   case 'settings':
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -545,6 +549,16 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                   ),
                 ),
                 const PopupMenuItem(
+                  value: 'talker_logs',
+                  child: Row(
+                    children: [
+                      Icon(Icons.bug_report_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('Talker Log Monitor'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
                   value: 'export_all',
                   child: Row(
                     children: [
@@ -567,6 +581,11 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
               ],
             ),
           ] else ...[
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'Talker Log Monitor',
+              onPressed: () => openTalkerScreen(context),
+            ),
             IconButton(
               icon: const Icon(Icons.lightbulb_outline),
               tooltip: l.browseExamplesTooltip,
@@ -3373,6 +3392,25 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_all, size: 20),
+                tooltip: 'Copy log to clipboard',
+                onPressed: () {
+                  final text = _entries
+                      .map(
+                        (e) =>
+                            '[${e.timestamp.toIso8601String().substring(11, 19)}] ${e.text}${e.details != null ? '\n${e.details}' : ''}',
+                      )
+                      .join('\n');
+                  Clipboard.setData(ClipboardData(text: text));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Execution log copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
               if (!_done)
                 const SizedBox(

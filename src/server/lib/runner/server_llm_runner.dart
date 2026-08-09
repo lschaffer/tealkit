@@ -1781,6 +1781,7 @@ class ServerLlmRunner {
           maxTokens: maxTokens,
           history: history,
           mcpTools: mcpTools,
+          isRealOpenAi: baseUrl.isEmpty || baseUrl.contains('api.openai.com'),
         );
       case LlmProvider.gemini:
         return _generateGemini(
@@ -1811,6 +1812,7 @@ class ServerLlmRunner {
           history: history,
           mcpTools: mcpTools,
           httpClient: _MistralPatchClient(http.Client()),
+          isRealOpenAi: false,
         );
       case LlmProvider.mistral:
         return _generateOpenAi(
@@ -1822,6 +1824,7 @@ class ServerLlmRunner {
           history: history,
           mcpTools: mcpTools,
           httpClient: _MistralPatchClient(http.Client()),
+          isRealOpenAi: false,
         );
       default:
         throw Exception('Unsupported provider for native runner: $provider');
@@ -1837,6 +1840,7 @@ class ServerLlmRunner {
     required List<LlmChatMessage> history,
     required List<MCPTool> mcpTools,
     http.Client? httpClient,
+    bool isRealOpenAi = true,
   }) async {
     final client = openai.OpenAIClient(
       config: openai.OpenAIConfig(
@@ -1898,7 +1902,7 @@ class ServerLlmRunner {
       // agent task runs with the same system prompt benefit from OpenAI prompt
       // caching, reducing token costs by 50%+ on cached prefix tokens.
       String? promptCacheKey;
-      if (tools.isNotEmpty) {
+      if (isRealOpenAi && tools.isNotEmpty) {
         final sysMsg = history
             .firstWhere(
               (m) => m.role == LlmChatRole.system,
@@ -1917,10 +1921,10 @@ class ServerLlmRunner {
           model: model,
           messages: openAiMsgs,
           tools: tools.isNotEmpty ? tools : null,
-          temperature: temperature,
-          maxTokens: maxTokens,
-          promptCacheKey: promptCacheKey,
-          promptCacheRetention: promptCacheKey != null
+          temperature: temperature >= 0 ? temperature : 0.7,
+          maxTokens: (maxTokens != null && maxTokens > 0) ? maxTokens : null,
+          promptCacheKey: isRealOpenAi ? promptCacheKey : null,
+          promptCacheRetention: isRealOpenAi && promptCacheKey != null
               ? openai.PromptCacheRetention.h24
               : null,
         ),

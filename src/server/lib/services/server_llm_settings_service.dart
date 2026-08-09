@@ -99,11 +99,23 @@ const Map<LlmProvider, List<String>> defaultModels = {
 class ModelTokenPrice {
   final double inputPer1MUsd;
   final double outputPer1MUsd;
+  final int? contextWindow;
 
   const ModelTokenPrice({
     required this.inputPer1MUsd,
     required this.outputPer1MUsd,
+    this.contextWindow,
   });
+
+  String get formattedContextWindow {
+    if (contextWindow == null || contextWindow! <= 0) return '';
+    if (contextWindow! >= 1000000) {
+      final m = (contextWindow! / 1000000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+      return '${m}M ctx';
+    }
+    final k = (contextWindow! / 1000).round();
+    return '${k}k ctx';
+  }
 }
 
 class _CachedModelPrice {
@@ -325,9 +337,11 @@ Future<ModelTokenPrice?> _fetchOpenRouterLivePrice({
     );
     if (promptRaw == null || completionRaw == null) continue;
 
+    final contextLength = (raw['context_length'] as num?)?.toInt();
     final candidate = ModelTokenPrice(
       inputPer1MUsd: _toPer1M(promptRaw),
       outputPer1MUsd: _toPer1M(completionRaw),
+      contextWindow: contextLength,
     );
 
     if (score > bestScore) {
@@ -376,7 +390,7 @@ Future<ModelTokenPrice?> _fetchMistralLivePrice(String normalizedModel) async {
   final input = double.tryParse(match.group(1) ?? '');
   final output = double.tryParse(match.group(2) ?? '');
   if (input == null || output == null) return null;
-  return ModelTokenPrice(inputPer1MUsd: input, outputPer1MUsd: output);
+  return ModelTokenPrice(inputPer1MUsd: input, outputPer1MUsd: output, contextWindow: 128000);
 }
 
 Future<ModelTokenPrice?> refreshModelTokenPrice({
@@ -385,20 +399,27 @@ Future<ModelTokenPrice?> refreshModelTokenPrice({
 }) async {
   final normalizedProvider = providerKey.trim().toLowerCase();
   final normalizedModel = _normalizeModel(model);
-  if (normalizedProvider.isEmpty || normalizedModel.isEmpty) return null;
+  if (normalizedModel.isEmpty) return null;
+
+  final shortModel = normalizedModel.contains('/')
+      ? normalizedModel.split('/').last
+      : normalizedModel;
 
   try {
     ModelTokenPrice? fetched;
-    if (normalizedProvider != 'ollama' &&
-        normalizedProvider != 'openai_compatible' &&
-        normalizedProvider != 'embedded') {
+    if (normalizedProvider != 'ollama' && normalizedProvider != 'embedded') {
       fetched = await _fetchOpenRouterLivePrice(
         providerKey: normalizedProvider,
         normalizedModel: normalizedModel,
       );
+      fetched ??= await _fetchOpenRouterLivePrice(
+        providerKey: normalizedProvider,
+        normalizedModel: shortModel,
+      );
     }
     if (fetched == null && normalizedProvider == 'mistral') {
-      fetched = await _fetchMistralLivePrice(normalizedModel);
+      fetched = await _fetchMistralLivePrice(normalizedModel) ??
+          await _fetchMistralLivePrice(shortModel);
     }
     if (fetched != null) {
       _cacheLivePrice(
@@ -406,6 +427,13 @@ Future<ModelTokenPrice?> refreshModelTokenPrice({
         model: normalizedModel,
         price: fetched,
       );
+      if (shortModel != normalizedModel) {
+        _cacheLivePrice(
+          providerKey: normalizedProvider,
+          model: shortModel,
+          price: fetched,
+        );
+      }
       return fetched;
     }
   } catch (e) {
@@ -426,16 +454,54 @@ ModelTokenPrice? getModelTokenPrice({
 }) {
   final np = providerKey.trim().toLowerCase();
   final nm = _normalizeModel(model);
-  final cachedLive = _getCachedLivePrice(providerKey: np, model: nm);
+  if (nm.isEmpty) return null;
+
+  var cachedLive = _getCachedLivePrice(providerKey: np, model: nm);
   if (cachedLive != null) return cachedLive.price;
-  final map = _modelPricingByProvider[np];
-  if (map == null) return null;
-  final direct = map[nm];
-  if (direct != null) return direct;
-  if (nm.endsWith('-latest')) {
-    return map[nm.substring(0, nm.length - '-latest'.length)];
+
+  final shortModel = nm.contains('/') ? nm.split('/').last : nm;
+  if (shortModel != nm) {
+    cachedLive = _getCachedLivePrice(providerKey: np, model: shortModel);
+    if (cachedLive != null) return cachedLive.price;
   }
-  return map['$nm-latest'];
+
+  for (final entry in _liveModelPricingCache.entries) {
+    final keyParts = entry.key.split(':');
+    if (keyParts.length == 2) {
+      final cachedModel = keyParts[1];
+      final cachedShort = cachedModel.contains('/')
+          ? cachedModel.split('/').last
+          : cachedModel;
+      if (cachedModel == nm ||
+          cachedShort == shortModel ||
+          cachedModel.endsWith('/$shortModel') ||
+          shortModel.endsWith('/$cachedModel')) {
+        if (DateTime.now().difference(entry.value.fetchedAt) <= _livePriceTtl) {
+          return entry.value.price;
+        }
+      }
+    }
+  }
+
+  final map = _modelPricingByProvider[np];
+  if (map != null) {
+    final direct = map[nm] ?? map[shortModel];
+    if (direct != null) return direct;
+  }
+
+  final baseName = shortModel.endsWith('-latest')
+      ? shortModel.substring(0, shortModel.length - '-latest'.length)
+      : shortModel;
+
+  for (final providerMap in _modelPricingByProvider.values) {
+    final found = providerMap[baseName] ??
+        providerMap['$baseName-latest'] ??
+        providerMap[nm] ??
+        providerMap[shortModel];
+    if (found != null) return found;
+  }
+
+  return null;
 }
 
 double estimateTokenCostUsd({

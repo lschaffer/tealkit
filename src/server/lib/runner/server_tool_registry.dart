@@ -140,6 +140,22 @@ class ServerToolRegistry {
     // External MCP tools configured on the task (HTTP endpoints)
     for (final cfg in mcpTools) {
       if (cfg.serverUrl.isEmpty) continue;
+      if (cfg.serverUrl.startsWith('capability://')) {
+        final capName = cfg.serverUrl.substring('capability://'.length).trim();
+        if (capName.isNotEmpty) {
+          log.info('[ToolRegistry] Converting capability URL ${cfg.serverUrl} -> internal MCP $capName');
+          await _connectInternalMcp(
+            InternalMcpEntry(
+              id: 'capability_$capName',
+              mcpType: capName,
+              enabled: true,
+            ),
+            githubById: githubById,
+            connectedGithubServerIds: connectedGithubServerIds,
+          );
+        }
+        continue;
+      }
       try {
         final baseUrl = cfg.serverUrl.trim().replaceAll(RegExp(r'/+$'), '');
         var endpoint = (cfg.mcpEndpoint ?? '/mcp').trim();
@@ -400,6 +416,13 @@ class ServerToolRegistry {
     );
     switch (server.installType.toLowerCase()) {
       case 'uvx':
+        final pkgLower = server.packageName.toLowerCase();
+        if (pkgLower == 'mcp-server-fetch' || pkgLower.contains('fetch')) {
+          return (
+            'uvx',
+            ['--with', 'mcp<1.3.0', server.packageName, ...expandedLaunchArgs],
+          );
+        }
         return ('uvx', [server.packageName, ...expandedLaunchArgs]);
       case 'npm':
         return ('npx', ['-y', server.packageName, ...expandedLaunchArgs]);

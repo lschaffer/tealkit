@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Step;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/app_logger.dart';
 import '../services/app_preferences_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1500,7 +1501,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                                         if (price != null) ...[
                                           const Spacer(),
                                           Text(
-                                            'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                                            price.formattedContextWindow.isNotEmpty
+                                                ? '${price.formattedContextWindow} • in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}'
+                                                : 'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontFamily: 'monospace',
@@ -4238,6 +4241,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               },
               pin: false,
             ),
+          (
+            icon: Icons.bug_report_outlined,
+            label: 'Talker Log Monitor',
+            onTap: () => openTalkerScreen(context),
+            pin: true,
+          ),
         ];
 
     if (isWide) {

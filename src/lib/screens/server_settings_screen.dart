@@ -6,6 +6,7 @@ import '../config/app_theme.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/database_providers.dart';
 import '../providers/server_mode_provider.dart';
+import '../services/app_logger.dart';
 import '../services/server_api_client.dart';
 import '../services/server_sync_service.dart';
 
@@ -249,7 +250,16 @@ class _ServerSettingsScreenState extends ConsumerState<ServerSettingsScreen> {
     final modeAsync = ref.watch(serverModeProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.serverSettingsTitle)),
+      appBar: AppBar(
+        title: Text(l10n.serverSettingsTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report_outlined),
+            tooltip: 'Talker Log Monitor',
+            onPressed: () => openTalkerScreen(context),
+          ),
+        ],
+      ),
       body: modeAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(l10n.serverSettingsError(e.toString()))),

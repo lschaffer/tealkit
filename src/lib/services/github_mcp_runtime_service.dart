@@ -204,13 +204,28 @@ class GithubMcpRuntimeService {
     if (baseEnv != null) {
       env.addAll(baseEnv);
     }
-    if (Platform.isWindows) return env;
+
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
+    final userLocalBin = home.isNotEmpty ? p.join(home, '.local', 'bin') : '';
+
+    if (Platform.isWindows) {
+      if (userLocalBin.isNotEmpty) {
+        final currentPath = env['PATH'] ?? '';
+        final List<String> paths = currentPath.split(';').where((p) => p.isNotEmpty).toList();
+        if (!paths.contains(userLocalBin)) {
+          paths.insert(0, userLocalBin);
+          env['PATH'] = paths.join(';');
+        }
+      }
+      return env;
+    }
 
     final currentPath = env['PATH'] ?? '';
     final List<String> paths = currentPath.split(':').where((p) => p.isNotEmpty).toList();
 
     // Add common tool locations if not already present
-    const standardPaths = [
+    final standardPaths = [
+      if (userLocalBin.isNotEmpty) userLocalBin,
       '/opt/homebrew/bin',
       '/usr/local/bin',
       '/usr/bin',
@@ -218,9 +233,9 @@ class GithubMcpRuntimeService {
       '/usr/sbin',
       '/sbin',
     ];
-    for (final p in standardPaths) {
-      if (!paths.contains(p)) {
-        paths.add(p);
+    for (final pth in standardPaths) {
+      if (!paths.contains(pth)) {
+        paths.add(pth);
       }
     }
 
@@ -393,9 +408,11 @@ class GithubMcpRuntimeService {
     onProgress?.call(GhMcpInstallProgress(GhMcpInstallStep.installing, 'Installing ${def.packageName} via uv tool...'));
 
     try {
+      final isFetchPkg = def.packageName == 'mcp-server-fetch' || def.packageName.contains('mcp-server-fetch');
+      final args = ['tool', 'install', '--force', def.packageName, if (isFetchPkg) ...['--with', 'mcp<1.3.0']];
       final result = await Process.run(
         uv,
-        ['tool', 'install', def.packageName],
+        args,
         stdoutEncoding: utf8,
         stderrEncoding: utf8,
         environment: _augmentedEnv(extraPath: p.isAbsolute(uv) ? p.dirname(uv) : null),
@@ -667,8 +684,27 @@ class GithubMcpRuntimeService {
       } catch (e) {
         log.warning('[GhMcpRuntime] npm uninstall threw: $e');
       }
+    } else if (def.installType == 'uvx') {
+      try {
+        final uv = await detectUvTool();
+        if (uv != null) {
+          final result = await Process.run(
+            uv,
+            ['tool', 'uninstall', def.packageName],
+            stdoutEncoding: utf8,
+            stderrEncoding: utf8,
+            environment: _augmentedEnv(extraPath: p.isAbsolute(uv) ? p.dirname(uv) : null),
+          );
+          if (result.exitCode != 0) {
+            log.warning('[GhMcpRuntime] uv tool uninstall failed: ${_sanitizeOutput(result.stderr as String)}');
+          } else {
+            log.info('[GhMcpRuntime] uv tool uninstall done: ${def.packageName}');
+          }
+        }
+      } catch (e) {
+        log.warning('[GhMcpRuntime] uv tool uninstall threw: $e');
+      }
     }
-    // For uvx and npx/nodejs we don't remove the cache — user can clear manually.
     await GithubMcpLibraryService.instance.delete(def.id);
     log.info('[GhMcpRuntime] Uninstalled: ${def.packageName}');
   }

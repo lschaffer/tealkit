@@ -103,11 +103,23 @@ const Map<LlmProvider, List<String>> defaultModels = {
 class ModelTokenPrice {
   final double inputPer1MUsd;
   final double outputPer1MUsd;
+  final int? contextWindow;
 
   const ModelTokenPrice({
     required this.inputPer1MUsd,
     required this.outputPer1MUsd,
+    this.contextWindow,
   });
+
+  String get formattedContextWindow {
+    if (contextWindow == null || contextWindow! <= 0) return '';
+    if (contextWindow! >= 1000000) {
+      final m = (contextWindow! / 1000000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+      return '${m}M ctx';
+    }
+    final k = (contextWindow! / 1000).round();
+    return '${k}k ctx';
+  }
 }
 
 class _CachedModelPrice {
@@ -134,38 +146,44 @@ const Map<String, Map<String, ModelTokenPrice>> _modelPricingByProvider = {
     'gemini-2.5-flash': ModelTokenPrice(
       inputPer1MUsd: 0.15,
       outputPer1MUsd: 0.60,
+      contextWindow: 1048576,
+    ),
+    'gemini-2.5-pro': ModelTokenPrice(
+      inputPer1MUsd: 1.25,
+      outputPer1MUsd: 5.00,
+      contextWindow: 2097152,
     ),
   },
   'mistral': {
     'mistral-large-latest': ModelTokenPrice(
       inputPer1MUsd: 0.50,
       outputPer1MUsd: 1.50,
+      contextWindow: 128000,
     ),
-    'mistral-large': ModelTokenPrice(inputPer1MUsd: 0.50, outputPer1MUsd: 1.50),
-    'mistral-large-2512': ModelTokenPrice(
+    'mistral-large': ModelTokenPrice(
       inputPer1MUsd: 0.50,
       outputPer1MUsd: 1.50,
+      contextWindow: 128000,
     ),
     'mistral-medium-latest': ModelTokenPrice(
       inputPer1MUsd: 0.40,
       outputPer1MUsd: 2.00,
+      contextWindow: 32768,
     ),
     'mistral-medium': ModelTokenPrice(
       inputPer1MUsd: 0.40,
       outputPer1MUsd: 2.00,
-    ),
-    'mistral-medium-2508': ModelTokenPrice(
-      inputPer1MUsd: 0.40,
-      outputPer1MUsd: 2.00,
+      contextWindow: 32768,
     ),
     'mistral-small-latest': ModelTokenPrice(
       inputPer1MUsd: 0.10,
       outputPer1MUsd: 0.30,
+      contextWindow: 32768,
     ),
-    'mistral-small': ModelTokenPrice(inputPer1MUsd: 0.10, outputPer1MUsd: 0.30),
-    'mistral-small-2506': ModelTokenPrice(
+    'mistral-small': ModelTokenPrice(
       inputPer1MUsd: 0.10,
       outputPer1MUsd: 0.30,
+      contextWindow: 32768,
     ),
   },
 };
@@ -206,6 +224,16 @@ void _cacheLivePrice({
   );
 
   final normalizedModel = _normalizeModelName(model);
+  if (normalizedModel.contains('/')) {
+    final shortModel = normalizedModel.split('/').last;
+    final shortKey = _priceCacheKey(providerKey: providerKey, model: shortModel);
+    _liveModelPricingCache[shortKey] = _CachedModelPrice(
+      price: price,
+      fetchedAt: now,
+      isLive: isLive,
+    );
+  }
+
   if (normalizedModel.endsWith('-latest')) {
     final withoutLatest = normalizedModel.substring(
       0,
@@ -356,9 +384,11 @@ Future<ModelTokenPrice?> _fetchOpenRouterLivePrice({
     );
     if (promptRaw == null || completionRaw == null) continue;
 
+    final contextLength = (raw['context_length'] as num?)?.toInt();
     final candidate = ModelTokenPrice(
       inputPer1MUsd: _toPer1M(promptRaw),
       outputPer1MUsd: _toPer1M(completionRaw),
+      contextWindow: contextLength,
     );
 
     if (score > bestScore) {
@@ -407,7 +437,7 @@ Future<ModelTokenPrice?> _fetchMistralLivePrice(String normalizedModel) async {
   final input = double.tryParse(match.group(1) ?? '');
   final output = double.tryParse(match.group(2) ?? '');
   if (input == null || output == null) return null;
-  return ModelTokenPrice(inputPer1MUsd: input, outputPer1MUsd: output);
+  return ModelTokenPrice(inputPer1MUsd: input, outputPer1MUsd: output, contextWindow: 128000);
 }
 
 Future<ModelTokenPrice?> refreshModelTokenPrice({
@@ -416,19 +446,27 @@ Future<ModelTokenPrice?> refreshModelTokenPrice({
 }) async {
   final normalizedProvider = providerKey.trim().toLowerCase();
   final normalizedModel = _normalizeModelName(model);
-  if (normalizedProvider.isEmpty || normalizedModel.isEmpty) return null;
+  if (normalizedModel.isEmpty) return null;
+
+  final shortModel = normalizedModel.contains('/')
+      ? normalizedModel.split('/').last
+      : normalizedModel;
 
   try {
     ModelTokenPrice? fetched;
-    if (normalizedProvider != 'ollama' &&
-        normalizedProvider != 'openai_compatible') {
+    if (normalizedProvider != 'ollama') {
       fetched = await _fetchOpenRouterLivePrice(
         providerKey: normalizedProvider,
         normalizedModel: normalizedModel,
       );
+      fetched ??= await _fetchOpenRouterLivePrice(
+        providerKey: normalizedProvider,
+        normalizedModel: shortModel,
+      );
     }
     if (fetched == null && normalizedProvider == 'mistral') {
-      fetched = await _fetchMistralLivePrice(normalizedModel);
+      fetched = await _fetchMistralLivePrice(normalizedModel) ??
+          await _fetchMistralLivePrice(shortModel);
     }
     if (fetched != null) {
       _cacheLivePrice(
@@ -437,6 +475,14 @@ Future<ModelTokenPrice?> refreshModelTokenPrice({
         price: fetched,
         isLive: true,
       );
+      if (shortModel != normalizedModel) {
+        _cacheLivePrice(
+          providerKey: normalizedProvider,
+          model: shortModel,
+          price: fetched,
+          isLive: true,
+        );
+      }
       return fetched;
     }
   } catch (e) {
@@ -457,32 +503,65 @@ ModelTokenPrice? getModelTokenPrice({
 }) {
   final normalizedProvider = providerKey.trim().toLowerCase();
   final normalizedModel = _normalizeModelName(model);
+  if (normalizedModel.isEmpty) return null;
 
-  final cachedLive = _getCachedLivePrice(
+  // 1. Direct cached lookup
+  var cachedLive = _getCachedLivePrice(
     providerKey: normalizedProvider,
     model: normalizedModel,
   );
   if (cachedLive != null) return cachedLive.price;
 
-  final providerModels = _modelPricingByProvider[normalizedProvider];
-  if (providerModels == null) return null;
+  // 2. Short name lookup (strip provider slug like Qwen/Qwen3.8-Max -> qwen3.8-max)
+  final shortModel = normalizedModel.contains('/')
+      ? normalizedModel.split('/').last
+      : normalizedModel;
 
-  final direct = providerModels[normalizedModel];
-  if (direct != null) return direct;
-
-  // Model IDs change over time (e.g. adding/removing "-latest").
-  // Try common aliases before giving up.
-  if (normalizedModel.endsWith('-latest')) {
-    final withoutLatest = normalizedModel.substring(
-      0,
-      normalizedModel.length - '-latest'.length,
+  if (shortModel != normalizedModel) {
+    cachedLive = _getCachedLivePrice(
+      providerKey: normalizedProvider,
+      model: shortModel,
     );
-    final alias = providerModels[withoutLatest];
-    if (alias != null) return alias;
-  } else {
-    final withLatest = '$normalizedModel-latest';
-    final alias = providerModels[withLatest];
-    if (alias != null) return alias;
+    if (cachedLive != null) return cachedLive.price;
+  }
+
+  // 3. Search cached entries across all keys for case-insensitive or slug matches
+  for (final entry in _liveModelPricingCache.entries) {
+    final keyParts = entry.key.split(':');
+    if (keyParts.length == 2) {
+      final cachedModel = keyParts[1];
+      final cachedShort = cachedModel.contains('/')
+          ? cachedModel.split('/').last
+          : cachedModel;
+      if (cachedModel == normalizedModel ||
+          cachedShort == shortModel ||
+          cachedModel.endsWith('/$shortModel') ||
+          shortModel.endsWith('/$cachedModel')) {
+        if (DateTime.now().difference(entry.value.fetchedAt) <= _livePriceTtl) {
+          return entry.value.price;
+        }
+      }
+    }
+  }
+
+  // 4. Hardcoded static pricing dictionary lookups
+  final providerModels = _modelPricingByProvider[normalizedProvider];
+  if (providerModels != null) {
+    final direct = providerModels[normalizedModel] ?? providerModels[shortModel];
+    if (direct != null) return direct;
+  }
+
+  // 5. Cross-provider fallback for common models
+  final baseName = shortModel.endsWith('-latest')
+      ? shortModel.substring(0, shortModel.length - '-latest'.length)
+      : shortModel;
+
+  for (final providerMap in _modelPricingByProvider.values) {
+    final found = providerMap[baseName] ??
+        providerMap['$baseName-latest'] ??
+        providerMap[normalizedModel] ??
+        providerMap[shortModel];
+    if (found != null) return found;
   }
 
   return null;

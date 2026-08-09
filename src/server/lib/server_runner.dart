@@ -3715,10 +3715,12 @@ Future<Response> _handleInstallRegistry(Request request) async {
     ProcessResult result;
 
     if (installType == 'uvx') {
-      logs.add('Running: uv tool install ${def.packageName}');
+      final isFetchPkg = def.packageName == 'mcp-server-fetch' || def.packageName.contains('mcp-server-fetch');
+      final args = ['tool', 'install', '--force', def.packageName, if (isFetchPkg) ...['--with', 'mcp<1.3.0']];
+      logs.add('Running: uv ${args.join(' ')}');
       result = await Process.run(
         'uv',
-        ['tool', 'install', def.packageName],
+        args,
         stdoutEncoding: utf8,
         stderrEncoding: utf8,
         runInShell: false,

@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import '../database/task_database_service_duckdb.dart';
 import '../models/workflow_task.dart';
 import '../models/mcp_models.dart';
+import '../models/skill_def.dart';
+import 'skill_def_database_service.dart';
 import 'app_logger.dart';
 import 'external_tools_settings_service.dart';
 import 'js_tool_library_service.dart';
@@ -70,6 +72,7 @@ class ImportExportService {
         'catalog_base_url': externalService.catalogBaseUrl,
         'scripts': ScriptLibraryService.instance.exportToJson(),
         'js_tools': JsToolLibraryService.instance.exportToJson(),
+        'skills': (await SkillDefDatabaseService.instance.getAllSkills()).map((s) => _sanitize(s.toJson())).toList(),
       };
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(exportPayload);
@@ -216,6 +219,23 @@ class ImportExportService {
         final count = await svc.importFromJson(rawJsTools.whereType<Map<String, dynamic>>().toList());
         importedJsTools = count;
         log.info('[Import] Imported $importedJsTools JS tools');
+      }
+
+      // ── 7. Import Skills ───────────────────────────────────────────────
+      int importedSkills = 0;
+      final rawSkillDefs = json['skills'] ?? json['skill_defs'];
+      if (rawSkillDefs is List) {
+        for (final rawSkill in rawSkillDefs) {
+          if (rawSkill is! Map<String, dynamic>) continue;
+          try {
+            final skill = SkillDef.fromJson(rawSkill);
+            await SkillDefDatabaseService.instance.saveSkill(skill);
+            importedSkills++;
+          } catch (e) {
+            log.warning('[Import] Skipped skill: $e');
+          }
+        }
+        log.info('[Import] Imported $importedSkills skills');
       }
 
       return ImportResult.success(

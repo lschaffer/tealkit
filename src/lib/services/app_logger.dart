@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 /// Raw [Talker] instance – used by [TalkerScreen] for the in-app log viewer.
@@ -7,6 +8,22 @@ final Talker talkerInstance = TalkerFlutter.init(
   settings: TalkerSettings(useConsoleLogs: !kReleaseMode, useHistory: true, maxHistoryItems: kReleaseMode ? 150 : 500),
   logger: TalkerLogger(output: debugPrint, settings: TalkerLoggerSettings(maxLineWidth: 120)),
 );
+
+/// Opens the interactive Talker log monitor screen.
+void openTalkerScreen(BuildContext context) {
+  final theme = Theme.of(context);
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => TalkerScreen(
+        talker: talkerInstance,
+        theme: TalkerScreenTheme(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          cardColor: theme.cardColor,
+        ),
+      ),
+    ),
+  );
+}
 
 /// Filtered log proxy.
 ///

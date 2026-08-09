@@ -1935,7 +1935,7 @@ class _ServerCardState extends ConsumerState<_ServerCard> {
                           icon: _buildingSkills
                               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.psychology_outlined, size: 16),
-                          label: Text(_buildingSkills ? 'Building...' : 'Build skills'),
+                          label: Text(_buildingSkills ? 'Building...' : 'Build hints'),
                           onPressed: (_buildingSkills || _discovering) ? null : _buildSkills,
                         ),
                       ],
@@ -4034,7 +4034,7 @@ class _MyServerCardState extends ConsumerState<_MyServerCard> {
                     icon: _buildingSkills
                         ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.psychology_outlined, size: 16),
-                    label: Text(_buildingSkills ? 'Building…' : 'Build skills'),
+                    label: Text(_buildingSkills ? 'Building…' : 'Build hints'),
                     onPressed: (_buildingSkills || _discovering) ? null : _buildSkills,
                   ),
                 ],

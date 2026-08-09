@@ -26,7 +26,9 @@ import 'local_shell_script_service.dart';
 import 'playground_sessions_service.dart';
 import 'powershell_script_service.dart';
 import 'shell_script_service.dart';
+import '../models/skill_def.dart';
 import 'function_hint_database_service.dart';
+import 'skill_def_database_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TealKit Settings Vault
@@ -464,6 +466,20 @@ class SettingsVaultService {
 
     if (options.includeSkills) {
       payload['skills'] = await FunctionHintDatabaseService().exportToJson();
+      try {
+        final List<SkillDef> skillDefs;
+        if (serverClient != null) {
+          final raw = await serverClient.getAllSkillDefs();
+          skillDefs = raw.map((j) => SkillDef.fromJson(j)).toList();
+          log.info('[SettingsVault] Exported ${skillDefs.length} SkillDef entries from remote server.');
+        } else {
+          skillDefs = await SkillDefDatabaseService.instance.getAllSkills();
+          log.info('[SettingsVault] Exported ${skillDefs.length} SkillDef entries from local database.');
+        }
+        payload['skill_defs'] = skillDefs.map((s) => s.toJson()).toList();
+      } catch (e) {
+        log.warning('[SettingsVault] Could not fetch SkillDef entries for export: $e');
+      }
     }
 
     // Always include embedded model metadata (not files) when configuration is exported.
@@ -788,6 +804,28 @@ class SettingsVaultService {
         final records = rawSkills.whereType<Map<String, dynamic>>().toList();
         await FunctionHintDatabaseService().importFromJson(records);
         log.info('[SettingsVault] Restored ${records.length} Tool Hints.');
+      }
+
+      // Restore AgentSkills.io skill definitions (if present in payload; ignore if older vault)
+      final rawSkillDefs = data['skill_defs'] as List<dynamic>?;
+      if (rawSkillDefs != null) {
+        int restoredCount = 0;
+        for (final item in rawSkillDefs) {
+          if (item is Map<String, dynamic>) {
+            try {
+              final skill = SkillDef.fromJson(item);
+              if (serverClient != null) {
+                await serverClient.saveSkillDef(skill.toJson());
+              } else {
+                await SkillDefDatabaseService.instance.saveSkill(skill);
+              }
+              restoredCount++;
+            } catch (e) {
+              log.warning('[SettingsVault] Skipped SkillDef entry: $e');
+            }
+          }
+        }
+        log.info('[SettingsVault] Restored $restoredCount SkillDef entries (${serverClient != null ? 'remote server' : 'local'}).');
       }
     }
 

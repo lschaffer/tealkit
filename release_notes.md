@@ -2,6 +2,24 @@
 
 This file tracks release changes by version.
 
+## v1.6.1 / v1.0.191 - Settings Vault Skills, Talker Monitor & Layout Fixes
+
+### New Features & Enhancements
+- **Settings Vault Skills Export & Import**: Added full support for AgentSkills.io skill definitions (`SkillDef`) alongside Tool Hints (`FunctionHint`) under the selectable **Skills** checkbox (`includeSkills`) in the Settings Vault.
+  - **Local & Server Mode Support**: Seamlessly exports and restores skills directly from the remote server endpoint in Server Mode, or from the local DuckDB database in Local Mode.
+  - **Backward Compatibility**: Fully compatible with older `.tkv` vault files without a skills section, which are safely ignored during import.
+- **Interactive Talker Log Monitor**: Added direct access to the live `TalkerScreen` log monitor with a dedicated bug report icon (`Icons.bug_report_outlined`) across all major app screens:
+  - **Workflow List Screen**: Accessible via the AppBar actions (desktop) and mobile overflow popup menu.
+  - **Playground Screen**: Accessible directly from the main toolbar action bar.
+  - **Server Settings & Startup Wizard**: Integrated into the top AppBar action bar for instant debugging.
+- **Standard Backup Skills Interoperability**: Updated standard JSON backup export (`exportSettings()` / `importSettings()`) to include `SkillDef` entries so all custom skills are preserved across standard backup/restore operations.
+
+### Bug Fixes & Improvements
+- **OpenAI-Compatible / DeepInfra `maxTokens: 0` Fix**: Fixed an `UnprocessableEntityException: Input should be greater than 0` error on OpenAI-compatible API providers (like DeepInfra) when tasks passed `maxTokens: 0`. Max tokens is now automatically normalized to `null` (omitted from the request payload) when non-positive.
+- **`mcp-server-fetch` stdio Launch Fix**: Resolved an `ImportError: cannot import name 'McpError' from 'mcp.shared.exceptions'` error when launching stdio MCP servers via `uvx`. Automatically injects `--with mcp<1.3.0` into `uvx` executions for fetch MCP packages, ensuring `uvx` always uses `mcp<1.3.0` without requiring manual re-installation.
+- **Model Option Layout Overflow Fix**: Fixed a right layout overflow issue (`RIGHT OVERFLOWED BY 38 PIXELS`) in the model Autocomplete dropdown option cards for long model name and pricing strings by wrapping price text in `Expanded`/`Flexible` containers with single-line text truncation.
+- **UI Nomenclature**: Renamed the MCP server card button from `Build skills` to `Build hints`.
+
 ## v1.6.0 / v1.0.186 - LLM SDK Upgrades & Prompt Caching
 
 ### Improvements

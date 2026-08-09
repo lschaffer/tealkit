@@ -6264,6 +6264,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           initialValue: enumValues.contains(currentVal)
               ? currentVal
               : enumValues.first.toString(),
+          isExpanded: true,
           decoration: InputDecoration(
             labelText: friendlyLabel,
             helperText: description,
@@ -6288,7 +6289,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             };
             return DropdownMenuItem(
               value: val,
-              child: Text(label, style: const TextStyle(fontSize: 13)),
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             );
           }).toList(),
           onChanged: (value) {
