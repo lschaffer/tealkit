@@ -3202,6 +3202,77 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           children: [
             _buildSystemPromptSection(),
             const SizedBox(height: 12),
+            if (_activeSkill != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Card(
+                        color: Colors.amber.withAlpha(25),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(
+                            color: Colors.amber.withAlpha(80),
+                          ),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => _showSkillContentDialog(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  color: Colors.amber,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Skill: ${_activeSkill!.name}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.visibility_outlined,
+                                  size: 18,
+                                  color: Colors.amber,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: 'Remove skill',
+                      onPressed: () {
+                        setState(() {
+                          _activeSkill = null;
+                          if (_selectedExecutorIndex >= 0 &&
+                              _selectedExecutorIndex < _executors.length) {
+                            _executors[_selectedExecutorIndex] =
+                                _executors[_selectedExecutorIndex]
+                                    .copyWith(clearSkillDefId: true);
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -3214,6 +3285,70 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                       ),
                     ),
                     const Text(' *', style: TextStyle(color: Colors.red)),
+                    const SizedBox(width: 12),
+                    Tooltip(
+                      message: 'KI-Assistent: Prompt generieren',
+                      child: InkWell(
+                        onTap: () => _showPromptWizardDialog(
+                          context,
+                          _promptCtrl,
+                          isSystemPrompt: false,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 16,
+                                color: AppTheme.primaryBlue,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'KI-Assistent',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.primaryBlue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'Save as Skill',
+                      child: InkWell(
+                        onTap: () => _showAgentSkillWizard(),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 16,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Skill',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -3236,16 +3371,6 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                       label: const Text('Testen'),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _showAgentSkillWizard,
-                      icon: const Icon(Icons.auto_awesome, size: 18),
-                      label: const Text('Save as Skill'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
                       ),
                     ),
                   ],
