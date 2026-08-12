@@ -32,6 +32,7 @@ import '../services/external_tools_settings_service.dart';
 import '../services/github_mcp_library_service.dart';
 import '../services/github_mcp_runtime_service.dart';
 import '../services/workflow_export_service.dart';
+import '../services/skill_def_database_service.dart';
 import '../services/llm_settings_service.dart';
 import '../services/embedded_llm/embedded_model_manager.dart';
 
@@ -698,6 +699,89 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   Future<void> _initFromTask(WorkflowTask task) async {
     _activeLoadedWorkflow = task;
+    // Restore _activeSkill chip when loading a workflow/skill
+    try {
+      SkillDef? skill;
+      // 1. Check if any agent in the workflow task has a skillDefId
+      final skillId = task.agents
+          .map((a) => a.skillDefId)
+          .firstWhere((id) => id != null && id.isNotEmpty, orElse: () => null);
+
+      final client = ref.read(serverApiClientProvider);
+
+      if (skillId != null && skillId.isNotEmpty) {
+        if (client != null) {
+          try {
+            final allRaw = await client.getAllSkillDefs();
+            final match = allRaw.where(
+              (s) =>
+                  s['id'] == skillId ||
+                  s['name'].toString().toLowerCase() == skillId.toLowerCase(),
+            );
+            if (match.isNotEmpty) {
+              skill = SkillDef.fromJson(match.first);
+            }
+          } catch (_) {}
+        }
+        skill ??= await SkillDefDatabaseService.instance.getSkill(skillId);
+      }
+
+      // 2. If no skillDefId or not found by ID, search all skills by name matching task.name or agent.name
+      if (skill == null) {
+        final List<SkillDef> allSkills;
+        if (client != null) {
+          final raw = await client.getAllSkillDefs();
+          allSkills = raw.map((j) => SkillDef.fromJson(j)).toList();
+        } else {
+          allSkills = await SkillDefDatabaseService.instance.getAllSkills();
+        }
+
+        final taskCleanName = WorkflowExportService.sanitizeSkillName(task.name)
+            .toLowerCase();
+        skill = allSkills.firstWhere(
+          (s) {
+            final sCleanName = WorkflowExportService.sanitizeSkillName(s.name)
+                .toLowerCase();
+            if (sCleanName == taskCleanName ||
+                s.name.trim().toLowerCase() == task.name.trim().toLowerCase()) {
+              return true;
+            }
+            // Check if any agent name matches
+            return task.agents.any((a) {
+              final aClean = WorkflowExportService.sanitizeSkillName(a.name)
+                  .toLowerCase();
+              return sCleanName == aClean ||
+                  s.name.trim().toLowerCase() == a.name.trim().toLowerCase();
+            });
+          },
+          orElse: () => SkillDef(
+            id: '',
+            name: '',
+            skillDef: '',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+        if (skill.id.isEmpty) skill = null;
+      }
+
+      if (skill != null) {
+        final (mcpTypes, externalUrls) = _partitionTools(skill.toolNames);
+        _activeSkill = SkillWizardResult(
+          name: skill.name,
+          goal: skill.goal,
+          description: skill.description,
+          skillContent: skill.skillDef,
+          selectedMcpTypes: mcpTypes,
+          selectedExternalServerUrls: externalUrls,
+          toolboxEnabled: true,
+        );
+      } else {
+        _activeSkill = null;
+      }
+    } catch (_) {
+      _activeSkill = null;
+    }
     _loadSystemPrompt(task.systemPrompt ?? '');
     _initialPromptCtrl.text = task.prompt;
     if (task.internalMcps.isNotEmpty) {
@@ -851,11 +935,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
 
     if (requiredMcpTypes.isNotEmpty) {
-      // Check which tools are already enabled
+      // Check which tools were missing prior to auto-preselecting for display in dialog
       final enabledTypes = Set<String>.from(_selectedMcpTypes);
       final missingTypes = requiredMcpTypes
           .where((t) => !enabledTypes.contains(t))
           .toList();
+
+      // Pre-select required tools so they are pre-selected with the tools
+      _selectedMcpTypes.addAll(requiredMcpTypes);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -914,58 +1001,66 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             title: Text(loc.toolWarning),
             content: SizedBox(
               width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'This skill requires the following capabilities:',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  ...allRequired.map((type) {
-                    final isMissing = missingTypes.contains(type);
-                    return CheckboxListTile(
-                      value: !isMissing || toEnable.contains(type),
-                      onChanged: isMissing
-                          ? (v) {
-                              setDialogState(() {
-                                if (v == true) {
-                                  toEnable.add(type);
-                                } else {
-                                  toEnable.remove(type);
-                                }
-                              });
-                            }
-                          : null,
-                      title: Text(labelFor(type)),
-                      subtitle: Text(
-                        isMissing ? 'Not currently enabled' : 'Already enabled',
-                        style: TextStyle(
-                          color: isMissing ? Colors.orange : Colors.green,
-                          fontSize: 12,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'This skill requires the following capabilities:',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    ...allRequired.map((type) {
+                      final isMissing = missingTypes.contains(type);
+                      return CheckboxListTile(
+                        value: !isMissing || toEnable.contains(type),
+                        onChanged: isMissing
+                            ? (v) {
+                                setDialogState(() {
+                                  if (v == true) {
+                                    toEnable.add(type);
+                                  } else {
+                                    toEnable.remove(type);
+                                  }
+                                });
+                              }
+                            : null,
+                        title: Text(labelFor(type)),
+                        subtitle: Text(
+                          isMissing ? 'Not currently enabled' : 'Already enabled',
+                          style: TextStyle(
+                            color: isMissing ? Colors.orange : Colors.green,
+                            fontSize: 12,
+                          ),
+                        ),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                      );
+                    }),
+                    if (missingTypes.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'All required tools are already enabled.',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                    );
-                  }),
-                  if (missingTypes.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('All required tools are already enabled.'),
-                        ],
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -2380,6 +2475,148 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       }
     });
     _updateSkillsSection();
+  }
+
+  Future<void> _showSkillDetailsDialog() async {
+    final skill = _activeSkill;
+    if (skill == null) return;
+
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    if (isMobile) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog.fullscreen(
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text('Skill: ${skill.name}'),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Edit Skill',
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showSkillWizardDialog();
+                  },
+                ),
+              ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (skill.description.isNotEmpty) ...[
+                    Text(
+                      skill.description,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withAlpha(120),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      skill.skillContent.isNotEmpty
+                          ? skill.skillContent
+                          : 'No skill text provided.',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  skill.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (skill.description.isNotEmpty) ...[
+                    Text(
+                      skill.description,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withAlpha(120),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      skill.skillContent.isNotEmpty
+                          ? skill.skillContent
+                          : 'No skill text provided.',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _showSkillWizardDialog();
+              },
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Edit Skill'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _showSkillWizardDialog() async {
@@ -4908,7 +5145,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                     ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: _showSkillWizardDialog,
+                      onTap: _showSkillDetailsDialog,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -6517,7 +6754,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                     ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: _showSkillWizardDialog,
+                      onTap: _showSkillDetailsDialog,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,

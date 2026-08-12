@@ -1975,8 +1975,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     for (final server in _mcpServers) {
       if (server.serverUrl.startsWith('http://') ||
           server.serverUrl.startsWith('https://')) {
-        if (_prefetchedRemoteMcpTools[server.serverUrl]?.isNotEmpty == true)
+        if (_prefetchedRemoteMcpTools[server.serverUrl]?.isNotEmpty == true) {
           continue;
+        }
         try {
           final res = await ExternalToolsSettingsService.instance.testMcpServer(
             serverUrl: server.serverUrl,
@@ -2470,35 +2471,63 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
   void _showSkillContentDialog() {
     if (_activeSkill == null) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.auto_awesome, color: Colors.amber),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Skill: ${_activeSkill!.name}',
-                overflow: TextOverflow.ellipsis,
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    if (isMobile) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog.fullscreen(
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text('Skill: ${_activeSkill!.name}'),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
               ),
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: SelectableText(
+                _activeSkill!.skillContent,
+                style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Colors.amber),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Skill: ${_activeSkill!.name}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                _activeSkill!.skillContent,
+                style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
             ),
           ],
         ),
-        content: SingleChildScrollView(
-          child: SelectableText(
-            _activeSkill!.skillContent,
-            style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
 
   Future<void> _runPromptTest() async {
