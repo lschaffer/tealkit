@@ -35,7 +35,10 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
   Map<String, dynamic> get initParamSchema => {
     'type': 'object',
     'properties': {
-      'accessToken': {'type': 'string', 'description': 'OAuth2 bearer token for Google Calendar API.'},
+      'accessToken': {
+        'type': 'string',
+        'description': 'OAuth2 bearer token for Google Calendar API.',
+      },
     },
     'required': [],
   };
@@ -71,7 +74,9 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       if (stored.isNotEmpty) _accessToken = stored;
     }
 
-    log.info('[Calendar MCP] Initialized (token: ${_accessToken != null ? "present" : "missing"})');
+    log.info(
+      '[Calendar MCP] Initialized (token: ${_accessToken != null ? "present" : "missing"})',
+    );
   }
 
   @override
@@ -82,7 +87,10 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
       },
     ),
@@ -95,7 +103,11 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'calendarId': {'type': 'string', 'description': 'Calendar ID. Use "primary" for the main calendar.', 'default': 'primary'},
+          'calendarId': {
+            'type': 'string',
+            'description': 'Calendar ID. Use "primary" for the main calendar.',
+            'default': 'primary',
+          },
           'q': {'type': 'string', 'description': 'Free-text search query.'},
           'timeMin': {
             'type': 'string',
@@ -107,13 +119,21 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
             'description':
                 'Upper bound for event start time. ISO 8601 with Z suffix (e.g. 2026-02-25T00:00:00Z). The server normalizes missing timezone.',
           },
-          'maxResults': {'type': 'integer', 'description': 'Max events to return (default: 25, max: 250).', 'default': 25},
+          'maxResults': {
+            'type': 'integer',
+            'description': 'Max events to return (default: 25, max: 250).',
+            'default': 25,
+          },
           'orderBy': {
             'type': 'string',
             'enum': ['startTime', 'updated'],
-            'description': 'Order results by startTime or updated. Default: startTime.',
+            'description':
+                'Order results by startTime or updated. Default: startTime.',
           },
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
       },
     ),
@@ -123,9 +143,19 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'calendarId': {'type': 'string', 'description': 'Calendar ID.', 'default': 'primary'},
-          'eventId': {'type': 'string', 'description': 'Google Calendar event ID.'},
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'calendarId': {
+            'type': 'string',
+            'description': 'Calendar ID.',
+            'default': 'primary',
+          },
+          'eventId': {
+            'type': 'string',
+            'description': 'Google Calendar event ID.',
+          },
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
         'required': ['eventId'],
       },
@@ -136,38 +166,81 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'calendarId': {'type': 'string', 'description': 'Calendar ID. Use "primary" for the main calendar.', 'default': 'primary'},
-          'summary': {'type': 'string', 'description': 'Event title / summary.'},
-          'description': {'type': 'string', 'description': 'Event description.'},
+          'calendarId': {
+            'type': 'string',
+            'description': 'Calendar ID. Use "primary" for the main calendar.',
+            'default': 'primary',
+          },
+          'summary': {
+            'type': 'string',
+            'description': 'Event title / summary.',
+          },
+          'description': {
+            'type': 'string',
+            'description': 'Event description.',
+          },
           'location': {'type': 'string', 'description': 'Event location.'},
-          'start': {'type': 'string', 'description': 'Start time ISO 8601 (e.g. 2026-02-24T10:00:00+01:00). For all-day: YYYY-MM-DD.'},
-          'end': {'type': 'string', 'description': 'End time ISO 8601 (e.g. 2026-02-24T11:00:00+01:00). For all-day: YYYY-MM-DD.'},
-          'allDay': {'type': 'boolean', 'description': 'Set true for all-day events; start/end should then be YYYY-MM-DD.'},
+          'start': {
+            'type': 'string',
+            'description':
+                'Start time ISO 8601 (e.g. 2026-02-24T10:00:00+01:00). For all-day: YYYY-MM-DD.',
+          },
+          'end': {
+            'type': 'string',
+            'description':
+                'End time ISO 8601 (e.g. 2026-02-24T11:00:00+01:00). For all-day: YYYY-MM-DD.',
+          },
+          'allDay': {
+            'type': 'boolean',
+            'description':
+                'Set true for all-day events; start/end should then be YYYY-MM-DD.',
+          },
           'attendees': {
             'type': 'array',
             'items': {'type': 'string'},
             'description': 'List of attendee email addresses.',
           },
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
         'required': ['summary', 'start', 'end'],
       },
     ),
     const McpToolDescriptor(
       name: 'update_event',
-      description: 'Update (patch) an existing Google Calendar event. Only supplied fields are changed.',
+      description:
+          'Update (patch) an existing Google Calendar event. Only supplied fields are changed.',
       inputSchema: {
         'type': 'object',
         'properties': {
-          'calendarId': {'type': 'string', 'description': 'Calendar ID.', 'default': 'primary'},
-          'eventId': {'type': 'string', 'description': 'ID of the event to update.'},
+          'calendarId': {
+            'type': 'string',
+            'description': 'Calendar ID.',
+            'default': 'primary',
+          },
+          'eventId': {
+            'type': 'string',
+            'description': 'ID of the event to update.',
+          },
           'summary': {'type': 'string', 'description': 'New event title.'},
           'description': {'type': 'string', 'description': 'New description.'},
           'location': {'type': 'string', 'description': 'New location.'},
-          'start': {'type': 'string', 'description': 'New start time ISO 8601.'},
+          'start': {
+            'type': 'string',
+            'description': 'New start time ISO 8601.',
+          },
           'end': {'type': 'string', 'description': 'New end time ISO 8601.'},
-          'allDay': {'type': 'boolean', 'description': 'Set true for all-day; start/end should then be YYYY-MM-DD.'},
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'allDay': {
+            'type': 'boolean',
+            'description':
+                'Set true for all-day; start/end should then be YYYY-MM-DD.',
+          },
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
         'required': ['eventId'],
       },
@@ -178,9 +251,19 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'calendarId': {'type': 'string', 'description': 'Calendar ID.', 'default': 'primary'},
-          'eventId': {'type': 'string', 'description': 'ID of the event to delete.'},
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'calendarId': {
+            'type': 'string',
+            'description': 'Calendar ID.',
+            'default': 'primary',
+          },
+          'eventId': {
+            'type': 'string',
+            'description': 'ID of the event to delete.',
+          },
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
         'required': ['eventId'],
       },
@@ -188,7 +271,10 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
   ];
 
   @override
-  Future<Map<String, dynamic>> executeTool(String toolName, Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> executeTool(
+    String toolName,
+    Map<String, dynamic> args,
+  ) async {
     switch (toolName) {
       case 'list_calendars':
         return _listCalendars(args);
@@ -236,15 +322,25 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
     final params = <String, String>{
       'singleEvents': 'true',
       'maxResults': '${(args['maxResults'] as int?) ?? 25}',
-      'orderBy': (args['orderBy'] as String?)?.isNotEmpty == true ? args['orderBy']! : 'startTime',
+      'orderBy': (args['orderBy'] as String?)?.isNotEmpty == true
+          ? args['orderBy']!
+          : 'startTime',
     };
     if ((args['q'] as String?)?.isNotEmpty == true) params['q'] = args['q']!;
-    if ((args['timeMin'] as String?)?.isNotEmpty == true) params['timeMin'] = args['timeMin']!;
-    if ((args['timeMax'] as String?)?.isNotEmpty == true) params['timeMax'] = args['timeMax']!;
-    final uri = Uri.parse('$_baseUrl/calendars/$calendarId/events').replace(queryParameters: params);
+    if ((args['timeMin'] as String?)?.isNotEmpty == true) {
+      params['timeMin'] = args['timeMin']!;
+    }
+    if ((args['timeMax'] as String?)?.isNotEmpty == true) {
+      params['timeMax'] = args['timeMax']!;
+    }
+    final uri = Uri.parse(
+      '$_baseUrl/calendars/$calendarId/events',
+    ).replace(queryParameters: params);
     final resp = await _apiGet(uri, token);
     if (resp['error'] != null) return resp;
-    final items = ((resp['data'] as Map)['items'] as List? ?? []).map((e) => _summariseEvent(e as Map<String, dynamic>)).toList();
+    final items = ((resp['data'] as Map)['items'] as List? ?? [])
+        .map((e) => _summariseEvent(e as Map<String, dynamic>))
+        .toList();
     return {'events': items, 'count': items.length};
   }
 
@@ -266,18 +362,29 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
     final allDay = args['allDay'] == true;
     final body = <String, dynamic>{
       'summary': args['summary'] ?? '',
-      if ((args['description'] as String?)?.isNotEmpty == true) 'description': args['description'],
-      if ((args['location'] as String?)?.isNotEmpty == true) 'location': args['location'],
-      'start': allDay ? {'date': args['start']} : {'dateTime': _normalizeRfc3339(args['start'] as String? ?? '')},
-      'end': allDay ? {'date': args['end']} : {'dateTime': _normalizeRfc3339(args['end'] as String? ?? '')},
+      if ((args['description'] as String?)?.isNotEmpty == true)
+        'description': args['description'],
+      if ((args['location'] as String?)?.isNotEmpty == true)
+        'location': args['location'],
+      'start': allDay
+          ? {'date': args['start']}
+          : {'dateTime': _normalizeRfc3339(args['start'] as String? ?? '')},
+      'end': allDay
+          ? {'date': args['end']}
+          : {'dateTime': _normalizeRfc3339(args['end'] as String? ?? '')},
     };
     if (args['attendees'] is List) {
-      body['attendees'] = (args['attendees'] as List).map((e) => {'email': e}).toList();
+      body['attendees'] = (args['attendees'] as List)
+          .map((e) => {'email': e})
+          .toList();
     }
     final uri = Uri.parse('$_baseUrl/calendars/$calendarId/events');
     final resp = await _apiPost(uri, token, body);
     if (resp['error'] != null) return resp;
-    return {'success': true, 'event': _summariseEvent(resp['data'] as Map<String, dynamic>)};
+    return {
+      'success': true,
+      'event': _summariseEvent(resp['data'] as Map<String, dynamic>),
+    };
   }
 
   Future<Map<String, dynamic>> _updateEvent(Map<String, dynamic> args) async {
@@ -290,13 +397,22 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       if (args['summary'] != null) 'summary': args['summary'],
       if (args['description'] != null) 'description': args['description'],
       if (args['location'] != null) 'location': args['location'],
-      if (args['start'] != null) 'start': allDay ? {'date': args['start']} : {'dateTime': _normalizeRfc3339(args['start'] as String)},
-      if (args['end'] != null) 'end': allDay ? {'date': args['end']} : {'dateTime': _normalizeRfc3339(args['end'] as String)},
+      if (args['start'] != null)
+        'start': allDay
+            ? {'date': args['start']}
+            : {'dateTime': _normalizeRfc3339(args['start'] as String)},
+      if (args['end'] != null)
+        'end': allDay
+            ? {'date': args['end']}
+            : {'dateTime': _normalizeRfc3339(args['end'] as String)},
     };
     final uri = Uri.parse('$_baseUrl/calendars/$calendarId/events/$eventId');
     final resp = await _apiPatch(uri, token, body);
     if (resp['error'] != null) return resp;
-    return {'success': true, 'event': _summariseEvent(resp['data'] as Map<String, dynamic>)};
+    return {
+      'success': true,
+      'event': _summariseEvent(resp['data'] as Map<String, dynamic>),
+    };
   }
 
   Future<Map<String, dynamic>> _deleteEvent(Map<String, dynamic> args) async {
@@ -312,7 +428,11 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  String _calId(Map<String, dynamic> args) => (args['calendarId'] as String?)?.trim().let((s) => s.isNotEmpty ? s : 'primary') ?? 'primary';
+  String _calId(Map<String, dynamic> args) =>
+      (args['calendarId'] as String?)?.trim().let(
+        (s) => s.isNotEmpty ? s : 'primary',
+      ) ??
+      'primary';
 
   Map<String, dynamic> _summariseEvent(Map<String, dynamic> e) {
     final start = e['start'] as Map? ?? {};
@@ -327,7 +447,10 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
       'status': e['status'],
       'htmlLink': e['htmlLink'],
       if (e['organizer'] != null) 'organizer': (e['organizer'] as Map)['email'],
-      if (e['attendees'] != null) 'attendees': (e['attendees'] as List).map((a) => (a as Map)['email']).toList(),
+      if (e['attendees'] != null)
+        'attendees': (e['attendees'] as List)
+            .map((a) => (a as Map)['email'])
+            .toList(),
     };
   }
 
@@ -361,17 +484,32 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
     } catch (_) {
       // Fallback: append Z if no timezone indicator is present after the date part.
       final afterDate = dt.length > 10 ? dt.substring(10) : '';
-      final hasTimezone = afterDate.contains('Z') || afterDate.contains('+') || afterDate.contains('-');
+      final hasTimezone =
+          afterDate.contains('Z') ||
+          afterDate.contains('+') ||
+          afterDate.contains('-');
       return hasTimezone ? dt : '${dt}Z';
     }
   }
 
   // ─── HTTP helpers with 401 auto-refresh ──────────────────────────────────
 
-  Future<Map<String, dynamic>> _apiGet(Uri uri, String token, {bool retried = false}) async {
+  Future<Map<String, dynamic>> _apiGet(
+    Uri uri,
+    String token, {
+    bool retried = false,
+  }) async {
     try {
-      final resp = await http.get(uri, headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'});
-      if (resp.statusCode == 401 && !retried) return _refreshAndRetry(uri, 'GET', null);
+      final resp = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (resp.statusCode == 401 && !retried) {
+        return await _refreshAndRetry(uri, 'GET', null);
+      }
       return _parseResponse(resp);
     } catch (e) {
       log.error('[Calendar MCP] GET error: $e');
@@ -379,14 +517,24 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
     }
   }
 
-  Future<Map<String, dynamic>> _apiPost(Uri uri, String token, Map<String, dynamic> body, {bool retried = false}) async {
+  Future<Map<String, dynamic>> _apiPost(
+    Uri uri,
+    String token,
+    Map<String, dynamic> body, {
+    bool retried = false,
+  }) async {
     try {
       final resp = await http.post(
         uri,
-        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(body),
       );
-      if (resp.statusCode == 401 && !retried) return _refreshAndRetry(uri, 'POST', body);
+      if (resp.statusCode == 401 && !retried) {
+        return await _refreshAndRetry(uri, 'POST', body);
+      }
       return _parseResponse(resp);
     } catch (e) {
       log.error('[Calendar MCP] POST error: $e');
@@ -394,14 +542,24 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
     }
   }
 
-  Future<Map<String, dynamic>> _apiPatch(Uri uri, String token, Map<String, dynamic> body, {bool retried = false}) async {
+  Future<Map<String, dynamic>> _apiPatch(
+    Uri uri,
+    String token,
+    Map<String, dynamic> body, {
+    bool retried = false,
+  }) async {
     try {
       final resp = await http.patch(
         uri,
-        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(body),
       );
-      if (resp.statusCode == 401 && !retried) return _refreshAndRetry(uri, 'PATCH', body);
+      if (resp.statusCode == 401 && !retried) {
+        return await _refreshAndRetry(uri, 'PATCH', body);
+      }
       return _parseResponse(resp);
     } catch (e) {
       log.error('[Calendar MCP] PATCH error: $e');
@@ -409,10 +567,19 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
     }
   }
 
-  Future<Map<String, dynamic>> _apiDelete(Uri uri, String token, {bool retried = false}) async {
+  Future<Map<String, dynamic>> _apiDelete(
+    Uri uri,
+    String token, {
+    bool retried = false,
+  }) async {
     try {
-      final resp = await http.delete(uri, headers: {'Authorization': 'Bearer $token'});
-      if (resp.statusCode == 401 && !retried) return _refreshAndRetry(uri, 'DELETE', null);
+      final resp = await http.delete(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode == 401 && !retried) {
+        return await _refreshAndRetry(uri, 'DELETE', null);
+      }
       if (resp.statusCode == 204) return {'data': <String, dynamic>{}};
       return _parseResponse(resp);
     } catch (e) {
@@ -422,18 +589,34 @@ class GoogleCalendarMcpServer extends InternalMcpServer {
   }
 
   Map<String, dynamic> _parseResponse(http.Response resp) {
-    final parsed = resp.body.isNotEmpty ? jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic> : <String, dynamic>{};
-    if (resp.statusCode >= 200 && resp.statusCode < 300) return {'data': parsed};
-    final msg = (parsed['error'] as Map?)?.containsKey('message') == true ? parsed['error']['message'] : resp.reasonPhrase;
-    return {'error': 'Calendar API ${resp.statusCode}: $msg', 'statusCode': resp.statusCode};
+    final parsed = resp.body.isNotEmpty
+        ? jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>
+        : <String, dynamic>{};
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      return {'data': parsed};
+    }
+    final msg = (parsed['error'] as Map?)?.containsKey('message') == true
+        ? parsed['error']['message']
+        : resp.reasonPhrase;
+    return {
+      'error': 'Calendar API ${resp.statusCode}: $msg',
+      'statusCode': resp.statusCode,
+    };
   }
 
-  Future<Map<String, dynamic>> _refreshAndRetry(Uri uri, String method, Map<String, dynamic>? body) async {
+  Future<Map<String, dynamic>> _refreshAndRetry(
+    Uri uri,
+    String method,
+    Map<String, dynamic>? body,
+  ) async {
     log.info('[Calendar MCP] 401 received — attempting token refresh.');
     final ds = DataSourcesSettingsService.instance;
     final result = await ds.refreshGmailAccessToken();
     if (result['success'] != true) {
-      return {'error': 'Calendar token expired and refresh failed: ${result['error']}'};
+      return {
+        'error':
+            'Calendar token expired and refresh failed: ${result['error']}',
+      };
     }
     final newToken = ds.gmailAccessToken.trim();
     _accessToken = newToken;

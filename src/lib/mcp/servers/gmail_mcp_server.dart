@@ -34,14 +34,24 @@ class GmailMcpServer extends InternalMcpServer {
   Map<String, dynamic> get initParamSchema => {
     'type': 'object',
     'properties': {
-      'userId': {'type': 'string', 'description': 'Gmail user id. Usually "me".', 'default': 'me'},
-      'accessToken': {'type': 'string', 'description': 'OAuth2 bearer access token for Gmail API.'},
+      'userId': {
+        'type': 'string',
+        'description': 'Gmail user id. Usually "me".',
+        'default': 'me',
+      },
+      'accessToken': {
+        'type': 'string',
+        'description': 'OAuth2 bearer access token for Gmail API.',
+      },
     },
     'required': [],
   };
 
   @override
-  Map<String, dynamic> get defaultInitParams => {'userId': 'me', 'accessToken': ''};
+  Map<String, dynamic> get defaultInitParams => {
+    'userId': 'me',
+    'accessToken': '',
+  };
 
   @override
   String get defaultSystemPrompt =>
@@ -75,15 +85,31 @@ class GmailMcpServer extends InternalMcpServer {
       inputSchema: {
         'type': 'object',
         'properties': {
-          'q': {'type': 'string', 'description': 'Gmail query string (standard Gmail search syntax).'},
-          'maxResults': {'type': 'integer', 'description': 'Maximum results (default: 20, max: 100).', 'default': 20},
+          'q': {
+            'type': 'string',
+            'description': 'Gmail query string (standard Gmail search syntax).',
+          },
+          'maxResults': {
+            'type': 'integer',
+            'description': 'Maximum results (default: 20, max: 100).',
+            'default': 20,
+          },
           'labelIds': {
             'type': 'array',
             'items': {'type': 'string'},
             'description': 'Optional label filters (e.g. INBOX, UNREAD).',
           },
-          'includeBody': {'type': 'boolean', 'description': 'Include extracted plain text body (default: false).', 'default': false},
-          'accessToken': {'type': 'string', 'description': 'Optional token override. If omitted, uses init accessToken.'},
+          'includeBody': {
+            'type': 'boolean',
+            'description':
+                'Include extracted plain text body (default: false).',
+            'default': false,
+          },
+          'accessToken': {
+            'type': 'string',
+            'description':
+                'Optional token override. If omitted, uses init accessToken.',
+          },
         },
         'required': ['q'],
       },
@@ -100,7 +126,10 @@ class GmailMcpServer extends InternalMcpServer {
             'enum': ['metadata', 'full', 'minimal'],
             'default': 'full',
           },
-          'accessToken': {'type': 'string', 'description': 'Optional token override.'},
+          'accessToken': {
+            'type': 'string',
+            'description': 'Optional token override.',
+          },
         },
         'required': ['id'],
       },
@@ -108,7 +137,10 @@ class GmailMcpServer extends InternalMcpServer {
   ];
 
   @override
-  Future<Map<String, dynamic>> executeTool(String toolName, Map<String, dynamic> arguments) async {
+  Future<Map<String, dynamic>> executeTool(
+    String toolName,
+    Map<String, dynamic> arguments,
+  ) async {
     switch (toolName) {
       case 'search_gmail':
         return _searchGmail(arguments);
@@ -132,27 +164,43 @@ class GmailMcpServer extends InternalMcpServer {
 
     final token = _resolveToken(args);
     if (token == null || token.isEmpty) {
-      return {'error': 'No OAuth access token available. Pass `accessToken` in tool args or initialize gmail MCP with accessToken.'};
+      return {
+        'error':
+            'No OAuth access token available. Pass `accessToken` in tool args or initialize gmail MCP with accessToken.',
+      };
     }
 
     final maxResults = ((args['maxResults'] as int?) ?? 20).clamp(1, 100);
     final includeBody = args['includeBody'] == true;
-    final labelIds = (args['labelIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const <String>[];
+    final labelIds =
+        (args['labelIds'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
 
-    final listUri = Uri.parse(
-      '$_baseUrl/$_userId/messages',
-    ).replace(queryParameters: {'q': query, 'maxResults': '$maxResults', if (labelIds.isNotEmpty) 'labelIds': labelIds.join(',')});
+    final listUri = Uri.parse('$_baseUrl/$_userId/messages').replace(
+      queryParameters: {
+        'q': query,
+        'maxResults': '$maxResults',
+        if (labelIds.isNotEmpty) 'labelIds': labelIds.join(','),
+      },
+    );
 
     final listResp = await _gmailGet(listUri, token);
     if (listResp['error'] != null) return listResp;
 
-    final messagesRaw = (listResp['data'] as Map<String, dynamic>)['messages'] as List<dynamic>? ?? const [];
+    final messagesRaw =
+        (listResp['data'] as Map<String, dynamic>)['messages']
+            as List<dynamic>? ??
+        const [];
     if (messagesRaw.isEmpty) {
       return {
         'originalQuery': rawQuery,
         'query': query,
         'maxResults': maxResults,
-        'totalEstimated': (listResp['data'] as Map<String, dynamic>)['resultSizeEstimate'] ?? 0,
+        'totalEstimated':
+            (listResp['data'] as Map<String, dynamic>)['resultSizeEstimate'] ??
+            0,
         'messages': <Map<String, dynamic>>[],
       };
     }
@@ -162,7 +210,11 @@ class GmailMcpServer extends InternalMcpServer {
       final id = (entry as Map<String, dynamic>)['id']?.toString();
       if (id == null || id.isEmpty) continue;
 
-      final detail = await _fetchMessageSummary(id, token, includeBody: includeBody);
+      final detail = await _fetchMessageSummary(
+        id,
+        token,
+        includeBody: includeBody,
+      );
       if (detail['error'] == null) {
         messages.add(detail);
       }
@@ -172,7 +224,9 @@ class GmailMcpServer extends InternalMcpServer {
       'originalQuery': rawQuery,
       'query': query,
       'maxResults': maxResults,
-      'totalEstimated': (listResp['data'] as Map<String, dynamic>)['resultSizeEstimate'] ?? messages.length,
+      'totalEstimated':
+          (listResp['data'] as Map<String, dynamic>)['resultSizeEstimate'] ??
+          messages.length,
       'returned': messages.length,
       'messages': messages,
     };
@@ -184,22 +238,43 @@ class GmailMcpServer extends InternalMcpServer {
 
     final lower = normalized.toLowerCase();
 
-    if (RegExp(r'\bafter:yesterday\b').hasMatch(lower) && RegExp(r'\bbefore:today\b').hasMatch(lower)) {
-      normalized = normalized.replaceAll(RegExp(r'\bafter:yesterday\b', caseSensitive: false), '');
-      normalized = normalized.replaceAll(RegExp(r'\bbefore:today\b', caseSensitive: false), '');
+    if (RegExp(r'\bafter:yesterday\b').hasMatch(lower) &&
+        RegExp(r'\bbefore:today\b').hasMatch(lower)) {
+      normalized = normalized.replaceAll(
+        RegExp(r'\bafter:yesterday\b', caseSensitive: false),
+        '',
+      );
+      normalized = normalized.replaceAll(
+        RegExp(r'\bbefore:today\b', caseSensitive: false),
+        '',
+      );
       normalized = '$normalized newer_than:2d older_than:1d';
     } else {
-      normalized = normalized.replaceAll(RegExp(r'\bafter:today\b', caseSensitive: false), 'newer_than:1d');
-      normalized = normalized.replaceAll(RegExp(r'\bbefore:today\b', caseSensitive: false), 'older_than:1d');
-      normalized = normalized.replaceAll(RegExp(r'\bafter:yesterday\b', caseSensitive: false), 'newer_than:2d');
-      normalized = normalized.replaceAll(RegExp(r'\bbefore:yesterday\b', caseSensitive: false), 'older_than:2d');
+      normalized = normalized.replaceAll(
+        RegExp(r'\bafter:today\b', caseSensitive: false),
+        'newer_than:1d',
+      );
+      normalized = normalized.replaceAll(
+        RegExp(r'\bbefore:today\b', caseSensitive: false),
+        'older_than:1d',
+      );
+      normalized = normalized.replaceAll(
+        RegExp(r'\bafter:yesterday\b', caseSensitive: false),
+        'newer_than:2d',
+      );
+      normalized = normalized.replaceAll(
+        RegExp(r'\bbefore:yesterday\b', caseSensitive: false),
+        'older_than:2d',
+      );
     }
 
     normalized = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
     return normalized;
   }
 
-  Future<Map<String, dynamic>> _getGmailMessage(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _getGmailMessage(
+    Map<String, dynamic> args,
+  ) async {
     final id = (args['id'] as String?)?.trim();
     if (id == null || id.isEmpty) {
       return {'error': 'Parameter "id" is required.'};
@@ -208,10 +283,15 @@ class GmailMcpServer extends InternalMcpServer {
     final format = (args['format'] as String? ?? 'full').trim();
     final token = _resolveToken(args);
     if (token == null || token.isEmpty) {
-      return {'error': 'No OAuth access token available. Pass `accessToken` in tool args or initialize gmail MCP with accessToken.'};
+      return {
+        'error':
+            'No OAuth access token available. Pass `accessToken` in tool args or initialize gmail MCP with accessToken.',
+      };
     }
 
-    final uri = Uri.parse('$_baseUrl/$_userId/messages/$id').replace(queryParameters: {'format': format});
+    final uri = Uri.parse(
+      '$_baseUrl/$_userId/messages/$id',
+    ).replace(queryParameters: {'format': format});
     final resp = await _gmailGet(uri, token);
     if (resp['error'] != null) return resp;
 
@@ -224,12 +304,21 @@ class GmailMcpServer extends InternalMcpServer {
       'historyId': data['historyId'],
       'internalDate': data['internalDate'],
       'payload': data['payload'],
-      if (format == 'full') 'plainTextBody': _extractPlainTextBody(data['payload'] as Map<String, dynamic>?),
+      if (format == 'full')
+        'plainTextBody': _extractPlainTextBody(
+          data['payload'] as Map<String, dynamic>?,
+        ),
     };
   }
 
-  Future<Map<String, dynamic>> _fetchMessageSummary(String messageId, String accessToken, {required bool includeBody}) async {
-    final metadataUri = Uri.parse('$_baseUrl/$_userId/messages/$messageId').replace(queryParameters: {'format': 'metadata'});
+  Future<Map<String, dynamic>> _fetchMessageSummary(
+    String messageId,
+    String accessToken, {
+    required bool includeBody,
+  }) async {
+    final metadataUri = Uri.parse(
+      '$_baseUrl/$_userId/messages/$messageId',
+    ).replace(queryParameters: {'format': 'metadata'});
 
     final resp = await _gmailGet(metadataUri, accessToken);
     if (resp['error'] != null) return resp;
@@ -240,7 +329,12 @@ class GmailMcpServer extends InternalMcpServer {
     final attachmentCount = _countAttachments(payload);
     final headers = (payload['headers'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
-        .map((h) => MapEntry((h['name'] ?? '').toString().toLowerCase(), (h['value'] ?? '').toString()))
+        .map(
+          (h) => MapEntry(
+            (h['name'] ?? '').toString().toLowerCase(),
+            (h['value'] ?? '').toString(),
+          ),
+        )
         .fold<Map<String, String>>(<String, String>{}, (acc, e) {
           acc[e.key] = e.value;
           return acc;
@@ -249,11 +343,15 @@ class GmailMcpServer extends InternalMcpServer {
     String? body;
     if (includeBody) {
       final fullResp = await _gmailGet(
-        Uri.parse('$_baseUrl/$_userId/messages/$messageId').replace(queryParameters: {'format': 'full'}),
+        Uri.parse(
+          '$_baseUrl/$_userId/messages/$messageId',
+        ).replace(queryParameters: {'format': 'full'}),
         accessToken,
       );
       if (fullResp['error'] == null) {
-        final fullPayload = (fullResp['data'] as Map<String, dynamic>)['payload'] as Map<String, dynamic>?;
+        final fullPayload =
+            (fullResp['data'] as Map<String, dynamic>)['payload']
+                as Map<String, dynamic>?;
         body = _extractPlainTextBody(fullPayload);
         htmlBody = _extractHtmlBody(fullPayload);
       }
@@ -303,7 +401,9 @@ class GmailMcpServer extends InternalMcpServer {
     if (filename.isNotEmpty) {
       final label = mimeType.isNotEmpty ? '$filename ($mimeType)' : filename;
       result.add(label);
-    } else if (attachmentId.isNotEmpty && mimeType.isNotEmpty && !mimeType.startsWith('multipart')) {
+    } else if (attachmentId.isNotEmpty &&
+        mimeType.isNotEmpty &&
+        !mimeType.startsWith('multipart')) {
       result.add(mimeType);
     }
     final parts = payload['parts'] as List<dynamic>? ?? const [];
@@ -338,11 +438,23 @@ class GmailMcpServer extends InternalMcpServer {
     return _gmailGetWithRetry(uri, token, retried: false);
   }
 
-  Future<Map<String, dynamic>> _gmailGetWithRetry(Uri uri, String token, {required bool retried}) async {
+  Future<Map<String, dynamic>> _gmailGetWithRetry(
+    Uri uri,
+    String token, {
+    required bool retried,
+  }) async {
     try {
-      final response = await http.get(uri, headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'});
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
 
-      final parsed = response.body.isNotEmpty ? jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic> : <String, dynamic>{};
+      final parsed = response.body.isNotEmpty
+          ? jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>
+          : <String, dynamic>{};
 
       // Auto-refresh on 401 and retry once.
       if (response.statusCode == 401 && !retried) {
@@ -353,7 +465,7 @@ class GmailMcpServer extends InternalMcpServer {
           final newToken = ds.gmailAccessToken.trim();
           _accessToken = newToken;
           log.info('[Gmail MCP] Token refreshed, retrying request.');
-          return _gmailGetWithRetry(uri, newToken, retried: true);
+          return await _gmailGetWithRetry(uri, newToken, retried: true);
         }
         log.warning('[Gmail MCP] Token refresh failed: ${result['error']}');
       }
@@ -363,7 +475,8 @@ class GmailMcpServer extends InternalMcpServer {
       }
 
       return {
-        'error': 'Gmail API error ${response.statusCode}: ${parsed['error'] ?? response.reasonPhrase}',
+        'error':
+            'Gmail API error ${response.statusCode}: ${parsed['error'] ?? response.reasonPhrase}',
         'statusCode': response.statusCode,
       };
     } catch (e) {
@@ -395,7 +508,8 @@ class GmailMcpServer extends InternalMcpServer {
     for (final part in parts.whereType<Map<String, dynamic>>()) {
       final mt = part['mimeType']?.toString() ?? '';
       if (mt == 'text/html') {
-        final data = (part['body'] as Map<String, dynamic>?)?['data']?.toString();
+        final data = (part['body'] as Map<String, dynamic>?)?['data']
+            ?.toString();
         if (data != null && data.isNotEmpty) {
           return _decodeBase64Url(data);
         }
@@ -417,7 +531,9 @@ class GmailMcpServer extends InternalMcpServer {
     final bodyData = body?['data']?.toString();
     final mimeType = payload['mimeType']?.toString() ?? '';
 
-    if (bodyData != null && bodyData.isNotEmpty && (mimeType == 'text/plain' || mimeType.isEmpty)) {
+    if (bodyData != null &&
+        bodyData.isNotEmpty &&
+        (mimeType == 'text/plain' || mimeType.isEmpty)) {
       return _decodeBase64Url(bodyData);
     }
 
@@ -425,7 +541,8 @@ class GmailMcpServer extends InternalMcpServer {
     for (final part in parts.whereType<Map<String, dynamic>>()) {
       final mt = part['mimeType']?.toString() ?? '';
       if (mt == 'text/plain') {
-        final data = (part['body'] as Map<String, dynamic>?)?['data']?.toString();
+        final data = (part['body'] as Map<String, dynamic>?)?['data']
+            ?.toString();
         if (data != null && data.isNotEmpty) {
           return _decodeBase64Url(data);
         }
@@ -439,7 +556,9 @@ class GmailMcpServer extends InternalMcpServer {
 
   String _decodeBase64Url(String value) {
     try {
-      final normalized = base64.normalize(value.replaceAll('-', '+').replaceAll('_', '/'));
+      final normalized = base64.normalize(
+        value.replaceAll('-', '+').replaceAll('_', '/'),
+      );
       return utf8.decode(base64Decode(normalized), allowMalformed: true);
     } catch (_) {
       return '';
