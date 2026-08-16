@@ -6,6 +6,7 @@ import '../config/app_theme.dart';
 import '../services/llm_settings_service.dart';
 import '../services/server_api_client.dart';
 import 'embedded_llm/embedded_model_picker_widget.dart';
+import 'llm_advanced_params_widget.dart';
 
 /// A unified reusable form widget for configuring LLM settings.
 /// Can be used for global settings, task overrides, and agent overrides.
@@ -16,6 +17,12 @@ class LlmSettingsFormWidget extends StatefulWidget {
   final TextEditingController baseUrlController;
   final TextEditingController temperatureController;
   final TextEditingController maxTokensController;
+  final TextEditingController? topKController;
+  final TextEditingController? topPController;
+  final TextEditingController? repeatPenaltyController;
+  final TextEditingController? seedController;
+  final TextEditingController? maxToolOutputSizeController;
+  final TextEditingController? tokenWarningThresholdController;
 
   final bool isSlm;
   final bool isMultiModal;
@@ -54,6 +61,12 @@ class LlmSettingsFormWidget extends StatefulWidget {
     required this.baseUrlController,
     required this.temperatureController,
     required this.maxTokensController,
+    this.topKController,
+    this.topPController,
+    this.repeatPenaltyController,
+    this.seedController,
+    this.maxToolOutputSizeController,
+    this.tokenWarningThresholdController,
     required this.isSlm,
     required this.isMultiModal,
     required this.thinking,
@@ -996,6 +1009,48 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                         border: OutlineInputBorder(),
                       ),
                     ),
+                    if (widget.maxToolOutputSizeController != null) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: widget.maxToolOutputSizeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Max Tool Output Size (chars)',
+                          hintText: 'e.g. 2560000',
+                          helperText:
+                              'Limits MCP tool result size to prevent context overflow',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.data_usage_outlined),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ],
+                    if (widget.tokenWarningThresholdController != null) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: widget.tokenWarningThresholdController,
+                        decoration: const InputDecoration(
+                          labelText: 'Token Warning Threshold',
+                          hintText: 'e.g. 1500000',
+                          helperText: 'Cleanup suggestion after this many tokens',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.warning_amber_outlined),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ],
+                    if (widget.topKController != null &&
+                        widget.topPController != null &&
+                        widget.repeatPenaltyController != null &&
+                        widget.seedController != null) ...[
+                      const SizedBox(height: 16),
+                      LlmAdvancedParamsWidget(
+                        topKController: widget.topKController!,
+                        topPController: widget.topPController!,
+                        repeatPenaltyController:
+                            widget.repeatPenaltyController!,
+                        seedController: widget.seedController!,
+                      ),
+                    ],
                   ],
                 ),
               ),

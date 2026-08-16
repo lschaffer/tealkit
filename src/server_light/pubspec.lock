@@ -548,7 +548,7 @@ packages:
       path: "../server"
       relative: true
     source: path
-    version: "1.0.187"
+    version: "1.0.192"
   term_glyph:
     dependency: transitive
     description:

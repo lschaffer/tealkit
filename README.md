@@ -30,17 +30,20 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 > 📺 **Interactive Video Promo Panel**: Explore all latest demo videos and watch interactive previews directly on [tealkit.dev](https://tealkit.dev).
 
+* **Local AI Beyond RAM Limits: TealKit + Hypura 24B Test on Mac Mini M4 Pro**
+  https://youtu.be/qxTgzRVIC_A
+
+* **Tealkit Multi-Agent System in Action — Full Demo on ARM64 Mac Mini M4 Pro**
+  https://youtu.be/i28xrFum3KM
+
+* **TealKit Playground: Importing Hermes Agent Skills & Auto-Detecting Missing Tools**
+  https://youtu.be/EUQEFbf4UT0
+
 * **Tealkit Android: Filesystem Report — Nemotron 120B via DeepInfra**
   https://youtube.com/shorts/RYRb_WZW3sQ
 
 * **Tealkit Android: EU CO₂ Statistical Report using Skill**
   https://youtube.com/shorts/YQRj-xtX610
-
-* **TealKit Playground: Importing Hermes Agent Skills & Auto-Detecting Missing Tools**
-  https://youtu.be/EUQEFbf4UT0
-
-* **Tealkit Multi-Agent System in Action — Full Demo on ARM64 Mac Mini M4 Pro**
-  https://youtu.be/i28xrFum3KM
 
 ---
 
