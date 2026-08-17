@@ -20,6 +20,7 @@ import '../services/multi_mcp_manager.dart';
 import '../services/server_api_client.dart';
 import '../services/server_mcp_proxy_client.dart';
 import '../services/function_hint_database_service.dart';
+import '../services/skill_def_database_service.dart';
 import 'llm_settings_provider.dart';
 import 'server_mode_provider.dart';
 
@@ -136,6 +137,8 @@ class TaskLlmOverrides {
   final int? tokenWarningThreshold;
   final String? systemPrompt;
   final bool? isMultiModal;
+  final String? skillDefId;
+  final String? skillContent;
 
   const TaskLlmOverrides({
     this.llmProvider,
@@ -148,6 +151,8 @@ class TaskLlmOverrides {
     this.tokenWarningThreshold,
     this.systemPrompt,
     this.isMultiModal,
+    this.skillDefId,
+    this.skillContent,
   });
 }
 
@@ -282,8 +287,44 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
       // concise toolbox guidance line. Avoid appending all MCP prompts because
       // stacked persona text can conflict and confuse tool selection.
       final isCompact = llmService.useSimplifiedPrompts || llmService.isSlm;
-      var effectiveSystemPrompt =
+
+      // 1. Clean the raw user-supplied / task system prompt first (strip old auto-generated hints)
+      var rawUserPrompt =
           (_overrides?.systemPrompt ?? task.systemPrompt ?? '').trim();
+      rawUserPrompt = _stripGeneratedCapabilitiesBlock(rawUserPrompt);
+      rawUserPrompt = _stripToolSkillsSection(rawUserPrompt);
+
+      // 2. Look up and inject skill definition prompt if a skillDefId is attached
+      final skillDefId = _overrides?.skillDefId ??
+          (task.agents.isNotEmpty ? task.agents.first.skillDefId : null);
+      final skillContentOverride = _overrides?.skillContent?.trim();
+
+      String? skillDefContent = skillContentOverride?.isNotEmpty == true
+          ? skillContentOverride
+          : null;
+
+      if (skillDefContent == null &&
+          skillDefId != null &&
+          skillDefId.isNotEmpty) {
+        try {
+          final skill =
+              await SkillDefDatabaseService.instance.getSkill(skillDefId);
+          if (skill != null && skill.skillDef.trim().isNotEmpty) {
+            skillDefContent = skill.skillDef.trim();
+          }
+        } catch (e) {
+          log.warning('[ActiveTask] Could not load skill $skillDefId: $e');
+        }
+      }
+
+      var effectiveSystemPrompt = rawUserPrompt;
+      if (skillDefContent != null && skillDefContent.isNotEmpty) {
+        if (!effectiveSystemPrompt.contains(skillDefContent)) {
+          effectiveSystemPrompt = effectiveSystemPrompt.isEmpty
+              ? skillDefContent
+              : '$effectiveSystemPrompt\n\n$skillDefContent';
+        }
+      }
 
       // Toolbox is considered enabled unless there is an explicit disabled entry.
       // (Older tasks and playground tasks that didn't select toolbox have no entry
@@ -311,13 +352,6 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
         // Still apply format instruction even without toolbox prompt.
         effectiveSystemPrompt = _withFormatInstruction(effectiveSystemPrompt);
       }
-      effectiveSystemPrompt = _stripGeneratedCapabilitiesBlock(
-        effectiveSystemPrompt,
-      );
-      // Strip any existing Tool Hints section — it will be re-injected below
-      // with the correct per-step filter, preventing double-injection when the
-      // task's saved systemPrompt already contains a skills block from the editor.
-      effectiveSystemPrompt = _stripToolSkillsSection(effectiveSystemPrompt);
 
       // Compute the union of per-step enabled tool names from the task prompt.
       // stepToolFilter == null → no restriction (every step allows all tools).

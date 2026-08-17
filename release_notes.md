@@ -2,6 +2,19 @@
 
 This file tracks release changes by version.
 
+## v2.0.19 / v1.6.6 - Skill Prompt Injection, Playground Workflow Persistence & Skill Editor Layout
+
+### New Features & Enhancements
+- **Skill Prompt Injection in Test Executions**:
+  - Attached skills (`SkillDef`) are now automatically injected into the effective system prompt when testing prompts in the Workflow Editor and Workflow List execution flows.
+  - Extended `TaskLlmOverrides` with `skillDefId` and `skillContent` overrides, ensuring test runs reflect the full prompt context (base system prompt + skill instructions + capability hints + tool hints).
+- **Playground "Save as Workflow" with Skill Preservation**:
+  - When saving prompts from the Playground into a workflow, attached skills are now mapped and persisted via `Agent.skillDefId`.
+  - Opening the saved workflow in the Workflow Editor automatically restores the active skill chip, its instructions, and tool configurations.
+  - Playground chat sessions now forward skill overrides to the active runtime provider.
+- **Expanded Skill Editor / Wizard Layout**:
+  - Updated the Skill Wizard dialog so the multiline Skill text editor dynamically expands to fill all remaining vertical space down to the footer actions bar.
+
 ## v1.6.1 / v1.0.191 - Settings Vault Skills, Talker Monitor & Layout Fixes
 
 ### New Features & Enhancements

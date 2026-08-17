@@ -1919,6 +1919,7 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
           stopAfterToolCall: currentExecutor.stopAfterToolCall,
           executionPlan: _task.executionPlan,
           providers: _task.providers,
+          agents: [currentExecutor],
         );
 
         final activeNotifier = ref.read(activeTaskProvider.notifier);

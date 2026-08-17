@@ -932,8 +932,8 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
             ),
             const Divider(),
 
-            // ── Scrollable body ──
-            Flexible(
+            // ── Body ──
+            Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                 child: Column(
@@ -1106,16 +1106,24 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
                       ),
                     const SizedBox(height: 12),
 
-                    // Skill content
-                    TextField(
-                      controller: _skillCtrl,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        labelText: 'Skill',
-                        hintText: 'AgentSkills.io formatted skill content...',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                        isDense: true,
+                    // Skill content (has minimum height and is scrollable)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: isMobile ? 180 : 280,
+                      ),
+                      child: TextField(
+                        controller: _skillCtrl,
+                        maxLines: null,
+                        minLines: isMobile ? 8 : 12,
+                        textAlignVertical: TextAlignVertical.top,
+                        keyboardType: TextInputType.multiline,
+                        decoration: const InputDecoration(
+                          labelText: 'Skill',
+                          hintText: 'AgentSkills.io formatted skill content...',
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                          isDense: true,
+                        ),
                       ),
                     ),
                   ],

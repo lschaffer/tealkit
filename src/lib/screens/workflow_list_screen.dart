@@ -407,11 +407,15 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    final isMobile = MediaQuery.of(context).size.width < 800;
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.shortestSide < 600 || size.width < 800;
+    final isLandscapeMobile =
+        isMobile && MediaQuery.of(context).orientation == Orientation.landscape;
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
 
     final mainContent = Scaffold(
+      resizeToAvoidBottomInset: !isLandscapeMobile,
       backgroundColor: isModern ? Colors.transparent : null,
       appBar: AppBar(
         backgroundColor: isModern ? Colors.transparent : null,
@@ -653,18 +657,23 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
           const ServerStatusBanner(),
           // Search bar + mobile filter
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, isLandscapeMobile ? 6 : 16, 16, 0),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       hintText: l.searchTasks,
-                      prefixIcon: const Icon(Icons.search),
+                      prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear),
+                              icon: const Icon(Icons.clear, size: 18),
                               onPressed: () => _searchController.clear(),
                             )
                           : null,
@@ -771,67 +780,77 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
     return taskListAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(L.of(context).failedToLoad(error.toString())),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => ref.invalidate(taskListProvider),
-              child: Text(L.of(context).reload),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(L.of(context).failedToLoad(error.toString())),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(taskListProvider),
+                child: Text(L.of(context).reload),
+              ),
+            ],
+          ),
         ),
       ),
       data: (tasks) {
         if (tasks.isEmpty) {
           final l = L.of(context);
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.schedule, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(l.noTasksYet, style: const TextStyle(fontSize: 18)),
-                const SizedBox(height: 8),
-                Text(
-                  l.createScheduledTask,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: _createTask,
-                  icon: const Icon(Icons.add),
-                  label: Text(l.createTask),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l.orStartFromExample,
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _browseExamples,
-                  icon: const Icon(Icons.lightbulb_outline, size: 18),
-                  label: Text(l.browseExamples),
-                ),
-              ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.schedule, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(l.noTasksYet, style: const TextStyle(fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Text(
+                    l.createScheduledTask,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: _createTask,
+                    icon: const Icon(Icons.add),
+                    label: Text(l.createTask),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l.orStartFromExample,
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _browseExamples,
+                    icon: const Icon(Icons.lightbulb_outline, size: 18),
+                    label: Text(l.browseExamples),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
         final filtered = _filterAndSort(tasks);
         if (filtered.isEmpty) {
+          final l = L.of(context);
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.search_off, size: 48, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(L.of(context).noMatchingTasks),
-              ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(l.noMatchingTasks),
+                ],
+              ),
             ),
           );
         }
@@ -851,6 +870,7 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
     final rows = _buildOrderedTaskRows(tasks);
 
     return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 100),
       itemCount: rows.length,
       itemBuilder: (context, index) {
@@ -2955,6 +2975,7 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
           stopAfterToolCall: currentExecutor.stopAfterToolCall,
           executionPlan: widget.task.executionPlan,
           providers: widget.task.providers,
+          agents: [currentExecutor],
         );
 
         final activeNotifier = ref.read(activeTaskProvider.notifier);

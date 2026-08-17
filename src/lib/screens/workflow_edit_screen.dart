@@ -5,7 +5,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart' hide Step;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -83,6 +85,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
   /// Currently active skill for the selected agent (if any).
   SkillWizardResult? _activeSkill;
+  String? _activeSkillDefId;
 
   final _formKey = GlobalKey<FormState>();
   late TabController _tabController;
@@ -914,6 +917,10 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       clearLlmConfig: !_overrideLlm,
       chatMode: _chatMode,
       stopAfterToolCall: _stopAfterToolCall,
+      skillDefId: _activeSkill != null
+          ? (_activeSkillDefId ?? exec.skillDefId)
+          : null,
+      clearSkillDefId: _activeSkill == null,
       mcpTools: [
         ..._mcpServers,
         ...ExternalToolsSettingsService.instance.selectedServers.where(
@@ -1019,7 +1026,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   Future<void> _loadSkillForExecutor(Agent exec) async {
     final skillId = exec.skillDefId;
     if (skillId == null || skillId.isEmpty) {
-      if (mounted) setState(() => _activeSkill = null);
+      if (mounted) {
+        setState(() {
+          _activeSkill = null;
+          _activeSkillDefId = null;
+        });
+      }
       return;
     }
     try {
@@ -1040,8 +1052,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       if (skill != null && mounted) {
         final (mcpTypes, externalUrls) = _partitionTools(skill.toolNames);
         setState(() {
+          _activeSkillDefId = skill!.id;
           _activeSkill = SkillWizardResult(
-            name: skill!.name,
+            name: skill.name,
             goal: skill.goal,
             description: skill.description,
             skillContent: skill.skillDef,
@@ -2272,6 +2285,8 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       isMultiModal: cfg?.extraParams != null
           ? cfg!.extraParams['is_multi_modal'] as bool?
           : null,
+      skillDefId: _activeSkillDefId ?? exec.skillDefId,
+      skillContent: _activeSkill?.skillContent,
     );
 
     return (task, overrides);
@@ -2420,6 +2435,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     // A chip above the prompt shows the active skill.
     setState(() {
       _activeSkill = result;
+      _activeSkillDefId = skillDefId ?? _activeSkillDefId;
 
       // Update agent tools
       final exec = _executors[_selectedExecutorIndex];
@@ -2462,7 +2478,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       _executors[_selectedExecutorIndex] = exec.copyWith(
         internalMcps: newInternalMcps,
         mcpTools: newMcpTools,
-        skillDefId: skillDefId ?? exec.skillDefId,
+        skillDefId: _activeSkillDefId ?? exec.skillDefId,
       );
     });
 
@@ -3290,6 +3306,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                       onPressed: () {
                         setState(() {
                           _activeSkill = null;
+                          _activeSkillDefId = null;
                           if (_selectedExecutorIndex >= 0 &&
                               _selectedExecutorIndex < _executors.length) {
                             _executors[_selectedExecutorIndex] =
@@ -3833,6 +3850,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                               onPressed: () {
                                 setState(() {
                                   _activeSkill = null;
+                                  _activeSkillDefId = null;
                                   if (_selectedExecutorIndex >= 0 &&
                                       _selectedExecutorIndex <
                                           _executors.length) {
@@ -10005,6 +10023,157 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
     );
   }
 
+  static HttpServer? _testPreviewServer;
+  static int? _testPreviewServerPort;
+
+  static Future<int> _ensureTestPreviewServerRunning() async {
+    if (_testPreviewServer != null) return _testPreviewServerPort!;
+    _testPreviewServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    _testPreviewServerPort = _testPreviewServer!.port;
+    _testPreviewServer!.listen((HttpRequest request) async {
+      final path = request.uri.path;
+      final fileName = path.replaceFirst('/', '');
+      if (fileName.startsWith('test_preview_') && fileName.endsWith('.html')) {
+        final tempDir = Directory.systemTemp;
+        final file = File('${tempDir.path}/$fileName');
+        if (await file.exists()) {
+          request.response.headers.contentType = ContentType.html;
+          request.response.headers.add('Access-Control-Allow-Origin', '*');
+          await request.response.addStream(file.openRead());
+          await request.response.close();
+          return;
+        }
+      }
+      request.response.statusCode = HttpStatus.notFound;
+      await request.response.close();
+    });
+    return _testPreviewServerPort!;
+  }
+
+  static String _extractHtmlContent(String content) {
+    for (final pattern in [
+      r'```html\s*(.*?)```',
+      r'```xml\s*(.*?)```',
+      r'```svg\s*(.*?)```',
+      r'```\s*(<!DOCTYPE.*?)```',
+      r'```\s*(<html.*?)```',
+    ]) {
+      final match = RegExp(pattern, multiLine: true, dotAll: true).firstMatch(content);
+      if (match != null) {
+        return match.group(1)!.trim();
+      }
+    }
+
+    final lowerContent = content.toLowerCase();
+    if (lowerContent.contains('<!doctype') ||
+        lowerContent.contains('<! doctype') ||
+        lowerContent.contains('<html')) {
+      int firstDoctype = content.indexOf('<!DOCTYPE');
+      if (firstDoctype < 0) firstDoctype = content.indexOf('<!doctype');
+      if (firstDoctype < 0) firstDoctype = content.indexOf('<! DOCTYPE');
+      if (firstDoctype < 0) firstDoctype = content.indexOf('<! doctype');
+
+      final firstHtml = content.toLowerCase().indexOf('<html');
+      final startIndex =
+          firstDoctype >= 0 ? firstDoctype : (firstHtml >= 0 ? firstHtml : -1);
+
+      if (startIndex >= 0) {
+        final lastHtmlClose = content.toLowerCase().lastIndexOf('</html>');
+        if (lastHtmlClose > startIndex) {
+          return content.substring(startIndex, lastHtmlClose + 7);
+        }
+      }
+    }
+
+    final htmlTags = [
+      '<table', '<div', '<tr>', '<svg', '<canvas', '<script', '<style', '<ul',
+      '<ol', '<p', '<h1', '<h2', '<h3'
+    ];
+    for (final tag in htmlTags) {
+      if (content.contains(tag)) {
+        final firstTag = content.indexOf('<');
+        final lastTag = content.lastIndexOf('>');
+        if (firstTag >= 0 && lastTag > firstTag) {
+          return content.substring(firstTag, lastTag + 1);
+        }
+      }
+    }
+
+    return content;
+  }
+
+  static bool _isHtmlContent(String content) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return false;
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('```html') ||
+        lower.contains('<!doctype html') ||
+        lower.contains('<html') ||
+        lower.contains('<head') ||
+        lower.contains('<body') ||
+        lower.contains('<style') ||
+        lower.contains('<script') ||
+        lower.contains('<table') ||
+        lower.contains('<svg') ||
+        lower.contains('<div class=')) {
+      return true;
+    }
+    return false;
+  }
+
+  static Future<void> _openHtmlInExternalBrowser(
+    BuildContext context,
+    String rawContent,
+  ) async {
+    try {
+      final extractedHtml = _extractHtmlContent(rawContent);
+      final tempDir = Directory.systemTemp;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'test_preview_$timestamp.html';
+      final tempFile = File('${tempDir.path}/$fileName');
+
+      String finalHtml = extractedHtml;
+      if (!finalHtml.toLowerCase().contains('<html')) {
+        finalHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HTML Preview</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+      background-color: #f8f9fa;
+    }
+  </style>
+</head>
+<body>
+  $finalHtml
+</body>
+</html>
+''';
+      }
+      await tempFile.writeAsString(finalHtml);
+
+      final port = await _ensureTestPreviewServerRunning();
+      final uri = Uri.parse('http://localhost:$port/$fileName');
+
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open HTML in browser: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildMessageTile(ChatMessage msg, bool isDark) {
     final (IconData icon, Color color) = switch (msg.role) {
       ChatRole.user => (Icons.person_outline, Colors.blue),
@@ -10014,6 +10183,7 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
     };
 
     final contentText = msg.content;
+    final hasHtml = _isHtmlContent(contentText);
 
     // Nice style container for each message/log entry
     return Container(
@@ -10030,32 +10200,89 @@ class _PromptTestDialogState extends ConsumerState<_PromptTestDialog> {
               : Colors.black.withValues(alpha: 0.05),
         ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  msg.role.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                msg.role.name.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const Spacer(),
+              if (hasHtml)
+                Tooltip(
+                  message: 'Open HTML in browser',
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: () => _openHtmlInExternalBrowser(context, contentText),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.open_in_browser,
+                            size: 15,
+                            color: Colors.orange.shade700,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'HTML',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  contentText,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontFamily: msg.role == ChatRole.tool ? 'monospace' : null,
+              if (hasHtml) const SizedBox(width: 6),
+              Tooltip(
+                message: 'Copy to clipboard',
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: contentText));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Copied to clipboard'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.copy_outlined,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SelectableText(
+            contentText,
+            style: TextStyle(
+              fontSize: 13,
+              fontFamily: msg.role == ChatRole.tool ? 'monospace' : null,
             ),
           ),
         ],

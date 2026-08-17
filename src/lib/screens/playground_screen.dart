@@ -142,10 +142,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   String get _combinedSystemPrompt {
     final user = _systemPromptUserCtrl.text.trimRight();
     final skills = _systemPromptSkillsCtrl.text.trim();
-    final activeSkillPrompt = _activeSkill?.skillContent.trim() ?? '';
     final parts = <String>[];
     if (user.isNotEmpty) parts.add(user);
-    if (activeSkillPrompt.isNotEmpty) parts.add(activeSkillPrompt);
     if (skills.isNotEmpty) parts.add(skills);
     return parts.join('\n\n');
   }
@@ -203,6 +201,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   /// The currently active skill (if any). Shown as a chip above the prompt.
   SkillWizardResult? _activeSkill;
+
+  /// The ID of the currently active skill (if known).
+  String? _activeSkillDefId;
 
   /// Incremented on each session load to force MultimediaInputWidget remount.
   final int _chatInputKey = 0;
@@ -776,11 +777,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           selectedExternalServerUrls: externalUrls,
           toolboxEnabled: true,
         );
+        _activeSkillDefId = skill.id;
       } else {
         _activeSkill = null;
+        _activeSkillDefId = null;
       }
     } catch (_) {
       _activeSkill = null;
+      _activeSkillDefId = null;
     }
     _loadSystemPrompt(task.systemPrompt ?? '');
     _initialPromptCtrl.text = task.prompt;
@@ -2038,6 +2042,15 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           : ExternalToolsSettingsService.instance.selectedServers
                 .where((s) => _selectedExternalServerUrls.contains(s.serverUrl))
                 .toList(),
+      agents: [
+        Agent(
+          id: const Uuid().v4(),
+          name: 'Playground',
+          prompt: initialPrompt.isEmpty ? 'Hello' : initialPrompt,
+          systemPrompt: systemPrompt.isEmpty ? null : systemPrompt,
+          skillDefId: _activeSkillDefId,
+        ),
+      ],
     );
 
     // Cancel previous subscriptions
@@ -2048,7 +2061,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
     setState(() => _chatStarted = true);
 
-    await ref.read(activeTaskProvider.notifier).setTask(task);
+    final overrides = TaskLlmOverrides(
+      skillDefId: _activeSkillDefId,
+      skillContent: _activeSkill?.skillContent,
+    );
+    await ref
+        .read(activeTaskProvider.notifier)
+        .setTask(task, overrides: overrides);
 
     // Pre-fill the chat input with the initial prompt — but do NOT auto-send.
     // The user can review/edit the text before sending.
@@ -2332,6 +2351,44 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       llmConfig = const TaskLlmConfig(provider: 'llm2', model: 'coding-model');
     }
 
+    String? resolvedSkillDefId = _activeSkillDefId;
+    if (_activeSkill != null) {
+      if (resolvedSkillDefId == null || resolvedSkillDefId.isEmpty) {
+        try {
+          final allSkills =
+              await SkillDefDatabaseService.instance.getAllSkills();
+          final match = allSkills.where(
+            (s) =>
+                s.name.trim().toLowerCase() ==
+                _activeSkill!.name.trim().toLowerCase(),
+          );
+          if (match.isNotEmpty) {
+            resolvedSkillDefId = match.first.id;
+          } else {
+            final now = DateTime.now();
+            final newSkill = SkillDef(
+              id: const Uuid().v4(),
+              name: _activeSkill!.name,
+              goal: _activeSkill!.goal,
+              description: _activeSkill!.description,
+              skillDef: _activeSkill!.skillContent,
+              toolNames: [
+                ..._activeSkill!.selectedMcpTypes,
+                ..._activeSkill!.selectedExternalServerUrls,
+              ],
+              createdAt: now,
+              updatedAt: now,
+            );
+            await SkillDefDatabaseService.instance.saveSkill(newSkill);
+            resolvedSkillDefId = newSkill.id;
+          }
+          _activeSkillDefId = resolvedSkillDefId;
+        } catch (e) {
+          log.warning('[Playground] Could not resolve skillDefId on save: $e');
+        }
+      }
+    }
+
     final String agentId = const Uuid().v4();
     final agent = Agent(
       id: agentId,
@@ -2345,6 +2402,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       internalMcps: internalMcps,
       chatMode: _chatMode,
       stopAfterToolCall: _stopAfterToolCall,
+      skillDefId: resolvedSkillDefId,
     );
 
     final workflow = WorkflowTask(
@@ -2466,6 +2524,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         selectedExternalServerUrls: externalUrls,
         toolboxEnabled: true,
       );
+      _activeSkillDefId = skill.id;
 
       if (mcpTypes.isNotEmpty) {
         _selectedMcpTypes = mcpTypes;
@@ -2634,11 +2693,44 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     );
   }
 
-  void _applySkillFromWizard(SkillWizardResult result) {
+  Future<void> _applySkillFromWizard(SkillWizardResult result) async {
     // Store skill state — do NOT modify prompt/system prompt directly.
     // Instead, show a chip above the prompt.
+    String? skillId = _activeSkillDefId;
+    try {
+      final allSkills = await SkillDefDatabaseService.instance.getAllSkills();
+      final match = allSkills.where(
+        (s) =>
+            s.name.trim().toLowerCase() == result.name.trim().toLowerCase(),
+      );
+      if (match.isNotEmpty) {
+        skillId = match.first.id;
+      } else {
+        final now = DateTime.now();
+        final newSkill = SkillDef(
+          id: const Uuid().v4(),
+          name: result.name,
+          goal: result.goal,
+          description: result.description,
+          skillDef: result.skillContent,
+          toolNames: [
+            ...result.selectedMcpTypes,
+            ...result.selectedExternalServerUrls,
+          ],
+          createdAt: now,
+          updatedAt: now,
+        );
+        await SkillDefDatabaseService.instance.saveSkill(newSkill);
+        skillId = newSkill.id;
+      }
+    } catch (e) {
+      log.warning('[Playground] Could not save/match skill from wizard: $e');
+    }
+
+    if (!mounted) return;
     setState(() {
       _activeSkill = result;
+      _activeSkillDefId = skillId;
 
       // Set tools from the skill
       if (result.selectedMcpTypes.isNotEmpty) {
@@ -5186,7 +5278,10 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   icon: const Icon(Icons.close, size: 18),
                   tooltip: 'Remove skill',
                   onPressed: () {
-                    setState(() => _activeSkill = null);
+                    setState(() {
+                      _activeSkill = null;
+                      _activeSkillDefId = null;
+                    });
                     _updateSkillsSection();
                   },
                 ),
@@ -6795,7 +6890,10 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   icon: const Icon(Icons.close, size: 16),
                   tooltip: 'Remove skill',
                   onPressed: () {
-                    setState(() => _activeSkill = null);
+                    setState(() {
+                      _activeSkill = null;
+                      _activeSkillDefId = null;
+                    });
                     _updateSkillsSection();
                   },
                 ),
