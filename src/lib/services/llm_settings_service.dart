@@ -630,6 +630,8 @@ class LlmSettingsService extends ChangeNotifier {
   static const _kUseNativeToolCall = 'llm_use_native_tool_call';
   static const _kUseSafeToolCall = 'llm_use_safe_tool_call';
   static const _kEnableToolParameterAutoRecovery = 'llm_enable_tool_parameter_auto_recovery';
+  static const _kEnable2ndStageToolFiltering = 'llm_enable_2nd_stage_tool_filtering';
+  static const _kToolFilteringLlmSource = 'llm_tool_filtering_llm_source';
 
   // ── LLM 2 (coding) storage keys ───────────────────
   static const _kProvider2 = 'llm2_provider';
@@ -669,6 +671,8 @@ class LlmSettingsService extends ChangeNotifier {
   bool _useNativeToolCall = true;
   bool _useSafeToolCall = false;
   bool _enableToolParameterAutoRecovery = true;
+  bool? _enable2ndStageToolFiltering;
+  String _toolFilteringLlmSource = 'llm1';
   bool _loaded = false;
 
   // ── LLM 2 state ───────────────────────────────────
@@ -727,6 +731,15 @@ class LlmSettingsService extends ChangeNotifier {
 
   /// Whether LLM should automatically recover from tool parameter validation errors.
   bool get enableToolParameterAutoRecovery => _enableToolParameterAutoRecovery;
+
+  /// Raw explicit user setting for 2nd stage tool filtering (null if not yet set by user)
+  bool? get explicitEnable2ndStageToolFiltering => _enable2ndStageToolFiltering;
+
+  /// Whether 2nd stage tool filtering is enabled. Defaults to true for cloud models, false for SLMs.
+  bool get enable2ndStageToolFiltering => _enable2ndStageToolFiltering ?? !_isSlm;
+
+  /// Which model source to use for tool filtering ('llm1' or 'llm2')
+  String get toolFilteringLlmSource => _toolFilteringLlmSource;
 
   /// Whether LLM 2 is a Small Language Model.
   bool get isSlm2 => _isSlm2;
@@ -891,6 +904,8 @@ class LlmSettingsService extends ChangeNotifier {
     _useNativeToolCall = remote['use_native_tool_call'] as bool? ?? true;
     _useSafeToolCall = remote['use_safe_tool_call'] as bool? ?? false;
     _enableToolParameterAutoRecovery = remote['enable_tool_parameter_auto_recovery'] as bool? ?? true;
+    _enable2ndStageToolFiltering = remote['enable_2nd_stage_tool_filtering'] as bool?;
+    _toolFilteringLlmSource = (remote['tool_filtering_llm_source'] as String?) ?? 'llm1';
     _topK = (remote['top_k'] as int?) ?? _topK;
     _topP = (remote['top_p'] as num?)?.toDouble() ?? _topP;
     _repeatPenalty =
@@ -988,6 +1003,9 @@ class LlmSettingsService extends ChangeNotifier {
           (await _storage.read(key: _kUseSafeToolCall)) == 'true';
       _enableToolParameterAutoRecovery =
           (await _storage.read(key: _kEnableToolParameterAutoRecovery)) != 'false';
+      final filterEnabledRaw = await _storage.read(key: _kEnable2ndStageToolFiltering);
+      _enable2ndStageToolFiltering = filterEnabledRaw != null ? filterEnabledRaw == 'true' : null;
+      _toolFilteringLlmSource = await _storage.read(key: _kToolFilteringLlmSource) ?? 'llm1';
       final topKRaw = await _storage.read(key: _kTopK);
       _topK = topKRaw != null ? int.tryParse(topKRaw) : null;
       final topPRaw = await _storage.read(key: _kTopP);
@@ -1163,6 +1181,12 @@ class LlmSettingsService extends ChangeNotifier {
       );
       await prefs.setBool('${_kShadowPrefix}useSafeToolCall', _useSafeToolCall);
       await prefs.setBool('${_kShadowPrefix}enableToolParameterAutoRecovery', _enableToolParameterAutoRecovery);
+      if (_enable2ndStageToolFiltering != null) {
+        await prefs.setBool('${_kShadowPrefix}enable2ndStageToolFiltering', _enable2ndStageToolFiltering!);
+      } else {
+        await prefs.remove('${_kShadowPrefix}enable2ndStageToolFiltering');
+      }
+      await prefs.setString('${_kShadowPrefix}toolFilteringLlmSource', _toolFilteringLlmSource);
       if (_provider2 != LlmProvider.none) {
         await prefs.setBool('${_kShadowPrefix}thinking2', _thinking2);
         await prefs.setBool(
@@ -1211,6 +1235,8 @@ class LlmSettingsService extends ChangeNotifier {
           prefs.getBool('${_kShadowPrefix}useSafeToolCall') ?? _useSafeToolCall;
       _enableToolParameterAutoRecovery =
           prefs.getBool('${_kShadowPrefix}enableToolParameterAutoRecovery') ?? _enableToolParameterAutoRecovery;
+      _enable2ndStageToolFiltering = prefs.getBool('${_kShadowPrefix}enable2ndStageToolFiltering');
+      _toolFilteringLlmSource = prefs.getString('${_kShadowPrefix}toolFilteringLlmSource') ?? _toolFilteringLlmSource;
       if (_apiKey.isNotEmpty) {
         _apiKeysByProvider[_provider.configKey] = _apiKey;
       }
@@ -1412,6 +1438,8 @@ class LlmSettingsService extends ChangeNotifier {
     bool useNativeToolCall = true,
     bool useSafeToolCall = false,
     bool enableToolParameterAutoRecovery = true,
+    bool? enable2ndStageToolFiltering,
+    String? toolFilteringLlmSource,
   }) async {
     _provider = provider;
     _isMultiModal = isMultiModal;
@@ -1434,6 +1462,10 @@ class LlmSettingsService extends ChangeNotifier {
     _useNativeToolCall = useNativeToolCall;
     _useSafeToolCall = useSafeToolCall;
     _enableToolParameterAutoRecovery = enableToolParameterAutoRecovery;
+    _enable2ndStageToolFiltering = enable2ndStageToolFiltering;
+    if (toolFilteringLlmSource != null && toolFilteringLlmSource.isNotEmpty) {
+      _toolFilteringLlmSource = toolFilteringLlmSource;
+    }
 
     if (_keyringUnavailable) {
       await _writeShadowPrefs();
@@ -1510,6 +1542,18 @@ class LlmSettingsService extends ChangeNotifier {
       await _storage.write(
         key: _kEnableToolParameterAutoRecovery,
         value: _enableToolParameterAutoRecovery.toString(),
+      );
+      if (_enable2ndStageToolFiltering != null) {
+        await _storage.write(
+          key: _kEnable2ndStageToolFiltering,
+          value: _enable2ndStageToolFiltering.toString(),
+        );
+      } else {
+        await _storage.delete(key: _kEnable2ndStageToolFiltering);
+      }
+      await _storage.write(
+        key: _kToolFilteringLlmSource,
+        value: _toolFilteringLlmSource,
       );
 
       log.info(
@@ -1653,6 +1697,32 @@ class LlmSettingsService extends ChangeNotifier {
       log.error('[LLM Settings] Failed to save LLM2: $e');
       rethrow;
     }
+  }
+
+  /// Update 2nd stage tool filtering enabled setting
+  Future<void> setEnable2ndStageToolFiltering(bool value) async {
+    _enable2ndStageToolFiltering = value;
+    try {
+      await _storage.write(
+        key: _kEnable2ndStageToolFiltering,
+        value: value.toString(),
+      );
+    } catch (_) {}
+    await _writeShadowPrefs();
+    notifyListeners();
+  }
+
+  /// Update tool filtering model source ('llm1' or 'llm2')
+  Future<void> setToolFilteringLlmSource(String source) async {
+    _toolFilteringLlmSource = source;
+    try {
+      await _storage.write(
+        key: _kToolFilteringLlmSource,
+        value: source,
+      );
+    } catch (_) {}
+    await _writeShadowPrefs();
+    notifyListeners();
   }
 
   /// Clear all stored settings.

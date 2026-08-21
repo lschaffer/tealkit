@@ -14,6 +14,7 @@ import 'llm_settings_service.dart';
 import 'file_download_service.dart';
 import 'location_service.dart';
 import '../utils/tool_router.dart';
+import '../utils/llm_tool_selector.dart';
 import '../utils/logger.dart';
 import '../models/step_types.dart';
 import '../models/workflow_task.dart';
@@ -2537,7 +2538,6 @@ RULES (follow strictly):
       // Include all messages BUT filter to keep only ONE system message (the most recent one)
       // This prevents duplicate system messages from accumulating
       final allMessages = List<ChatMessage>.from(_messages);
-
       // Find the LAST system message (most recent priming)
       ChatMessage? lastSystemMessage;
       int lastSystemIndex = -1;
@@ -2549,7 +2549,7 @@ RULES (follow strictly):
         }
       }
 
-      // Build messages: ONE system message at beginning + all non-system messages
+      // Build message list: ONE system message at beginning + all non-system messages
       chatMessages = [];
       if (lastSystemMessage != null) {
         chatMessages.add(lastSystemMessage);
@@ -2559,7 +2559,7 @@ RULES (follow strictly):
       } else {
         // No system message found - create one (e.g., after reset or first message)
         talker.info(
-          'ðŸ†• No system message found - creating new one for first request after reset',
+          '🆕 No system message found - creating new one for first request after reset',
         );
         final systemPromptContent = _buildSystemPrompt(includeWarmup: true);
         final newSystemMessage = ChatMessage(
@@ -2572,7 +2572,7 @@ RULES (follow strictly):
         _addMessage(newSystemMessage);
         chatMessages.add(newSystemMessage);
         talker.info(
-          'ðŸ“‹ Created new system message (${systemPromptContent.length} chars)',
+          '📋 Created new system message (${systemPromptContent.length} chars)',
         );
       }
 
@@ -2588,7 +2588,7 @@ RULES (follow strictly):
       }
 
       talker.info(
-        'ðŸ“¤ Including system prompt for agentic loop (1 system + ${chatMessages.length - 1} other = ${chatMessages.length} total messages)',
+        '📤 Including system prompt for agentic loop (1 system + ${chatMessages.length - 1} other = ${chatMessages.length} total messages)',
       );
     }
 
@@ -2640,9 +2640,6 @@ RULES (follow strictly):
     if (forceNoToolCallsThisTurn &&
         forcedNoToolHintThisTurn != null &&
         forcedNoToolHintThisTurn.trim().isNotEmpty) {
-      // Use ChatRole.user (not system) because this hint is appended at the end of chatMessages,
-      // which may end with 'tool' role messages after a multi-step tool chain.
-      // OpenAI-compatible providers reject 'system' after 'tool' with invalid_request_message_order.
       chatMessages.add(
         ChatMessage(
           id: _uuid.v4(),
@@ -2662,59 +2659,88 @@ RULES (follow strictly):
     );
 
     // Get the last user message for tool filtering - search from the end backwards
-    // Skip system messages that might have been added during processing
     ChatMessage? lastUserMessage;
     for (int i = chatMessages.length - 1; i >= 0; i--) {
       if (chatMessages[i].role == ChatRole.user) {
-        // Validate that this is a real user message, not HTML instructions or system content
         final content = chatMessages[i].content.trim();
         if (content.isNotEmpty &&
-            !content.startsWith('ðŸš¨ CRITICAL:') &&
+            !content.startsWith('🚨 CRITICAL:') &&
             !content.contains('<!DOCTYPE') &&
             !content.contains('RAW HTML code ONLY')) {
           lastUserMessage = chatMessages[i];
           break;
         } else {
           talker.warning(
-            'âš ï¸ Skipping user message with system-like content: ${content.substring(0, math.min(50, content.length))}...',
+            '⚠️ Skipping user message with system-like content: ${content.substring(0, math.min(50, content.length))}...',
           );
         }
       }
     }
 
-    // Fallback: use most recent actual user message from _messages
     lastUserMessage ??= _messages
         .where((m) => m.role == ChatRole.user)
         .lastOrNull;
-
-    // Final fallback to last message if still not found
     lastUserMessage ??= chatMessages.last;
 
     // Determine if we should send tools based on provider capabilities
     List<MCPTool>? toolsToSend;
 
     if (supportsNativeTools) {
-      // Providers with native tool APIs: send tools with EVERY request
-      // Gemini API is stateless - each request needs the tool definitions
       if (mcpClient.availableTools.isNotEmpty) {
         final totalTools = mcpClient.availableTools.length;
 
-        // For small toolsets semantic filtering can over-prune critical tools.
-        // Send all tools to maximize reliability and avoid false capability refusals.
-        if (totalTools <= 20) {
-          final allTools = mcpClient.availableTools.toList();
-          allTools.sort((a, b) => a.name.compareTo(b.name));
-          toolsToSend = allTools;
-          talker.info(
-            'Using all tools for small toolset ($totalTools tools), semantic filtering bypassed',
+        // Build semantic query from original user message + most recent tool call context
+        String semanticQuery = lastUserMessage.content;
+        if (_toolIterationCount > 0 && _toolIterationCount <= 2) {
+          final lastToolMessage = chatMessages.lastWhere(
+            (m) =>
+                m.role == ChatRole.tool && m.lastCalledToolName != null,
+            orElse: () => chatMessages.last,
           );
+          if (lastToolMessage.role == ChatRole.tool &&
+              lastToolMessage.lastCalledToolName != null) {
+            semanticQuery +=
+                '\nLast tool: ${lastToolMessage.lastCalledToolName}';
+            talker.info(
+              '🔄 Enhanced semantic query with last tool: ${lastToolMessage.lastCalledToolName}',
+            );
+          }
+        }
+
+        // For small toolsets (<= 20 tools):
+        if (totalTools <= 20) {
+          List<MCPTool> tools = mcpClient.availableTools.toList();
+          // If > 5 tools and 2nd stage LLM tool filtering is enabled, filter down
+          if (llmService.enable2ndStageToolFiltering && totalTools > 5) {
+            try {
+              talker.info('🧠 [Stage 2] Running LLM tool selection on $totalTools tools...');
+              tools = await LLMToolSelector.filterTools(
+                query: semanticQuery,
+                candidateTools: tools,
+                llmService: llmService,
+              );
+            } catch (e) {
+              talker.warning('LLM tool selection failed, using all tools: $e');
+              tools = mcpClient.availableTools.toList();
+            }
+          }
+
+          if (tools.isEmpty) {
+            talker.info('📭 Tool filtering returned 0 tools - query does not require tools');
+            toolsToSend = [];
+          } else {
+            tools.sort((a, b) => a.name.compareTo(b.name));
+            toolsToSend = tools;
+            talker.info(
+              'Using ${toolsToSend.length} tools for small toolset (${toolsToSend.map((t) => t.name).join(", ")})',
+            );
+          }
         } else {
-          // Initialize semantic filtering on first user message
+          // Large toolsets (> 20 tools): Use Stage 1 semantic router + Stage 2 LLM selector
           if (_toolRouter == null && !_isInitializingSemanticFiltering) {
             talker.info(
-              'ðŸš€ First user message detected, initializing semantic filtering...',
+              '🚀 First user message detected, initializing semantic filtering...',
             );
-            // Await initialization so we can use filtered tools on the first request
             try {
               await _initializeToolRouter();
             } catch (e) {
@@ -2722,55 +2748,40 @@ RULES (follow strictly):
             }
           }
 
-          // Use semantic filtering if router is ready
           if (_toolRouter != null) {
             try {
-              // Select top 60% of tools for better coverage
               final k = math.max(
                 1,
                 (mcpClient.availableTools.length * 0.6).round(),
               );
 
-              // Build semantic query from original user message + most recent tool call context
-              // This helps pre-filter find tools needed for subsequent steps in multi-step requests
-              String semanticQuery = lastUserMessage.content;
-
-              // Only on 2nd+ iteration: append the LAST tool that was called
-              // This helps find tools for the NEXT step (e.g., matplotlib tools after data retrieval)
-              // But avoid appending on every iteration to prevent semantic query from growing infinitely
-              if (_toolIterationCount > 0 && _toolIterationCount <= 2) {
-                final lastToolMessage = chatMessages.lastWhere(
-                  (m) =>
-                      m.role == ChatRole.tool && m.lastCalledToolName != null,
-                  orElse: () => chatMessages.last,
-                );
-                if (lastToolMessage.role == ChatRole.tool &&
-                    lastToolMessage.lastCalledToolName != null) {
-                  semanticQuery +=
-                      '\nLast tool: ${lastToolMessage.lastCalledToolName}';
-                  talker.info(
-                    'ðŸ”„ Enhanced semantic query with last tool: ${lastToolMessage.lastCalledToolName}',
-                  );
-                }
-              }
-
               talker.info(
-                'ðŸ” Semantic filtering: Query="${semanticQuery.substring(0, math.min(150, semanticQuery.length))}..."',
+                '🔍 Semantic filtering: Query="${semanticQuery.substring(0, math.min(150, semanticQuery.length))}..."',
               );
               final selectedToolDefs = await _toolRouter!.selectTools(
                 semanticQuery,
                 topK: k,
               );
-              final filteredTools = mcpClient.availableTools
+              final candidateTools = mcpClient.availableTools
                   .where(
                     (tool) =>
                         selectedToolDefs.any((def) => def.name == tool.name),
                   )
                   .toList();
 
-              // Fail-open behavior: if semantic filtering yields zero tools,
-              // send all tools so short follow-ups (e.g. "graz") still work.
-              if (filteredTools.isEmpty) {
+              List<MCPTool> filteredTools = candidateTools;
+
+              // Stage 2: LLM Tool Selector (if enabled and tool count > 5)
+              if (llmService.enable2ndStageToolFiltering && candidateTools.length > 5) {
+                talker.info('🧠 [Stage 2] Running LLM tool selection on ${candidateTools.length} candidate tools...');
+                filteredTools = await LLMToolSelector.filterTools(
+                  query: semanticQuery,
+                  candidateTools: candidateTools,
+                  llmService: llmService,
+                );
+              }
+
+              if (filteredTools.isEmpty && candidateTools.isNotEmpty && !llmService.enable2ndStageToolFiltering) {
                 talker.warning(
                   'Semantic filtering returned 0 tools; falling back to all available tools',
                 );
@@ -2780,30 +2791,40 @@ RULES (follow strictly):
                 talker.info(
                   'Fallback prompt sent with ${allTools.length} tools',
                 );
+              } else if (filteredTools.isEmpty) {
+                talker.info('📭 Tool filtering returned 0 tools - query does not require tools');
+                toolsToSend = [];
               } else {
-                // Sort alphabetically for prompt caching optimization
                 filteredTools.sort((a, b) => a.name.compareTo(b.name));
                 toolsToSend = filteredTools;
                 talker.info(
-                  '[SemanticFilter] Prefilter selected ${filteredTools.length} tools (${filteredTools.map((t) => t.name).join(", ")})',
+                  '[ToolFilter] Filter selected ${filteredTools.length} tools (${filteredTools.map((t) => t.name).join(", ")})',
                 );
               }
             } catch (e) {
               talker.warning('Semantic filtering failed, using all tools: $e');
-              // Sort alphabetically for prompt caching even when using all tools
               final allTools = mcpClient.availableTools.toList();
               allTools.sort((a, b) => a.name.compareTo(b.name));
               toolsToSend = allTools;
             }
           } else {
-            // Router not ready yet - use all tools until semantic filtering is ready
+            // Router not ready yet
+            List<MCPTool> tools = mcpClient.availableTools.toList();
+            if (llmService.enable2ndStageToolFiltering && tools.length > 5) {
+              try {
+                talker.info('🧠 [Stage 2] Router not ready; running direct LLM tool selection on ${tools.length} available tools...');
+                tools = await LLMToolSelector.filterTools(
+                  query: semanticQuery,
+                  candidateTools: tools,
+                  llmService: llmService,
+                );
+              } catch (_) {}
+            }
+            tools.sort((a, b) => a.name.compareTo(b.name));
+            toolsToSend = tools;
             talker.info(
-              'â³ Semantic filtering initializing, using all ${mcpClient.availableTools.length} tools for now...',
+              '⏳ Using ${toolsToSend.length} tools (${toolsToSend.map((t) => t.name).join(", ")})',
             );
-            // Sort alphabetically for prompt caching
-            final allTools = mcpClient.availableTools.toList();
-            allTools.sort((a, b) => a.name.compareTo(b.name));
-            toolsToSend = allTools;
           }
         }
       } else {
@@ -4381,26 +4402,11 @@ CRITICAL RULES:
               'The tool "$cleanToolName" has already been successfully executed with these parameters. '
               'Do NOT call this tool or any other tool again. Use the tool results in the history to write your final response now.';
 
-          String previousResult = 'Executed successfully.';
-          try {
-            final prevMsg = _messages.lastWhere(
-              (m) =>
-                  m.role == ChatRole.tool &&
-                  m.lastCalledToolName == cleanToolName,
-            );
-            if (prevMsg.toolResult != null &&
-                prevMsg.toolResult!.content.isNotEmpty) {
-              previousResult = prevMsg.toolResult!.content
-                  .where((c) => c.text != null)
-                  .map((c) => c.text!)
-                  .join('\n\n');
-            }
-          } catch (_) {}
-
           final loopCorrectionText =
-              'The tool "$cleanToolName" was already successfully executed. '
-              'Previous result: $previousResult\n\n'
-              'Do NOT call this tool again. Generate the final response using this result.';
+              'The tool "$cleanToolName" was already executed successfully and its return data is already in the conversation above. '
+              'Do NOT call "$cleanToolName" with identical parameters again. '
+              'If you need another tool to complete the task, call the next tool now. '
+              'Otherwise, use the existing results in context to formulate your final response immediately.';
 
           final errorResult = MCPToolResult(
             content: [MCPContent(type: 'text', text: loopCorrectionText)],

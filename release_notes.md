@@ -2,6 +2,23 @@
 
 This file tracks release changes by version.
 
+## v1.6.7+140 - 2nd-Stage LLM Tool Filtering, Multi-Model Preselection & Anti-Loop Directives
+
+### New Features & Enhancements
+- **2nd-Stage LLM Tool Filtering & Preselection**:
+  - Introduced an intelligent 2-stage tool routing pipeline via `LLMToolSelector` that reduces large toolsets (e.g. MCP servers with 10–20+ tools) down to the minimal 1–4 relevant tools per prompt turn.
+  - Generates a compact tool manifest (summaries capped at 120 chars) and performs a fast, zero-shot structured tool preselection with zero temperature and a 120-token limit.
+  - **$\le 5$ Tool Bypass**: When candidate or available tools are $\le 5$, 2nd-stage filtering is automatically bypassed to save latency and token overhead.
+  - Seamlessly supported across both Local mode and Server / Multi-Agent mode on a per-step agent basis.
+  - Robust fail-open design: Falls back to returning candidate tools if filtering times out or errors.
+- **Configurable Tool Filter Model in LLM Settings**:
+  - Added a dedicated "2nd Stage LLM Tool Filtering" settings section in `LLMSettingsDialog`.
+  - Supports model selection dropdown (`LLM 1 (Primary)` vs `LLM 2 (Secondary)`), allowing users to leverage faster/cheaper secondary models for tool prefiltering.
+  - Full persistence across secure storage, SharedPreferences shadow backups, and remote server state synchronization.
+- **Tool Calling Loop Prevention & Anti-Loop Directives**:
+  - Injected explicit anti-loop completion directives into tool output truncations (`[Instruction: Tool "$toolName" executed successfully. The data above is complete. Do NOT call "$toolName" again...]`) to prevent models from endlessly re-invoking tools.
+  - Added an in-flight sequential repetition loop guard in `ChatService` preventing identical consecutive tool invocations.
+
 ## v2.0.19 / v1.6.6 - Skill Prompt Injection, Playground Workflow Persistence & Skill Editor Layout
 
 ### New Features & Enhancements

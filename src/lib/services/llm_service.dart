@@ -476,6 +476,8 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       150000; // Default 150K tokens - suggest cleanup when reached
   String? _serviceTier; // null = auto/default, 'fast' = fast service tier
   String? _reasoningEffort; // null = model default, 'low'|'medium'|'high' etc.
+  bool? _enable2ndStageToolFiltering;
+  String _toolFilteringLlmSource = 'llm1';
 
   LLMService();
 
@@ -733,6 +735,21 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   int get tokenWarningThreshold => _tokenWarningThreshold;
   String? get serviceTier => _serviceTier;
   String? get reasoningEffort => _reasoningEffort;
+  bool? get explicitEnable2ndStageToolFiltering => _enable2ndStageToolFiltering;
+  bool get enable2ndStageToolFiltering => _enable2ndStageToolFiltering ?? !isSlm;
+  String get toolFilteringLlmSource => _toolFilteringLlmSource;
+
+  /// Update 2nd stage tool filtering setting
+  void setEnable2ndStageToolFiltering(bool value) {
+    _enable2ndStageToolFiltering = value;
+    notifyListeners();
+  }
+
+  /// Update tool filtering LLM source
+  void setToolFilteringLlmSource(String source) {
+    _toolFilteringLlmSource = source;
+    notifyListeners();
+  }
 
   /// Update hide think blocks setting
   void setHideThinkBlocks(bool value) {
@@ -1658,6 +1675,34 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   /// Produces a short hex hash of [input] for use as a prompt cache key suffix.
   static String _hashString(String input) {
     return input.hashCode.toRadixString(16);
+  }
+
+  /// Fast text completion used for tool selection, query classification, etc.
+  /// Does not broadcast UI stream events.
+  Future<String?> generateFastCompletion(
+    String prompt, {
+    String source = 'llm1',
+    int maxTokens = 120,
+    double temperature = 0.0,
+  }) async {
+    final msg = ChatMessage(
+      id: 'fast-${DateTime.now().millisecondsSinceEpoch}',
+      role: ChatRole.user,
+      content: prompt,
+      timestamp: DateTime.now(),
+    );
+    try {
+      final resp = await generateChatCompletion(
+        messages: [msg],
+        forceNoToolCalls: true,
+        maxTokens: maxTokens,
+        temperature: temperature,
+      );
+      return resp.content;
+    } catch (e) {
+      talker.warning('Failed to generate fast completion ($source): $e');
+      return null;
+    }
   }
 
   /// Generate chat completion with tool support
@@ -5135,9 +5180,11 @@ extension on LLMService {
       }
     }
 
-    // If we have text content after filtering, return it
+    // If we have text content after filtering, return it with anti-loop directive
     if (hasTextContent) {
-      return buffer.toString();
+      final toolResultText = buffer.toString();
+      final toolName = message.lastCalledToolName ?? calledToolName ?? 'tool';
+      return '$toolResultText\n\n[Instruction: Tool "$toolName" executed successfully. The data above is complete. Do NOT call "$toolName" again with the same parameters. Immediately process this data to answer the user request or call the next step tool.]';
     }
 
     // If only images/binary data (no text), return a placeholder
