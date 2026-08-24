@@ -13,6 +13,7 @@ import '../mcp/internal_mcp_client_adapter.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../models/workflow_task.dart';
 import '../models/mcp_models.dart';
+import '../config/tool_usage_rules.dart';
 import '../services/app_logger.dart';
 import '../services/app_preferences_service.dart';
 import '../services/chat_service.dart';
@@ -1238,6 +1239,13 @@ class TaskRunnerService {
           }
         }
       } catch (_) {}
+    }
+
+    if (LlmSettingsService.instance.injectToolCallingRules &&
+        !prompt.contains('### Tool Calling Rules:')) {
+      prompt = prompt.isEmpty
+          ? kToolCallingRulesInstructions
+          : '$prompt\n\n$kToolCallingRulesInstructions';
     }
 
     return prompt;

@@ -15,6 +15,7 @@ import '../utils/logger.dart';
 import '../utils/grammar_generator.dart';
 import '../config/tool_usage_rules.dart';
 import 'embedded_llm/embedded_llm_adapter.dart';
+import 'llm_settings_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mistral response-patch HTTP client
@@ -1672,6 +1673,31 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     return null;
   }
 
+  /// Ensures that system messages contain the termination rules when injectToolCallingRules is enabled.
+  static List<ChatMessage> _ensureToolCallingRulesInMessages(List<ChatMessage> msgs) {
+    return msgs.map((m) {
+      if (m.role == ChatRole.system) {
+        if (!m.content.contains('### Tool Calling Rules:')) {
+          final newContent = m.content.trim().isEmpty
+              ? kToolCallingRulesInstructions
+              : '${m.content.trim()}\n\n$kToolCallingRulesInstructions';
+          return ChatMessage(
+            id: m.id,
+            content: newContent,
+            role: m.role,
+            timestamp: m.timestamp,
+            actionType: m.actionType,
+            attachments: m.attachments,
+            toolResult: m.toolResult,
+            availableTools: m.availableTools,
+            lastCalledToolName: m.lastCalledToolName,
+          );
+        }
+      }
+      return m;
+    }).toList();
+  }
+
   /// Produces a short hex hash of [input] for use as a prompt cache key suffix.
   static String _hashString(String input) {
     return input.hashCode.toRadixString(16);
@@ -1769,7 +1795,10 @@ class LLMService extends ChangeNotifier with ServiceLogging {
 
     _ensureAiDataSharingConsent();
 
-    final processedMessages = await _preprocessAttachments(messages);
+    var processedMessages = await _preprocessAttachments(messages);
+    if (LlmSettingsService.instance.injectToolCallingRules) {
+      processedMessages = _ensureToolCallingRulesInMessages(processedMessages);
+    }
 
     // Use provided values or fall back to stored settings
     var effectiveTemperature = temperature ?? _temperature;
@@ -2160,8 +2189,12 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       );
     }
 
+    final sysMsg = _extractSystemMessage(messages);
     final request = genai.GenerateContentRequest(
       contents: content,
+      systemInstruction: sysMsg != null && sysMsg.trim().isNotEmpty
+          ? genai.Content(parts: [genai.TextPart(sysMsg)])
+          : null,
       tools: geminiTools,
       toolConfig: geminiToolConfig,
       generationConfig: genai.GenerationConfig(

@@ -630,6 +630,7 @@ class LlmSettingsService extends ChangeNotifier {
   static const _kUseNativeToolCall = 'llm_use_native_tool_call';
   static const _kUseSafeToolCall = 'llm_use_safe_tool_call';
   static const _kEnableToolParameterAutoRecovery = 'llm_enable_tool_parameter_auto_recovery';
+  static const _kInjectToolCallingRules = 'llm_inject_tool_calling_rules';
   static const _kEnable2ndStageToolFiltering = 'llm_enable_2nd_stage_tool_filtering';
   static const _kToolFilteringLlmSource = 'llm_tool_filtering_llm_source';
 
@@ -671,6 +672,7 @@ class LlmSettingsService extends ChangeNotifier {
   bool _useNativeToolCall = true;
   bool _useSafeToolCall = false;
   bool _enableToolParameterAutoRecovery = true;
+  bool _injectToolCallingRules = true;
   bool? _enable2ndStageToolFiltering;
   String _toolFilteringLlmSource = 'llm1';
   bool _loaded = false;
@@ -731,6 +733,9 @@ class LlmSettingsService extends ChangeNotifier {
 
   /// Whether LLM should automatically recover from tool parameter validation errors.
   bool get enableToolParameterAutoRecovery => _enableToolParameterAutoRecovery;
+
+  /// Whether to inject tool calling termination rules to the end of system prompts.
+  bool get injectToolCallingRules => _injectToolCallingRules;
 
   /// Raw explicit user setting for 2nd stage tool filtering (null if not yet set by user)
   bool? get explicitEnable2ndStageToolFiltering => _enable2ndStageToolFiltering;
@@ -904,6 +909,7 @@ class LlmSettingsService extends ChangeNotifier {
     _useNativeToolCall = remote['use_native_tool_call'] as bool? ?? true;
     _useSafeToolCall = remote['use_safe_tool_call'] as bool? ?? false;
     _enableToolParameterAutoRecovery = remote['enable_tool_parameter_auto_recovery'] as bool? ?? true;
+    _injectToolCallingRules = remote['inject_tool_calling_rules'] as bool? ?? true;
     _enable2ndStageToolFiltering = remote['enable_2nd_stage_tool_filtering'] as bool?;
     _toolFilteringLlmSource = (remote['tool_filtering_llm_source'] as String?) ?? 'llm1';
     _topK = (remote['top_k'] as int?) ?? _topK;
@@ -1003,6 +1009,8 @@ class LlmSettingsService extends ChangeNotifier {
           (await _storage.read(key: _kUseSafeToolCall)) == 'true';
       _enableToolParameterAutoRecovery =
           (await _storage.read(key: _kEnableToolParameterAutoRecovery)) != 'false';
+      final injectRulesRaw = await _storage.read(key: _kInjectToolCallingRules);
+      _injectToolCallingRules = injectRulesRaw != null ? injectRulesRaw != 'false' : true;
       final filterEnabledRaw = await _storage.read(key: _kEnable2ndStageToolFiltering);
       _enable2ndStageToolFiltering = filterEnabledRaw != null ? filterEnabledRaw == 'true' : null;
       _toolFilteringLlmSource = await _storage.read(key: _kToolFilteringLlmSource) ?? 'llm1';
@@ -1181,12 +1189,17 @@ class LlmSettingsService extends ChangeNotifier {
       );
       await prefs.setBool('${_kShadowPrefix}useSafeToolCall', _useSafeToolCall);
       await prefs.setBool('${_kShadowPrefix}enableToolParameterAutoRecovery', _enableToolParameterAutoRecovery);
+      await prefs.setBool('${_kShadowPrefix}injectToolCallingRules', _injectToolCallingRules);
       if (_enable2ndStageToolFiltering != null) {
         await prefs.setBool('${_kShadowPrefix}enable2ndStageToolFiltering', _enable2ndStageToolFiltering!);
       } else {
         await prefs.remove('${_kShadowPrefix}enable2ndStageToolFiltering');
       }
       await prefs.setString('${_kShadowPrefix}toolFilteringLlmSource', _toolFilteringLlmSource);
+      if (_topK != null) await prefs.setInt('${_kShadowPrefix}topK', _topK!);
+      if (_topP != null) await prefs.setDouble('${_kShadowPrefix}topP', _topP!);
+      if (_repeatPenalty != null) await prefs.setDouble('${_kShadowPrefix}repeatPenalty', _repeatPenalty!);
+      if (_seed != null) await prefs.setInt('${_kShadowPrefix}seed', _seed!);
       if (_provider2 != LlmProvider.none) {
         await prefs.setBool('${_kShadowPrefix}thinking2', _thinking2);
         await prefs.setBool(
@@ -1235,6 +1248,8 @@ class LlmSettingsService extends ChangeNotifier {
           prefs.getBool('${_kShadowPrefix}useSafeToolCall') ?? _useSafeToolCall;
       _enableToolParameterAutoRecovery =
           prefs.getBool('${_kShadowPrefix}enableToolParameterAutoRecovery') ?? _enableToolParameterAutoRecovery;
+      _injectToolCallingRules =
+          prefs.getBool('${_kShadowPrefix}injectToolCallingRules') ?? _injectToolCallingRules;
       _enable2ndStageToolFiltering = prefs.getBool('${_kShadowPrefix}enable2ndStageToolFiltering');
       _toolFilteringLlmSource = prefs.getString('${_kShadowPrefix}toolFilteringLlmSource') ?? _toolFilteringLlmSource;
       if (_apiKey.isNotEmpty) {
@@ -1249,6 +1264,14 @@ class LlmSettingsService extends ChangeNotifier {
       if (_provider == LlmProvider.mistral && _baseUrl.isEmpty) {
         _baseUrl = 'https://api.mistral.ai/v1';
       }
+      final tk = prefs.getInt('${_kShadowPrefix}topK');
+      if (tk != null) _topK = tk;
+      final tp = prefs.getDouble('${_kShadowPrefix}topP');
+      if (tp != null) _topP = tp;
+      final rp = prefs.getDouble('${_kShadowPrefix}repeatPenalty');
+      if (rp != null) _repeatPenalty = rp;
+      final sd = prefs.getInt('${_kShadowPrefix}seed');
+      if (sd != null) _seed = sd;
       // LLM 2 shadow
       final p2 = prefs.getString('${_kShadowPrefix}provider2') ?? '';
       if (p2.isNotEmpty && p2 != 'none') {
@@ -1329,24 +1352,17 @@ class LlmSettingsService extends ChangeNotifier {
     }
   }
 
-  /// Migrate existing plaintext SharedPreferences to secure storage (one-time).
+  /// One-time migration: copy legacy plaintext keys into FlutterSecureStorage.
   Future<void> _migrateFromSharedPreferences() async {
     try {
-      final migrated = await _storage.read(key: _kMigrated);
-      if (migrated == 'true') return; // already migrated
-
       final prefs = await SharedPreferences.getInstance();
-      final oldProvider = prefs.getString(_kProvider);
-      if (oldProvider == null || oldProvider.isEmpty) {
-        // Nothing to migrate
-        await _storage.write(key: _kMigrated, value: 'true');
-        return;
-      }
+      final alreadyMigrated = await _storage.read(key: _kMigrated);
+      if (alreadyMigrated == 'true') return;
 
-      log.info(
-        '[LLM Settings] Migrating from SharedPreferences to secure storage...',
-      );
-      await _storage.write(key: _kProvider, value: oldProvider);
+      final oldProvider = prefs.getString(_kProvider);
+      if (oldProvider != null) {
+        await _storage.write(key: _kProvider, value: oldProvider);
+      }
       final oldModel = prefs.getString(_kModel);
       if (oldModel != null) await _storage.write(key: _kModel, value: oldModel);
       final oldKey = prefs.getString(_kApiKey);
@@ -1438,6 +1454,7 @@ class LlmSettingsService extends ChangeNotifier {
     bool useNativeToolCall = true,
     bool useSafeToolCall = false,
     bool enableToolParameterAutoRecovery = true,
+    bool injectToolCallingRules = true,
     bool? enable2ndStageToolFiltering,
     String? toolFilteringLlmSource,
   }) async {
@@ -1462,6 +1479,7 @@ class LlmSettingsService extends ChangeNotifier {
     _useNativeToolCall = useNativeToolCall;
     _useSafeToolCall = useSafeToolCall;
     _enableToolParameterAutoRecovery = enableToolParameterAutoRecovery;
+    _injectToolCallingRules = injectToolCallingRules;
     _enable2ndStageToolFiltering = enable2ndStageToolFiltering;
     if (toolFilteringLlmSource != null && toolFilteringLlmSource.isNotEmpty) {
       _toolFilteringLlmSource = toolFilteringLlmSource;
@@ -1542,6 +1560,10 @@ class LlmSettingsService extends ChangeNotifier {
       await _storage.write(
         key: _kEnableToolParameterAutoRecovery,
         value: _enableToolParameterAutoRecovery.toString(),
+      );
+      await _storage.write(
+        key: _kInjectToolCallingRules,
+        value: _injectToolCallingRules.toString(),
       );
       if (_enable2ndStageToolFiltering != null) {
         await _storage.write(
@@ -1699,6 +1721,19 @@ class LlmSettingsService extends ChangeNotifier {
     }
   }
 
+  /// Update inject tool calling rules setting
+  Future<void> setInjectToolCallingRules(bool value) async {
+    _injectToolCallingRules = value;
+    try {
+      await _storage.write(
+        key: _kInjectToolCallingRules,
+        value: value.toString(),
+      );
+    } catch (_) {}
+    await _writeShadowPrefs();
+    notifyListeners();
+  }
+
   /// Update 2nd stage tool filtering enabled setting
   Future<void> setEnable2ndStageToolFiltering(bool value) async {
     _enable2ndStageToolFiltering = value;
@@ -1735,6 +1770,7 @@ class LlmSettingsService extends ChangeNotifier {
     _maxTokens = 0;
     _maxToolOutputSize = 2560000;
     _tokenWarningThreshold = 1500000;
+    _injectToolCallingRules = true;
     try {
       await _storage.delete(key: _kProvider);
       await _storage.delete(key: _kModel);
@@ -1761,6 +1797,7 @@ class LlmSettingsService extends ChangeNotifier {
       await _storage.delete(key: _kUseNativeToolCall2);
       await _storage.delete(key: _kUseSafeToolCall);
       await _storage.delete(key: _kUseSafeToolCall2);
+      await _storage.delete(key: _kInjectToolCallingRules);
       // Clear shadow too.
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -1776,6 +1813,7 @@ class LlmSettingsService extends ChangeNotifier {
         await prefs.remove('${_kShadowPrefix}useNativeToolCall2');
         await prefs.remove('${_kShadowPrefix}useSafeToolCall');
         await prefs.remove('${_kShadowPrefix}useSafeToolCall2');
+        await prefs.remove('${_kShadowPrefix}injectToolCallingRules');
       } catch (_) {}
       log.info('[LLM Settings] Cleared');
     } catch (e) {

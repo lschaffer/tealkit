@@ -1030,10 +1030,20 @@ class ServerLlmRunner {
       '[LlmRunner] resolved: provider=${provider.configKey} model=$model baseUrl="$baseUrl" hasApiKey=${apiKey.isNotEmpty}',
     );
     log.info('[LlmRunner] Provider=${provider.label} Model=$model');
+    var effectiveSystemPrompt = systemPrompt;
+    if (_settings.injectToolCallingRules &&
+        !effectiveSystemPrompt.contains('### Tool Calling Rules:')) {
+      effectiveSystemPrompt = effectiveSystemPrompt.trim().isEmpty
+          ? '''### Tool Calling Rules:
+1. When you have sufficient data from tool calls to satisfy the user's request, provide the final answer directly to the user.
+2. Once the final markdown answer is presented, STOP execution immediately. Do NOT call any further tools, do NOT plan extra steps, and do NOT simulate new user requests.'''
+          : '$effectiveSystemPrompt\n\n### Tool Calling Rules:\n1. When you have sufficient data from tool calls to satisfy the user\'s request, provide the final answer directly to the user.\n2. Once the final markdown answer is presented, STOP execution immediately. Do NOT call any further tools, do NOT plan extra steps, and do NOT simulate new user requests.';
+    }
+
     _liveLog(
       'Starting execution flow using provider: ${provider.label}, model: $model',
     );
-    _liveLog('System Prompt: $systemPrompt');
+    _liveLog('System Prompt: $effectiveSystemPrompt');
     _liveLog('User Prompt: $userPrompt');
 
     if (provider == LlmProvider.none || model.isEmpty) {
@@ -1049,7 +1059,7 @@ class ServerLlmRunner {
         return await _runWithClaude(
           apiKey: apiKey,
           model: model,
-          systemPrompt: systemPrompt,
+          systemPrompt: effectiveSystemPrompt,
           userPrompt: userPrompt,
           temperature: temperature,
           maxTokens: maxTokens,
@@ -1059,7 +1069,7 @@ class ServerLlmRunner {
       if (provider == LlmProvider.embedded) {
         return await _runWithEmbedded(
           model: model,
-          systemPrompt: systemPrompt,
+          systemPrompt: effectiveSystemPrompt,
           userPrompt: userPrompt,
           temperature: temperature,
           maxTokens: maxTokens,
@@ -1081,7 +1091,7 @@ class ServerLlmRunner {
         baseUrl: baseUrl,
         temperature: temperature,
         maxTokens: maxTokens,
-        systemPrompt: systemPrompt,
+        systemPrompt: effectiveSystemPrompt,
         userPrompt: userPrompt,
         registry: registry,
         toolsOverride: toolsOverride,

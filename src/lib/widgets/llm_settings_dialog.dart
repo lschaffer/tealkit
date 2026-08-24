@@ -86,6 +86,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   bool _useSafeToolCall = false;
   bool _isLightMode = false;
   bool _enableToolParameterAutoRecovery = true;
+  bool _injectToolCallingRules = true;
   bool _enable2ndStageToolFiltering = true;
   String _toolFilteringLlmSource = 'llm1';
   Timer? _priceRefreshDebounce;
@@ -241,6 +242,10 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             remote.containsKey('enable_tool_parameter_auto_recovery')
             ? (remote['enable_tool_parameter_auto_recovery'] as bool? ?? true)
             : s.enableToolParameterAutoRecovery;
+        _injectToolCallingRules =
+            remote.containsKey('inject_tool_calling_rules')
+            ? (remote['inject_tool_calling_rules'] as bool? ?? true)
+            : s.injectToolCallingRules;
         _enable2ndStageToolFiltering =
             remote.containsKey('enable_2nd_stage_tool_filtering')
             ? (remote['enable_2nd_stage_tool_filtering'] as bool? ?? true)
@@ -285,6 +290,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         _useSafeToolCall = s.useSafeToolCall;
         _useSafeToolCall2 = s.useSafeToolCall2;
         _enableToolParameterAutoRecovery = s.enableToolParameterAutoRecovery;
+        _injectToolCallingRules = s.injectToolCallingRules;
         _enable2ndStageToolFiltering = s.enable2ndStageToolFiltering;
         _toolFilteringLlmSource = s.toolFilteringLlmSource;
       }
@@ -552,6 +558,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             'use_safe_tool_call': _useSafeToolCall,
             'enable_tool_parameter_auto_recovery':
                 _enableToolParameterAutoRecovery,
+            'inject_tool_calling_rules': _injectToolCallingRules,
             'enable_2nd_stage_tool_filtering': _enable2ndStageToolFiltering,
             'tool_filtering_llm_source': _toolFilteringLlmSource,
             'max_tool_output_size':
@@ -606,6 +613,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             useNativeToolCall: _useNativeToolCall,
             useSafeToolCall: _useSafeToolCall,
             enableToolParameterAutoRecovery: _enableToolParameterAutoRecovery,
+            injectToolCallingRules: _injectToolCallingRules,
             enable2ndStageToolFiltering: _enable2ndStageToolFiltering,
             toolFilteringLlmSource: _toolFilteringLlmSource,
           );
@@ -660,6 +668,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           useNativeToolCall: _useNativeToolCall,
           useSafeToolCall: _useSafeToolCall,
           enableToolParameterAutoRecovery: _enableToolParameterAutoRecovery,
+          injectToolCallingRules: _injectToolCallingRules,
           enable2ndStageToolFiltering: _enable2ndStageToolFiltering,
           toolFilteringLlmSource: _toolFilteringLlmSource,
         );
@@ -760,6 +769,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         _useNativeToolCall2 = true;
         _useSafeToolCall = false;
         _useSafeToolCall2 = false;
+        _injectToolCallingRules = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -912,7 +922,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
                         ),
 
                         const SizedBox(height: 16),
-                        _buildToolFilteringSection(theme),
+                        _buildGlobalSettingsSection(theme, isModern),
                         const SizedBox(height: 24),
 
                         // ── Save button ──────────────────────────
@@ -1165,103 +1175,105 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
     );
   }
 
-  Widget _buildToolFilteringSection(ThemeData theme) {
-    final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
-    final hasLlm2 = _provider2 != LlmProvider.none && _modelCtrl2.text.isNotEmpty;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isModern
-            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)
-            : theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+  Widget _buildGlobalSettingsSection(ThemeData theme, bool isModern) {
+    return _buildConfigCard(
+      isModern: isModern,
+      theme: theme,
+      baseColor: isModern ? const Color(0xFF7C3AED) : AppTheme.primaryBlue,
+      classicBgColor: theme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.3,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Inject Tool Calling Rules Checkbox
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.rule_outlined,
+                  size: 22,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Inject Tool Calling Rules',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Appends strict completion rules to system prompts so smaller models stop calling tools once the answer is ready',
+                    ),
+                    value: _injectToolCallingRules,
+                    onChanged: (val) =>
+                        setState(() => _injectToolCallingRules = val ?? true),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            _buildToolFilteringSection(theme),
+          ],
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 500;
+    );
+  }
 
-          final dropdownWidget = DropdownButtonFormField<String>(
-            initialValue: _toolFilteringLlmSource,
-            decoration: const InputDecoration(
-              labelText: 'Tool Filter Model',
-              border: OutlineInputBorder(),
-              isDense: true,
-              prefixIcon: Icon(Icons.psychology_outlined, size: 20),
+  Widget _buildToolFilteringSection(ThemeData theme) {
+    final hasLlm2 =
+        _provider2 != LlmProvider.none && _modelCtrl2.text.isNotEmpty;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 550;
+
+        final dropdownWidget = DropdownButtonFormField<String>(
+          initialValue: _toolFilteringLlmSource,
+          decoration: const InputDecoration(
+            labelText: 'Tool Filter Model',
+            border: OutlineInputBorder(),
+            isDense: true,
+            prefixIcon: Icon(Icons.psychology_outlined, size: 20),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: 'llm1',
+              child: Text('LLM 1 (Primary)'),
             ),
-            items: [
-              const DropdownMenuItem(
-                value: 'llm1',
-                child: Text('LLM 1 (Primary)'),
+            DropdownMenuItem(
+              value: 'llm2',
+              enabled: hasLlm2,
+              child: Text(
+                hasLlm2 ? 'LLM 2 (Secondary)' : 'LLM 2 (Not configured)',
               ),
-              DropdownMenuItem(
-                value: 'llm2',
-                enabled: hasLlm2,
-                child: Text(hasLlm2 ? 'LLM 2 (Secondary)' : 'LLM 2 (Not configured)'),
-              ),
-            ],
-            onChanged: (val) {
-              if (val != null) setState(() => _toolFilteringLlmSource = val);
-            },
-          );
+            ),
+          ],
+          onChanged: (val) {
+            if (val != null) setState(() => _toolFilteringLlmSource = val);
+          },
+        );
 
-          final warningWidget = _enable2ndStageToolFiltering && _toolFilteringLlmSource == 'llm2'
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 34),
-                  child: Text(
-                    '⚠️ Note: If LLM 2 is a small local model, tool selection may be less accurate (use at your own risk).',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                )
-              : null;
-
-          if (isCompact) {
-            // Mobile / compact mode: stack the dropdown below the checkbox
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(Icons.filter_alt_outlined, size: 22, color: theme.colorScheme.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          '2nd Stage LLM Tool Filtering',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: const Text(
-                          'Filter 10–12 candidate tools down to 1–4 exact tools using LLM',
-                        ),
-                        value: _enable2ndStageToolFiltering,
-                        onChanged: (val) => setState(() => _enable2ndStageToolFiltering = val ?? false),
-                        controlAffinity: ListTileControlAffinity.leading,
+        final warningWidget =
+            _enable2ndStageToolFiltering && _toolFilteringLlmSource == 'llm2'
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 34),
+                    child: Text(
+                      '⚠️ Note: If LLM 2 is a small local model, tool selection may be less accurate (use at your own risk).',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
                       ),
                     ),
-                  ],
-                ),
-                if (_enable2ndStageToolFiltering) ...[
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 34),
-                    child: dropdownWidget,
-                  ),
-                ],
-                ?warningWidget,
-              ],
-            );
-          }
+                  )
+                : null;
 
-          // Desktop / wide mode: place side-by-side
+        if (isCompact) {
+          // Mobile / compact mode: stack the dropdown below the checkbox
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1269,10 +1281,13 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.filter_alt_outlined, size: 22, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.filter_alt_outlined,
+                    size: 22,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
-                    flex: 3,
                     child: CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text(
@@ -1283,23 +1298,70 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
                         'Filter 10–12 candidate tools down to 1–4 exact tools using LLM',
                       ),
                       value: _enable2ndStageToolFiltering,
-                      onChanged: (val) => setState(() => _enable2ndStageToolFiltering = val ?? false),
+                      onChanged: (val) => setState(
+                        () => _enable2ndStageToolFiltering = val ?? false,
+                      ),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  if (_enable2ndStageToolFiltering)
-                    Expanded(
-                      flex: 2,
-                      child: dropdownWidget,
-                    ),
                 ],
               ),
+              if (_enable2ndStageToolFiltering) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(left: 34),
+                  child: dropdownWidget,
+                ),
+              ],
               ?warningWidget,
             ],
           );
-        },
-      ),
+        }
+
+        // Desktop / wide mode: place side-by-side
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.filter_alt_outlined,
+                  size: 22,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      '2nd Stage LLM Tool Filtering',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Filter 10–12 candidate tools down to 1–4 exact tools using LLM',
+                    ),
+                    value: _enable2ndStageToolFiltering,
+                    onChanged: (val) => setState(
+                      () => _enable2ndStageToolFiltering = val ?? false,
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                if (_enable2ndStageToolFiltering)
+                  Expanded(
+                    flex: 2,
+                    child: dropdownWidget,
+                  ),
+              ],
+            ),
+              ?warningWidget,
+          ],
+        );
+      },
     );
   }
 

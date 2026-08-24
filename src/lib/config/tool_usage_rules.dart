@@ -22,3 +22,10 @@ class ToolUsageRules {
   static Future<String> getMeasurementDataRules() async => '';
   static Future<String> getAllInstructions() async => '';
 }
+
+/// Strict tool calling completion rules to prevent infinite loops and ensure
+/// smaller models stop execution immediately once the user request is satisfied.
+const String kToolCallingRulesInstructions = '''### Tool Calling Rules:
+1. When you have sufficient data from tool calls to satisfy the user's request, provide the final answer directly to the user.
+2. Once the final markdown answer is presented, STOP execution immediately. Do NOT call any further tools, do NOT plan extra steps, and do NOT simulate new user requests.''';
+

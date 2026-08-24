@@ -543,6 +543,7 @@ class ServerLlmSettingsService {
   static const _kUseNativeToolCall = 'llm_use_native_tool_call';
   static const _kUseSafeToolCall = 'llm_use_safe_tool_call';
   static const _kEnableToolParameterAutoRecovery = 'llm_enable_tool_parameter_auto_recovery';
+  static const _kInjectToolCallingRules = 'llm_inject_tool_calling_rules';
 
   static const _kProvider2 = 'llm2_provider';
   static const _kModel2 = 'llm2_model';
@@ -581,6 +582,7 @@ class ServerLlmSettingsService {
   bool _useNativeToolCall = true;
   bool _useSafeToolCall = false;
   bool _enableToolParameterAutoRecovery = true;
+  bool _injectToolCallingRules = true;
 
   LlmProvider _provider2 = LlmProvider.none;
   String _model2 = '';
@@ -624,6 +626,7 @@ class ServerLlmSettingsService {
   bool get useNativeToolCall => _useNativeToolCall;
   bool get useSafeToolCall => _useSafeToolCall;
   bool get enableToolParameterAutoRecovery => _enableToolParameterAutoRecovery;
+  bool get injectToolCallingRules => _injectToolCallingRules;
 
   LlmProvider get provider2 => _provider2;
   String get model2 => _model2;
@@ -707,6 +710,7 @@ class ServerLlmSettingsService {
     _thinking = cfg.getBool(_kThinking) ?? false;
     _useNativeToolCall = cfg.getBool(_kUseNativeToolCall) ?? true;
     _enableToolParameterAutoRecovery = cfg.getBool(_kEnableToolParameterAutoRecovery) ?? true;
+    _injectToolCallingRules = cfg.getBool(_kInjectToolCallingRules) ?? true;
 
     // Per-provider scoped secrets
     for (final p in LlmProvider.values) {
@@ -849,6 +853,11 @@ class ServerLlmSettingsService {
   Future<void> setEnableToolParameterAutoRecovery(bool value) async {
     _enableToolParameterAutoRecovery = value;
     await ServerConfigService().setBool(_kEnableToolParameterAutoRecovery, value);
+  }
+
+  Future<void> setInjectToolCallingRules(bool value) async {
+    _injectToolCallingRules = value;
+    await ServerConfigService().setBool(_kInjectToolCallingRules, value);
   }
 
   Future<void> setUseSafeToolCall2(bool value) async {

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/mcp_models.dart';
+import '../config/tool_usage_rules.dart';
 import 'multi_mcp_manager.dart';
 import 'llm_service.dart';
 import 'llm_settings_service.dart';
@@ -1282,6 +1283,10 @@ class ChatService extends ChangeNotifier with ServiceLogging {
           buffer.writeln();
         }
       }
+      if (LlmSettingsService.instance.injectToolCallingRules) {
+        buffer.writeln(kToolCallingRulesInstructions);
+        buffer.writeln();
+      }
       return buffer.toString();
     }
 
@@ -1567,6 +1572,11 @@ class ChatService extends ChangeNotifier with ServiceLogging {
       '3. Instead of repeating the tool call, use the tool results already present in the chat history to formulate your final response to the user.',
     );
     buffer.writeln();
+
+    if (LlmSettingsService.instance.injectToolCallingRules) {
+      buffer.writeln(kToolCallingRulesInstructions);
+      buffer.writeln();
+    }
 
     final finalPrompt = buffer.toString();
     talker.info('ðŸ“ Total system prompt length: ${finalPrompt.length} chars');

@@ -2305,6 +2305,7 @@ Future<Response> _handleGetLlmSettings(Request request) async {
     'use_native_tool_call': llm.useNativeToolCall,
     'use_safe_tool_call': llm.useSafeToolCall,
     'enable_tool_parameter_auto_recovery': llm.enableToolParameterAutoRecovery,
+    'inject_tool_calling_rules': llm.injectToolCallingRules,
     'top_k': llm.topK,
     'top_p': llm.topP,
     'repeat_penalty': llm.repeatPenalty,
@@ -2449,6 +2450,11 @@ Future<Response> _handlePutLlmSettings(Request request) async {
     if (body.containsKey('enable_tool_parameter_auto_recovery')) {
       await llm.setEnableToolParameterAutoRecovery(
         body['enable_tool_parameter_auto_recovery'] as bool,
+      );
+    }
+    if (body.containsKey('inject_tool_calling_rules')) {
+      await llm.setInjectToolCallingRules(
+        body['inject_tool_calling_rules'] as bool,
       );
     }
     if (body.containsKey('use_native_tool_call2')) {
