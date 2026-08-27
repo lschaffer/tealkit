@@ -30,6 +30,9 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 > 📺 **Interactive Video Promo Panel**: Explore all latest demo videos and watch interactive previews directly on [tealkit.dev](https://tealkit.dev).
 
+* **TealKit Weather Card Skill: AI Renders Next-Hours Forecast as HTML on Android**
+  https://youtube.com/shorts/nQnf1FyxVeI
+
 * **Local AI Beyond RAM Limits: TealKit + Hypura 24B Test on Mac Mini M4 Pro**
   https://youtu.be/qxTgzRVIC_A
 
@@ -167,6 +170,7 @@ Comprehensive settings panels for every aspect of TealKit.
 
 | Scenario | Tools | Overview |
 | :--- | :---: | :--- |
+| **The Weather Card (Skill Wizard)** | Weather MCP + Agent Skills | Build an automated weather workflow on Android that renders an HTML card in the mobile browser using a template skill created with the built-in Skill Wizard and tested with interactive test. [▶ Watch demo](https://youtube.com/shorts/nQnf1FyxVeI) |
 | **The Disk Guardian** | SSH + Email | Two chained workflows monitor your server autonomously. workflow 1 runs a remote shell script to check disk usage on `/dev/sda1`; if usage exceeds the threshold, it triggers workflow 2 — which generates a styled HTML "Disk Warning" email and sends it automatically. [▶ Watch demo](https://youtube.com/shorts/WVhGGEkrO8Q) |
 | **The Document Oracle** | RAG / DuckDB | Index local technical documentation folders into an on-device DuckDB vector store. Ask a semantic question to find documents about a specific sensor — results returned as an HTML table with document name, line, and excerpt. Then extract detailed information from any result as structured Markdown. [▶ Watch demo](https://youtu.be/Kd5ZGAA1Ufg) |
 | **The File Monitor** | SSH + Ollama | The SLM generates a shell script on the fly to check for newly uploaded files in a target folder within the last N hours. The script is validated in the playground, packaged into a scheduled workflow, and runs automatically against a remote Linux server. [▶ Watch demo](https://youtu.be/U16z-iDifVU) |
