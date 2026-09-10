@@ -112,13 +112,31 @@ class AutoDiscoverMcpCommand extends Command {
   Future<void> run() async {
     stdout.writeln('Discovering MCP servers from active server...');
     final client = _getClient();
-    final servers = await client.listRegistryServers();
+
+    List<Map<String, dynamic>> localServers = [];
+    try {
+      localServers = await client.listRegistryServers();
+    } catch (e) {
+      stdout.writeln(TerminalPrinter.dim('  (Notice: Could not fetch local registry servers: $e)'));
+    }
+
+    List<dynamic> remoteServers = [];
+    try {
+      final ext = await client.getExternalToolsSettings();
+      remoteServers = (ext['selected_servers'] as List? ?? []);
+    } catch (e) {
+      stdout.writeln(TerminalPrinter.dim('  (Notice: Could not fetch external/remote tools: $e)'));
+    }
 
     final buffer = StringBuffer();
     buffer.writeln('# TealKit MCP Servers Configuration (Auto-discovered)');
     buffer.writeln('servers:');
 
-    for (final s in servers) {
+    if (localServers.isNotEmpty) {
+      buffer.writeln('  # ── Local / Community Stdio MCP Servers ──');
+    }
+
+    for (final s in localServers) {
       final id = (s['id'] as String?) ?? 'mcp_server';
       final name = (s['name'] as String?) ?? id;
       final language = (s['language'] as String?)?.toLowerCase() ??
@@ -207,9 +225,52 @@ class AutoDiscoverMcpCommand extends Command {
       buffer.writeln('');
     }
 
+    if (remoteServers.isNotEmpty) {
+      buffer.writeln('  # ── Remote HTTP / SSE MCP Servers ──');
+      for (final s in remoteServers) {
+        final map = s is Map<String, dynamic>
+            ? s
+            : (s is Map ? Map<String, dynamic>.from(s) : null);
+        if (map == null) continue;
+        final serverUrl = (map['server_url'] as String?) ??
+            (map['serverUrl'] as String?) ??
+            '';
+        if (serverUrl.trim().isEmpty) continue;
+
+        final name = (map['name'] as String?) ??
+            (map['displayName'] as String?) ??
+            'Remote MCP';
+        final safeId = 'remote_' +
+            name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+        final mcpEndpoint = (map['mcp_endpoint'] as String?) ??
+            (map['mcpEndpoint'] as String?) ??
+            '/mcp';
+        final apiKey =
+            (map['api_key'] as String?) ?? (map['apiKey'] as String?) ?? '';
+        final desc = (map['description'] as String?) ?? '';
+
+        buffer.writeln('  - id: "$safeId"');
+        buffer.writeln('    name: "$name"');
+        if (desc.isNotEmpty) {
+          buffer.writeln('    description: "$desc"');
+        }
+        buffer.writeln('    url: "$serverUrl"');
+        buffer.writeln('    mcp_endpoint: "$mcpEndpoint"');
+        buffer.writeln('    is_local: false');
+        if (apiKey.isNotEmpty) {
+          buffer.writeln('    api_key: "$apiKey"');
+        }
+        buffer.writeln('    enabled: true');
+        buffer.writeln('');
+      }
+    }
+
     const outputFile = 'mcp.yaml';
     File(outputFile).writeAsStringSync(buffer.toString());
-    stdout.writeln(TerminalPrinter.green('✔ Saved ${servers.length} MCP server(s) to $outputFile'));
+    final total = localServers.length + remoteServers.length;
+    stdout.writeln(TerminalPrinter.green(
+      '✔ Saved $total MCP server(s) (${localServers.length} local stdio, ${remoteServers.length} remote HTTP) to $outputFile',
+    ));
   }
 }
 

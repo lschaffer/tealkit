@@ -18,3 +18,12 @@ servers:
     local_package: "mcp-server-fetch"
     custom_launch_command: "uvx mcp-server-fetch"
     enabled: true
+
+  # Remote HTTP/HTTPS MCP Server
+  - id: "remote_api"
+    name: "Remote HTTP MCP Server"
+    url: "https://mcp.yourdomain.com/mcp"
+    mcp_endpoint: "/mcp"
+    is_local: false
+    api_key: "${REMOTE_MCP_API_KEY}"
+    enabled: true

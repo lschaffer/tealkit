@@ -110,8 +110,15 @@ class SkillRunner {
         var pkg = (s['local_package'] as String?) ?? (s['packageName'] as String?) ?? '';
         var customCmd = (s['custom_launch_command'] as String?) ?? (s['customLaunchCommand'] as String?);
 
-        // Fallback resolution if YAML has empty/missing package name
-        if (pkg.trim().isEmpty) {
+        final url = (s['url'] as String?) ?? (s['server_url'] as String?) ?? '';
+        final isLocal = (s['is_local'] as bool?) ??
+            !(url.trim().startsWith('http://') || url.trim().startsWith('https://'));
+        final mcpEndpoint = (s['mcp_endpoint'] as String?) ?? '/mcp';
+        final apiKey = (s['api_key'] as String?) ?? (s['apiKey'] as String?);
+        final apiPassword = (s['api_password'] as String?) ?? (s['apiPassword'] as String?);
+
+        // Fallback resolution if YAML has empty/missing package name for local server
+        if (isLocal && pkg.trim().isEmpty) {
           if (name.contains('filesystem')) {
             pkg = '@modelcontextprotocol/server-filesystem';
             localType ??= 'nodejs';
@@ -137,39 +144,44 @@ class SkillRunner {
           }
         }
 
-        // Infer install method if missing
-        if (installMethod == null || installMethod.isEmpty) {
-          if (localType == 'python') {
-            installMethod = 'uvx';
-          } else {
-            installMethod = 'npx';
+        // Infer install method if missing (for local servers)
+        if (isLocal) {
+          if (installMethod == null || installMethod.isEmpty) {
+            if (localType == 'python') {
+              installMethod = 'uvx';
+            } else {
+              installMethod = 'npx';
+            }
           }
-        }
-        if (installMethod == 'npm') installMethod = 'npx';
+          if (installMethod == 'npm') installMethod = 'npx';
 
-        // Ensure Windows uses npx.cmd for custom commands or launches
-        if (customCmd != null && Platform.isWindows) {
-          if (customCmd.startsWith('npx ')) {
-            customCmd = 'npx.cmd ${customCmd.substring(4)}';
+          // Ensure Windows uses npx.cmd for custom commands or launches
+          if (customCmd != null && Platform.isWindows) {
+            if (customCmd.startsWith('npx ')) {
+              customCmd = 'npx.cmd ${customCmd.substring(4)}';
+            }
           }
-        }
 
-        // If customLaunchCommand is not provided, generate a sensible default
-        if (customCmd == null || customCmd.trim().isEmpty) {
-          if (installMethod == 'npx') {
-            final npxExe = Platform.isWindows ? 'npx.cmd' : 'npx';
-            final extra = pkg.contains('server-filesystem') ? ' .' : '';
-            customCmd = '$npxExe -y $pkg$extra';
-          } else if (installMethod == 'uvx') {
-            customCmd = 'uvx $pkg';
+          // If customLaunchCommand is not provided, generate a sensible default
+          if (customCmd == null || customCmd.trim().isEmpty) {
+            if (installMethod == 'npx') {
+              final npxExe = Platform.isWindows ? 'npx.cmd' : 'npx';
+              final extra = pkg.contains('server-filesystem') ? ' .' : '';
+              customCmd = '$npxExe -y $pkg$extra';
+            } else if (installMethod == 'uvx') {
+              customCmd = 'uvx $pkg';
+            }
           }
         }
 
         return McpServerConfig(
           id: id,
           name: name,
-          url: (s['url'] as String?) ?? '',
-          isLocal: s['is_local'] as bool? ?? true,
+          url: url,
+          mcpEndpoint: mcpEndpoint,
+          apiKey: apiKey,
+          apiPassword: apiPassword,
+          isLocal: isLocal,
           localType: localType,
           localInstallMethod: installMethod,
           localPackage: pkg,
@@ -201,27 +213,43 @@ class SkillRunner {
 
     for (int i = 0; i < activeServers.length; i++) {
       final server = activeServers[i];
-      final label = '[${i + 1}/${activeServers.length}] ${server.name}';
+      final typeLabel = server.isLocal ? 'stdio' : 'remote';
+      final label = '[${i + 1}/${activeServers.length}] ${server.name} ($typeLabel)';
       stdout.write('  → $label: connecting... ');
 
       try {
-        final client = LocalMCPClient(
-          server,
-          logCallback: (msg, {bool isError = false}) {
-            if (verbose) {
-              stderr.writeln('\n      [MCP:${server.name}] $msg');
-            } else {
-              final lower = msg.toLowerCase();
-              if (lower.contains('download') ||
-                  lower.contains('install') ||
-                  lower.contains('resolv') ||
-                  lower.contains('pull') ||
-                  lower.contains('fetch')) {
-                stdout.write('\n      ($msg)... ');
+        final MCPClient client;
+        if (server.isLocal) {
+          client = LocalMCPClient(
+            server,
+            logCallback: (msg, {bool isError = false}) {
+              if (verbose) {
+                stderr.writeln('\n      [LocalMCP:${server.name}] $msg');
+              } else {
+                final lower = msg.toLowerCase();
+                if (lower.contains('download') ||
+                    lower.contains('install') ||
+                    lower.contains('resolv') ||
+                    lower.contains('pull') ||
+                    lower.contains('fetch')) {
+                  stdout.write('\n      ($msg)... ');
+                }
               }
-            }
-          },
-        );
+            },
+          );
+        } else {
+          client = MCPClient(
+            server.url,
+            mcpEndpoint: server.mcpEndpoint,
+            bearerToken: server.apiKey,
+            apiPassword: server.apiPassword,
+            logCallback: (msg, {bool isError = false}) {
+              if (verbose) {
+                stderr.writeln('\n      [RemoteMCP:${server.name}] $msg');
+              }
+            },
+          );
+        }
 
         final clientDef = MCPClientDef(
           name: server.id,

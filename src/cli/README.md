@@ -165,11 +165,20 @@ tealkit skill run skills/weather_plan.md -p city=Tokyo -p days=3
 ```
 
 ### 5. Ad-Hoc Prompt Execution with Tool Access
+Execute one-off prompts with local LLM and connected MCP tools.
+
+> 💡 **Prerequisite Note on Tools**: Depending on what your prompt needs to do (e.g. reading directories, inspecting files, searching the web, or querying databases), an external local stdio or remote HTTP MCP tool is required.
+> - Tools should be configured in `mcp.yaml` (or `extern_mcp_tools.yaml`), or auto-discovered directly from your TealKit server using `tealkit auto-discover mcp`.
+> - For example, the directory listing prompt below requires the local filesystem tool (`@modelcontextprotocol/server-filesystem`). If no tool is configured or enabled in `mcp.yaml`, the LLM will reply using only its internal training data without actual filesystem access.
+
 ```bash
-# Run a one-off prompt
+# Run a one-off prompt (requires filesystem tool configured in mcp.yaml)
 tealkit prompt run "List files in the current directory and summarize markdown files"
 
-# Pipe input from another command
+# Run with a custom system prompt
+tealkit prompt run "Fetch https://news.ycombinator.com and extract top 3 stories" --system "You are a concise tech curator"
+
+# Pipe input from another command or file
 cat query.txt | tealkit prompt run
 ```
 
