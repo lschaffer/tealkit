@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -102,16 +103,78 @@ class SkillRunner {
 
       return serversList.whereType<YamlMap>().map((s) {
         final localEnv = s['env'] as YamlMap?;
+        final name = (s['name'] as String?) ?? 'Unnamed';
+        final id = (s['id'] as String?) ?? 'mcp_${serversList.indexOf(s)}';
+        var localType = (s['local_type'] as String?)?.toLowerCase();
+        var installMethod = (s['local_install_method'] as String?)?.toLowerCase();
+        var pkg = (s['local_package'] as String?) ?? (s['packageName'] as String?) ?? '';
+        var customCmd = (s['custom_launch_command'] as String?) ?? (s['customLaunchCommand'] as String?);
+
+        // Fallback resolution if YAML has empty/missing package name
+        if (pkg.trim().isEmpty) {
+          if (name.contains('filesystem')) {
+            pkg = '@modelcontextprotocol/server-filesystem';
+            localType ??= 'nodejs';
+            installMethod ??= 'npx';
+          } else if (name.contains('fetch')) {
+            pkg = 'mcp-server-fetch';
+            localType ??= 'python';
+            installMethod ??= 'uvx';
+          } else if (name.contains('github')) {
+            pkg = '@modelcontextprotocol/server-github';
+            localType ??= 'nodejs';
+            installMethod ??= 'npx';
+          } else if (name.contains('puppeteer')) {
+            pkg = '@modelcontextprotocol/server-puppeteer';
+            localType ??= 'nodejs';
+            installMethod ??= 'npx';
+          } else if (name.contains('matplotlib')) {
+            pkg = 'matplotlib';
+            localType ??= 'python';
+            installMethod ??= 'uvx';
+          } else {
+            pkg = name;
+          }
+        }
+
+        // Infer install method if missing
+        if (installMethod == null || installMethod.isEmpty) {
+          if (localType == 'python') {
+            installMethod = 'uvx';
+          } else {
+            installMethod = 'npx';
+          }
+        }
+        if (installMethod == 'npm') installMethod = 'npx';
+
+        // Ensure Windows uses npx.cmd for custom commands or launches
+        if (customCmd != null && Platform.isWindows) {
+          if (customCmd.startsWith('npx ')) {
+            customCmd = 'npx.cmd ${customCmd.substring(4)}';
+          }
+        }
+
+        // If customLaunchCommand is not provided, generate a sensible default
+        if (customCmd == null || customCmd.trim().isEmpty) {
+          if (installMethod == 'npx') {
+            final npxExe = Platform.isWindows ? 'npx.cmd' : 'npx';
+            final extra = pkg.contains('server-filesystem') ? ' .' : '';
+            customCmd = '$npxExe -y $pkg$extra';
+          } else if (installMethod == 'uvx') {
+            customCmd = 'uvx $pkg';
+          }
+        }
+
         return McpServerConfig(
-          id: (s['id'] as String?) ?? 'mcp_${serversList.indexOf(s)}',
-          name: (s['name'] as String?) ?? 'Unnamed',
+          id: id,
+          name: name,
           url: (s['url'] as String?) ?? '',
-          isLocal: s['is_local'] as bool? ?? false,
-          localType: s['local_type'] as String?,
-          localInstallMethod: s['local_install_method'] as String?,
-          localPackage: s['local_package'] as String?,
+          isLocal: s['is_local'] as bool? ?? true,
+          localType: localType,
+          localInstallMethod: installMethod,
+          localPackage: pkg,
           localCommand: s['local_command'] as String?,
-          customLaunchCommand: s['custom_launch_command'] as String?,
+          customLaunchCommand: customCmd,
           enabled: s['enabled'] as bool? ?? true,
           localEnvVars: localEnv?.map(
             (k, v) => MapEntry(k.toString(), v.toString()),
@@ -127,33 +190,73 @@ class SkillRunner {
   /// Connects active MCP servers and registers them with a [MultiMCPManager].
   Future<MultiMCPManager> connectMcpServers(List<McpServerConfig> servers) async {
     final mcpManager = MultiMCPManager();
+    final activeServers = servers.where((s) => s.enabled).toList();
 
-    for (final server in servers) {
-      if (!server.enabled) continue;
+    if (activeServers.isEmpty) {
+      stdout.writeln(TerminalPrinter.dim('No enabled MCP servers configured in mcp.yaml.'));
+      return mcpManager;
+    }
+
+    stdout.writeln(TerminalPrinter.bold('Connecting to ${activeServers.length} configured MCP server(s)...'));
+
+    for (int i = 0; i < activeServers.length; i++) {
+      final server = activeServers[i];
+      final label = '[${i + 1}/${activeServers.length}] ${server.name}';
+      stdout.write('  → $label: connecting... ');
+
       try {
         final client = LocalMCPClient(
           server,
           logCallback: (msg, {bool isError = false}) {
-            if (verbose && isError) {
-              stderr.writeln('[MCP:${server.name}] $msg');
+            if (verbose) {
+              stderr.writeln('\n      [MCP:${server.name}] $msg');
+            } else {
+              final lower = msg.toLowerCase();
+              if (lower.contains('download') ||
+                  lower.contains('install') ||
+                  lower.contains('resolv') ||
+                  lower.contains('pull') ||
+                  lower.contains('fetch')) {
+                stdout.write('\n      ($msg)... ');
+              }
             }
           },
         );
+
         final clientDef = MCPClientDef(
           name: server.id,
           client: client,
           displayName: server.name,
         );
         mcpManager.registerClient(clientDef);
-        await client.connect();
-        if (verbose) {
-          stdout.writeln(TerminalPrinter.dim('Connected to MCP server: ${server.name}'));
+
+        await client.connect().timeout(
+          const Duration(seconds: 25),
+          onTimeout: () {
+            throw TimeoutException('Timed out after 25s');
+          },
+        );
+
+        final count = client.availableTools.length;
+        if (count > 0) {
+          stdout.writeln(TerminalPrinter.green('✔ connected ($count tool${count > 1 ? "s" : ""})'));
+        } else {
+          stdout.writeln(TerminalPrinter.yellow('✔ connected (0 tools reported)'));
         }
       } catch (e) {
-        if (verbose) {
-          stderr.writeln(TerminalPrinter.yellow('Warning: Failed to connect to "${server.name}": $e'));
+        stdout.writeln(TerminalPrinter.red('✘ failed'));
+        stdout.writeln(TerminalPrinter.yellow('      $e'));
+        if (!verbose) {
+          stdout.writeln(TerminalPrinter.dim('      (Run with --verbose to view full subprocess logs)'));
         }
       }
+    }
+
+    final totalTools = mcpManager.availableTools;
+    if (totalTools.isNotEmpty) {
+      stdout.writeln(TerminalPrinter.green('\n✔ Total tools available: ${totalTools.length} (${totalTools.map((t) => t.name).join(", ")})'));
+    } else {
+      stdout.writeln(TerminalPrinter.yellow('\nNo MCP tools currently available. Run with --verbose for detailed diagnostic logs.'));
     }
 
     return mcpManager;

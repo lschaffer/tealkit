@@ -119,19 +119,92 @@ class AutoDiscoverMcpCommand extends Command {
     buffer.writeln('servers:');
 
     for (final s in servers) {
-      final id = s['id'] ?? 'mcp_server';
-      final name = s['name'] ?? id;
-      final isLocal = s['is_local'] ?? true;
-      final localType = s['local_type'] ?? 'nodejs';
-      final localPackage = s['local_package'] ?? '';
-      final enabled = s['enabled'] ?? true;
+      final id = (s['id'] as String?) ?? 'mcp_server';
+      final name = (s['name'] as String?) ?? id;
+      final language = (s['language'] as String?)?.toLowerCase() ??
+          (s['local_type'] as String?)?.toLowerCase() ??
+          'nodejs';
+      final installType = (s['installType'] as String?)?.toLowerCase() ??
+          (s['install_type'] as String?)?.toLowerCase() ??
+          (language == 'python' ? 'uvx' : 'npx');
+
+      var packageName = (s['packageName'] as String?) ??
+          (s['package_name'] as String?) ??
+          (s['local_package'] as String?) ??
+          '';
+
+      // Fallback for known community MCP servers if packageName is empty
+      if (packageName.trim().isEmpty) {
+        if (name.contains('filesystem')) {
+          packageName = '@modelcontextprotocol/server-filesystem';
+        } else if (name.contains('github')) {
+          packageName = '@modelcontextprotocol/server-github';
+        } else if (name.contains('fetch')) {
+          packageName = 'mcp-server-fetch';
+        } else if (name.contains('puppeteer')) {
+          packageName = '@modelcontextprotocol/server-puppeteer';
+        } else if (name.contains('memory')) {
+          packageName = '@modelcontextprotocol/server-memory';
+        } else {
+          packageName = name;
+        }
+      }
+
+      final enabled = (s['isActive'] as bool?) ??
+          (s['is_active'] as bool?) ??
+          (s['enabled'] as bool?) ??
+          true;
+
+      final rawArgs = (s['launchArgs'] as List?) ?? (s['launch_args'] as List?);
+      final launchArgs = rawArgs?.map((a) => a.toString()).toList() ?? [];
+
+      final rawEnv = (s['envVars'] as Map?) ?? (s['env_vars'] as Map?) ?? (s['env'] as Map?);
+      final envVars = rawEnv?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
+
+      String localInstallMethod = installType;
+      if (localInstallMethod == 'npm') localInstallMethod = 'npx';
+      if (localInstallMethod == 'python') localInstallMethod = 'uvx';
+
+      String? customLaunchCommand;
+      String effectiveArgs = '';
+      if (launchArgs.isNotEmpty) {
+        effectiveArgs = ' ' + launchArgs.map((a) {
+          if (a.contains('{{allowed_dirs}}')) {
+            return a.replaceAll('{{allowed_dirs}}', '.');
+          }
+          return a;
+        }).join(' ');
+      } else if (packageName.contains('server-filesystem')) {
+        effectiveArgs = ' .';
+      }
+
+      if (localInstallMethod == 'npx') {
+        final npxCmd = Platform.isWindows ? 'npx.cmd' : 'npx';
+        customLaunchCommand = '$npxCmd -y $packageName$effectiveArgs';
+      } else if (localInstallMethod == 'uvx') {
+        customLaunchCommand = 'uvx $packageName$effectiveArgs';
+      }
 
       buffer.writeln('  - id: "$id"');
       buffer.writeln('    name: "$name"');
-      buffer.writeln('    is_local: $isLocal');
-      buffer.writeln('    local_type: "$localType"');
-      buffer.writeln('    local_package: "$localPackage"');
+      buffer.writeln('    is_local: true');
+      buffer.writeln('    local_type: "$language"');
+      buffer.writeln('    local_install_method: "$localInstallMethod"');
+      buffer.writeln('    local_package: "$packageName"');
+      if (customLaunchCommand != null) {
+        buffer.writeln('    custom_launch_command: "$customLaunchCommand"');
+      }
+      if (launchArgs.isNotEmpty) {
+        buffer.writeln('    launch_args: [${launchArgs.map((a) => '"$a"').join(', ')}]');
+      }
+      if (envVars.isNotEmpty) {
+        buffer.writeln('    env:');
+        for (final entry in envVars.entries) {
+          buffer.writeln('      ${entry.key}: "${entry.value}"');
+        }
+      }
       buffer.writeln('    enabled: $enabled');
+      buffer.writeln('');
     }
 
     const outputFile = 'mcp.yaml';
@@ -139,6 +212,7 @@ class AutoDiscoverMcpCommand extends Command {
     stdout.writeln(TerminalPrinter.green('✔ Saved ${servers.length} MCP server(s) to $outputFile'));
   }
 }
+
 
 /// `tealkit auto-discover skills`
 class AutoDiscoverSkillsCommand extends Command {

@@ -70,13 +70,9 @@ Commands:
       ],
     );
 
-    stdout.writeln('Connecting MCP servers...');
     final mcpManager = await runner.connectMcpServers(localServers);
     final allTools = mcpManager.availableTools;
 
-    if (allTools.isNotEmpty) {
-      stdout.writeln(TerminalPrinter.green('Connected tools (${allTools.length}): ${allTools.map((t) => t.name).join(", ")}'));
-    }
     stdout.writeln('');
     stdout.writeln('Enter your message (type /exit to quit):');
     stdout.writeln('');
@@ -98,12 +94,14 @@ Commands:
           continue;
         }
         if (input == '/tools') {
-          if (allTools.isEmpty) {
+          final tools = mcpManager.availableTools;
+          if (tools.isEmpty) {
             stdout.writeln('No MCP tools connected.');
+            stdout.writeln(TerminalPrinter.dim('Tip: Check mcp.yaml or run with "tealkit chat --verbose" for diagnostics.'));
           } else {
-            stdout.writeln(TerminalPrinter.bold('Available tools (${allTools.length}):'));
-            for (final t in allTools) {
-              stdout.writeln(' • ${TerminalPrinter.cyan(t.name)} — ${t.description ?? "(no description)"}');
+            stdout.writeln(TerminalPrinter.bold('Available tools (${tools.length}):'));
+            for (final t in tools) {
+              stdout.writeln('  • ${TerminalPrinter.cyan(t.name)} — ${t.description ?? "(no description)"}');
             }
           }
           stdout.writeln('');
