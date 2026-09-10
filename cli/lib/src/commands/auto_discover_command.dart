@@ -11,7 +11,8 @@ class AutoDiscoverCommand extends Command {
   @override
   final String name = 'auto-discover';
   @override
-  final String description = 'Auto-discover configurations, tasks, and skills from active server.';
+  final String description =
+      'Auto-discover configurations, tasks, and skills from active server.';
 
   AutoDiscoverCommand() {
     addSubcommand(AutoDiscoverLlmCommand());
@@ -39,7 +40,8 @@ class AutoDiscoverLlmCommand extends Command {
   @override
   final String name = 'llm';
   @override
-  final String description = 'Download server LLM settings and save to llm.yaml.';
+  final String description =
+      'Download server LLM settings and save to llm.yaml.';
 
   @override
   Future<void> run() async {
@@ -51,14 +53,18 @@ class AutoDiscoverLlmCommand extends Command {
     buffer.writeln('# TealKit LLM Configuration (Auto-discovered)');
     buffer.writeln('provider: "${settings['provider'] ?? 'openai'}"');
     buffer.writeln('model: "${settings['model'] ?? 'gpt-4o-mini'}"');
-    buffer.writeln('api_key: "\${${(settings['provider'] ?? 'OPENAI').toString().toUpperCase()}_API_KEY}"');
+    buffer.writeln(
+      'api_key: "\${${(settings['provider'] ?? 'OPENAI').toString().toUpperCase()}_API_KEY}"',
+    );
     buffer.writeln('base_url: "${settings['base_url'] ?? ''}"');
     buffer.writeln('temperature: ${settings['temperature'] ?? 0.2}');
     buffer.writeln('max_tokens: ${settings['max_tokens'] ?? 4096}');
 
     const outputFile = 'llm.yaml';
     File(outputFile).writeAsStringSync(buffer.toString());
-    stdout.writeln(TerminalPrinter.green('✔ Saved LLM settings to $outputFile'));
+    stdout.writeln(
+      TerminalPrinter.green('✔ Saved LLM settings to $outputFile'),
+    );
   }
 }
 
@@ -69,7 +75,8 @@ class AutoDiscoverWorkflowsCommand extends Command {
   @override
   final List<String> aliases = ['agents', 'tasks'];
   @override
-  final String description = 'Download remote workflows/agents and save to workflows.yaml.';
+  final String description =
+      'Download remote workflows/agents and save to workflows.yaml.';
 
   @override
   Future<void> run() async {
@@ -78,7 +85,9 @@ class AutoDiscoverWorkflowsCommand extends Command {
     final tasks = await client.getAllTasks();
 
     final buffer = StringBuffer();
-    buffer.writeln('# TealKit Workflows & Agents Configuration (Auto-discovered)');
+    buffer.writeln(
+      '# TealKit Workflows & Agents Configuration (Auto-discovered)',
+    );
     buffer.writeln('workflows:');
 
     for (final task in tasks) {
@@ -87,26 +96,32 @@ class AutoDiscoverWorkflowsCommand extends Command {
       buffer.writeln('    description: "${task.description ?? ''}"');
       buffer.writeln('    enabled: ${task.enabled}');
       buffer.writeln('    agents_count: ${task.agents.length}');
-      buffer.writeln('    internal_mcps: [${task.internalMcps.map((m) => '"${m.mcpType}"').join(', ')}]');
+      buffer.writeln(
+        '    internal_mcps: [${task.internalMcps.map((m) => '"${m.mcpType}"').join(', ')}]',
+      );
     }
 
     const outputFile = 'workflows.yaml';
     File(outputFile).writeAsStringSync(buffer.toString());
     // Also save agents.yaml for backwards compatibility
     File('agents.yaml').writeAsStringSync(buffer.toString());
-    stdout.writeln(TerminalPrinter.green('✔ Saved ${tasks.length} workflow(s) to $outputFile'));
+    stdout.writeln(
+      TerminalPrinter.green(
+        '✔ Saved ${tasks.length} workflow(s) to $outputFile',
+      ),
+    );
   }
 }
 
 typedef AutoDiscoverAgentsCommand = AutoDiscoverWorkflowsCommand;
-
 
 /// `tealkit auto-discover mcp`
 class AutoDiscoverMcpCommand extends Command {
   @override
   final String name = 'mcp';
   @override
-  final String description = 'Download MCP server registry and save to mcp.yaml.';
+  final String description =
+      'Download MCP server registry and save to mcp.yaml.';
 
   @override
   Future<void> run() async {
@@ -117,7 +132,11 @@ class AutoDiscoverMcpCommand extends Command {
     try {
       localServers = await client.listRegistryServers();
     } catch (e) {
-      stdout.writeln(TerminalPrinter.dim('  (Notice: Could not fetch local registry servers: $e)'));
+      stdout.writeln(
+        TerminalPrinter.dim(
+          '  (Notice: Could not fetch local registry servers: $e)',
+        ),
+      );
     }
 
     List<dynamic> remoteServers = [];
@@ -125,7 +144,11 @@ class AutoDiscoverMcpCommand extends Command {
       final ext = await client.getExternalToolsSettings();
       remoteServers = (ext['selected_servers'] as List? ?? []);
     } catch (e) {
-      stdout.writeln(TerminalPrinter.dim('  (Notice: Could not fetch external/remote tools: $e)'));
+      stdout.writeln(
+        TerminalPrinter.dim(
+          '  (Notice: Could not fetch external/remote tools: $e)',
+        ),
+      );
     }
 
     final buffer = StringBuffer();
@@ -139,14 +162,17 @@ class AutoDiscoverMcpCommand extends Command {
     for (final s in localServers) {
       final id = (s['id'] as String?) ?? 'mcp_server';
       final name = (s['name'] as String?) ?? id;
-      final language = (s['language'] as String?)?.toLowerCase() ??
+      final language =
+          (s['language'] as String?)?.toLowerCase() ??
           (s['local_type'] as String?)?.toLowerCase() ??
           'nodejs';
-      final installType = (s['installType'] as String?)?.toLowerCase() ??
+      final installType =
+          (s['installType'] as String?)?.toLowerCase() ??
           (s['install_type'] as String?)?.toLowerCase() ??
           (language == 'python' ? 'uvx' : 'npx');
 
-      var packageName = (s['packageName'] as String?) ??
+      var packageName =
+          (s['packageName'] as String?) ??
           (s['package_name'] as String?) ??
           (s['local_package'] as String?) ??
           '';
@@ -168,7 +194,8 @@ class AutoDiscoverMcpCommand extends Command {
         }
       }
 
-      final enabled = (s['isActive'] as bool?) ??
+      final enabled =
+          (s['isActive'] as bool?) ??
           (s['is_active'] as bool?) ??
           (s['enabled'] as bool?) ??
           true;
@@ -176,8 +203,12 @@ class AutoDiscoverMcpCommand extends Command {
       final rawArgs = (s['launchArgs'] as List?) ?? (s['launch_args'] as List?);
       final launchArgs = rawArgs?.map((a) => a.toString()).toList() ?? [];
 
-      final rawEnv = (s['envVars'] as Map?) ?? (s['env_vars'] as Map?) ?? (s['env'] as Map?);
-      final envVars = rawEnv?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
+      final rawEnv =
+          (s['envVars'] as Map?) ??
+          (s['env_vars'] as Map?) ??
+          (s['env'] as Map?);
+      final envVars =
+          rawEnv?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
 
       String localInstallMethod = installType;
       if (localInstallMethod == 'npm') localInstallMethod = 'npx';
@@ -186,12 +217,13 @@ class AutoDiscoverMcpCommand extends Command {
       String? customLaunchCommand;
       String effectiveArgs = '';
       if (launchArgs.isNotEmpty) {
-        effectiveArgs = ' ' + launchArgs.map((a) {
-          if (a.contains('{{allowed_dirs}}')) {
-            return a.replaceAll('{{allowed_dirs}}', '.');
-          }
-          return a;
-        }).join(' ');
+        effectiveArgs =
+            ' ${launchArgs.map((a) {
+              if (a.contains('{{allowed_dirs}}')) {
+                return a.replaceAll('{{allowed_dirs}}', '.');
+              }
+              return a;
+            }).join(' ')}';
       } else if (packageName.contains('server-filesystem')) {
         effectiveArgs = ' .';
       }
@@ -213,7 +245,9 @@ class AutoDiscoverMcpCommand extends Command {
         buffer.writeln('    custom_launch_command: "$customLaunchCommand"');
       }
       if (launchArgs.isNotEmpty) {
-        buffer.writeln('    launch_args: [${launchArgs.map((a) => '"$a"').join(', ')}]');
+        buffer.writeln(
+          '    launch_args: [${launchArgs.map((a) => '"$a"').join(', ')}]',
+        );
       }
       if (envVars.isNotEmpty) {
         buffer.writeln('    env:');
@@ -232,17 +266,20 @@ class AutoDiscoverMcpCommand extends Command {
             ? s
             : (s is Map ? Map<String, dynamic>.from(s) : null);
         if (map == null) continue;
-        final serverUrl = (map['server_url'] as String?) ??
+        final serverUrl =
+            (map['server_url'] as String?) ??
             (map['serverUrl'] as String?) ??
             '';
         if (serverUrl.trim().isEmpty) continue;
 
-        final name = (map['name'] as String?) ??
+        final name =
+            (map['name'] as String?) ??
             (map['displayName'] as String?) ??
             'Remote MCP';
-        final safeId = 'remote_' +
-            name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
-        final mcpEndpoint = (map['mcp_endpoint'] as String?) ??
+        final safeId =
+            'remote_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')}';
+        final mcpEndpoint =
+            (map['mcp_endpoint'] as String?) ??
             (map['mcpEndpoint'] as String?) ??
             '/mcp';
         final apiKey =
@@ -268,19 +305,21 @@ class AutoDiscoverMcpCommand extends Command {
     const outputFile = 'mcp.yaml';
     File(outputFile).writeAsStringSync(buffer.toString());
     final total = localServers.length + remoteServers.length;
-    stdout.writeln(TerminalPrinter.green(
-      '✔ Saved $total MCP server(s) (${localServers.length} local stdio, ${remoteServers.length} remote HTTP) to $outputFile',
-    ));
+    stdout.writeln(
+      TerminalPrinter.green(
+        '✔ Saved $total MCP server(s) (${localServers.length} local stdio, ${remoteServers.length} remote HTTP) to $outputFile',
+      ),
+    );
   }
 }
-
 
 /// `tealkit auto-discover skills`
 class AutoDiscoverSkillsCommand extends Command {
   @override
   final String name = 'skills';
   @override
-  final String description = 'Download AgentSkills from server into ./skills directory.';
+  final String description =
+      'Download AgentSkills from server into ./skills directory.';
 
   @override
   Future<void> run() async {
@@ -299,13 +338,18 @@ class AutoDiscoverSkillsCommand extends Command {
       final rawContent = skill['skill_def'] as String? ?? '';
       if (rawContent.isEmpty) continue;
 
-      final safeName = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_\-]'), '_');
+      final safeName = name.toLowerCase().replaceAll(
+        RegExp(r'[^a-z0-9_\-]'),
+        '_',
+      );
       final fileName = 'skills/$safeName.md';
       File(fileName).writeAsStringSync(rawContent);
       savedCount++;
     }
 
-    stdout.writeln(TerminalPrinter.green('✔ Saved $savedCount skill(s) into ./skills/'));
+    stdout.writeln(
+      TerminalPrinter.green('✔ Saved $savedCount skill(s) into ./skills/'),
+    );
   }
 }
 
@@ -314,11 +358,14 @@ class AutoDiscoverAllCommand extends Command {
   @override
   final String name = 'all';
   @override
-  final String description = 'Auto-discover LLM, agents, MCP tools, and skills in sequence.';
+  final String description =
+      'Auto-discover LLM, agents, MCP tools, and skills in sequence.';
 
   @override
   Future<void> run() async {
-    stdout.writeln(TerminalPrinter.bold('Running full configuration auto-discovery...'));
+    stdout.writeln(
+      TerminalPrinter.bold('Running full configuration auto-discovery...'),
+    );
     stdout.writeln('');
 
     try {
@@ -327,7 +374,9 @@ class AutoDiscoverAllCommand extends Command {
       await AutoDiscoverMcpCommand().run();
       await AutoDiscoverSkillsCommand().run();
       stdout.writeln('');
-      stdout.writeln(TerminalPrinter.green('✔ Full auto-discovery completed successfully!'));
+      stdout.writeln(
+        TerminalPrinter.green('✔ Full auto-discovery completed successfully!'),
+      );
     } catch (e) {
       stderr.writeln(TerminalPrinter.red('Error during auto-discovery: $e'));
     }

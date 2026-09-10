@@ -16,6 +16,8 @@ _test2.txt
 *.so
 *.dylib
 *.exe
+!cli/tealkit.exe
+!src/cli/tealkit.exe
 
 # SQLite database files and journals
 *.db
