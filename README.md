@@ -275,9 +275,23 @@ Each Docker container is fully independent — its own data volume, its own Duck
 
 ---
 
+## 🛠️ TealKit CLI (`tealkit_cli`)
+
+TealKit includes a standalone native Dart command-line tool located in [`cli/`](../cli/README.md). It allows developers and sysadmins to manage TealKit servers, auto-discover remote configurations, orchestrate tasks, and directly execute **AgentSkills (`SKILL.md`)** in a headless environment.
+
+### Key Capabilities
+- **Server Profile Management**: Switch and test connections across development and production servers (`tealkit server`, `tealkit ping`).
+- **Configuration Auto-Discovery**: Download server LLM settings, task definitions, MCP registry, and skills directly into local YAML / Markdown files (`tealkit auto-discover all`).
+- **Remote Task Orchestration**: Trigger remote tasks, poll running status, stream execution logs, and download output artifacts (`tealkit agent run / logs / download`).
+- **Direct Skill Prompt Execution**: Parse any `SKILL.md` (agentskills.io format) and execute multi-step prompt sequences directly with local MCP tools, powered by [`mcp_playground_dart`](https://pub.dev/packages/mcp_playground_dart) (`tealkit skill run skills/my_skill.md`).
+- **Ad-Hoc Prompt Runner & REPL**: Run one-off tool-calling prompts or start an interactive terminal agent chat session (`tealkit prompt run`, `tealkit chat`).
+
+👉 **Read the full guide, practical examples, and command reference in the [TealKit CLI Documentation](../cli/README.md).**
+
+---
+
 ## 🚀 Coming Soon
 
-- **TealKit CLI (`tealkit-cli`)** — An independent command-line interface application to control and monitor any TealKit headless server remotely or locally.
 - **Prebuilt Docker Images for ARM** — Native ARM64 Docker images optimized for Raspberry Pi 5 (HAT+) and Apple Silicon (Mac M4, M3, M2, M1).
 
 ---

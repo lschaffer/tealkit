@@ -1,0 +1,20 @@
+# External MCP Servers Configuration Sample
+# Define stdio subprocesses or remote SSE endpoints for MCP tools
+servers:
+  - id: "filesystem"
+    name: "Local Filesystem MCP"
+    is_local: true
+    local_type: "nodejs"
+    local_install_method: "npx"
+    local_package: "@modelcontextprotocol/server-filesystem"
+    custom_launch_command: "npx -y @modelcontextprotocol/server-filesystem ."
+    enabled: true
+
+  - id: "fetch"
+    name: "Web Fetch MCP"
+    is_local: true
+    local_type: "python"
+    local_install_method: "uvx"
+    local_package: "mcp-server-fetch"
+    custom_launch_command: "uvx mcp-server-fetch"
+    enabled: true

@@ -1,0 +1,8 @@
+# TealKit LLM Configuration Sample
+# Supported providers: openai, claude, gemini, ollama, mistral, openai_compatible
+provider: "openai"
+model: "gpt-4o-mini"
+api_key: "${OPENAI_API_KEY}"
+base_url: ""
+temperature: 0.2
+max_tokens: 4096

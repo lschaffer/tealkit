@@ -1,0 +1,10 @@
+# TealKit CLI Server Connection Profiles
+servers:
+  - name: "Local Dev"
+    url: "http://localhost:7771"
+    api_key: ""
+    is_active: true
+  - name: "Production Server"
+    url: "https://agent.yourdomain.com"
+    api_key: "${TEALKIT_API_KEY}"
+    is_active: false
