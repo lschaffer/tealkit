@@ -1,4 +1,4 @@
-# 🐦‍⬛ TealKit
+﻿# 🐦‍⬛ TealKit
 ### The Zero-Config Alternative to OpenClaw.
 [**Privacy first**](security_privacy.md), agentic AI Platform for Mobile & Desktop
 
@@ -52,6 +52,7 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 ## 🆕 What's New
 
+* **TealKit CLI (`tealkit_cli`)** — Native Dart command-line tool for server orchestration, configuration auto-discovery, remote task execution, and direct local/headless execution of AgentSkills (`SKILL.md`) with live MCP tool access powered by `mcp_playground_dart`. Start interactive agent sessions (`tealkit chat`), run ad-hoc prompts, and inspect or execute skills directly in the terminal. See the [TealKit CLI Guide](cli/README.md).
 * **Agentic Skill Interoperability (v1.4.6)** — Export and import workflows as standardized, compliant skills under the `agentskills.io` specification. Workflows containing custom Python scripts are automatically packaged as `.zip` files containing `[workflow-name]/SKILL.md` and script files under `scripts/` (e.g. `main.py` and `requirements.txt`). On import, the ZIP is parsed, and any custom scripts are restored to your local registry. Compatible with active local or remote server databases.
 * **Playground Auto-Skills** — Saving and testing workflows in the Playground now automatically compiles and saves them as compliant skills when converted to workflows. Includes automatic duplicate overwrite warnings and filename customization dialogs.
 * **Workflow Visual Builder** — An interactive 2D flowchart canvas with zoom, pan, and auto-centering to easily design, configure, and visualize workflow orchestrations.
@@ -277,7 +278,7 @@ Each Docker container is fully independent — its own data volume, its own Duck
 
 ## 🛠️ TealKit CLI (`tealkit_cli`)
 
-TealKit includes a standalone native Dart command-line tool located in [`cli/`](../cli/README.md). It allows developers and sysadmins to manage TealKit servers, auto-discover remote configurations, orchestrate tasks, and directly execute **AgentSkills (`SKILL.md`)** in a headless environment.
+TealKit includes a standalone native Dart command-line tool located in [`cli/`](cli/README.md). It allows developers and sysadmins to manage TealKit servers, auto-discover remote configurations, orchestrate tasks, and directly execute **AgentSkills (`SKILL.md`)** in a headless environment.
 
 ### Key Capabilities
 - **Server Profile Management**: Switch and test connections across development and production servers (`tealkit server`, `tealkit ping`).
@@ -286,7 +287,7 @@ TealKit includes a standalone native Dart command-line tool located in [`cli/`](
 - **Direct Skill Prompt Execution**: Parse any `SKILL.md` (agentskills.io format) and execute multi-step prompt sequences directly with local MCP tools, powered by [`mcp_playground_dart`](https://pub.dev/packages/mcp_playground_dart) (`tealkit skill run skills/my_skill.md`).
 - **Ad-Hoc Prompt Runner & REPL**: Run one-off tool-calling prompts or start an interactive terminal agent chat session (`tealkit prompt run`, `tealkit chat`).
 
-👉 **Read the full guide, practical examples, and command reference in the [TealKit CLI Documentation](../cli/README.md).**
+👉 **Read the full guide, practical examples, and command reference in the [TealKit CLI Documentation](cli/README.md).**
 
 ---
 
