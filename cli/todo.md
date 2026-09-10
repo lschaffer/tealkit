@@ -49,13 +49,13 @@ This is the development plan for the upcoming TealKit command-line tool. The CLI
 - [x] Discover all configuration settings:
   - Command: `tealkit auto-discover all`
 
-## Milestone 3: Remote Task Management and Execution
+## Milestone 3: Remote Workflow Management and Execution
 
-- [x] List tasks (`tealkit agent list` / `tealkit task list`)
-- [x] Trigger task run (`tealkit agent run <task-id>`)
-- [x] Check task run status (`tealkit agent status <task-id>`)
-- [x] Cancel executing tasks (`tealkit agent cancel <task-id>`)
-- [x] Download run outputs and logs (`tealkit agent logs <task-id>` & `tealkit agent download <task-id> <filename>`)
+- [x] List workflows (`tealkit workflow list` / aliases: `agent`, `task`)
+- [x] Trigger workflow run by name or UUID, supporting spaces (`tealkit workflow run <workflow-name-or-id>`)
+- [x] Check workflow run status (`tealkit workflow status <workflow-name-or-id>`)
+- [x] Cancel executing workflows (`tealkit workflow cancel <workflow-name-or-id>`)
+- [x] Download run outputs and logs (`tealkit workflow logs <workflow-name-or-id>` & `tealkit workflow download <workflow-name-or-id> <filename>`)
 
 ## Milestone 4: Direct Skill & Prompt Execution Engine (via `mcp_playground_dart`)
 

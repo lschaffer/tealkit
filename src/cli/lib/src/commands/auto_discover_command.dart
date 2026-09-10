@@ -15,7 +15,7 @@ class AutoDiscoverCommand extends Command {
 
   AutoDiscoverCommand() {
     addSubcommand(AutoDiscoverLlmCommand());
-    addSubcommand(AutoDiscoverAgentsCommand());
+    addSubcommand(AutoDiscoverWorkflowsCommand());
     addSubcommand(AutoDiscoverMcpCommand());
     addSubcommand(AutoDiscoverSkillsCommand());
     addSubcommand(AutoDiscoverAllCommand());
@@ -62,22 +62,24 @@ class AutoDiscoverLlmCommand extends Command {
   }
 }
 
-/// `tealkit auto-discover agents`
-class AutoDiscoverAgentsCommand extends Command {
+/// `tealkit auto-discover workflows` (aliases: `agents`, `tasks`)
+class AutoDiscoverWorkflowsCommand extends Command {
   @override
-  final String name = 'agents';
+  final String name = 'workflows';
   @override
-  final String description = 'Download remote tasks/agents and save to agents.yaml.';
+  final List<String> aliases = ['agents', 'tasks'];
+  @override
+  final String description = 'Download remote workflows/agents and save to workflows.yaml.';
 
   @override
   Future<void> run() async {
-    stdout.writeln('Discovering agents and tasks from active server...');
+    stdout.writeln('Discovering workflows and agents from active server...');
     final client = _getClient();
     final tasks = await client.getAllTasks();
 
     final buffer = StringBuffer();
-    buffer.writeln('# TealKit Tasks & Agents Configuration (Auto-discovered)');
-    buffer.writeln('tasks:');
+    buffer.writeln('# TealKit Workflows & Agents Configuration (Auto-discovered)');
+    buffer.writeln('workflows:');
 
     for (final task in tasks) {
       buffer.writeln('  - id: "${task.id}"');
@@ -88,11 +90,16 @@ class AutoDiscoverAgentsCommand extends Command {
       buffer.writeln('    internal_mcps: [${task.internalMcps.map((m) => '"${m.mcpType}"').join(', ')}]');
     }
 
-    const outputFile = 'agents.yaml';
+    const outputFile = 'workflows.yaml';
     File(outputFile).writeAsStringSync(buffer.toString());
-    stdout.writeln(TerminalPrinter.green('✔ Saved ${tasks.length} task(s) to $outputFile'));
+    // Also save agents.yaml for backwards compatibility
+    File('agents.yaml').writeAsStringSync(buffer.toString());
+    stdout.writeln(TerminalPrinter.green('✔ Saved ${tasks.length} workflow(s) to $outputFile'));
   }
 }
+
+typedef AutoDiscoverAgentsCommand = AutoDiscoverWorkflowsCommand;
+
 
 /// `tealkit auto-discover mcp`
 class AutoDiscoverMcpCommand extends Command {

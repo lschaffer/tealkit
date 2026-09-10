@@ -10,7 +10,7 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 |---|---|
 | 🌐 **Server Management** | Switch between dev/prod server profiles in `server.yaml` and ping health status. |
 | 🔍 **Auto-Discovery** | Pull remote LLM settings, task definitions, MCP registry, and skills down to local YAML / Markdown files. |
-| 🚀 **Remote Task Runner** | Trigger asynchronous tasks, poll execution status, stream execution logs, and download generated artifacts. |
+| 🚀 **Remote Workflow Runner** | Trigger asynchronous workflows/agents, poll execution status, stream execution logs, and download generated artifacts. |
 | 🧠 **Direct Skill Execution** | Parse any `SKILL.md` (agentskills.io format), spin up local MCP subprocess tools, and execute prompt sequences end-to-end with live streaming feedback. |
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
 | 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, parameter introspection, and slash commands (`/tools`, `/system`, `/clear`, `/exit`). |
@@ -114,29 +114,33 @@ tealkit auto-discover all
 
 # Or discover selectively:
 tealkit auto-discover llm       # writes llm.yaml
-tealkit auto-discover agents    # writes agents.yaml
+tealkit auto-discover workflows # writes workflows.yaml & agents.yaml (alias: agents)
 tealkit auto-discover mcp       # writes mcp.yaml
 tealkit auto-discover skills    # downloads skills into ./skills/*.md
 ```
 
-### 3. Remote Task Management
-Trigger and monitor tasks running on your TealKit server:
+### 3. Remote Workflow Management
+Trigger and monitor workflows (tasks/agents) running on your TealKit server by name (with spaces or underscores) or UUID:
 ```bash
-# List all tasks
-tealkit agent list
+# List all workflows
+tealkit workflow list
 
-# Trigger execution of a task
-tealkit agent run task_daily_briefing
+# Trigger execution of a workflow by name or UUID (names with spaces work with or without quotes)
+tealkit workflow run "latest news"
+tealkit workflow run latest_news
+tealkit workflow run latest news
+tealkit workflow run 7f2aa88a-bdff-435e-9cb8-1c68b7353d9f
 
 # Check current run status
-tealkit agent status task_daily_briefing
+tealkit workflow status "latest news"
 
 # View execution logs
-tealkit agent logs task_daily_briefing
+tealkit workflow logs "latest news"
 
-# Download generated output file
-tealkit agent download task_daily_briefing report.json
+# Download generated output file (supports workflow names with spaces)
+tealkit workflow download "latest news" report.json
 ```
+*(Note: `tealkit agent` and `tealkit task` are fully supported as backward-compatible aliases for `tealkit workflow`.)*
 
 ### 4. Direct Execution of Prompts from an AgentSkill (`SKILL.md`)
 Directly execute prompt workflows defined in `SKILL.md` files without a server, utilizing local LLMs and MCP tools:
@@ -201,17 +205,17 @@ Available commands:
   ping            Verify connectivity and health with the active TealKit server.
   auto-discover   Auto-discover configurations from active server.
     llm           Download server LLM settings to llm.yaml.
-    agents        Download remote tasks/agents to agents.yaml.
+    workflows     Download remote workflows/agents to workflows.yaml (aliases: agents, tasks).
     mcp           Download MCP server registry to mcp.yaml.
     skills        Download skills into ./skills/*.md.
     all           Execute all auto-discoveries in sequence.
-  agent           Manage and execute remote tasks on the server (alias: task).
-    list          List tasks on the server.
-    run           Trigger task execution on the server.
+  workflow        Manage and execute remote workflows and tasks on the server (aliases: agent, task).
+    list          List workflows on the server.
+    run           Trigger workflow execution on the server (by name or ID).
     status        Check running status and latest output.
-    cancel        Cancel a running task on the server.
-    logs          Fetch execution logs for a task.
-    download      Download an output file for a task run.
+    cancel        Cancel a running workflow on the server.
+    logs          Fetch execution logs for a workflow.
+    download      Download an output file for a workflow run.
   skill           Inspect and execute AgentSkills (SKILL.md) workflows.
     list          List local or remote (--remote) skills.
     info          Inspect skill frontmatter and prompt sequence.

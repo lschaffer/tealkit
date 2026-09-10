@@ -283,7 +283,7 @@ TealKit includes a standalone native Dart command-line tool located in [`cli/`](
 ### Key Capabilities
 - **Server Profile Management**: Switch and test connections across development and production servers (`tealkit server`, `tealkit ping`).
 - **Configuration Auto-Discovery**: Download server LLM settings, task definitions, MCP registry, and skills directly into local YAML / Markdown files (`tealkit auto-discover all`).
-- **Remote Task Orchestration**: Trigger remote tasks, poll running status, stream execution logs, and download output artifacts (`tealkit agent run / logs / download`).
+- **Remote Workflow Orchestration**: Trigger remote workflows/agents by name (with spaces) or UUID, poll running status, stream execution logs, and download output artifacts (`tealkit workflow run / logs / download`).
 - **Direct Skill Prompt Execution**: Parse any `SKILL.md` (agentskills.io format) and execute multi-step prompt sequences directly with local MCP tools, powered by [`mcp_playground_dart`](https://pub.dev/packages/mcp_playground_dart) (`tealkit skill run skills/my_skill.md`).
 - **Ad-Hoc Prompt Runner & REPL**: Run one-off tool-calling prompts or start an interactive terminal agent chat session (`tealkit prompt run`, `tealkit chat`).
 

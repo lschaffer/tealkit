@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:tealkit_api/tealkit_api.dart';
 import 'package:tealkit_cli/tealkit_cli.dart';
 import 'package:test/test.dart';
 
@@ -63,7 +64,11 @@ void main() {
       expect(commandNames, contains('server'));
       expect(commandNames, contains('ping'));
       expect(commandNames, contains('auto-discover'));
-      expect(commandNames, contains('agent'));
+      expect(commandNames, contains('workflow'));
+      expect(runner.commands['workflow']?.aliases, contains('agent'));
+      expect(runner.commands['workflow']?.aliases, contains('task'));
+      expect(runner.commands['workflow']?.subcommands.keys,
+          containsAll(['list', 'run', 'status', 'cancel', 'logs', 'download']));
       expect(commandNames, contains('skill'));
       expect(commandNames, contains('prompt'));
       expect(commandNames, contains('chat'));
@@ -115,4 +120,73 @@ Follow the instructions carefully.
       expect(manifest.promptSteps[1].text, 'Export diagnostic report.');
     });
   });
+
+  group('Workflow resolution and matching', () {
+    const dummyPlan = ExecutionPlan(cronExpression: '');
+    final sampleTasks = [
+      WorkflowTask(
+        id: '904a50d7-818d-4ac6-a491-d6ef01e5e064',
+        name: 'Tokens Verbrauch TaskAI',
+        executionPlan: dummyPlan,
+      ),
+      WorkflowTask(
+        id: '4d219d6f-4d97-46ef-b4c9-305b8c077e87',
+        name: 'containers stats',
+        executionPlan: dummyPlan,
+      ),
+      WorkflowTask(
+        id: '7f2aa88a-bdff-435e-9cb8-1c68b7353d9f',
+        name: 'latest news',
+        executionPlan: dummyPlan,
+      ),
+      WorkflowTask(
+        id: '1bd48cdf-ba93-4225-b94d-5998410483ce',
+        name: 'disk usage (chain) tcloud',
+        executionPlan: dummyPlan,
+      ),
+      WorkflowTask(
+        id: '7e7350da-0ae8-4171-a178-5401753afdb2',
+        name: 'Conditional Task (Weather + Flights)',
+        executionPlan: dummyPlan,
+      ),
+    ];
+
+    test('resolves by exact UUID', () {
+      final res = matchWorkflow(sampleTasks, '7f2aa88a-bdff-435e-9cb8-1c68b7353d9f');
+      expect(res, isNotNull);
+      expect(res!.id, '7f2aa88a-bdff-435e-9cb8-1c68b7353d9f');
+      expect(res.name, 'latest news');
+    });
+
+    test('resolves by exact name', () {
+      final res = matchWorkflow(sampleTasks, 'latest news');
+      expect(res, isNotNull);
+      expect(res!.id, '7f2aa88a-bdff-435e-9cb8-1c68b7353d9f');
+    });
+
+    test('resolves by name with underscores instead of spaces', () {
+      final res = matchWorkflow(sampleTasks, 'latest_news');
+      expect(res, isNotNull);
+      expect(res!.id, '7f2aa88a-bdff-435e-9cb8-1c68b7353d9f');
+    });
+
+    test('resolves case-insensitively with mixed casing and spaces', () {
+      final res = matchWorkflow(sampleTasks, 'Latest News');
+      expect(res, isNotNull);
+      expect(res!.id, '7f2aa88a-bdff-435e-9cb8-1c68b7353d9f');
+    });
+
+    test('resolves by unique prefix or substring', () {
+      final res = matchWorkflow(sampleTasks, 'containers');
+      expect(res, isNotNull);
+      expect(res!.id, '4d219d6f-4d97-46ef-b4c9-305b8c077e87');
+      expect(res.name, 'containers stats');
+    });
+
+    test('returns null for unknown workflow', () {
+      final res = matchWorkflow(sampleTasks, 'unknown_task');
+      expect(res, isNull);
+    });
+  });
 }
+
