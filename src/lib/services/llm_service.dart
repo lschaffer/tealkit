@@ -15,6 +15,7 @@ import '../utils/logger.dart';
 import '../utils/grammar_generator.dart';
 import '../config/tool_usage_rules.dart';
 import 'embedded_llm/embedded_llm_adapter.dart';
+import 'embedded_llm/embedded_model_manager.dart';
 import 'llm_settings_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -479,6 +480,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   String? _reasoningEffort; // null = model default, 'low'|'medium'|'high' etc.
   bool? _enable2ndStageToolFiltering;
   String _toolFilteringLlmSource = 'llm1';
+  LLMService? _llm2Service;
 
   LLMService();
 
@@ -737,8 +739,13 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   String? get serviceTier => _serviceTier;
   String? get reasoningEffort => _reasoningEffort;
   bool? get explicitEnable2ndStageToolFiltering => _enable2ndStageToolFiltering;
-  bool get enable2ndStageToolFiltering => _enable2ndStageToolFiltering ?? !isSlm;
-  String get toolFilteringLlmSource => _toolFilteringLlmSource;
+  bool get enable2ndStageToolFiltering =>
+      _enable2ndStageToolFiltering ??
+      LlmSettingsService.instance.enable2ndStageToolFiltering;
+  String get toolFilteringLlmSource =>
+      (_toolFilteringLlmSource.isNotEmpty && _toolFilteringLlmSource != 'llm1')
+          ? _toolFilteringLlmSource
+          : LlmSettingsService.instance.toolFilteringLlmSource;
 
   /// Update 2nd stage tool filtering setting
   void setEnable2ndStageToolFiltering(bool value) {
@@ -749,6 +756,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   /// Update tool filtering LLM source
   void setToolFilteringLlmSource(String source) {
     _toolFilteringLlmSource = source;
+    _llm2Service = null;
     notifyListeners();
   }
 
@@ -1703,6 +1711,100 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     return input.hashCode.toRadixString(16);
   }
 
+  /// Initialize LLM client dynamically from parameters
+  Future<void> initializeFromParams({
+    required String providerKey,
+    required String model,
+    String? apiKey,
+    String? baseUrl,
+    bool useNativeToolCall = true,
+  }) async {
+    switch (providerKey.toLowerCase()) {
+      case 'gemini':
+      case 'google':
+        await initializeGemini(
+          apiKey: apiKey ?? '',
+          model: model.isNotEmpty ? model : 'gemini-2.5-flash',
+        );
+        break;
+      case 'openai':
+        await initializeOpenAI(
+          apiKey: apiKey ?? '',
+          model: model.isNotEmpty ? model : 'gpt-4o-mini',
+        );
+        break;
+      case 'claude':
+      case 'anthropic':
+        await initializeClaude(
+          apiKey: apiKey ?? '',
+          model: model.isNotEmpty ? model : 'claude-3-5-sonnet-20241022',
+        );
+        break;
+      case 'ollama':
+        await initializeOllama(
+          baseUrl: (baseUrl != null && baseUrl.isNotEmpty)
+              ? baseUrl
+              : 'http://localhost:11434/api',
+          model: model.isNotEmpty ? model : 'llama3.1:latest',
+          apiKey: (apiKey != null && apiKey.isNotEmpty) ? apiKey : null,
+          useNativeToolCall: useNativeToolCall,
+        );
+        break;
+      case 'mistral':
+        await initializeOpenAICompatible(
+          baseUrl: (baseUrl != null && baseUrl.isNotEmpty)
+              ? baseUrl
+              : 'https://api.mistral.ai/v1',
+          apiKey: apiKey,
+          model: model.isNotEmpty ? model : 'mistral-medium-latest',
+        );
+        break;
+      case 'openai_compatible':
+      case 'openaicompatible':
+        await initializeOpenAICompatible(
+          baseUrl: baseUrl ?? '',
+          apiKey: apiKey,
+          model: model.isNotEmpty ? model : 'local-model',
+        );
+        break;
+      case 'embedded':
+        final fullPath = await EmbeddedModelManager.instance
+            .fullPathForFilename(model);
+        await initializeEmbedded(
+          modelPath: fullPath,
+          gpuLayers: 99,
+        );
+        break;
+    }
+  }
+
+  /// Get or initialize cached LLM 2 service instance
+  Future<LLMService?> getLlm2Service() async {
+    final settings = LlmSettingsService.instance;
+    if (!settings.isLoaded) await settings.load();
+    if (!settings.isConfigured2) return null;
+    if (_llm2Service != null && _llm2Service!.isConfigured) {
+      return _llm2Service;
+    }
+    try {
+      final llm2 = LLMService();
+      await llm2.initializeFromParams(
+        providerKey: settings.provider2.configKey,
+        model: settings.model2,
+        apiKey: settings.apiKey2,
+        baseUrl: settings.baseUrl2,
+        useNativeToolCall: settings.useNativeToolCall2,
+      );
+      if (llm2.isConfigured) {
+        _llm2Service = llm2;
+        return _llm2Service;
+      }
+    } catch (e) {
+      talker.warning('⚠️ [LLMService] Failed to initialize LLM 2 service: $e');
+    }
+    return null;
+  }
+
   /// Fast text completion used for tool selection, query classification, etc.
   /// Does not broadcast UI stream events.
   Future<String?> generateFastCompletion(
@@ -1718,7 +1820,18 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       timestamp: DateTime.now(),
     );
     try {
-      final resp = await generateChatCompletion(
+      LLMService targetService = this;
+      if (source == 'llm2') {
+        final llm2 = await getLlm2Service();
+        if (llm2 != null && llm2.isConfigured) {
+          targetService = llm2;
+          talker.info('🧠 [FastCompletion] Using LLM 2 (${llm2.currentProvider.name} / ${llm2.currentModel}) for tool preselection');
+        } else {
+          talker.warning('⚠️ [FastCompletion] LLM 2 requested for tool preselection but not configured or failed to initialize, falling back to LLM 1');
+        }
+      }
+
+      final resp = await targetService.generateChatCompletion(
         messages: [msg],
         forceNoToolCalls: true,
         maxTokens: maxTokens,

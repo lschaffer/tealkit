@@ -7508,18 +7508,31 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                               case ChatRole.system:
                                 final content = msg.content.trim();
                                 if (content.isNotEmpty) {
-                                  final oneLine = content.replaceAll('\n', ' ');
-                                  final preview = oneLine.length > 80
-                                      ? '${oneLine.substring(0, 80)}…'
-                                      : oneLine;
-                                  entries.add(
-                                    _ExecEntry(
-                                      type: 'system',
-                                      text: 'System prompt: $preview',
-                                      details: content,
-                                      timestamp: msg.timestamp,
-                                    ),
-                                  );
+                                  if (msg.actionType == 'tool_preselection' ||
+                                      content.startsWith('🧠') ||
+                                      content.startsWith('📭')) {
+                                    entries.add(
+                                      _ExecEntry(
+                                        type: 'info',
+                                        text: content,
+                                        details: content,
+                                        timestamp: msg.timestamp,
+                                      ),
+                                    );
+                                  } else {
+                                    final oneLine = content.replaceAll('\n', ' ');
+                                    final preview = oneLine.length > 80
+                                        ? '${oneLine.substring(0, 80)}…'
+                                        : oneLine;
+                                    entries.add(
+                                      _ExecEntry(
+                                        type: 'system',
+                                        text: 'System prompt: $preview',
+                                        details: content,
+                                        timestamp: msg.timestamp,
+                                      ),
+                                    );
+                                  }
                                 }
                                 break;
                               case ChatRole.user:

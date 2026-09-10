@@ -3003,6 +3003,16 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
         await _msgSub?.cancel();
         _msgSub = chatService.messageStream.listen((msg) {
           switch (msg.role) {
+            case ChatRole.system:
+              final content = msg.content.trim();
+              if (content.isNotEmpty) {
+                if (msg.actionType == 'tool_preselection' ||
+                    content.startsWith('🧠') ||
+                    content.startsWith('📭')) {
+                  _addEntry('info', '[$execName] $content');
+                }
+              }
+              break;
             case ChatRole.assistant:
               if (msg.content.trim().isNotEmpty) {
                 _addEntry('assistant', '[$execName] ${msg.content.trim()}');
@@ -3043,8 +3053,6 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
                 '[$execName] ${lines.join('\n')}',
                 details: raw.isNotEmpty ? raw : null,
               );
-            default:
-              break;
           }
         });
 

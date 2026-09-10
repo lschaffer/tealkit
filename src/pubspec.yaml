@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.6.8+142
+version: 1.6.9+143
 
 environment:
   sdk: ^3.10.7
@@ -40,52 +40,52 @@ dependencies:
 
   path_provider: ^2.1.1
   path: ^1.9.0
-  yaml: ^3.1.2
+  yaml: ^3.1.4
   provider: ^6.1.1 
   tealkit_api:
     path: ./api
 
   # HTTP client
-  http: ^1.2.1
+  http: ^1.2.2
 
   # Logging
-  talker_flutter: ^4.7.0
+  talker_flutter: ^4.9.3
 
   # Utilities
   uuid: ^4.5.3
   dart_duckdb: 1.4.4
   sqlite3: ^2.1.0
-  archive: ^4.0.0
+  archive: ^4.0.9
   pointycastle: ^4.0.0
 
   # PDF text extraction (MIT, free, uses PDFium — all platforms)
-  pdfrx: ^2.4.7
-  pdf: ^3.11.1
+  pdfrx: ^2.6.1
+  pdf: ^3.12.0
   fl_chart: ^0.69.2
 
   # State management
-  flutter_riverpod: ^3.2.1
+  flutter_riverpod: ^3.4.3
 
   # Local storage for LLM settings
   shared_preferences: ^2.3.5
 
   # LLM Providers
-  googleai_dart: ^11.0.0
-  openai_dart: ^8.0.0
-  anthropic_sdk_dart: ^7.0.0
-  ollama_dart: ^2.5.0
+  googleai_dart: ^12.0.1
+  openai_dart: ^8.1.0
+  anthropic_sdk_dart: ^8.0.0
+  ollama_dart: ^2.6.1
 
   # MCP Communication
   web_socket_channel: ^3.0.2
  
   flutter_markdown_plus: ^1.0.7
-  flutter_widget_from_html: ^0.16.0
+  flutter_widget_from_html: ^0.17.4
 
   # File Handling
   file_picker: ^11.0.2
   image_picker: ^1.1.2
-  mime: ^2.0.0
-  open_file: ^3.5.10
+  mime: ^2.1.0
+  open_file: ^3.5.11
   share_plus: ^11.1.0
 
   # Code editor with syntax highlighting
@@ -96,7 +96,7 @@ dependencies:
   # Utilities
   url_launcher: ^6.3.1
   flutter_js: ^0.8.7
-  flutter_secure_storage: ^10.0.0
+  flutter_secure_storage: ^10.3.2
   flutter_web_auth_2: ^5.0.2
   crypto: ^3.0.6
   google_sign_in: ^7.2.0
@@ -104,15 +104,15 @@ dependencies:
   enough_mail: ^2.1.7
   geolocator: ^14.0.2
   permission_handler: ^11.4.0
-  device_info_plus: ^11.3.3
-  package_info_plus: ^8.3.0
+  device_info_plus: ^11.5.0
+  package_info_plus: ^8.3.1
 
   # SSH / SFTP
-  dartssh2: ^2.18.0
+  dartssh2: ^2.22.5
     #path: ./third_party/dartssh2
 
   # Embedded (on-device) LLM via llama.cpp
-  llamadart: ^0.8.17
+  llamadart: ^0.8.23
 
   # Background scheduling
   workmanager: ^0.9.0

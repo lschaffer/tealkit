@@ -244,6 +244,10 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
       // is an additional override for edge cases where name-detection doesn't fire.
       {
         final settings = ref.read(llmSettingsProvider);
+        llmService.setEnable2ndStageToolFiltering(
+          settings.enable2ndStageToolFiltering,
+        );
+        llmService.setToolFilteringLlmSource(settings.toolFilteringLlmSource);
         final originalProvider =
             (_overrides?.llmProvider ?? task.llmConfig?.provider ?? '')
                 .toLowerCase();
@@ -255,7 +259,9 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
         log.info(
           '[ActiveTask] SLM detection: isSlm=${llmService.isSlm}'
           ' useSimplifiedPrompts=${llmService.useSimplifiedPrompts}'
-          ' settingsCheckbox=$settingsSlm usingLlm2=$usingLlm2',
+          ' settingsCheckbox=$settingsSlm usingLlm2=$usingLlm2'
+          ' 2ndStageFilter=${llmService.enable2ndStageToolFiltering}'
+          ' toolFilterSource=${llmService.toolFilteringLlmSource}',
         );
       }
 
@@ -984,6 +990,10 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
             );
           })();
       llmService.setIsMultiModal(resolvedIsMultiModal);
+      llmService.setEnable2ndStageToolFiltering(
+        settings.enable2ndStageToolFiltering,
+      );
+      llmService.setToolFilteringLlmSource(settings.toolFilteringLlmSource);
 
       llmService.applySessionLimits(
         maxTokens: effectiveMaxTokens,

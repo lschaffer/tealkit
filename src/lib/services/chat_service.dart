@@ -2717,17 +2717,52 @@ RULES (follow strictly):
           }
         }
 
+  void emitToolPreselectionLog({
+    required String sourceLabel,
+    required int totalCount,
+    required List<MCPTool> selectedTools,
+    int? initialTotalCount,
+  }) {
+    final count = selectedTools.length;
+    final selectedNames = selectedTools.map((t) => t.name).join(', ');
+    final contextInfo = (initialTotalCount != null && initialTotalCount != totalCount)
+        ? ' (from $initialTotalCount total candidate tools)'
+        : '';
+    final summary = count == 0
+        ? '🧠 [Tool Preselection] $sourceLabel evaluated $totalCount tools$contextInfo → 0 tools selected (query requires no tools)'
+        : '🧠 [Tool Preselection] $sourceLabel evaluated $totalCount tools$contextInfo → $count tools selected: [$selectedNames]';
+    talker.info(summary);
+    _addMessage(
+      ChatMessage(
+        id: _uuid.v4(),
+        role: ChatRole.system,
+        actionType: 'tool_preselection',
+        content: summary,
+        timestamp: DateTime.now(),
+      ),
+    );
+  }
+
         // For small toolsets (<= 20 tools):
         if (totalTools <= 20) {
           List<MCPTool> tools = mcpClient.availableTools.toList();
           // If > 5 tools and 2nd stage LLM tool filtering is enabled, filter down
           if (llmService.enable2ndStageToolFiltering && totalTools > 5) {
+            final sourceLabel =
+                llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
             try {
-              talker.info('🧠 [Stage 2] Running LLM tool selection on $totalTools tools...');
+              talker.info(
+                '🧠 [Stage 2] Running LLM tool selection on $totalTools tools using $sourceLabel...',
+              );
               tools = await LLMToolSelector.filterTools(
                 query: semanticQuery,
                 candidateTools: tools,
                 llmService: llmService,
+              );
+              emitToolPreselectionLog(
+                sourceLabel: sourceLabel,
+                totalCount: totalTools,
+                selectedTools: tools,
               );
             } catch (e) {
               talker.warning('LLM tool selection failed, using all tools: $e');
@@ -2783,11 +2818,21 @@ RULES (follow strictly):
 
               // Stage 2: LLM Tool Selector (if enabled and tool count > 5)
               if (llmService.enable2ndStageToolFiltering && candidateTools.length > 5) {
-                talker.info('🧠 [Stage 2] Running LLM tool selection on ${candidateTools.length} candidate tools...');
+                final sourceLabel =
+                    llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
+                talker.info(
+                  '🧠 [Stage 2] Running LLM tool selection on ${candidateTools.length} candidate tools using $sourceLabel...',
+                );
                 filteredTools = await LLMToolSelector.filterTools(
                   query: semanticQuery,
                   candidateTools: candidateTools,
                   llmService: llmService,
+                );
+                emitToolPreselectionLog(
+                  sourceLabel: sourceLabel,
+                  totalCount: candidateTools.length,
+                  initialTotalCount: mcpClient.availableTools.length,
+                  selectedTools: filteredTools,
                 );
               }
 
@@ -2821,13 +2866,23 @@ RULES (follow strictly):
             // Router not ready yet
             List<MCPTool> tools = mcpClient.availableTools.toList();
             if (llmService.enable2ndStageToolFiltering && tools.length > 5) {
+              final sourceLabel =
+                  llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
               try {
-                talker.info('🧠 [Stage 2] Router not ready; running direct LLM tool selection on ${tools.length} available tools...');
-                tools = await LLMToolSelector.filterTools(
+                talker.info(
+                  '🧠 [Stage 2] Router not ready; running direct LLM tool selection on ${tools.length} available tools using $sourceLabel...',
+                );
+                final filtered = await LLMToolSelector.filterTools(
                   query: semanticQuery,
                   candidateTools: tools,
                   llmService: llmService,
                 );
+                emitToolPreselectionLog(
+                  sourceLabel: sourceLabel,
+                  totalCount: tools.length,
+                  selectedTools: filtered,
+                );
+                tools = filtered;
               } catch (_) {}
             }
             tools.sort((a, b) => a.name.compareTo(b.name));

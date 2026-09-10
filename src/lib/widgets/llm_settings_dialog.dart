@@ -1441,6 +1441,8 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
               setState(() => _useSafeToolCall2 = v),
           showEmbeddedOption: !_isLightMode,
         ),
+        const SizedBox(height: 16),
+        _buildGlobalSettingsSection(theme, isModern),
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: _saving ? null : _save,

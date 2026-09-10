@@ -2,6 +2,26 @@
 
 This file tracks release changes by version.
 
+## v1.6.9+143 - LLM Provider SDK Upgrades, Multi-Tab Tool Preselection & Observability
+
+### New Features & Enhancements
+- **Multi-Tab 2nd-Stage Tool Preselection Settings**:
+  - The "2nd Stage LLM Tool Filtering" configuration section (enabling/disabling preselection and selecting the filter model) is now accessible and synchronized in both the **LLM 1 (Primary)** and **LLM 2 (Coding)** tabs in `LLMSettingsDialog`.
+- **LLM 2 Tool Preselection Execution**:
+  - Implemented dynamic secondary LLM provider instantiation (`getLlm2Service()` / `initializeFromParams(...)`), ensuring tool preselection actually executes against the designated LLM 2 model rather than defaulting to LLM 1 when configured.
+  - Linked fast completion routines in `LLMService` to properly route preselection requests to the active LLM 2 service.
+- **Tool Preselection Visibility in Playground & Workflow Logs**:
+  - Structured tool preselection decisions are now published in real-time to the system stream and logger (`🧠 [Tool Preselection] $model evaluated $total tools → $selectedCount tools selected: [...]`).
+  - Added dedicated log inspectors in both the Playground execution panel and Workflow List live log viewers, clearly displaying tool filtering metrics (e.g. reducing 16 tools down to 2 candidate tools) without polluting subsequent conversational context sent to the LLM.
+- **LLM Provider SDK & Core Dependency Upgrades**:
+  - Upgraded major LLM client libraries to their latest versions:
+    - `googleai_dart`: `^11.0.0` ➔ `^12.0.1`
+    - `openai_dart`: `^8.0.0` ➔ `^8.1.0`
+    - `anthropic_sdk_dart`: `^7.0.0` ➔ `^8.0.0`
+    - `ollama_dart`: `^2.5.0` ➔ `^2.6.1`
+    - `llamadart`: `^0.8.17` ➔ `^0.8.23`
+  - Upgraded core framework and utility packages including `flutter_riverpod: ^3.4.3`, `http: ^1.2.2`, `flutter_widget_from_html: ^0.17.4`, `yaml: ^3.1.4`, `mime: ^2.1.0`, `pdfrx: ^2.6.1`, `pdf: ^3.12.0`, `archive: ^4.0.9`, `open_file: ^3.5.11`, `flutter_secure_storage: ^10.3.2`, `device_info_plus: ^11.5.0`, `package_info_plus: ^8.3.1`, `dartssh2: ^2.22.5`, and `talker_flutter: ^4.9.3`.
+
 ## v1.6.7+140 - 2nd-Stage LLM Tool Filtering, Multi-Model Preselection & Anti-Loop Directives
 
 ### New Features & Enhancements

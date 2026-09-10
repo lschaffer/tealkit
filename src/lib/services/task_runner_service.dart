@@ -948,6 +948,9 @@ class TaskRunnerService {
       log.warning('[TaskRunner] LLM config failed: $e');
     }
 
+    llmService.setEnable2ndStageToolFiltering(settings.enable2ndStageToolFiltering);
+    llmService.setToolFilteringLlmSource(settings.toolFilteringLlmSource);
+
     // Sync SLM flag → useSimplifiedPrompts so the chat service uses the right system prompt.
     // Also honour per-task model overrides: a small model name takes priority over global isSlm flags.
     final useLlm2 = task.llmConfig?.provider == 'llm2';
@@ -958,29 +961,54 @@ class TaskRunnerService {
       isSlm = useLlm2 ? settings.isSlm2 : settings.isSlm;
     }
     // If the task overrides the model, re-derive isSlm from that model name
-    final effectiveModel = model ?? '';
-    if (effectiveModel.isNotEmpty) {
-      isSlm = isSlm || _isSmallModelByName(effectiveModel);
+    // (e.g. task overrides to a 7B model when global is a 70B model).
+    final effectiveModel = (effectiveLlmConfig?.model.isNotEmpty == true)
+        ? effectiveLlmConfig!.model
+        : (model ?? '');
+    if (effectiveModel.isNotEmpty && _isSmallModelByName(effectiveModel)) {
+      isSlm = true;
     }
-    llmService.setUseSimplifiedPrompts(isSlm);
-    llmService.setThinking(useLlm2 ? settings.thinking2 : settings.thinking);
-  }
+    if (isSlm && !llmService.useSimplifiedPrompts) {
+      llmService.setUseSimplifiedPrompts(true);
+    }
+    log.info(
+      '[TaskRunner] SLM detection: isSlm=$isSlm'
+      ' useSimplifiedPrompts=${llmService.useSimplifiedPrompts}'
+      ' effectiveModel=$effectiveModel'
+      ' provider=$provider',
+    );
 
-  /// Returns true when [modelName] identifies a small (≤14B) model based on its
-  /// parameter-count tag (e.g. `:8b`, `-14b`, `_7B`) or well-known small-model
-  /// keywords (`phi`, `tiny`, `nano`, `mini`, `tinyllama`).
-  static bool _isSmallModelByName(String modelName) {
-    final lower = modelName.toLowerCase();
-    // Keyword shortcuts
-    if (RegExp(r'\b(phi|tiny|nano|tinyllama)\b').hasMatch(lower)) return true;
-    if (lower.contains(':mini') || lower.contains('-mini')) return true;
-    // Numeric param-count tag: :NNb / -NNb / _NNb where NN ≤ 14
-    final match = RegExp(r'[:\-_](\d+(?:\.\d+)?)b\b').firstMatch(lower);
-    if (match != null) {
-      final params = double.tryParse(match.group(1)!);
-      if (params != null && params <= 7) return true;
-    }
-    return false;
+    // Respect per-task or global multi-modal flag so that image generation / analysis
+    // steps send images appropriately.
+    final extraParams =
+        task.llmConfig?.extraParams ?? const <String, dynamic>{};
+    final bool resolvedIsMultiModal =
+        (extraParams['is_multi_modal'] is bool
+            ? extraParams['is_multi_modal'] as bool
+            : extraParams['is_multi_modal'] is int
+            ? (extraParams['is_multi_modal'] as int) != 0
+            : null) ??
+        (() {
+          final lowerProvider = provider?.toLowerCase() ?? '';
+          if (lowerProvider == 'llm2') {
+            return settings.isMultiModal2;
+          }
+          final providerEnum = LlmProvider.fromConfigKey(lowerProvider);
+          if (providerEnum == LlmProvider.embedded) {
+            return LlmSettingsService.detectDefaultMultiModal(
+              LlmProvider.embedded,
+              model ?? '',
+            );
+          }
+          if (providerEnum == settings.provider) {
+            return settings.isMultiModal;
+          }
+          return LlmSettingsService.detectDefaultMultiModal(
+            providerEnum,
+            model ?? '',
+          );
+        })();
+    llmService.setIsMultiModal(resolvedIsMultiModal);
   }
 
   /// Shared utility: configure an [LLMService] from raw provider params.
@@ -993,54 +1021,25 @@ class TaskRunnerService {
     String? baseUrl,
     bool useNativeToolCall = true,
   }) async {
-    switch (providerKey.toLowerCase()) {
-      case 'gemini':
-      case 'google':
-        await llmService.initializeGemini(
-          apiKey: apiKey ?? '',
-          model: model.isNotEmpty ? model : 'gemini-2.5-flash',
-        );
-      case 'openai':
-        await llmService.initializeOpenAI(
-          apiKey: apiKey ?? '',
-          model: model.isNotEmpty ? model : 'gpt-4o-mini',
-        );
-      case 'claude':
-      case 'anthropic':
-        await llmService.initializeClaude(
-          apiKey: apiKey ?? '',
-          model: model.isNotEmpty ? model : 'claude-3-5-sonnet-20241022',
-        );
-      case 'ollama':
-        await llmService.initializeOllama(
-          baseUrl: (baseUrl != null && baseUrl.isNotEmpty)
-              ? baseUrl
-              : 'http://localhost:11434/api',
-          model: model.isNotEmpty ? model : 'llama3.1:latest',
-          apiKey: (apiKey != null && apiKey.isNotEmpty) ? apiKey : null,
-          useNativeToolCall: useNativeToolCall,
-        );
-      case 'mistral':
-        await llmService.initializeOpenAICompatible(
-          baseUrl: (baseUrl != null && baseUrl.isNotEmpty)
-              ? baseUrl
-              : 'https://api.mistral.ai/v1',
-          apiKey: apiKey,
-          model: model.isNotEmpty ? model : 'mistral-medium-latest',
-        );
-      case 'openai_compatible':
-      case 'openaicompatible':
-        await llmService.initializeOpenAICompatible(
-          baseUrl: baseUrl ?? '',
-          apiKey: apiKey,
-          model: model.isNotEmpty ? model : 'local-model',
-        );
-      case 'embedded':
-        // model = GGUF filename stored in app documents/models/
-        final fullPath = await EmbeddedModelManager.instance
-            .fullPathForFilename(model);
-        await llmService.initializeEmbedded(modelPath: fullPath);
+    await llmService.initializeFromParams(
+      providerKey: providerKey,
+      model: model,
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+      useNativeToolCall: useNativeToolCall,
+    );
+  }
+
+  static bool _isSmallModelByName(String modelName) {
+    final lower = modelName.toLowerCase();
+    if (RegExp(r'\b(phi|tiny|nano|tinyllama)\b').hasMatch(lower)) return true;
+    if (lower.contains(':mini') || lower.contains('-mini')) return true;
+    final match = RegExp(r'[:\-_](\d+(?:\.\d+)?)b\b').firstMatch(lower);
+    if (match != null) {
+      final params = double.tryParse(match.group(1)!);
+      if (params != null && params <= 14) return true;
     }
+    return false;
   }
 
   // --- System prompt ------------------------------------------------------
