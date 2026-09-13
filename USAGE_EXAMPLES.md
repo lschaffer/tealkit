@@ -465,11 +465,126 @@ Choosing the right model depends on expected output length, tool complexity, and
 
 ---
 
+## Multi-Agent Workflows: One Workflow — Multiple Agents (Sequential & Conditional Chaining)
+
+TealKit supports the **Orchestrator-Executor pattern**, allowing you to build multi-agent pipelines within a **single workflow**. Rather than creating disconnected tasks or managing fragile trigger chains, a single workflow task hosts multiple specialized agents (executors) that run either **sequentially** or branch **conditionally** via dynamic routing rules.
+
+### Key Capabilities
+
+- **One Workflow, Multiple Specialized Agents**:
+  Within a single workflow (configured using the tabbed **Workflow Editor** or the node-based **Visual Builder**), each agent operates as a focused persona with its own:
+  - **Name & Purpose**: Clear division of responsibilities (e.g., *Researcher*, *Data Analyst*, *Scribe*, *Incident Responder*).
+  - **System Prompt & Attached Skill**: Attach custom instructions or curated AgentSkills.io skill definitions (`SkillDef`).
+  - **Model / LLM Override**: Mix and match models per agent. For example, use a fast, lightweight SLM (e.g. Ministral 8B, Llama 3.1 8B, or Gemini 2.5 Flash) for data retrieval and tool execution, and route to a high-reasoning frontier model (Gemini 2.5 Pro, Claude 3.5 Sonnet, GPT-4o) for synthesis and executive reporting. You can also toggle between Primary and Coding/Secondary LLM profiles.
+  - **Independent Tool Selection**: Whitelist only the specific internal MCP tools (Gmail, Google Calendar, Home Assistant, SSH, Python, etc.) or external MCP servers needed by that agent.
+  - **Multi-Step Prompts**: Each individual agent can break down its task into sub-prompts using the built-in **Multi-Prompt Editor**.
+  - **Execution Flags**: Configure Chat Mode (direct prompt without tool overhead) or "Stop after tool call" (`[SATC]`) independently per agent.
+
+- **Sequential Chaining (Pipelines)**:
+  - Agents execute in linear order (`Agent 1` → `Agent 2` → `Agent 3`).
+  - Context and outputs pass automatically between agents: downstream agents can access prior outputs via template variables (`${task_output}`, `${task_result}`, or `${tool_result}`).
+  - If no placeholder is specified in the downstream agent's prompt, TealKit automatically appends the prior output as `[Context from previous step]:\n...`.
+
+- **Conditional Chaining & Dynamic Routing Rules (Edges)**:
+  - Connect agents with **Routing Rules (Edges)**: `IF [Variable] [Operator] [Value] THEN Route to [Target Agent]`.
+  - **Semantic LLM Evaluation & Rule Checks**: Conditions can evaluate the output using string matching, numeric comparisons, regex, or **semantic LLM condition evaluation** (e.g. the LLM checks whether a threshold was breached, an error occurred, or an email requires urgent escalation).
+  - **Branching Execution**: When a condition evaluates to true, the workflow immediately routes execution to the designated target agent. If no condition matches, execution can follow fallback routes or terminate cleanly.
+
+- **Visual Builder & Tabbed Editor**:
+  - **Visual Builder**: An interactive node canvas where agents appear as draggable nodes and routing rules are represented as connecting edges and arrows.
+  - **Tabbed Workflow Editor**: Easily switch between agent tabs on mobile or desktop to configure prompts, model parameters, tools, and routing conditions.
+
+---
+
+### Multi-Agent Real-Life Scenarios
+
+#### Scenario A: Sequential Pipeline — Research, Analysis & Executive Briefing
+
+A single workflow running three specialized agents in sequence:
+
+```
+┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
+│ Agent 1: News Scout    │ ───► │ Agent 2: Data Analyst  │ ───► │ Agent 3: Scribe        │
+│ • Fast SLM             │      │ • Coding LLM           │      │ • Frontier LLM         │
+│ • Web Search Tool      │      │ • Python Bridge        │      │ • Pure Synthesis (No-T)│
+└────────────────────────┘      └────────────────────────┘      └────────────────────────┘
+```
+
+1. **Agent 1: News Scout (Ministral 8B or Gemini 2.5 Flash)**
+   - *Tools:* `web_search`
+   - *Prompt:* "Search the web for the latest developments in AI agents and MCP protocols from the past 24 hours. Extract key news, metrics, and bullet points."
+2. **Agent 2: Data Analyst (Coding / Secondary LLM)**
+   - *Tools:* `run_python` (`csv_analyzer`, `run_py_tool`)
+   - *Prompt:* "Take the news findings from ${task_output}. Write and execute a Python script to structure the key announcements by topic and calculate frequency statistics. Return structured JSON."
+3. **Agent 3: Executive Scribe (Gemini 2.5 Pro or Claude 3.5 Sonnet)**
+   - *Tools:* None (Chat Mode / No Tools)
+   - *Prompt:* "Using the structured context in ${task_output}, write an executive markdown briefing with an overview table, impact assessment, and recommended next steps."
+
+---
+
+#### Scenario B: Conditional Routing Workflow — Server Health & Incident Escalation
+
+A single scheduled workflow that evaluates server metrics and branches conditionally based on health status:
+
+```
+                  ┌──────────────────────────────┐
+                  │ Agent 1: Health Monitor      │
+                  │ (SSH df -h & HA Sensors)     │
+                  └──────────────┬───────────────┘
+                                 │
+                 ┌───────────────┴───────────────┐
+                 │ Routing Rules (Edges)         │
+                 └───────┬───────────────┬───────┘
+  Condition Met:         │               │  Condition Met:
+  "disk > 85% or error"  │               │  "all systems healthy"
+                         ▼               ▼
+          ┌──────────────────────┐  ┌──────────────────────┐
+          │ Agent 2: Incident    │  │ Agent 3: Routine     │
+          │ Responder            │  │ Logger               │
+          │ • High-Priority Email│  │ • Log clean status   │
+          │ • Google Calendar    │  │   quietly            │
+          │ • SSH Remediation    │  │ • No notifications   │
+          └──────────────────────┘  └──────────────────────┘
+```
+
+**Workflow Configuration:**
+- **Schedule:** Every hour (`0 * * * *`)
+- **Agent 1: Health Monitor**
+  - *Tools:* SSH (`disk_usage`), Home Assistant (`get_ha_entity_state`)
+  - *Prompt:* "Check disk usage on my 'web-server' profile and query CPU temperature from Home Assistant. If any filesystem is over 85% full or CPU temp > 80°C, output: 'ALERT: [details]'. Otherwise output: 'HEALTHY: All systems normal'."
+- **Routing Rules on Agent 1:**
+  - `IF output contains 'ALERT:' THEN Route to Agent 2 (Incident Responder)`
+  - `IF output contains 'HEALTHY' THEN Route to Agent 3 (Routine Logger)`
+- **Agent 2: Incident Responder (Escalation)**
+  - *Tools:* Google Calendar (`create_event`), Email (`send_email`), SSH (`execute_command`)
+  - *Prompt:* "A critical infrastructure alert was detected: ${task_output}.\n1. Create a calendar event '🚨 Urgent: Disk Space Alert' for the next hour.\n2. Send an urgent notification email to devops@example.com.\n3. SSH into 'web-server' and run 'sudo journalctl --vacuum-time=2d' to free up disk space."
+- **Agent 3: Routine Logger**
+  - *Tools:* None
+  - *Prompt:* "Log heartbeat: ${task_output}."
+
+---
+
 ## Sub-Prompt Chaining for SLM & Embedded Models
 
-Sub-prompts let you break a complex task into sequential steps, each with its own tool set and stop behavior. This is ideal for small/embedded models (3B-7B) that struggle with complex multi-step reasoning.
+While **Multi-Agent Workflows** orchestrate multiple distinct agents across a workflow, **Sub-Prompt Chaining** operates *within a single agent*. It breaks down a complex task into sequential execution turns, each with its own tool whitelist, prompt instruction, and stop behavior.
+
+This is ideal for small and embedded models (3B-7B) that struggle with complex multi-step reasoning when given many tools simultaneously.
+
+### The Multi-Prompt Editor
+
+You do **not** have to manually type raw delimiter tags. In both the **Workflow Editor** and the **Playground**, TealKit includes the built-in **Multi-Prompt Editor** (Step List Editor):
+
+- **Visual Step Cards**: Each sub-prompt has its own dedicated card and text area.
+- **Interactive Per-Step Tool Checklists**: Tap the tool icon on any step card to select:
+  - *All Tools*: Full toolset available to the agent.
+  - *No Tools (`[NT:]`)*: Enforces text-only LLM response (ideal for formatting, translation, and synthesis).
+  - *Specific Tools (`[NT:tool1|tool2]`)*: Whitelist only the exact tools needed for that turn.
+- **Stop After Tool Call (`[SATC]`)**: A toggle switch per step. When enabled, the model halts immediately after its first tool call without re-prompting the LLM with the tool output. The raw tool result is forwarded directly to the next step (accessible via `${tool_result}`).
+- **Visual Reordering & Insertion**: Insert steps before or after, reorder them, or delete steps with one click.
 
 ### Syntax Reference
+
+If editing raw text or importing prompts, TealKit serializes multi-step prompts using the following syntax:
 
 | Syntax | Meaning |
 |--------|---------|
@@ -478,6 +593,8 @@ Sub-prompts let you break a complex task into sequential steps, each with its ow
 | `++#++[NT:tool1\|tool2]` | Next step: only these tools available |
 | `++#++[SATC]` | Stop after tool call (don't send result back to LLM, go to next step) |
 | `++#++[NT:tool1][SATC]` | Combine: only tool1, stop after call |
+
+> **Tip:** You can switch between the visual Multi-Prompt Editor and raw text mode at any time.
 
 ### Example 1: Fetch + Format (Disk Usage Report)
 
@@ -557,7 +674,7 @@ From the tool result, create a nice agenda layout using markdown with emojis:
 
 ## Scheduled Agents with Sub-Prompt Chaining
 
-Scheduled agents can use sub-prompts to separate data collection from formatting, just like interactive sessions.
+Scheduled agents can combine sub-prompts to separate data collection from formatting, just like interactive sessions.
 
 ### Example: Server Health Monitor (Every 4 Hours)
 
@@ -598,60 +715,29 @@ Send this report via email to admin@example.com with subject "Server Health Repo
 |------|-------|------|-------------|
 | 1 | All | No | Agent calls `ssh_disk_usage` → gets JSON |
 | 2 | `get_ha_entity_state` | ✅ | Agent fetches CPU + memory from HA → stops |
-| 3 | `web_search` | No | Agent formats both results into markdown |
+| 3 | All (or web_search) | No | Agent formats both results into markdown |
 | 4 | No tools | No | Agent writes final text (no new tools) |
-| 5 | No tools | — | Agent invokes email delivery to send the report |
+| 5 | Email tool | — | Agent invokes email delivery to send the report |
 
 **Context window estimate:** ~3-5K tokens per run (small tool outputs + template). Suitable for Ministral 8B or Phi-4.
-
-### Example: Conditional Chained Agent (Disk Alert → Create Ticket)
-
-This pattern uses **two separate agents** where the second only runs if the first detects a problem.
-
-**Agent 1: Monitor (Runs every hour)**
-```
-Call ssh 'disk_usage' on my 'web-server' profile. Return raw JSON.
-++#++[SATC]
-Analyze the disk usage JSON. If ANY partition is over 85% usage, output exactly:
-  ALERT: {filesystem} at {use_pct}% on {server}
-Otherwise output: OK
-```
-
-**Agent 2: Escalate (Triggered by Agent 1 output)**
-```
-Create a Google Calendar event titled "⚠️ Server Disk Alert — {filesystem}" starting in 15 minutes for 1 hour. Set the description to:
-{alert_text}
-
-Then send an email to admin@example.com with subject "🚨 URGENT: Server Disk Space Alert" and body containing the alert details.
-```
-
-| Agent | Schedule | Condition | Tools |
-|-------|----------|-----------|-------|
-| Agent 1 (Monitor) | Every hour | Always runs | SSH |
-| Agent 2 (Escalate) | Not scheduled | Only if Agent 1 outputs `ALERT:` | Calendar, Email |
-
-**How it works in TealKit:**
-1. Agent 1 runs hourly, checks disk usage
-2. If OK → outputs "OK" → nothing happens
-3. If ALERT → output starts with "ALERT:" → TealKit's task output triggers Agent 2
-4. Agent 2 creates a calendar event AND sends an alert email
-
-**Context window estimate:** ~1-2K tokens per run (tiny). Works with any model including embedded 3B.
 
 ---
 
 ## In-Built Agent Configuration Switches
 
-When editing an agent/task in TealKit, these switches control execution behavior:
+When editing an agent or workflow in TealKit, these switches and features control execution behavior:
 
-| Switch | Location | Effect |
-|--------|----------|--------|
-| **Stop after tool call** | Per-sub-prompt step (`[SATC]` marker) or per-task toggle | LLM stops after first tool call; result goes to next step or final output |
+| Switch / Feature | Location | Effect |
+|------------------|----------|--------|
+| **Multi-Prompt Editor** | Prompt field in Workflow Editor & Playground | Visual step cards with per-step tool selection checklists and stop-after-tool-call toggles |
+| **Stop after tool call (`[SATC]`)** | Per-step toggle in Multi-Prompt Editor or per-agent toggle | LLM stops immediately after first tool call; output goes to next step as `${tool_result}` |
+| **Per-step tool selection (`[NT:]`)** | Multi-Prompt Editor tool checklist | Restricts available tools per step (All, None, or specific selected tools) |
+| **Routing Rules (Edges)** | Workflow Editor → Routing tab / Visual Builder | Defines dynamic branching between agents (`IF condition THEN target agent`) |
+| **Attached Skill (`SkillDef`)** | Agent Editor → Skill chip | Injects AgentSkills.io skill markdown instructions and auto-enables required tools |
 | **Chat mode** | Agent editor → Chat mode toggle | Skips system prompt, warmup, tools, location injection — sends messages directly |
-| **Per-step tool selection** | Sub-prompt editor (`[NT:tool1\|tool2]`) | Restricts which tools are available for each step |
 | **Preset tool selection** | Agent editor → Tool preset | Pre-select a subset of all available MCP tools for the entire agent |
-| **LLM override** | Agent editor → LLM config | Override which LLM provider/model this agent uses (overrides global setting) |
-| **SLM mode** | Settings → LLM → SLM toggle | Uses shorter/directive system prompts, recommended for small local models |
+| **LLM override** | Agent editor → LLM config | Override which LLM provider/model this agent uses (or toggle Primary vs Secondary LLM) |
+| **SLM mode** | Settings → LLM → SLM toggle | Uses shorter, directive system prompts, optimized for small local models |
 
 ### Recommended Switch Combinations
 
@@ -659,6 +745,8 @@ When editing an agent/task in TealKit, these switches control execution behavior
 |----------|--------------------|
 | Embedded model (3B-7B) + single tool call | ✅ SLM mode ON, ✅ Native tool calling OFF, ✅ Safe tool call mode ON |
 | Cloud model + web research | ✅ Native tool calling ON, ❌ Safe tool call mode OFF (native is reliable) |
-| SLM + scheduled report | ✅ Sub-prompts with `[SATC]`, ✅ Per-step tool restriction (`[NT:]` for format step) |
-| Multi-tool agent (any model) | ✅ Sub-prompts with tool restrictions, consider `[SATC]` between data + formatting |
+| SLM + scheduled report | ✅ Multi-Prompt Editor with `[SATC]`, ✅ Per-step tool restriction (`[NT:]` for format step) |
+| Multi-agent pipeline (mixed models) | ✅ Fast SLM for Agent 1 (Data Fetch), ✅ Frontier LLM for Agent 2 (Synthesis) |
+| Conditional alert & escalation | ✅ Routing Rules (Edges) between Agent 1 (Monitor) and Agent 2 (Escalation) |
 | Quick chat (no tools needed) | ✅ Chat mode ON, ❌ preset tool selection = none |
+
