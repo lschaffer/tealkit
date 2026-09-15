@@ -23,7 +23,19 @@ DynamicLibrary _defaultOpen() {
   } else if (Platform.isWindows) {
     return DynamicLibrary.open('duckdb.dll');
   } else if (Platform.isLinux) {
-    // Will look in LD_LIBRARY_PATH
+    // Check bundled library next to executable first
+    try {
+      final exeDir = File(Platform.resolvedExecutable).parent.path;
+      final bundledLib = '$exeDir/lib/libduckdb.so';
+      if (File(bundledLib).existsSync()) {
+        final result = DynamicLibrary.open(bundledLib);
+        if (_duckDbIsLoaded(result)) {
+          return result;
+        }
+      }
+    } catch (_) {}
+
+    // Fall back to LD_LIBRARY_PATH / system paths
     final result = DynamicLibrary.open('libduckdb.so');
     if (_duckDbIsLoaded(result)) {
       return result;

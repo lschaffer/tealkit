@@ -78,6 +78,18 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 ---
 
+## 💻 Platforms
+
+| Platform | |
+| :--- | :--- |
+| **Android** | [<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="40" alt="Get it on Google Play"/>](https://play.google.com/store/apps/details?id=at.ls.gr.tealkit) |
+| **Windows** | [<img src="https://get.microsoft.com/images/en-us%20dark.svg" height="40" alt="Get it from Microsoft"/>](https://apps.microsoft.com/detail/9nb8trlrgwr2) |
+| **macOS** | [<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="40" alt="Download on the App Store"/>](https://apps.apple.com/at/app/tealkit-private-ai-agents/id6760420939) |
+| **iOS** | [<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="40" alt="Download on the App Store"/>](https://apps.apple.com/us/app/tealkit-private-ai-agents/id6760420939) |
+| **Linux** | [![Download for Linux](https://img.shields.io/badge/Linux-Ubuntu%20%2F%20Debian%20%26%20tar.gz-2ea44f?logo=linux&logoColor=white)](https://tealkit.dev/#linux-download) &nbsp; [Download from tealkit.dev](https://tealkit.dev/#linux-download) |
+
+---
+
 ## 📸 Desktop Mode Screenshots
 
 ### 🎮 Playground
@@ -227,18 +239,6 @@ TealKit is an **open agentic platform**: every capability not built-in can be ad
 | **Custom URL** | All | Paste any MCP server URL (SSE or HTTP) to connect private or self-hosted servers. |
 
 **No TealKit Cloud.** Your private data, files, settings, and credentials remain in your device's secure storage. You choose the third-party providers you trust.
-
----
-
-## 💻 Platforms
-
-| Platform | |
-| :--- | :--- |
-| **Android** | [<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="40" alt="Get it on Google Play"/>](https://play.google.com/store/apps/details?id=at.ls.gr.tealkit) |
-| **Windows** | [<img src="https://get.microsoft.com/images/en-us%20dark.svg" height="40" alt="Get it from Microsoft"/>](https://apps.microsoft.com/detail/9nb8trlrgwr2) |
-| **macOS** | [<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="40" alt="Download on the App Store"/>](https://apps.apple.com/at/app/tealkit-private-ai-agents/id6760420939) |
-| **iOS** | [<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="40" alt="Download on the App Store"/>](https://apps.apple.com/us/app/tealkit-private-ai-agents/id6760420939) |
-| **Linux** | - |
 
 ---
 

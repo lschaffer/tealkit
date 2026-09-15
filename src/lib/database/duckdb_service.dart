@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_duckdb/dart_duckdb.dart';
+import 'package:dart_duckdb/open.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -37,6 +38,19 @@ class DuckDbService {
   /// Initialize and open the database.
   Future<void> init() async {
     if (_db != null) return; // already initialized
+
+    if (Platform.isLinux) {
+      try {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final bundledLib = p.join(exeDir, 'lib', 'libduckdb.so');
+        if (File(bundledLib).existsSync()) {
+          open.overrideFor(OperatingSystem.linux, bundledLib);
+          log.info('[DuckDB] Using bundled Linux library: $bundledLib');
+        }
+      } catch (e) {
+        log.warning('[DuckDB] Could not set Linux bundled library path: $e');
+      }
+    }
 
     final supportDir = await getApplicationSupportDirectory();
     final dbDir = p.join(supportDir.path, 'mobile_ai_agent');
