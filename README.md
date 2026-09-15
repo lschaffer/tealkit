@@ -7,9 +7,6 @@ For release notes see [release_notes.md](release_notes.md).
 
 ![TealKit](images/tealkit_promo.png)
 
-> **💡 Behind the Project**
-> 
-> After four decades of building software, the shift toward AI workflows represents an exciting new frontier. TealKit serves as both my personal sandbox and a continuous learning platform for exploring this new technological era
 
 **TealKit** turns your phone and computer into a powerful agentic AI platform with autonomous workflows, built-in tools, and unlimited extensibility. Write your own tools in **JavaScript, Python, PowerShell, or Bash** — or import and connect any MCP server — and let the AI use them autonomously. Provider-independent, fully customizable, and designed for privacy. 
 TealKit is completely free. All features are available to every user with no trial, no subscription, and no in-app purchase.
