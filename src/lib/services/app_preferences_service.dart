@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_logger.dart';
@@ -18,7 +18,8 @@ class AppPreferencesService extends ChangeNotifier {
   static const _kOutputRetentionDays = 'app_pref_output_retention_days';
   static const _kBackgroundCheckInterval = 'app_pref_background_check_interval';
   static const _kAiDataSharingConsent = 'app_pref_ai_data_sharing_consent';
-  static const _kUiStyle = 'app_pref_ui_style'; // 'modern' | 'classic'
+  static const _kUiStyle = 'app_pref_ui_style'; // 'classic' | 'modern' | 'fluent' | 'custom'
+  static const _kCustomThemeColor = 'app_pref_custom_theme_color'; // hex int
 
   /// Allowed values for the background check interval setting.
   static const List<int> backgroundCheckIntervalOptions = [5, 10, 15];
@@ -30,6 +31,7 @@ class AppPreferencesService extends ChangeNotifier {
   int _backgroundCheckIntervalMinutes = 10;
   bool _aiDataSharingConsent = false;
   String _uiStyle = 'modern';
+  Color _customThemeColor = const Color(0xFF00838F); // Default teal base
 
   ThemeMode get themeMode => _themeMode;
   String get locale => _locale;
@@ -37,6 +39,7 @@ class AppPreferencesService extends ChangeNotifier {
   int get outputRetentionDays => _outputRetentionDays;
   bool get aiDataSharingConsent => _aiDataSharingConsent;
   String get uiStyle => _uiStyle;
+  Color get customThemeColor => _customThemeColor;
 
   /// How often (in minutes) the background heartbeat wakes up to check for due tasks.
   /// Allowed values: 5, 10, 15. Default: 10.
@@ -81,8 +84,12 @@ class AppPreferencesService extends ChangeNotifier {
       );
       _aiDataSharingConsent = prefs.getBool(_kAiDataSharingConsent) ?? false;
       _uiStyle = prefs.getString(_kUiStyle) ?? 'modern';
+      final colorVal = prefs.getInt(_kCustomThemeColor);
+      if (colorVal != null) {
+        _customThemeColor = Color(colorVal);
+      }
       log.info(
-        '[AppPrefs] Loaded themeMode=$t locale=$_locale outputPath=$_defaultOutputPath retentionDays=$_outputRetentionDays bgInterval=$_backgroundCheckIntervalMinutes aiConsent=$_aiDataSharingConsent uiStyle=$_uiStyle',
+        '[AppPrefs] Loaded themeMode=$t locale=$_locale outputPath=$_defaultOutputPath retentionDays=$_outputRetentionDays bgInterval=$_backgroundCheckIntervalMinutes aiConsent=$_aiDataSharingConsent uiStyle=$_uiStyle customColor=$_customThemeColor',
       );
     } catch (e) {
       log.warning('[AppPrefs] load failed: $e');
@@ -107,10 +114,17 @@ class AppPreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sets the UI style style ('modern' | 'classic')
+  /// Sets the UI style style ('classic' | 'modern' | 'fluent' | 'custom')
   Future<void> setUiStyle(String style) async {
-    if (style != 'modern' && style != 'classic') return;
+    if (style != 'modern' && style != 'classic' && style != 'fluent' && style != 'custom') return;
     _uiStyle = style;
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Sets and persists the custom base theme color.
+  Future<void> setCustomThemeColor(Color color) async {
+    _customThemeColor = color;
     await _persist();
     notifyListeners();
   }
@@ -165,6 +179,7 @@ class AppPreferencesService extends ChangeNotifier {
       );
       await prefs.setBool(_kAiDataSharingConsent, _aiDataSharingConsent);
       await prefs.setString(_kUiStyle, _uiStyle);
+      await prefs.setInt(_kCustomThemeColor, _customThemeColor.toARGB32());
     } catch (e) {
       log.warning('[AppPrefs] persist failed: $e');
     }

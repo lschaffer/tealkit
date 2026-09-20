@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import '../models/function_hint.dart';
@@ -1011,23 +1011,106 @@ class _GenericCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // ── UI Style toggle ───────────────────────────────────────────────
-          _SettingsRow(
-            icon: Icons.palette_outlined,
-            label: prefs.locale == 'de' ? 'Design-Stil' : 'UI Design Style',
-            value: prefs.uiStyle == 'modern'
-                ? (prefs.locale == 'de' ? 'Modern' : 'Modern')
-                : (prefs.locale == 'de'
-                      ? 'Klassisch (Original)'
-                      : 'Classic (Original)'),
-            tooltip: prefs.locale == 'de'
-                ? 'Zwischen modernem und klassischem Design wechseln'
-                : 'Toggle between modern and classic design styles',
-            onTap: () {
-              final next = prefs.uiStyle == 'modern' ? 'classic' : 'modern';
-              prefs.setUiStyle(next);
-            },
+          // ── UI Style dropdown selector ─────────────────────────────────────
+          Row(
+            children: [
+              const Icon(Icons.palette_outlined, size: 18, color: AppTheme.primaryBlue),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  prefs.locale == 'de' ? 'Design-Stil' : 'UI Design Style',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: prefs.uiStyle,
+                  isDense: true,
+                  items: [
+                    DropdownMenuItem(
+                      value: 'classic',
+                      child: Text(
+                        prefs.locale == 'de' ? 'Klassisch (Original)' : 'Classic (Original)',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'modern',
+                      child: Text(
+                        prefs.locale == 'de' ? 'Modern (Neon-Violett)' : 'Modern (Neon Violet)',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'fluent',
+                      child: Text(
+                        prefs.locale == 'de' ? 'Modern (Fluent Teal)' : 'Modern (Fluent Teal)',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'custom',
+                      child: Text(
+                        prefs.locale == 'de' ? 'Modern (Benutzerdefiniert)' : 'Modern (Custom)',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      prefs.setUiStyle(val);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
+          if (prefs.uiStyle == 'custom') ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      prefs.locale == 'de' ? 'Basis-Akzentfarbe:' : 'Base Accent Color:',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _showColorPickerDialog(context, prefs),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: prefs.customThemeColor, width: 2),
+                        borderRadius: BorderRadius.circular(20),
+                        color: prefs.customThemeColor.withValues(alpha: 0.2),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: prefs.customThemeColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '#${(prefs.customThemeColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
 
           // ── Language toggle ─────────────────────────────────────────────
@@ -1197,6 +1280,129 @@ class _GenericCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showColorPickerDialog(BuildContext context, AppPreferencesService prefs) {
+    const curatedColors = <Color>[
+      Color(0xFF00838F), // Teal
+      Color(0xFF0277BD), // Blue
+      Color(0xFF2563EB), // Royal Blue
+      Color(0xFF7C3AED), // Violet
+      Color(0xFF9333EA), // Purple
+      Color(0xFFC026D3), // Fuchsia
+      Color(0xFFE11D48), // Rose
+      Color(0xFFEA580C), // Orange
+      Color(0xFFD97706), // Amber
+      Color(0xFF059669), // Emerald
+      Color(0xFF0D9488), // Cyan / Dark Teal
+      Color(0xFF475569), // Slate
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final hexController = TextEditingController(
+          text: (prefs.customThemeColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase(),
+        );
+        Color selectedColor = prefs.customThemeColor;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: Text(prefs.locale == 'de' ? 'Basis-Designfarbe wählen' : 'Choose Base Design Color'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      prefs.locale == 'de'
+                          ? 'Wählen Sie eine Akzentfarbe für das moderne Farbdesign:'
+                          : 'Select an accent color for your custom modern theme:',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: curatedColors.map((color) {
+                        final isSelected = selectedColor.toARGB32() == color.toARGB32();
+                        return InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedColor = color;
+                              hexController.text = (color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected ? Colors.white : Colors.transparent,
+                                width: 3,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.8),
+                                        blurRadius: 8,
+                                        spreadRadius: 2,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: hexController,
+                      maxLength: 6,
+                      decoration: InputDecoration(
+                        labelText: prefs.locale == 'de' ? 'Hex-Farbcode' : 'Hex Color Code',
+                        prefixText: '# ',
+                        counterText: '',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        if (val.length == 6) {
+                          final parsed = int.tryParse(val, radix: 16);
+                          if (parsed != null) {
+                            setDialogState(() {
+                              selectedColor = Color(0xFF000000 | parsed);
+                            });
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(prefs.locale == 'de' ? 'Abbrechen' : 'Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    prefs.setCustomThemeColor(selectedColor);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: Text(prefs.locale == 'de' ? 'Auswählen' : 'Select'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

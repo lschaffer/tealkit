@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/foundation.dart' show listEquals;
-import 'package:flutter/material.dart' hide Step;
+import 'package:material_ui/material_ui.dart' hide Step;
 
 import '../config/app_theme.dart';
 import '../models/step_types.dart';

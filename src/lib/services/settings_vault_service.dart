@@ -71,19 +71,22 @@ class VaultOptions {
   final bool includeTasks;
   final bool includePlaygroundSessions;
   final bool includeSkills;
+  final bool includeServerConnections;
   const VaultOptions({
     this.includeConfiguration = true,
     this.includeScripts = true,
     this.includeTasks = true,
     this.includePlaygroundSessions = true,
     this.includeSkills = true,
+    this.includeServerConnections = true,
   });
   const VaultOptions.configurationOnly()
     : includeConfiguration = true,
       includeScripts = false,
       includeTasks = false,
       includePlaygroundSessions = false,
-      includeSkills = false;
+      includeSkills = false,
+      includeServerConnections = false;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -384,6 +387,7 @@ class SettingsVaultService {
         if (options.includeTasks) 'tasks',
         if (options.includePlaygroundSessions) 'playground_sessions',
         if (options.includeSkills) 'skills',
+        if (options.includeServerConnections) 'server_connections',
       ],
     };
 
@@ -486,6 +490,26 @@ class SettingsVaultService {
     if (options.includeConfiguration) {
       final customModels = await EmbeddedModelManager.instance.loadCustomModels();
       payload['embedded_models'] = customModels.map((m) => m.toJson()).toList();
+    }
+
+    // Server connections (remote server profiles)
+    if (options.includeServerConnections) {
+      try {
+        final sharedPrefs = await SharedPreferences.getInstance();
+        final rawConns = sharedPrefs.getString('server_connections');
+        final activeName = sharedPrefs.getString('active_server_connection_name');
+        final currentUrl = sharedPrefs.getString('server_url');
+        final currentKey = sharedPrefs.getString('server_api_key');
+        payload['server_connections'] = {
+          'connections': rawConns != null && rawConns.isNotEmpty ? jsonDecode(rawConns) : [],
+          'active_server_connection_name': activeName ?? '',
+          'server_url': currentUrl ?? '',
+          'server_api_key': currentKey ?? '',
+        };
+        log.info('[SettingsVault] Exported server connections.');
+      } catch (e) {
+        log.warning('[SettingsVault] Could not export server connections: $e');
+      }
     }
 
     return payload;
@@ -829,11 +853,39 @@ class SettingsVaultService {
       }
     }
 
+    if (options.includeServerConnections) {
+      final scData = data['server_connections'] as Map<String, dynamic>?;
+      if (scData != null) {
+        try {
+          final sharedPrefs = await SharedPreferences.getInstance();
+          final conns = scData['connections'];
+          if (conns is List && conns.isNotEmpty) {
+            await sharedPrefs.setString('server_connections', jsonEncode(conns));
+          }
+          final activeName = scData['active_server_connection_name'] as String?;
+          if (activeName != null && activeName.isNotEmpty) {
+            await sharedPrefs.setString('active_server_connection_name', activeName);
+          }
+          final serverUrl = scData['server_url'] as String?;
+          if (serverUrl != null && serverUrl.isNotEmpty) {
+            await sharedPrefs.setString('server_url', serverUrl);
+          }
+          final serverApiKey = scData['server_api_key'] as String?;
+          if (serverApiKey != null && serverApiKey.isNotEmpty) {
+            await sharedPrefs.setString('server_api_key', serverApiKey);
+          }
+          log.info('[SettingsVault] Restored server connections.');
+        } catch (e) {
+          log.warning('[SettingsVault] Failed to restore server connections: $e');
+        }
+      }
+    }
+
     log.info(
       '[SettingsVault] Restore complete '
       '(config=${options.includeConfiguration}, scripts=${options.includeScripts}, '
       'tasks=${options.includeTasks}, sessions=${options.includePlaygroundSessions}, '
-      'skills=${options.includeSkills}).',
+      'skills=${options.includeSkills}, serverConnections=${options.includeServerConnections}).',
     );
   }
 

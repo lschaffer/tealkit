@@ -12,13 +12,31 @@ class ChatCommand extends Command {
   @override
   final String name = 'chat';
   @override
-  final String description = 'Start an interactive multi-turn terminal agent session.';
+  final String description =
+      'Start an interactive multi-turn terminal agent session.';
 
   ChatCommand() {
-    argParser.addOption('skill', abbr: 's', help: 'Preload system prompt and tools from a SKILL.md file');
-    argParser.addOption('llm', help: 'Path to custom llm.yaml configuration', defaultsTo: 'llm.yaml');
-    argParser.addOption('tools', help: 'Path to custom extern_mcp_tools.yaml', defaultsTo: 'extern_mcp_tools.yaml');
-    argParser.addFlag('verbose', abbr: 'v', negatable: false, help: 'Print verbose logs');
+    argParser.addOption(
+      'skill',
+      abbr: 's',
+      help: 'Preload system prompt and tools from a SKILL.md file',
+    );
+    argParser.addOption(
+      'llm',
+      help: 'Path to custom llm.yaml configuration',
+      defaultsTo: 'llm.yaml',
+    );
+    argParser.addOption(
+      'tools',
+      help: 'Path to custom extern_mcp_tools.yaml',
+      defaultsTo: 'extern_mcp_tools.yaml',
+    );
+    argParser.addFlag(
+      'verbose',
+      abbr: 'v',
+      negatable: false,
+      help: 'Print verbose logs',
+    );
   }
 
   static const _helpText = '''
@@ -34,7 +52,8 @@ Commands:
   Future<void> run() async {
     final skillPath = argResults?['skill'] as String?;
     final llmPath = argResults?['llm'] as String? ?? 'llm.yaml';
-    final toolsPath = argResults?['tools'] as String? ?? 'extern_mcp_tools.yaml';
+    final toolsPath =
+        argResults?['tools'] as String? ?? 'extern_mcp_tools.yaml';
     final verbose = argResults?['verbose'] as bool? ?? false;
 
     final runner = SkillRunner(
@@ -46,7 +65,8 @@ Commands:
     final llmConfig = runner.loadLlmConfig();
     final localServers = runner.loadMcpServers();
 
-    String systemPrompt = 'You are a helpful AI assistant. Use available tools when needed.';
+    String systemPrompt =
+        'You are a helpful AI assistant. Use available tools when needed.';
     String sessionTitle = 'TealKit Interactive Agent Chat';
 
     if (skillPath != null) {
@@ -57,21 +77,21 @@ Commands:
         }
         sessionTitle = 'Chat: ${manifest.name}';
       } catch (e) {
-        stderr.writeln(TerminalPrinter.yellow('Warning: Could not load skill "$skillPath": $e'));
+        stderr.writeln(
+          TerminalPrinter.yellow(
+            'Warning: Could not load skill "$skillPath": $e',
+          ),
+        );
       }
     }
 
-    TerminalPrinter.printBanner(
-      sessionTitle,
-      [
-        'LLM Model   : ${llmConfig.provider.displayName} / ${llmConfig.model}',
-        'MCP Servers : ${localServers.length} configured',
-        'Commands    : Type /help for slash commands, /exit to quit',
-      ],
-    );
+    TerminalPrinter.printBanner(sessionTitle, [
+      'LLM Model   : ${llmConfig.provider.displayName} / ${llmConfig.model}',
+      'MCP Servers : ${localServers.length} configured',
+      'Commands    : Type /help for slash commands, /exit to quit',
+    ]);
 
     final mcpManager = await runner.connectMcpServers(localServers);
-    final allTools = mcpManager.availableTools;
 
     stdout.writeln('');
     stdout.writeln('Enter your message (type /exit to quit):');
@@ -97,11 +117,19 @@ Commands:
           final tools = mcpManager.availableTools;
           if (tools.isEmpty) {
             stdout.writeln('No MCP tools connected.');
-            stdout.writeln(TerminalPrinter.dim('Tip: Check mcp.yaml or run with "tealkit chat --verbose" for diagnostics.'));
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Tip: Check mcp.yaml or run with "tealkit chat --verbose" for diagnostics.',
+              ),
+            );
           } else {
-            stdout.writeln(TerminalPrinter.bold('Available tools (${tools.length}):'));
+            stdout.writeln(
+              TerminalPrinter.bold('Available tools (${tools.length}):'),
+            );
             for (final t in tools) {
-              stdout.writeln('  • ${TerminalPrinter.cyan(t.name)} — ${t.description ?? "(no description)"}');
+              stdout.writeln(
+                '  • ${TerminalPrinter.cyan(t.name)} — ${t.description ?? "(no description)"}',
+              );
             }
           }
           stdout.writeln('');
@@ -136,7 +164,9 @@ Commands:
           final subscription = engine.agentEvents.listen((event) {
             switch (event) {
               case AgentLogEvent(:final message):
-                if (verbose) stdout.writeln(TerminalPrinter.dim('[log] $message'));
+                if (verbose) {
+                  stdout.writeln(TerminalPrinter.dim('[log] $message'));
+                }
               case AgentToolResultEvent(
                 :final toolName,
                 :final parameters,

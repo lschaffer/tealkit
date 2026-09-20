@@ -7,7 +7,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' hide Step;
+import 'package:material_ui/material_ui.dart' hide Step;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/app_logger.dart';
 import '../services/app_preferences_service.dart';

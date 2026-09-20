@@ -2512,7 +2512,7 @@ class LEn extends L {
 
   @override
   String get vaultIncludedText =>
-      'Configuration: LLM / API keys / email / SSH / integrations\nScripts: JS  •  PowerShell  •  Python  •  SSH scripts\nTasks: all tasks with custom LLM, SSH settings & credentials';
+      'Configuration: LLM / API keys / email / SSH / integrations\nServer Connections: Remote server profiles, URLs & API keys\nScripts: JS  •  PowerShell  •  Python  •  SSH scripts\nTasks: all tasks with custom LLM, SSH settings & credentials\nSkills: MCP tool skill guides & AgentSkills.io definitions';
 
   @override
   String get vaultExcludedLabel => 'Never included';
@@ -2651,6 +2651,13 @@ class LEn extends L {
   @override
   String get vaultSectionSkillsDesc =>
       'LLM-generated procedural skill guides for MCP tools';
+
+  @override
+  String get vaultSectionServerConnections => 'Server Connections';
+
+  @override
+  String get vaultSectionServerConnectionsDesc =>
+      'Remote server connection profiles, URLs & API keys';
 
   @override
   String get vaultGreyedNotice =>

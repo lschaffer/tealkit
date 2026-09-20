@@ -4623,7 +4623,7 @@ abstract class L {
   /// No description provided for @vaultIncludedText.
   ///
   /// In en, this message translates to:
-  /// **'Configuration: LLM / API keys / email / SSH / integrations\nScripts: JS  •  PowerShell  •  Python  •  SSH scripts\nTasks: all tasks with custom LLM, SSH settings & credentials'**
+  /// **'Configuration: LLM / API keys / email / SSH / integrations\nServer Connections: Remote server profiles, URLs & API keys\nScripts: JS  •  PowerShell  •  Python  •  SSH scripts\nTasks: all tasks with custom LLM, SSH settings & credentials\nSkills: MCP tool skill guides & AgentSkills.io definitions'**
   String get vaultIncludedText;
 
   /// No description provided for @vaultExcludedLabel.
@@ -4865,6 +4865,18 @@ abstract class L {
   /// In en, this message translates to:
   /// **'LLM-generated procedural skill guides for MCP tools'**
   String get vaultSectionSkillsDesc;
+
+  /// No description provided for @vaultSectionServerConnections.
+  ///
+  /// In en, this message translates to:
+  /// **'Server Connections'**
+  String get vaultSectionServerConnections;
+
+  /// No description provided for @vaultSectionServerConnectionsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote server connection profiles, URLs & API keys'**
+  String get vaultSectionServerConnectionsDesc;
 
   /// No description provided for @vaultGreyedNotice.
   ///

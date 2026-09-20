@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart' as legacy;
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
@@ -172,10 +173,13 @@ class _CodeEditorFieldState extends State<CodeEditorField> {
             child: CodeTheme(
               data: CodeThemeData(styles: codeStyles),
               child: SingleChildScrollView(
-                child: CodeField(
-                  controller: _codeCtrl,
-                  textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                  minLines: widget.previewLines,
+                child: legacy.Material(
+                  type: legacy.MaterialType.transparency,
+                  child: CodeField(
+                    controller: _codeCtrl,
+                    textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    minLines: widget.previewLines,
+                  ),
                 ),
               ),
             ),
@@ -278,9 +282,12 @@ class _FullScreenCodeEditorDialogState extends State<_FullScreenCodeEditorDialog
         body: CodeTheme(
           data: CodeThemeData(styles: codeStyles),
           child: SingleChildScrollView(
-            child: CodeField(
-              controller: _controller,
-              textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+            child: legacy.Material(
+              type: legacy.MaterialType.transparency,
+              child: CodeField(
+                controller: _controller,
+                textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+              ),
             ),
           ),
         ),

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_theme.dart';
@@ -164,6 +164,7 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
     bool incTasks = true;
     bool incSessions = true;
     bool incSkills = true;
+    bool incServerConns = true;
     bool obscure = true;
     bool obscureConfirm = true;
     String? error;
@@ -215,6 +216,14 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
                   subtitle: Text(L.of(context).vaultSectionConfigurationDesc, style: const TextStyle(fontSize: 11)),
                   value: incConfig,
                   onChanged: (v) => setS(() => incConfig = v ?? true),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+                CheckboxListTile(
+                  title: Text(L.of(context).vaultSectionServerConnections),
+                  subtitle: Text(L.of(context).vaultSectionServerConnectionsDesc, style: const TextStyle(fontSize: 11)),
+                  value: incServerConns,
+                  onChanged: (v) => setS(() => incServerConns = v ?? true),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -280,6 +289,7 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
                     includeTasks: incTasks,
                     includePlaygroundSessions: incSessions,
                     includeSkills: incSkills,
+                    includeServerConnections: incServerConns,
                   ),
                 ));
               },
@@ -370,6 +380,7 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
     bool incTasks = availableSections.contains('tasks');
     bool incSessions = availableSections.contains('playground_sessions');
     bool incSkills = availableSections.contains('skills');
+    bool incServerConns = availableSections.contains('server_connections');
     final isMobile = Platform.isAndroid || Platform.isIOS;
 
     return showDialog<VaultOptions>(
@@ -391,6 +402,14 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
                   subtitle: Text(L.of(context).vaultSectionConfigurationDesc, style: const TextStyle(fontSize: 11)),
                   value: incConfig,
                   onChanged: availableSections.contains('configuration') ? (v) => setS(() => incConfig = v ?? true) : null,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+                CheckboxListTile(
+                  title: Text(L.of(context).vaultSectionServerConnections),
+                  subtitle: Text(L.of(context).vaultSectionServerConnectionsDesc, style: const TextStyle(fontSize: 11)),
+                  value: incServerConns,
+                  onChanged: availableSections.contains('server_connections') ? (v) => setS(() => incServerConns = v ?? true) : null,
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -448,6 +467,7 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
                   includeTasks: incTasks,
                   includePlaygroundSessions: incSessions,
                   includeSkills: incSkills,
+                  includeServerConnections: incServerConns,
                 ),
               ),
               child: Text(L.of(context).vaultRestoreButton),

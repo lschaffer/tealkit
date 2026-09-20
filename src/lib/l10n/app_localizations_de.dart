@@ -2540,7 +2540,7 @@ class LDe extends L {
 
   @override
   String get vaultIncludedText =>
-      'Konfiguration: LLM / API-Schlüssel / E-Mail / SSH / Integrationen\nSkripte: JS  •  PowerShell  •  Python  •  SSH-Skripte\nAufgaben: alle Aufgaben mit benutzerdefiniertem LLM, SSH & Zugangsdaten';
+      'Konfiguration: LLM / API-Schlüssel / E-Mail / SSH / Integrationen\nServer-Verbindungen: Remote-Server-Profile, URLs & API-Schlüssel\nSkripte: JS  •  PowerShell  •  Python  •  SSH-Skripte\nAufgaben: alle Aufgaben mit benutzerdefiniertem LLM, SSH & Zugangsdaten\nSkills: MCP-Tool-Skills & AgentSkills.io-Definitionen';
 
   @override
   String get vaultExcludedLabel => 'Nie enthalten';
@@ -2679,6 +2679,13 @@ class LDe extends L {
   @override
   String get vaultSectionSkillsDesc =>
       'KI-generierte Anleitungen für MCP-Tools';
+
+  @override
+  String get vaultSectionServerConnections => 'Server-Verbindungen';
+
+  @override
+  String get vaultSectionServerConnectionsDesc =>
+      'Remote-Server-Profile, URLs & API-Schlüssel';
 
   @override
   String get vaultGreyedNotice =>

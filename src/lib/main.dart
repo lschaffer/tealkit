@@ -4,7 +4,7 @@ import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n/app_localizations.dart';
@@ -675,8 +675,37 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp>
                   : AppTheme.darkTheme,
               themeMode: prefs.themeMode,
               locale: Locale(prefs.locale),
-              localizationsDelegates: L.localizationsDelegates,
+              // Flutter 3.47 migration step 2: `MaterialLocalizations` and
+              // `CupertinoLocalizations` now live in `material_ui` / `cupertino_ui`.
+              // `L.localizationsDelegates` (generated) still registers only the legacy
+              // `flutter_localizations` delegates, which leaves the modern
+              // `MaterialLocalizations`/`CupertinoLocalizations` without a delegate for
+              // 'de'; `MaterialApp` then silently falls back to the English defaults and
+              // reports "not supported by all of its localization delegates".
+              localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+                ...L.localizationsDelegates,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
               supportedLocales: L.supportedLocales,
+              // Flutter 3.47 decoupled Material into `package:material_ui`, so the
+              // legacy `ThemeData` (from `package:flutter/material.dart`) and the new
+              // one are different classes. Dependency packages that still import the
+              // legacy library (flutter_markdown_plus, flutter_code_editor,
+              // flutter_widget_from_html_core, flutter_highlight, pdfrx, fl_chart,
+              // talker_flutter, ...) resolve `Theme.of(context)` and
+              // `MaterialLocalizations.of(context)` from that library. Without this
+              // bridge they fall back to Flutter's default *light* theme, which breaks
+              // dark mode inside those widgets.
+              //
+              // `MaterialUiCompatibilityBridge` is deprecated by design (it is a
+              // temporary migration utility); remove it once the packages above
+              // depend on `package:material_ui`.
+              builder: (BuildContext context, Widget? child) {
+                // ignore: deprecated_member_use
+                return MaterialUiCompatibilityBridge(
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
               home: const HomeScreen(),
             );
           },

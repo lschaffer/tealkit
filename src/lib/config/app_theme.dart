@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import '../services/app_preferences_service.dart';
 
 /// Ocean Blue (Classic) and Cyberpunk/Minimalist (Modern) themes for Mobile AI Agent
@@ -46,25 +47,65 @@ class AppTheme {
   // ──────────────────────────────────────────────
   // Dynamic Selectors
   // ──────────────────────────────────────────────
-  static ThemeData get darkTheme =>
-      AppPreferencesService.instance.uiStyle == 'classic'
-          ? _classicDarkTheme
-          : _modernDarkTheme;
+  static ThemeData get darkTheme {
+    final style = AppPreferencesService.instance.uiStyle;
+    switch (style) {
+      case 'classic':
+        return _classicDarkTheme;
+      case 'fluent':
+        return _fluentDarkTheme;
+      case 'custom':
+        return _customDarkTheme(AppPreferencesService.instance.customThemeColor);
+      case 'modern':
+      default:
+        return _modernDarkTheme;
+    }
+  }
 
-  static ThemeData get lightTheme =>
-      AppPreferencesService.instance.uiStyle == 'classic'
-          ? _classicLightTheme
-          : _modernLightTheme;
+  static ThemeData get lightTheme {
+    final style = AppPreferencesService.instance.uiStyle;
+    switch (style) {
+      case 'classic':
+        return _classicLightTheme;
+      case 'fluent':
+        return _fluentLightTheme;
+      case 'custom':
+        return _customLightTheme(AppPreferencesService.instance.customThemeColor);
+      case 'modern':
+      default:
+        return _modernLightTheme;
+    }
+  }
 
-  static ThemeData get serverDarkTheme =>
-      AppPreferencesService.instance.uiStyle == 'classic'
-          ? _classicServerDarkTheme
-          : _modernServerDarkTheme;
+  static ThemeData get serverDarkTheme {
+    final style = AppPreferencesService.instance.uiStyle;
+    switch (style) {
+      case 'classic':
+        return _classicServerDarkTheme;
+      case 'fluent':
+        return _fluentServerDarkTheme;
+      case 'custom':
+        return _customServerDarkTheme(AppPreferencesService.instance.customThemeColor);
+      case 'modern':
+      default:
+        return _modernServerDarkTheme;
+    }
+  }
 
-  static ThemeData get serverLightTheme =>
-      AppPreferencesService.instance.uiStyle == 'classic'
-          ? _classicServerLightTheme
-          : _modernServerLightTheme;
+  static ThemeData get serverLightTheme {
+    final style = AppPreferencesService.instance.uiStyle;
+    switch (style) {
+      case 'classic':
+        return _classicServerLightTheme;
+      case 'fluent':
+        return _fluentServerLightTheme;
+      case 'custom':
+        return _customServerLightTheme(AppPreferencesService.instance.customThemeColor);
+      case 'modern':
+      default:
+        return _modernServerLightTheme;
+    }
+  }
 
   // ──────────────────────────────────────────────
   // Classic Dark Theme
@@ -636,6 +677,152 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: const Color(0xFFFFFFFF),
         indicatorColor: serverBlue.withValues(alpha: 0.15),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Fluent Dark Theme (FlexColorScheme: deepBlue / teal / m3)
+  // ──────────────────────────────────────────────
+  static ThemeData get _fluentDarkTheme {
+    return FlexThemeData.dark(
+      scheme: FlexScheme.tealM3,
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 13,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 20,
+        useM2StyleDividerInM3: true,
+        defaultRadius: 10.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Fluent Light Theme (FlexColorScheme: deepBlue / teal / m3)
+  // ──────────────────────────────────────────────
+  static ThemeData get _fluentLightTheme {
+    return FlexThemeData.light(
+      scheme: FlexScheme.tealM3,
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 7,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 10,
+        blendOnColors: false,
+        useM2StyleDividerInM3: true,
+        defaultRadius: 10.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Fluent Server Dark Theme
+  // ──────────────────────────────────────────────
+  static ThemeData get _fluentServerDarkTheme {
+    return FlexThemeData.dark(
+      scheme: FlexScheme.dellGenoa,
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 13,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 20,
+        defaultRadius: 10.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Fluent Server Light Theme
+  // ──────────────────────────────────────────────
+  static ThemeData get _fluentServerLightTheme {
+    return FlexThemeData.light(
+      scheme: FlexScheme.dellGenoa,
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 7,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 10,
+        blendOnColors: false,
+        defaultRadius: 10.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Custom Dynamic Dark Theme (Seeded from user-chosen base color via FlexColorScheme)
+  // ──────────────────────────────────────────────
+  static ThemeData _customDarkTheme(Color seed) {
+    return FlexThemeData.dark(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.dark,
+      ),
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 12,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 20,
+        defaultRadius: 14.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Custom Dynamic Light Theme (Seeded from user-chosen base color via FlexColorScheme)
+  // ──────────────────────────────────────────────
+  static ThemeData _customLightTheme(Color seed) {
+    return FlexThemeData.light(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.light,
+      ),
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 7,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 10,
+        blendOnColors: false,
+        defaultRadius: 14.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Custom Server Dark Theme
+  // ──────────────────────────────────────────────
+  static ThemeData _customServerDarkTheme(Color seed) {
+    return FlexThemeData.dark(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.dark,
+      ),
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 12,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 20,
+        defaultRadius: 14.0,
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Custom Server Light Theme
+  // ──────────────────────────────────────────────
+  static ThemeData _customServerLightTheme(Color seed) {
+    return FlexThemeData.light(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.light,
+      ),
+      useMaterial3: true,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 7,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 10,
+        blendOnColors: false,
+        defaultRadius: 14.0,
       ),
     );
   }

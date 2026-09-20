@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../config/app_theme.dart';
 import '../../services/embedded_llm/embedded_model.dart';
 import '../../services/embedded_llm/embedded_model_manager.dart';

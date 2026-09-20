@@ -2,7 +2,35 @@
 
 This file tracks release changes by version.
 
-## v1.6.9+143 - LLM Provider SDK Upgrades, Multi-Tab Tool Preselection & Observability
+## v1.7.1+146 - Modern Flexible Themes (FlexColorScheme 9.0.0) & Vault Server Connection Backup
+
+### New Features & Enhancements
+- **Modern Theme Selection with FlexColorScheme 9.0.0**:
+  - Upgraded theme engine with `flex_color_scheme: 9.0.0`, fully compatible with Flutter 3.47.x and decoupled `package:material_ui`.
+  - Replaced the binary UI style toggle with an intuitive dropdown selector in Settings:
+    - **Classic (Original)**: Ocean Blue theme.
+    - **Modern (Neon Violet)**: Cyberpunk dark obsidian with neon violet and cyan accents.
+    - **Modern (Fluent Teal)**: Microsoft Fluent / Dell Genoa style with subtle surfaces and 10px rounded borders.
+    - **Modern (Custom)**: Dynamic color theme seeded by user selection using `FlexThemeData`.
+  - Added an interactive base color picker dialog with 12 curated accent swatches (Teal, Blue, Royal Blue, Violet, Purple, Fuchsia, Rose, Orange, Amber, Emerald, Cyan, Slate) and custom 6-digit hex code support with live preview.
+- **Enhanced Encrypted Settings Vault (.tkv)**:
+  - **Server Connection Profiles Backup**: Remote server connection configs, URLs, and API keys are now backed up and restorable via the encrypted vault.
+  - **Granular Selection**: Added dedicated "Server Connections" toggle checkboxes to both the Export and Restore/Import dialogs.
+  - **Skills Coverage**: Verified full local and remote AgentSkills.io (`SkillDef`) and MCP tool skill guides coverage during vault export/import.
+  - **Updated Info Hints**: Updated dialog and screen hint texts (`vaultIncludedText`) in both English and German to clearly state that Server Connections and Tool Skills are protected and selectable.
+  - **Verified On Device (`SM S938B`)**: Successfully verified live vault backup on Android device exporting settings, tasks, remote SkillDefs, and server connection profiles to `.tkv`.
+
+## v1.7.1+146 - LLM Provider SDK Upgrades, Multi-Tab Tool Preselection & Observability
+
+### Breaking Changes
+- **Flutter 3.47.x is now required — Material and Cupertino were decoupled from the Flutter framework into separate pub packages**: Flutter 3.47 moved the Material and Cupertino widget libraries out of `flutter/flutter` into [`material_ui`](https://pub.dev/packages/material_ui) and [`cupertino_ui`](https://pub.dev/packages/cupertino_ui). `package:flutter/material.dart` and `package:material_ui/material_ui.dart` now define **different** `ThemeData`, `TextTheme`, `ColorScheme` and `MaterialLocalizations` classes that cannot be mixed.
+  - **New/updated dependencies in `pubspec.yaml`**: `material_ui: any` (new direct dependency, resolved to **material_ui 1.2.0**), `cupertino_ui` **1.0.2** (transitive, pulled in by `material_ui`), `flutter_markdown_plus: ^1.0.7` (resolved to **1.0.12** — still built against the legacy Material library). Dart SDK constraint remains `^3.10.7`; builds are only supported on **Flutter 3.47.x or newer**.
+  - **Source migration**: all app code was migrated with `dart fix --apply --code=migrate_design_widgets`, i.e. `import 'package:flutter/material.dart'` ➔ `import 'package:material_ui/material_ui.dart'`.
+  - **Markdown styling adapter**: `MarkdownStyleSheet.fromTheme(Theme.of(context))` no longer compiles — `flutter_markdown_plus` still imports the legacy Material library, so it expects the legacy `ThemeData` (`argument_type_not_assignable` in `lib/widgets/multimedia_message_widget.dart`). No markdown package on pub.dev has been migrated to `material_ui` yet (checked `flutter_markdown_plus` 1.0.12, `flutter_markdown` 0.7.7+1, `markdown_widget` 2.3.2+8, `gpt_markdown` 1.2.1 — none depend on `material_ui`). All 10 call sites now use the new adapter `appMarkdownStyleSheet(context)` in `lib/utils/markdown_style_sheet.dart`, which rebuilds the identical style sheet from the new theme (`ThemeData.cardColor` replaced by its Material 3 equivalent `ColorScheme.surface`). Appearance is unchanged; regression tests in `test/markdown_style_sheet_test.dart`.
+  - **Localization delegates (migration step 2)**: `MaterialLocalizations`/`CupertinoLocalizations` also moved into `material_ui`/`cupertino_ui`. `MaterialApp.localizationsDelegates` now additionally registers `GlobalMaterialLocalizations.delegates` from `material_ui`; the legacy delegates are kept for legacy widgets. Previously the `de` locale had no modern delegate, so Material strings silently fell back to English and debug builds logged *"This application's locale, de, is not supported by all of its localization delegates"*.
+  - **Legacy package compatibility (migration step 3)**: dependencies that still import `package:flutter/material.dart` (`flutter_markdown_plus`, `flutter_code_editor`, `talker_flutter`, `window_manager`, `flutter_widget_from_html_core`, `pdfrx`) resolve `Theme.of(context)` from the legacy library, which has no ancestor in a migrated app and falls back to Flutter's default **light** theme (breaking dark mode inside those widgets). The app is wrapped once in `MaterialUiCompatibilityBridge` via `MaterialApp.builder` in `lib/main.dart` — a deprecated, temporary migration utility that should be removed once the dependencies above target `package:material_ui`.
+  - **Known limitation**: `material_ui` 1.3.0 requires Dart `^3.12.0` and therefore cannot be used yet; this release resolves to `material_ui` 1.2.0.
+  - Full write-up, evidence and the "next dependency breaks" checklist: [`docs/flutter_347_material_ui_migration.md`](flutter_347_material_ui_migration.md).
 
 ### New Features & Enhancements
 - **Multi-Tab 2nd-Stage Tool Preselection Settings**:
@@ -23,6 +51,16 @@ This file tracks release changes by version.
   - Upgraded core framework and utility packages including `flutter_riverpod: ^3.4.3`, `http: ^1.2.2`, `flutter_widget_from_html: ^0.17.4`, `yaml: ^3.1.4`, `mime: ^2.1.0`, `pdfrx: ^2.6.1`, `pdf: ^3.12.0`, `archive: ^4.0.9`, `open_file: ^3.5.11`, `flutter_secure_storage: ^10.3.2`, `device_info_plus: ^11.5.0`, `package_info_plus: ^8.3.1`, `dartssh2: ^2.22.5`, and `talker_flutter: ^4.9.3`.
 
 ## v1.6.7+140 - 2nd-Stage LLM Tool Filtering, Multi-Model Preselection & Anti-Loop Directives
+
+### Android Build / Toolchain (Flutter 3.47 + AGP 9)
+- **Android debug/release builds fixed after the Flutter 3.47 upgrade**: the upgrade brought AGP **9.0.1** (`android/settings.gradle.kts`) while `android/gradle.properties` still carried the old migrator defaults `android.newDsl=true` / `android.builtInKotlin=true`, which made `flutter run -d <device>` fail with `ApplicationExtensionImpl$AgpDecorated_Decorated cannot be cast to com.android.build.gradle.AbstractAppExtension`.
+  - `android.newDsl=false` — Flutter's `dev.flutter.flutter-gradle-plugin` still depends on the legacy `AbstractAppExtension` DSL, which AGP 9 no longer exposes when the new DSL is active (matches the Flutter 3.47.3 project template).
+  - `android.builtInKotlin=false` — keeps the classic Kotlin Gradle Plugin path; under AGP 9 built-in Kotlin the plugins `flutter_js`, `dart_duckdb`, `device_info_plus`, `package_info_plus`, `share_plus`, `wakelock_plus` and `flutter_web_auth_2` hard-fail with *"The 'org.jetbrains.kotlin.android' plugin is no longer required for Kotlin support since AGP 9.0"*.
+  - `kotlin.jvm.target.validation.mode=warning` — AGP 9 raised the default Java bytecode target to 11 (AGP 8 used Java 8), which clashed with plugins pinning Kotlin to 1.8 (`flutter_js`) and aborted the build with *"Inconsistent JVM-target compatibility detected for tasks 'compileDebugJavaWithJavac' (11) and 'compileDebugKotlin' (1.8)"*.
+  - `android/build.gradle.kts` now applies the Kotlin Gradle Plugin to every Android subproject: AGP-9-aware plugins (`file_picker` 11, `workmanager_android` 0.9.x) skip `apply plugin: 'kotlin-android'` when AGP ≥ 9 and rely on built-in Kotlin, so with built-in Kotlin disabled their Kotlin classes were never compiled (`cannot find symbol ... FilePickerPlugin / WorkmanagerPlugin` in `GeneratedPluginRegistrant.java`).
+  - Verified: `flutter build apk --debug` succeeds and `.\scripts\launch-run-android.ps1 "SM S938B"` installs and launches the app (no startup crash, `adb logcat` clean).
+  - Remaining informational warning (no action yet): Flutter lists plugins that still apply KGP (`dart_duckdb, device_info_plus, file_picker, flutter_js, flutter_web_auth_2, package_info_plus, share_plus, wakelock_plus, workmanager_android`); a future Flutter will require built-in Kotlin, so these need updated releases.
+  - Details, evidence and revert instructions: [`docs/flutter_347_android_agp9_migration.md`](flutter_347_android_agp9_migration.md).
 
 ### New Features & Enhancements
 - **2nd-Stage LLM Tool Filtering & Preselection**:
