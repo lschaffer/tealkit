@@ -27,6 +27,9 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 > 📺 **Interactive Video Promo Panel**: Explore all latest demo videos and watch interactive previews directly on [tealkit.dev](https://tealkit.dev).
 
+* **How to Install TealKit Linux (.deb) on Ubuntu Desktop — Quick Setup Guide**
+  https://youtu.be/mGOyhgthQxI
+
 * **TealKit Weather Card Skill: AI Renders Next-Hours Forecast as HTML on Android**
   https://youtube.com/shorts/nQnf1FyxVeI
 
