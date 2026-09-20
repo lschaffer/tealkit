@@ -160,6 +160,7 @@ Commands:
         final engine = McpAgentEngine();
         engine.setAgents([agent]);
 
+        bool turnSuccess = false;
         try {
           final subscription = engine.agentEvents.listen((event) {
             switch (event) {
@@ -189,21 +190,32 @@ Commands:
             }
           });
 
-          await engine.run(agent.key, mcpManager: mcpManager);
-          await Future.delayed(const Duration(milliseconds: 50));
-          await subscription.cancel();
+          try {
+            await engine.run(agent.key, mcpManager: mcpManager);
+            turnSuccess = true;
+          } catch (e) {
+            // Error was already printed via AgentErrorEvent or uncaught
+            if (verbose) {
+              stderr.writeln(TerminalPrinter.dim('[turn error] $e'));
+            }
+          } finally {
+            await Future.delayed(const Duration(milliseconds: 50));
+            await subscription.cancel();
+          }
         } finally {
           await engine.dispose();
         }
 
-        conversation.add(
-          ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            content: input,
-            role: ChatRole.user,
-            timestamp: DateTime.now(),
-          ),
-        );
+        if (turnSuccess) {
+          conversation.add(
+            ChatMessage(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              content: input,
+              role: ChatRole.user,
+              timestamp: DateTime.now(),
+            ),
+          );
+        }
       }
     } finally {
       stdout.writeln('');

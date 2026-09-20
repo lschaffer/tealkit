@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:tealkit_api/tealkit_api.dart';
 
+import '../config/env_loader.dart';
 import '../config/server_config.dart';
 import '../formatters/terminal_printer.dart';
 
@@ -49,13 +50,38 @@ class AutoDiscoverLlmCommand extends Command {
     final client = _getClient();
     final settings = await client.getLlmSettings();
 
+    final rawKey = (settings['api_key'] as String?)?.trim() ?? '';
+    final providerName = (settings['provider'] ?? 'openai').toString().toLowerCase();
+    final envVarName = '${providerName.toUpperCase()}_API_KEY';
+
+    // If server provides an actual API key, persist it into .env so the user has it ready
+    if (rawKey.isNotEmpty) {
+      final envFile = File('.env');
+      final lines = envFile.existsSync() ? envFile.readAsLinesSync() : <String>[];
+      final newLines = <String>[];
+      bool keyFound = false;
+
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.startsWith('$envVarName=')) {
+          newLines.add('$envVarName=$rawKey');
+          keyFound = true;
+        } else {
+          newLines.add(line);
+        }
+      }
+      if (!keyFound) {
+        newLines.add('$envVarName=$rawKey');
+      }
+      envFile.writeAsStringSync('${newLines.join('\n')}\n');
+      EnvLoader.clearCache();
+    }
+
     final buffer = StringBuffer();
     buffer.writeln('# TealKit LLM Configuration (Auto-discovered)');
-    buffer.writeln('provider: "${settings['provider'] ?? 'openai'}"');
+    buffer.writeln('provider: "$providerName"');
     buffer.writeln('model: "${settings['model'] ?? 'gpt-4o-mini'}"');
-    buffer.writeln(
-      'api_key: "\${${(settings['provider'] ?? 'OPENAI').toString().toUpperCase()}_API_KEY}"',
-    );
+    buffer.writeln('api_key: "\${$envVarName}"');
     buffer.writeln('base_url: "${settings['base_url'] ?? ''}"');
     buffer.writeln('temperature: ${settings['temperature'] ?? 0.2}');
     buffer.writeln('max_tokens: ${settings['max_tokens'] ?? 4096}');
@@ -65,6 +91,11 @@ class AutoDiscoverLlmCommand extends Command {
     stdout.writeln(
       TerminalPrinter.green('✔ Saved LLM settings to $outputFile'),
     );
+    if (rawKey.isNotEmpty) {
+      stdout.writeln(
+        TerminalPrinter.green('✔ Synchronized $envVarName in .env'),
+      );
+    }
   }
 }
 
