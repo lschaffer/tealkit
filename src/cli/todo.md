@@ -1,6 +1,6 @@
 # TealKit CLI (`tealkit_cli`) Development TODO
 
-This is the development plan for the upcoming TealKit command-line tool. The CLI is a native Dart console application running under the monorepo structure, supporting both remote TealKit server management and local headless execution of AgentSkills (`SKILL.md`) powered by `mcp_playground_dart`.
+This is the development plan for the upcoming TealKit command-line tool. The CLI is a native Dart console application running under the monorepo structure, supporting both remote TealKit server management and local headless execution of AgentSkills (`SKILL.md`) powered by `dart_mcp_core`.
 
 ## Milestone 1: Scaffold and Configuration Profile
 
@@ -11,7 +11,7 @@ This is the development plan for the upcoming TealKit command-line tool. The CLI
   ```
 - [x] Configure `pubspec.yaml` with dependencies:
   - `tealkit_api` (local path: `../api`)
-  - `mcp_playground_dart` (path: `../../mcp_playground/mcp_playground_dart` or pub.dev)
+  - `dart_mcp_core` (pub.dev)
   - `args` (for CLI parameter and subcommand parsing)
   - `yaml` (for parsing local profile and config files)
   - `http` & `path`
@@ -57,9 +57,9 @@ This is the development plan for the upcoming TealKit command-line tool. The CLI
 - [x] Cancel executing workflows (`tealkit workflow cancel <workflow-name-or-id>`)
 - [x] Download run outputs and logs (`tealkit workflow logs <workflow-name-or-id>` & `tealkit workflow download <workflow-name-or-id> <filename>`)
 
-## Milestone 4: Direct Skill & Prompt Execution Engine (via `mcp_playground_dart`)
+## Milestone 4: Direct Skill & Prompt Execution Engine (via `dart_mcp_core`)
 
-- [x] Integrate `SkillImporter` from `mcp_playground_dart`:
+- [x] Integrate `SkillImporter` from `dart_mcp_core`:
   - Parse agentskills.io and TealKit `SKILL.md` manifests.
   - Extract `system_prompt`, `prompts` sequence (`promptSteps`), and required `tools` (MCP servers).
 - [x] Implement `tealkit skill` commands:

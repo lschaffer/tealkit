@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:mcp_playground_dart/mcp_playground_dart.dart';
+import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:yaml/yaml.dart';
 
 import '../config/env_loader.dart';
 import '../formatters/terminal_printer.dart';
 
-/// Headless skill and prompt execution engine powered by `mcp_playground_dart`.
+/// Headless skill and prompt execution engine powered by `dart_mcp_core`.
 class SkillRunner {
   final String llmConfigPath;
   final String toolsConfigPath;

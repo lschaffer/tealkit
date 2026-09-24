@@ -1,6 +1,6 @@
 # 🛠️ TealKit CLI (`tealkit_cli`)
 
-A native Dart command-line tool for **TealKit** that unifies remote server management, automated configuration discovery, task execution, and **direct local/headless execution of AgentSkills (`SKILL.md`)** powered by [`mcp_playground_dart`](https://pub.dev/packages/mcp_playground_dart).
+A native Dart command-line tool for **TealKit** that unifies remote server management, automated configuration discovery, task execution, and **direct local/headless execution of AgentSkills (`SKILL.md`)** powered by [`dart_mcp_core`](https://pub.dev/packages/dart_mcp_core).
 
 ---
 

@@ -52,7 +52,7 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 ## 🆕 What's New
 
-* **TealKit CLI (`tealkit_cli`)** — Native Dart command-line tool for server orchestration, configuration auto-discovery, remote task execution, and direct local/headless execution of AgentSkills (`SKILL.md`) with live MCP tool access powered by `mcp_playground_dart`. Start interactive agent sessions (`tealkit chat`), run ad-hoc prompts, and inspect or execute skills directly in the terminal. See the [TealKit CLI Guide](cli/README.md).
+* **TealKit CLI v1.0.0 (`tealkit_cli`)** — Native Dart command-line tool for server orchestration, configuration auto-discovery, remote task execution, and direct local/headless execution of AgentSkills (`SKILL.md`) with live MCP tool access powered by `dart_mcp_core`. Start interactive agent sessions (`tealkit chat`), run ad-hoc prompts, and inspect or execute skills directly in the terminal. See the [TealKit CLI Guide](cli/README.md).
 * **Agentic Skill Interoperability (v1.4.6)** — Export and import workflows as standardized, compliant skills under the `agentskills.io` specification. Workflows containing custom Python scripts are automatically packaged as `.zip` files containing `[workflow-name]/SKILL.md` and script files under `scripts/` (e.g. `main.py` and `requirements.txt`). On import, the ZIP is parsed, and any custom scripts are restored to your local registry. Compatible with active local or remote server databases.
 * **Playground Auto-Skills** — Saving and testing workflows in the Playground now automatically compiles and saves them as compliant skills when converted to workflows. Includes automatic duplicate overwrite warnings and filename customization dialogs.
 * **Workflow Visual Builder** — An interactive 2D flowchart canvas with zoom, pan, and auto-centering to easily design, configure, and visualize workflow orchestrations.
@@ -284,7 +284,7 @@ TealKit includes a standalone native Dart command-line tool located in [`cli/`](
 - **Server Profile Management**: Switch and test connections across development and production servers (`tealkit server`, `tealkit ping`).
 - **Configuration Auto-Discovery**: Download server LLM settings, task definitions, MCP registry, and skills directly into local YAML / Markdown files (`tealkit auto-discover all`).
 - **Remote Workflow Orchestration**: Trigger remote workflows/agents by name (with spaces) or UUID, poll running status, stream execution logs, and download output artifacts (`tealkit workflow run / logs / download`).
-- **Direct Skill Prompt Execution**: Parse any `SKILL.md` (agentskills.io format) and execute multi-step prompt sequences directly with local MCP tools, powered by [`mcp_playground_dart`](https://pub.dev/packages/mcp_playground_dart) (`tealkit skill run skills/my_skill.md`).
+- **Direct Skill Prompt Execution**: Parse any `SKILL.md` (agentskills.io format) and execute multi-step prompt sequences directly with local MCP tools, powered by [`dart_mcp_core`](https://pub.dev/packages/dart_mcp_core) (`tealkit skill run skills/my_skill.md`).
 - **Ad-Hoc Prompt Runner & REPL**: Run one-off tool-calling prompts or start an interactive terminal agent chat session (`tealkit prompt run`, `tealkit chat`).
 
 👉 **Read the full guide, practical examples, and command reference in the [TealKit CLI Documentation](cli/README.md).**

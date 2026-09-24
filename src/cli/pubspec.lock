@@ -89,6 +89,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.7"
+  dart_mcp_core:
+    dependency: "direct main"
+    description:
+      name: dart_mcp_core
+      sha256: "937393ffd5162caf666af63f9682542a2fcbbe11a8c50149c9ac3ac1445cd87c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   file:
     dependency: transitive
     description:
@@ -185,13 +193,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.12.20"
-  mcp_playground_dart:
-    dependency: "direct main"
-    description:
-      path: "../../mcp_playground/mcp_playground_dart"
-      relative: true
-    source: path
-    version: "0.3.2"
   meta:
     dependency: transitive
     description:

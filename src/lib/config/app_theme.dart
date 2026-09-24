@@ -753,17 +753,29 @@ class AppTheme {
   // Custom Dynamic Dark Theme (Seeded from user-chosen base color via FlexColorScheme)
   // ──────────────────────────────────────────────
   static ThemeData _customDarkTheme(Color seed) {
-    return FlexThemeData.dark(
+    final base = FlexThemeData.dark(
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.dark,
       ),
       useMaterial3: true,
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 12,
+      blendLevel: 14,
       subThemesData: const FlexSubThemesData(
         blendOnLevel: 20,
         defaultRadius: 14.0,
+      ),
+    );
+    final cs = base.colorScheme;
+    return base.copyWith(
+      scaffoldBackgroundColor: const Color(0xFF0A0D14),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF161C2E).withValues(alpha: 0.65),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: cs.primary.withValues(alpha: 0.35), width: 1),
+        ),
       ),
     );
   }
@@ -772,18 +784,30 @@ class AppTheme {
   // Custom Dynamic Light Theme (Seeded from user-chosen base color via FlexColorScheme)
   // ──────────────────────────────────────────────
   static ThemeData _customLightTheme(Color seed) {
-    return FlexThemeData.light(
+    final base = FlexThemeData.light(
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.light,
       ),
       useMaterial3: true,
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 7,
+      blendLevel: 8,
       subThemesData: const FlexSubThemesData(
         blendOnLevel: 10,
         blendOnColors: false,
         defaultRadius: 14.0,
+      ),
+    );
+    final cs = base.colorScheme;
+    return base.copyWith(
+      scaffoldBackgroundColor: const Color(0xFFF8F9FC),
+      cardTheme: CardThemeData(
+        color: Colors.white.withValues(alpha: 0.75),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: cs.primary.withValues(alpha: 0.3), width: 1),
+        ),
       ),
     );
   }
@@ -792,17 +816,29 @@ class AppTheme {
   // Custom Server Dark Theme
   // ──────────────────────────────────────────────
   static ThemeData _customServerDarkTheme(Color seed) {
-    return FlexThemeData.dark(
+    final base = FlexThemeData.dark(
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.dark,
       ),
       useMaterial3: true,
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 12,
+      blendLevel: 14,
       subThemesData: const FlexSubThemesData(
         blendOnLevel: 20,
         defaultRadius: 14.0,
+      ),
+    );
+    final cs = base.colorScheme;
+    return base.copyWith(
+      scaffoldBackgroundColor: const Color(0xFF0A0D14),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF161C2E).withValues(alpha: 0.65),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: cs.primary.withValues(alpha: 0.35), width: 1),
+        ),
       ),
     );
   }
@@ -811,18 +847,30 @@ class AppTheme {
   // Custom Server Light Theme
   // ──────────────────────────────────────────────
   static ThemeData _customServerLightTheme(Color seed) {
-    return FlexThemeData.light(
+    final base = FlexThemeData.light(
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.light,
       ),
       useMaterial3: true,
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 7,
+      blendLevel: 8,
       subThemesData: const FlexSubThemesData(
         blendOnLevel: 10,
         blendOnColors: false,
         defaultRadius: 14.0,
+      ),
+    );
+    final cs = base.colorScheme;
+    return base.copyWith(
+      scaffoldBackgroundColor: const Color(0xFFF8F9FC),
+      cardTheme: CardThemeData(
+        color: Colors.white.withValues(alpha: 0.75),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: cs.primary.withValues(alpha: 0.3), width: 1),
+        ),
       ),
     );
   }

@@ -272,8 +272,8 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
     // Title adapts based on LLM configuration state
     final title = llmReady ? l.settings : l.firstStep;
 
-    final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
+    final uiStyle = prefs.uiStyle;
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
 
     final mainContent = Scaffold(
       backgroundColor: isModern ? Colors.transparent : null,
@@ -328,143 +328,143 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── Server connection (shown at top when in remote mode) ──
-          Consumer(
-            builder: (context, ref, _) {
-              final modeAsync = ref.watch(serverModeProvider);
-              final serverState = modeAsync.value;
-              if (serverState == null || !serverState.isRemote) {
-                return const SizedBox.shrink();
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ServerConnectionCard(serverState: serverState),
-                  const SizedBox(height: 16),
-                ],
-              );
-            },
-          ),
-
-          // ── 1. LLM (required) ──
-          _StepCard(
-            icon: Icons.psychology,
-            title: 'LLM',
-            description: l.wizardLlmDescription,
-            ready: llmReady,
-            required_: true,
-            actionLabel: l.wizardOpenLlmSettings,
-            onPressed: () => _openStep(0),
-          ),
-          if (!llmReady) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _quickConfigureMistral,
-                icon: const Icon(Icons.rocket_launch, size: 16),
-                label: const Text('Quick Mistral'),
-              ),
+      body: ListenableBuilder(
+        listenable: prefs,
+        builder: (context, _) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // ── Server connection (shown at top when in remote mode) ──
+            Consumer(
+              builder: (context, ref, _) {
+                final modeAsync = ref.watch(serverModeProvider);
+                final serverState = modeAsync.value;
+                if (serverState == null || !serverState.isRemote) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ServerConnectionCard(serverState: serverState),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
             ),
-          ],
-          const SizedBox(height: 16),
 
-          // ── 2. Datasources ──
-          _StepCard(
-            icon: Icons.source,
-            title: l.dataSources,
-            description: l.wizardDataSourcesDescription,
-            ready: dataSourcesReady,
-            actionLabel: l.wizardOpenDataSources,
-            onPressed: () => _openStep(1),
-          ),
-          const SizedBox(height: 16),
+            // ── 1. LLM (required) ──
+            _StepCard(
+              icon: Icons.psychology,
+              title: 'LLM',
+              description: l.wizardLlmDescription,
+              ready: llmReady,
+              required_: true,
+              actionLabel: l.wizardOpenLlmSettings,
+              onPressed: () => _openStep(0),
+            ),
+            if (!llmReady) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _quickConfigureMistral,
+                  icon: const Icon(Icons.rocket_launch, size: 16),
+                  label: const Text('Quick Mistral'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
 
-          // ── Inbuilt tools ──
-          const _InbuiltToolsCard(),
-          const SizedBox(height: 16),
+            // ── 2. Datasources ──
+            _StepCard(
+              icon: Icons.source,
+              title: l.dataSources,
+              description: l.wizardDataSourcesDescription,
+              ready: dataSourcesReady,
+              actionLabel: l.wizardOpenDataSources,
+              onPressed: () => _openStep(1),
+            ),
+            const SizedBox(height: 16),
 
-          // ── 3. External tools ──
-          _StepCard(
-            icon: Icons.extension,
-            title: l.wizardExternalToolsTitle,
-            description: l.wizardExternalToolsDescription,
-            ready: externalReady,
-            actionLabel: l.wizardOpenExternalTools,
-            onPressed: () => _openStep(2),
-          ),
-          const SizedBox(height: 16),
+            // ── Inbuilt tools ──
+            const _InbuiltToolsCard(),
+            const SizedBox(height: 16),
 
-          // ── Scripts ──
-          _ScriptsCard(
-            onOpenSshScripts: () => ScriptLibraryScreen.show(context),
-            onOpenJsTools: () => JsToolLibraryScreen.show(context),
-            // Python MCP Tools is desktop-only and shown in _DesktopFeaturesCard below.
-            onOpenPyTools: null,
-            onOpenLocalShell:
-                (!kIsWeb && (Platform.isMacOS || Platform.isLinux))
-                ? () => LocalShellToolLibraryScreen.show(context)
-                : null,
-          ),
-          const SizedBox(height: 16),
+            // ── 3. External tools ──
+            _StepCard(
+              icon: Icons.extension,
+              title: l.wizardExternalToolsTitle,
+              description: l.wizardExternalToolsDescription,
+              ready: externalReady,
+              actionLabel: l.wizardOpenExternalTools,
+              onPressed: () => _openStep(2),
+            ),
+            const SizedBox(height: 16),
 
-          // ── Desktop Features (desktop always; mobile when server mode is active) ──
-          Consumer(
-            builder: (context, ref, _) {
-              final isServerMode =
-                  ref.watch(serverModeProvider).value?.isRemote ?? false;
-              final isDesktopPlatform =
-                  !kIsWeb &&
-                  (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-              final showDesktopFeatures = isDesktopPlatform || isServerMode;
-              if (!showDesktopFeatures) return const SizedBox.shrink();
+            // ── Scripts ──
+            _ScriptsCard(
+              onOpenSshScripts: () => ScriptLibraryScreen.show(context),
+              onOpenJsTools: () => JsToolLibraryScreen.show(context),
+              // Python MCP Tools is desktop-only and shown in _DesktopFeaturesCard below.
+              onOpenPyTools: null,
+              onOpenLocalShell:
+                  (!kIsWeb && (Platform.isMacOS || Platform.isLinux))
+                  ? () => LocalShellToolLibraryScreen.show(context)
+                  : null,
+            ),
+            const SizedBox(height: 16),
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _DesktopFeaturesCard(
-                    onOpenPyTools: () => PyToolLibraryScreen.show(context),
-                    onOpenMcpRegistry: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const GithubMcpRegistryScreen(),
+            // ── Desktop Features (desktop always; mobile when server mode is active) ──
+            Consumer(
+              builder: (context, ref, _) {
+                final isServerMode =
+                    ref.watch(serverModeProvider).value?.isRemote ?? false;
+                final isDesktopPlatform =
+                    !kIsWeb &&
+                    (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+                final showDesktopFeatures = isDesktopPlatform || isServerMode;
+                if (!showDesktopFeatures) return const SizedBox.shrink();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _DesktopFeaturesCard(
+                      onOpenPyTools: () => PyToolLibraryScreen.show(context),
+                      onOpenMcpRegistry: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const GithubMcpRegistryScreen(),
+                        ),
                       ),
+                      onOpenPwsh: (!kIsWeb && Platform.isWindows && !isServerMode)
+                          ? () => PowershellToolLibraryScreen.show(context)
+                          : null,
                     ),
-                    onOpenPwsh: (!kIsWeb && Platform.isWindows && !isServerMode)
-                        ? () => PowershellToolLibraryScreen.show(context)
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              );
-            },
-          ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
 
-          // ── Tool Hints ──
-          _SkillsCard(onOpen: () => FunctionHintsScreen.show(context)),
-          const SizedBox(height: 16),
+            // ── Tool Hints ──
+            _SkillsCard(onOpen: () => FunctionHintsScreen.show(context)),
+            const SizedBox(height: 16),
 
-          // ── Skills (AgentSkills.io editor) ──
-          _SkillEditorCard(
-            onOpen: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const SkillsListScreen())),
-          ),
-          const SizedBox(height: 16),
+            // ── Skills (AgentSkills.io editor) ──
+            _SkillEditorCard(
+              onOpen: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SkillsListScreen())),
+            ),
+            const SizedBox(height: 16),
 
-          // ── 4. Generic ── rebuild whenever prefs change
-          ListenableBuilder(
-            listenable: prefs,
-            builder: (_, _) => _GenericCard(
+            // ── 4. Generic ──
+            _GenericCard(
               prefs: prefs,
               onPickOutputDir: _pickDefaultOutputDir,
               onVault: _openVault,
             ),
-          ),
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
 
@@ -497,9 +497,10 @@ class _StepCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
     final cardBg = isModern
         ? (isDark
               ? Colors.black.withValues(alpha: 0.25)
@@ -517,7 +518,7 @@ class _StepCard extends StatelessWidget {
               ? AppTheme.success.withAlpha(128)
               : (required_
                     ? AppTheme.warning.withAlpha(128)
-                    : theme.dividerColor),
+                    : (isModern ? cs.primary.withValues(alpha: 0.3) : theme.dividerColor)),
           width: ready || required_ ? 2 : 1,
         ),
       ),
@@ -528,7 +529,7 @@ class _StepCard extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: ready ? AppTheme.success : AppTheme.primaryBlue,
+                color: ready ? AppTheme.success : cs.primary,
                 size: 22,
               ),
               const SizedBox(width: 10),
@@ -599,7 +600,7 @@ class _ScriptsCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final cs = theme.colorScheme;
     final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
     final cardBg = isModern
         ? (isDark
               ? Colors.black.withValues(alpha: 0.25)
@@ -653,7 +654,7 @@ class _ScriptsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.code, color: AppTheme.primaryBlue, size: 22),
+              Icon(Icons.code, color: cs.primary, size: 22),
               const SizedBox(width: 10),
               Text(
                 'Scripts',
@@ -732,7 +733,7 @@ class _DesktopFeaturesCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final cs = theme.colorScheme;
     final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
     final cardBg = isModern
         ? (isDark
               ? Colors.black.withValues(alpha: 0.25)
@@ -756,9 +757,9 @@ class _DesktopFeaturesCard extends StatelessWidget {
           // Header
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.desktop_windows,
-                color: AppTheme.primaryBlue,
+                color: cs.primary,
                 size: 22,
               ),
               const SizedBox(width: 10),
@@ -850,45 +851,61 @@ class _SkillsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.lightbulb_outlined,
-                  color: Colors.amber[600],
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Function Hints',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'AI-generated usage guides for each MCP tool. '
-              'Hints are automatically created when you first configure an LLM and injected into system prompts to improve tool-use accuracy.',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: onOpen,
-                icon: const Icon(Icons.manage_search),
-                label: const Text('Manage Function Hints'),
-              ),
-            ),
-          ],
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final uiStyle = AppPreferencesService.instance.uiStyle;
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
+    final cardBg = isModern
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
+        : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isModern ? cs.primary.withValues(alpha: 0.3) : theme.dividerColor,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outlined,
+                color: Colors.amber[600],
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Function Hints',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'AI-generated usage guides for each MCP tool. '
+            'Hints are automatically created when you first configure an LLM and injected into system prompts to improve tool-use accuracy.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(Icons.manage_search),
+              label: const Text('Manage Function Hints'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -904,41 +921,57 @@ class _SkillEditorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.auto_awesome, color: Colors.amber[600], size: 24),
-                const SizedBox(width: 12),
-                Text(
-                  'Skills',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create, import, and export AgentSkills.io format skills. '
-              'Use the Skill Wizard to generate skill definitions from a goal description using AI.',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: onOpen,
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('Manage Skills'),
-              ),
-            ),
-          ],
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final uiStyle = AppPreferencesService.instance.uiStyle;
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
+    final cardBg = isModern
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
+        : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isModern ? cs.primary.withValues(alpha: 0.3) : theme.dividerColor,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: Colors.amber[600], size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'Skills',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create, import, and export AgentSkills.io format skills. '
+            'Use the Skill Wizard to generate skill definitions from a goal description using AI.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Manage Skills'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -961,9 +994,10 @@ class _GenericCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
     final cardBg = isModern
         ? (isDark
               ? Colors.black.withValues(alpha: 0.25)
@@ -976,7 +1010,9 @@ class _GenericCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor),
+        border: Border.all(
+          color: isModern ? cs.primary.withValues(alpha: 0.3) : theme.dividerColor,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,7 +1020,7 @@ class _GenericCard extends StatelessWidget {
           // ── Header ─────────────────────────────────────────────────────
           Row(
             children: [
-              const Icon(Icons.tune, color: AppTheme.primaryBlue, size: 22),
+              Icon(Icons.tune, color: cs.primary, size: 22),
               const SizedBox(width: 10),
               Text(
                 L.of(context).generalSection,
@@ -1014,7 +1050,7 @@ class _GenericCard extends StatelessWidget {
           // ── UI Style dropdown selector ─────────────────────────────────────
           Row(
             children: [
-              const Icon(Icons.palette_outlined, size: 18, color: AppTheme.primaryBlue),
+              Icon(Icons.palette_outlined, size: 18, color: cs.primary),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1425,6 +1461,7 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1432,7 +1469,7 @@ class _SettingsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: AppTheme.primaryBlue),
+            Icon(icon, size: 18, color: cs.primary),
             const SizedBox(width: 10),
             Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
             Tooltip(
@@ -1440,7 +1477,7 @@ class _SettingsRow extends StatelessWidget {
               child: Chip(
                 label: Text(value, style: const TextStyle(fontSize: 12)),
                 visualDensity: VisualDensity.compact,
-                side: const BorderSide(color: AppTheme.primaryBlue),
+                side: BorderSide(color: cs.primary),
               ),
             ),
           ],
@@ -1563,11 +1600,19 @@ class _ServerConnectionCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final isConnected = serverState.isConnected;
 
+    final uiStyle = AppPreferencesService.instance.uiStyle;
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
+    final cardBg = isModern
+        ? (isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.65))
+        : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : AppTheme.cardLight,
+        color: cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isConnected
@@ -2047,9 +2092,10 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
     final cardBg = isModern
         ? (isDark
               ? Colors.black.withValues(alpha: 0.25)
@@ -2063,7 +2109,9 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor),
+        border: Border.all(
+          color: isModern ? cs.primary.withValues(alpha: 0.3) : theme.dividerColor,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2079,9 +2127,9 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.construction,
-                    color: AppTheme.primaryBlue,
+                    color: cs.primary,
                     size: 22,
                   ),
                   const SizedBox(width: 10),
