@@ -55,6 +55,11 @@ class CodeCommand extends Command {
       help: 'Path to custom llm.yaml configuration',
       defaultsTo: 'llm.yaml',
     );
+    argParser.addOption(
+      'tools',
+      help: 'Path to custom extern_mcp_tools.yaml / mcp.yaml',
+      defaultsTo: 'extern_mcp_tools.yaml',
+    );
     argParser.addFlag(
       'verbose',
       abbr: 'v',
@@ -74,7 +79,7 @@ Commands:
   /tasks                    Display current tasks.md if present
   /instructions             Show or reload tealkit_agent.md / custom instructions
   /clear                    Clear conversation turn history
-  /tools                    List active native coding tools
+  /tools                    List active native coding and external MCP tools
   /bye, /exit               Exit session
   /help, /?                 Show this help menu
 ''';
@@ -84,6 +89,7 @@ Commands:
     final modeStr = argResults?['mode'] as String? ?? 'code';
     final customInstructionsPath = argResults?['instructions'] as String?;
     final llmPath = argResults?['llm'] as String? ?? 'llm.yaml';
+    final toolsPath = argResults?['tools'] as String? ?? 'extern_mcp_tools.yaml';
     final verbose = argResults?['verbose'] as bool? ?? false;
 
     CodingMode currentMode = switch (modeStr) {
@@ -94,6 +100,7 @@ Commands:
 
     final runner = SkillRunner(
       llmConfigPath: llmPath,
+      toolsConfigPath: toolsPath,
       verbose: verbose,
     );
 
@@ -104,21 +111,32 @@ Commands:
     // Load workspace custom instructions (tealkit_agent.md, AGENTS.md, or specified)
     String userInstructions = _loadWorkspaceInstructions(customInstructionsPath);
 
-    // Initialize Native Coding Tools via shared dart_mcp_core
+    // 1. Initialize Native Coding Tools via shared dart_mcp_core
     final dartTools = CodingTools.createAll(workingDirectory: workspaceDir);
+
+    // 2. Connect External MCP Servers from mcp.yaml / extern_mcp_tools.yaml if present
+    final localServers = runner.loadMcpServers();
+    final mcpManager = await runner.connectMcpServers(localServers);
+    final mcpTools = mcpManager.availableTools;
 
     final toolNames = dartTools.map((t) => t.name).toList();
     final half = (toolNames.length / 2).ceil();
     final toolsLine1 = toolNames.take(half).join(', ');
     final toolsLine2 = toolNames.skip(half).join(', ');
 
+    final activeMcpNames = localServers.where((s) => s.enabled).map((s) => s.name).toList();
+    final mcpSummary = activeMcpNames.isNotEmpty
+        ? '${activeMcpNames.length} active (${activeMcpNames.join(", ")})'
+        : '(none in mcp.yaml)';
+
     TerminalPrinter.printBanner('TealKit Coding Agent (v1.1.0)', [
       'Workspace    : $workspaceDir',
       'LLM Provider : ${llmConfig.provider.displayName} (${llmConfig.model})',
       'Active Mode  : ${currentMode.displayName}',
+      'MCP Servers  : $mcpSummary',
       'Permissions  : Write=${permissions.autoApproveWrite ? "Auto" : "Ask"}, Exec=${permissions.autoApproveExecute ? "Auto" : "Ask"}',
       'Instructions : ${userInstructions.isNotEmpty ? "Loaded from workspace" : "(None found, default active)"}',
-      'Tools (${toolNames.length})   : $toolsLine1,',
+      'Native Tools (${toolNames.length}): $toolsLine1,',
       '               $toolsLine2',
     ]);
 
@@ -257,9 +275,16 @@ Commands:
       }
 
       if (input == '/tools') {
-        stdout.writeln(TerminalPrinter.bold('Active Coding Tools:'));
+        stdout.writeln(TerminalPrinter.bold('Native Coding Tools (${dartTools.length}):'));
         for (final t in dartTools) {
-          stdout.writeln('  • ${TerminalPrinter.cyan(t.name)} — ${t.description}');
+          stdout.writeln('  • ${TerminalPrinter.cyan(t.name)} (${t.riskLevel.name}) — ${t.description}');
+        }
+        if (mcpTools.isNotEmpty) {
+          stdout.writeln('');
+          stdout.writeln(TerminalPrinter.bold('External MCP Tools (${mcpTools.length}):'));
+          for (final t in mcpTools) {
+            stdout.writeln('  • ${TerminalPrinter.green(t.name)} — ${t.description ?? "(no description)"}');
+          }
         }
         stdout.writeln('');
         continue;
@@ -279,6 +304,8 @@ Commands:
         systemPrompt: systemPrompt,
         prompts: [SubPromptStep(text: input)],
         dartTools: dartTools,
+        localServers: localServers.where((s) => s.isLocal).toList(),
+        remoteServers: localServers.where((s) => !s.isLocal).toList(),
       );
 
       final engine = McpAgentEngine();
@@ -387,6 +414,10 @@ Commands:
         );
       }
     }
+
+    try {
+      await mcpManager.disconnectAll();
+    } catch (_) {}
 
     stdout.writeln(TerminalPrinter.green('Exiting coding agent session. Goodbye!'));
   }

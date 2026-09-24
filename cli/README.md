@@ -218,7 +218,12 @@ tealkit code --mode architect
 
 # Load custom workspace instructions
 tealkit code --instructions tealkit_agent.md
+
+# Load custom external MCP servers configuration
+tealkit code --tools mcp.yaml
 ```
+
+> 💡 **Unified Tooling**: The coding agent automatically merges the **10 Native Pure-Dart Tools** with any **External MCP Servers** (e.g. GitHub, Postgres, Memory MCP) defined in `mcp.yaml` or `extern_mcp_tools.yaml`.
 
 #### 🔄 Operational Modes
 - **📐 ARCHITECT (`/plan` or `/mode architect`)**: Explores the codebase, analyzes dependencies, and creates or updates `tasks.md` checklists without touching production code.

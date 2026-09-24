@@ -55,6 +55,24 @@ void main() {
       // If MY_TEST_KEY is not in env, it should be empty string
       expect(output, 'api_key: ""');
     });
+
+    test('loads from directory-specific .env file', () {
+      final tempDir = Directory.systemTemp.createTempSync('env_test_');
+      try {
+        final envFile = File('${tempDir.path}/.env');
+        envFile.writeAsStringSync('OPENAI_API_KEY=sk-test-123456\nMY_CUSTOM_VAR="hello_world"');
+
+        final parsed = EnvLoader.parseEnvFile(envFile);
+        expect(parsed['OPENAI_API_KEY'], 'sk-test-123456');
+        expect(parsed['MY_CUSTOM_VAR'], 'hello_world');
+
+        final substituted = EnvLoader.substitute('key: \${OPENAI_API_KEY}', tempDir);
+        expect(substituted, 'key: sk-test-123456');
+      } finally {
+        tempDir.deleteSync(recursive: true);
+        EnvLoader.clearCache();
+      }
+    });
   });
 
   group('CommandRunner', () {

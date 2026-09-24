@@ -56,7 +56,7 @@ class SkillRunner {
     }
 
     final raw = file.readAsStringSync();
-    final resolved = EnvLoader.substitute(raw);
+    final resolved = EnvLoader.substitute(raw, file.parent);
     final yaml = loadYaml(resolved) as YamlMap?;
     if (yaml == null) {
       throw FormatException('Failed to parse LLM configuration at $llmConfigPath');
@@ -97,7 +97,7 @@ class SkillRunner {
 
     try {
       final raw = file.readAsStringSync();
-      final resolved = EnvLoader.substitute(raw);
+      final resolved = EnvLoader.substitute(raw, file.parent);
       final yaml = loadYaml(resolved) as YamlMap?;
       final serversList = yaml?['servers'] as YamlList?;
       if (serversList == null) return [];

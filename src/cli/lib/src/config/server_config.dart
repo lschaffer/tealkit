@@ -74,7 +74,7 @@ servers:
   List<ServerProfile> loadProfiles() {
     ensureConfigFile();
     final raw = file.readAsStringSync();
-    final resolved = EnvLoader.substitute(raw);
+    final resolved = EnvLoader.substitute(raw, file.parent);
 
     try {
       final yaml = loadYaml(resolved) as YamlMap?;
