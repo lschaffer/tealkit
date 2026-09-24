@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:tealkit_api/tealkit_api.dart';
 import 'package:tealkit_cli/tealkit_cli.dart';
 import 'package:test/test.dart';
@@ -72,6 +73,7 @@ void main() {
       expect(commandNames, contains('skill'));
       expect(commandNames, contains('prompt'));
       expect(commandNames, contains('chat'));
+      expect(commandNames, contains('code'));
     });
   });
 
@@ -186,6 +188,129 @@ Follow the instructions carefully.
     test('returns null for unknown workflow', () {
       final res = matchWorkflow(sampleTasks, 'unknown_task');
       expect(res, isNull);
+    });
+  });
+
+  group('Coding Tools Unit Tests', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('coding_tools_test_');
+    });
+
+    tearDown(() {
+      try {
+        tempDir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    test('FsWriteFileTool and FsReadFileTool work correctly', () async {
+      final writeTool = FsWriteFileTool(workingDirectory: tempDir.path);
+      final readTool = FsReadFileTool(workingDirectory: tempDir.path);
+
+      final writeRes = await writeTool.execute({
+        'path': 'sub/hello.txt',
+        'content': 'Line 1\nLine 2\nLine 3\nLine 4',
+      });
+      expect(writeRes.isError, isFalse);
+
+      final readRes = await readTool.execute({
+        'path': 'sub/hello.txt',
+        'startLine': 2,
+        'endLine': 3,
+      });
+      expect(readRes.isError, isFalse);
+      expect(readRes.content.first.text, contains('Line 2'));
+      expect(readRes.content.first.text, contains('Line 3'));
+      expect(readRes.content.first.text, isNot(contains('Line 4')));
+    });
+
+    test('FsReplaceTextTool performs exact replacement and errors on missing target', () async {
+      final writeTool = FsWriteFileTool(workingDirectory: tempDir.path);
+      final replaceTool = FsReplaceTextTool(workingDirectory: tempDir.path);
+
+      await writeTool.execute({
+        'path': 'config.json',
+        'content': '{\n  "version": "1.0.0",\n  "enabled": true\n}',
+      });
+
+      // Successful replace
+      final okRes = await replaceTool.execute({
+        'path': 'config.json',
+        'search': '"version": "1.0.0"',
+        'replace': '"version": "2.0.0"',
+      });
+      expect(okRes.isError, isFalse);
+
+      final updatedContent =
+          File('${tempDir.path}/config.json').readAsStringSync();
+      expect(updatedContent, contains('"version": "2.0.0"'));
+
+      // Error on missing target
+      final failRes = await replaceTool.execute({
+        'path': 'config.json',
+        'search': '"version": "9.9.9"',
+        'replace': '"version": "3.0.0"',
+      });
+      expect(failRes.isError, isTrue);
+    });
+
+    test('FsFindTool finds files matching wildcard pattern', () async {
+      final writeTool = FsWriteFileTool(workingDirectory: tempDir.path);
+      final findTool = FsFindTool(workingDirectory: tempDir.path);
+
+      await writeTool.execute({
+        'path': 'src/MyProject.csproj',
+        'content': '<Project />',
+      });
+      await writeTool.execute({
+        'path': 'tasks.md',
+        'content': '# Tasks',
+      });
+
+      final findRes = await findTool.execute({'pattern': '*.csproj'});
+      expect(findRes.isError, isFalse);
+      expect(findRes.content.first.text, contains('MyProject.csproj'));
+      expect(findRes.content.first.text, isNot(contains('tasks.md')));
+    });
+  });
+
+  group('GlobalConfigLocator', () {
+    test('resolves local file first when present', () {
+      final file = GlobalConfigLocator.resolveConfigFile('pubspec.yaml');
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('returns non-empty globalDir string', () {
+      expect(GlobalConfigLocator.globalDir, isNotEmpty);
+      expect(GlobalConfigLocator.globalSkillsDir, contains('.tealkit'));
+    });
+  });
+
+  group('ToolPermissionSettings', () {
+    test('default permissions require confirmation for write, exec, and network', () {
+      final perms = ToolPermissionSettings();
+      expect(perms.autoApproveRead, isTrue);
+      expect(perms.autoApproveWrite, isFalse);
+      expect(perms.autoApproveExecute, isFalse);
+      expect(perms.autoApproveNetwork, isFalse);
+
+      expect(perms.isAutoApproved(ToolRiskLevel.read), isTrue);
+      expect(perms.isAutoApproved(ToolRiskLevel.write), isFalse);
+      expect(perms.isAutoApproved(ToolRiskLevel.execute), isFalse);
+      expect(perms.isAutoApproved(ToolRiskLevel.network), isFalse);
+    });
+
+    test('setting permissions enables auto-approval', () {
+      final perms = ToolPermissionSettings(
+        autoApproveRead: true,
+        autoApproveWrite: true,
+        autoApproveExecute: true,
+        autoApproveNetwork: true,
+      );
+      expect(perms.isAutoApproved(ToolRiskLevel.write), isTrue);
+      expect(perms.isAutoApproved(ToolRiskLevel.execute), isTrue);
+      expect(perms.isAutoApproved(ToolRiskLevel.network), isTrue);
     });
   });
 }

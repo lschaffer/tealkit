@@ -15,9 +15,19 @@ class TerminalPrinter {
   static String magenta(String text) => supportsAnsi ? '\x1B[35m$text\x1B[0m' : text;
   static String blue(String text) => supportsAnsi ? '\x1B[34m$text\x1B[0m' : text;
 
-  /// Print a decorative box banner.
+  /// Print a decorative box banner with dynamic width and clean line wrapping.
   static void printBanner(String title, [List<String> subLines = const []]) {
-    const width = 60;
+    // 1. Calculate optimal width (clamped between 74 and 96)
+    int maxLineLen = title.length;
+    for (final line in subLines) {
+      if (line.length > maxLineLen) {
+        maxLineLen = line.length;
+      }
+    }
+
+    final width = (maxLineLen + 6).clamp(74, 94);
+    final contentWidth = width - 4;
+
     final top = '╔${'═' * (width - 2)}╗';
     final mid = '╠${'═' * (width - 2)}╣';
     final bot = '╚${'═' * (width - 2)}╝';
@@ -25,25 +35,79 @@ class TerminalPrinter {
     stdout.writeln('');
     stdout.writeln(cyan(top));
 
-    void printLine(String text) {
-      final pad = width - 4 - text.length;
+    void printRow(String text, {bool isTitle = false}) {
+      // Calculate padding
+      final visibleLen = _stripAnsi(text).length;
+      final pad = contentWidth - visibleLen;
       final rightPad = pad > 0 ? ' ' * pad : '';
-      stdout.writeln('${cyan("║")} ${bold(text)}$rightPad ${cyan("║")}');
+      if (isTitle) {
+        final leftPadLen = (pad > 0 ? pad ~/ 2 : 0);
+        final titleRightPad = ' ' * (pad - leftPadLen);
+        stdout.writeln('${cyan("║")} ${' ' * leftPadLen}${bold(text)}$titleRightPad ${cyan("║")}');
+      } else {
+        stdout.writeln('${cyan("║")} $text$rightPad ${cyan("║")}');
+      }
     }
 
-    printLine(title.padLeft((width - 4 + title.length) ~/ 2));
+    printRow(title, isTitle: true);
 
     if (subLines.isNotEmpty) {
       stdout.writeln(cyan(mid));
       for (final line in subLines) {
-        final pad = width - 4 - line.length;
-        final rightPad = pad > 0 ? ' ' * pad : '';
-        stdout.writeln('${cyan("║")} $line$rightPad ${cyan("║")}');
+        final wrapped = _wrapBannerLine(line, contentWidth);
+        for (final row in wrapped) {
+          printRow(row);
+        }
       }
     }
 
     stdout.writeln(cyan(bot));
     stdout.writeln('');
+  }
+
+  /// Strip ANSI codes to measure printable length accurately.
+  static String _stripAnsi(String text) {
+    return text.replaceAll(RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]'), '');
+  }
+
+  /// Word-wraps a single banner line with smart indentation for key-value rows.
+  static List<String> _wrapBannerLine(String line, int maxWidth) {
+    if (_stripAnsi(line).length <= maxWidth) return [line];
+
+    final lines = <String>[];
+    final colonIdx = line.indexOf(' : ');
+    final indent = colonIdx != -1 ? ' ' * (colonIdx + 3) : '   ';
+
+    var current = line;
+
+    while (_stripAnsi(current).length > maxWidth) {
+      final searchArea = current.substring(0, maxWidth);
+      int breakPoint = -1;
+
+      final lastComma = searchArea.lastIndexOf(', ');
+      if (lastComma != -1 && lastComma > 25) {
+        breakPoint = lastComma + 1; // Break after comma
+      } else {
+        final lastSpace = searchArea.lastIndexOf(' ');
+        if (lastSpace != -1 && lastSpace > 25) {
+          breakPoint = lastSpace;
+        } else {
+          breakPoint = maxWidth;
+        }
+      }
+
+      final segment = current.substring(0, breakPoint).trimRight();
+      lines.add(segment);
+
+      final remainder = current.substring(breakPoint).trimLeft();
+      current = '$indent$remainder';
+    }
+
+    if (current.isNotEmpty) {
+      lines.add(current);
+    }
+
+    return lines;
   }
 
   /// Print a formatted tool call card (matches mcp_cli_example).

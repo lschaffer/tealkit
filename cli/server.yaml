@@ -3,8 +3,8 @@ servers:
   - name: "Local Dev"
     url: "http://localhost:7771"
     api_key: ""
-    is_active: true
+    is_active: false
   - name: "Production Server"
     url: "https://agent.yourdomain.com"
-    api_key: "${TEALKIT_API_KEY}"
-    is_active: false
+    api_key: ""
+    is_active: true

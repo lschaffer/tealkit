@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:yaml/yaml.dart';
 import 'env_loader.dart';
+import 'global_config.dart';
 
 /// Single server connection profile.
 class ServerProfile {
@@ -44,6 +45,9 @@ class ServerConfigManager {
 
   ServerConfigManager([this.configPath = 'server.yaml']);
 
+  /// Resolves the actual File to read/write using local workspace first, then ~/.tealkit/
+  File get file => GlobalConfigLocator.resolveConfigFile('server.yaml', configPath);
+
   /// Default configuration template if server.yaml doesn't exist.
   static const String defaultTemplate = '''# TealKit CLI Server Connection Profiles
 servers:
@@ -59,16 +63,16 @@ servers:
 
   /// Ensures server.yaml exists, creating default if absent.
   void ensureConfigFile() {
-    final file = File(configPath);
-    if (!file.existsSync()) {
-      file.writeAsStringSync(defaultTemplate);
+    final targetFile = file;
+    if (!targetFile.existsSync()) {
+      targetFile.parent.createSync(recursive: true);
+      targetFile.writeAsStringSync(defaultTemplate);
     }
   }
 
   /// Loads all profiles from `server.yaml`.
   List<ServerProfile> loadProfiles() {
     ensureConfigFile();
-    final file = File(configPath);
     final raw = file.readAsStringSync();
     final resolved = EnvLoader.substitute(raw);
 
@@ -141,6 +145,6 @@ servers:
       buffer.writeln('    is_active: ${p.isActive}');
     }
 
-    File(configPath).writeAsStringSync(buffer.toString());
+    file.writeAsStringSync(buffer.toString());
   }
 }

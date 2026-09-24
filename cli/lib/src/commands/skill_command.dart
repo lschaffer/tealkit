@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:tealkit_api/tealkit_api.dart';
 
+import '../config/global_config.dart';
 import '../config/server_config.dart';
 import '../engine/skill_runner.dart';
 import '../formatters/terminal_printer.dart';
@@ -74,17 +75,26 @@ class SkillListCommand extends Command {
       return;
     }
 
-    // Local skills in ./skills or current dir
-    final searchDirs = [Directory('skills'), Directory('example_skills'), Directory('.')];
+    // Local and global skills
+    final searchDirs = [
+      ...GlobalConfigLocator.resolveSkillDirectories(),
+      Directory('example_skills'),
+      Directory('.'),
+    ];
     final skillFiles = <File>[];
+    final seenPaths = <String>{};
 
     for (final d in searchDirs) {
       if (d.existsSync()) {
         final entities = d.listSync(recursive: false);
         for (final e in entities) {
           if (e is File && (e.path.endsWith('.md') || e.path.endsWith('skill.md'))) {
-            if (e.path.toLowerCase().contains('skill') || d.path == 'skills' || d.path == 'example_skills') {
-              skillFiles.add(e);
+            if (e.path.toLowerCase().contains('skill') ||
+                d.path.contains('skills') ||
+                d.path.contains('example_skills')) {
+              if (seenPaths.add(e.path)) {
+                skillFiles.add(e);
+              }
             }
           }
         }
@@ -92,12 +102,12 @@ class SkillListCommand extends Command {
     }
 
     if (skillFiles.isEmpty) {
-      stdout.writeln('No local skill (.md) files found in ./skills/ or current directory.');
+      stdout.writeln('No skill (.md) files found in ./skills/, ~/.tealkit/skills/, or current directory.');
       stdout.writeln('Tip: Use `tealkit auto-discover skills` to download skills from your server.');
       return;
     }
 
-    stdout.writeln(TerminalPrinter.bold('Local AgentSkills (${skillFiles.length}):'));
+    stdout.writeln(TerminalPrinter.bold('AgentSkills Found (${skillFiles.length}):'));
     stdout.writeln('');
 
     final headers = ['File Path', 'Skill Name', 'Version', 'Steps', 'Tools'];
@@ -138,11 +148,12 @@ class SkillInfoCommand extends Command {
       return;
     }
 
-    final path = argResults!.rest.first;
+    final rawPath = argResults!.rest.first;
+    final resolvedFile = GlobalConfigLocator.resolveSkillFile(rawPath);
     final runner = SkillRunner();
 
     try {
-      final manifest = runner.parseSkillFile(path);
+      final manifest = runner.parseSkillFile(resolvedFile.path);
       TerminalPrinter.printBanner(
         'Skill: ${manifest.name}',
         [
@@ -204,7 +215,8 @@ class SkillRunCommand extends Command {
       return;
     }
 
-    final skillPath = argResults!.rest.first;
+    final rawSkillPath = argResults!.rest.first;
+    final skillPath = GlobalConfigLocator.resolveSkillFile(rawSkillPath).path;
     final stepStr = argResults?['step'] as String?;
     final stepIndex = stepStr != null ? int.tryParse(stepStr) : null;
     final dryRun = argResults?['dry-run'] as bool? ?? false;

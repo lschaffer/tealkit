@@ -1,0 +1,3 @@
+dependency_overrides:
+  dart_mcp_core:
+    path: ../../mcp_playground/dart_mcp_core

@@ -6,6 +6,7 @@ import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:yaml/yaml.dart';
 
 import '../config/env_loader.dart';
+import '../config/global_config.dart';
 import '../formatters/terminal_printer.dart';
 
 /// Headless skill and prompt execution engine powered by `dart_mcp_core`.
@@ -22,7 +23,7 @@ class SkillRunner {
 
   /// Loads [LlmConfig] from [llmConfigPath] (or fallback default / .env).
   LlmConfig loadLlmConfig() {
-    final file = File(llmConfigPath);
+    final file = GlobalConfigLocator.resolveConfigFile(llmConfigPath);
     if (!file.existsSync()) {
       // Fallback: check .env for standard keys
       final dotEnv = EnvLoader.loadDotEnv();
@@ -87,10 +88,10 @@ class SkillRunner {
 
   /// Loads external MCP server configurations from YAML file.
   List<McpServerConfig> loadMcpServers() {
-    File file = File(toolsConfigPath);
+    File file = GlobalConfigLocator.resolveConfigFile(toolsConfigPath);
     if (!file.existsSync()) {
       // Also check fallback mcp.yaml
-      file = File('mcp.yaml');
+      file = GlobalConfigLocator.resolveConfigFile('mcp.yaml');
       if (!file.existsSync()) return [];
     }
 

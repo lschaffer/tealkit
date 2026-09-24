@@ -1,5 +1,6 @@
 name: server_light
 description: TealKit Server Light - Lightweight ARM/Microcontroller Server Edition
+publish_to: 'none'
 version: 1.0.0
 
 environment:

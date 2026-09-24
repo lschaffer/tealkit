@@ -14,6 +14,7 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 | 🧠 **Direct Skill Execution** | Parse any `SKILL.md` (agentskills.io format), spin up local MCP subprocess tools, and execute prompt sequences end-to-end with live streaming feedback. |
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
 | 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, parameter introspection, and slash commands (`/tools`, `/system`, `/clear`, `/exit`). |
+| 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, and Ask modes, native file editing tools (`fs_find`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `terminal_exec`), `tasks.md` tracking, and `tealkit_agent.md` workspace instructions. |
 
 ---
 
@@ -47,7 +48,12 @@ chmod +x tealkit
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration & Global Fallbacks
+
+TealKit resolves configuration files (`server.yaml`, `llm.yaml`, `extern_mcp_tools.yaml`, `mcp.yaml`, `skills/`, `permissions.yaml`) in the following priority order:
+1. **Local Directory**: First checks `./<file>` in current working directory.
+2. **Global Fallback Directory**: If not found locally, checks user's home directory (`~/.tealkit/` on Linux/macOS or `%USERPROFILE%\.tealkit` on Windows).
+3. **Environment Variables**: Reads `.env` / system environment variables for API keys and endpoint substitutions.
 
 ### `server.yaml` (Server Profiles)
 Manage one or more TealKit server endpoints:
@@ -200,6 +206,62 @@ tealkit chat --skill skills/device_audit.md
 
 ---
 
+### 7. Autonomous Coding Agent REPL (`tealkit code`)
+Run a terminal coding agent (Claude Code / Roo Code style) capable of autonomous codebase exploration, planning via `tasks.md`, and surgical code editing with build/test verification.
+
+```bash
+# Start coding agent in current repository
+tealkit code
+
+# Start in Architect (Planning) mode
+tealkit code --mode architect
+
+# Load custom workspace instructions
+tealkit code --instructions tealkit_agent.md
+```
+
+#### 🔄 Operational Modes
+- **📐 ARCHITECT (`/plan` or `/mode architect`)**: Explores the codebase, analyzes dependencies, and creates or updates `tasks.md` checklists without touching production code.
+- **💻 CODE (`/code` or `/mode code`)**: Follows `tasks.md`, executes minimal surgical edits (`fs_replace_text`), runs terminal build/test checks (`terminal_exec`), and checks off items (`- [x]`).
+- **💬 ASK (`/ask` or `/mode ask`)**: Read-only Q&A and codebase exploration.
+
+#### 🧰 Native Pure-Dart Tools (Powered by `dart_mcp_core`)
+- `fs_find`: Fast directory and file search matching wildcard patterns (e.g. `src/*.cs`, `*.csproj`) with `.gitignore` filtering.
+- `fs_list_dir`: Structured directory inspection with file sizes and type tags (`[DIR]`, `[FILE]`).
+- `fs_read_file`: Line-numbered, paginated file viewing to avoid context limits.
+- `fs_write_file`: File creation and full overwrite with automatic parent directory generation.
+- `fs_replace_text`: Exact, unique search-and-replace block edits (ideal for small/open models).
+- `fs_create_dir`: Create directory hierarchy (`src/Core/Models`) recursively.
+- `fs_move`: Rename or move files and directories.
+- `fs_delete`: Delete files or directories (supports recursive folder deletion).
+- `terminal_exec`: Execution of workspace commands (`dotnet build`, `dart test`, `git status`) with output capture.
+- `fetch_web`: Direct HTTP GET tool for querying web pages, pub.dev API, NuGet, and docs without external proxies.
+
+#### ⚡ In-Session Slash Commands
+- `/plan`, `/code`, `/ask` — Quickly switch operational modes.
+- `/permissions` — Inspect current tool approval requirements (read, write, execute, network).
+- `/auto-approve <on|off>` — Toggle auto-approval on the fly for writes and terminal executions.
+- `/tasks` — Display the current contents of `tasks.md`.
+- `/instructions` — View or reload instructions from `tealkit_agent.md`.
+- `/tools` — List active coding tools.
+- `/clear` — Reset conversation turn history.
+- `/exit` — Quit coding session.
+
+#### 🛡️ Human-in-the-Loop Permissions
+Whenever the agent attempts to modify a file (`fs_write_file`, `fs_replace_text`) or run a shell command (`terminal_exec`), the CLI prompts for confirmation:
+```text
+⚠️  Tool Approval Requested:
+  • Tool   : fs_replace_text (ToolRiskLevel.write)
+  • Args   : {"path":"src/MyApp.csproj","search":"<TargetFramework>net8.0","replace":"<TargetFramework>net9.0"}
+Approve execution? [y/n/always/deny-all] >
+```
+- Type `y` or Enter: Approve the single tool call.
+- Type `n`: Deny the tool call (the agent receives a rejection message and adjusts its plan).
+- Type `always` or `a`: Auto-approve all future actions for this category and persist to `~/.tealkit/permissions.yaml`.
+- Type `deny-all` or `d`: Block and disable auto-approvals.
+
+---
+
 ## 📋 Command Reference
 
 ```text
@@ -232,4 +294,5 @@ Available commands:
   prompt          Execute an ad-hoc prompt with local LLM and MCP tools.
     run           Run prompt with optional --system prompt or piped stdin.
   chat            Start an interactive multi-turn terminal agent session.
+  code            Launch interactive coding agent REPL (Claude Code / Roo Code style).
 ```
