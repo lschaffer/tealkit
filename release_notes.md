@@ -2,6 +2,30 @@
 
 This file tracks release changes by version.
 
+## TealKit CLI v1.1.0 & dart_mcp_core Upgrade - Multi-LLM Array, Session Persistence & MCP Management
+
+### New Features & Enhancements
+- **Multi-LLM Configuration Array (`llm.yaml`)**:
+  - Added support for configuring multiple named LLM model profiles under a `models:` array in `llm.yaml` (e.g. `deepseek`, `mistral`, `openai`, `ollama`), while maintaining backward compatibility with single-model configurations.
+  - Configured global root-level fallback parameters (e.g., `temperature`, `max_tokens: 4096`) that are automatically inherited across all profiles unless explicitly overridden.
+  - Added model switching via CLI arguments (`--llm:<name>`, `--llm <name>`, `--llm-name <name>`) and interactive slash commands (`/llm:<name>`, `/llm <name>`, `/llm` to list available profiles) across both `tealkit chat` and `tealkit code`.
+- **Session Recording, Persistence & Resuming (`.json` / `.md`)**:
+  - Implemented session persistence in both JSON (`.json`) and human-readable Markdown (`.md` with YAML frontmatter) formats.
+  - Added CLI startup flags `--save-session <path>` and `--load-session <path>` to automatically record or resume work in `tealkit code` and `tealkit chat`.
+  - Added interactive slash commands `/save-session <path>`, `/load-session <path>`, `/session` (inspect session info, turns, and tokens), and `/clear-session` (or `/clear`).
+- **Token Usage Tracking & Real-Time Cost Estimation (`/estimated_costs`)**:
+  - Added multi-turn token tracking powered by `AgentUsageEvent` and `LLMUsage` emitted by `dart_mcp_core`.
+  - Integrated provider-aware cost calculation matrix covering DeepSeek (V3/R1), Mistral (Medium/Large/Small/Codestral), OpenAI (GPT-4o/mini), Anthropic Claude (3.5/3.7 Sonnet), Google Gemini (2.5 Flash/Pro), and Ollama (free local).
+  - Added `/estimated_costs` (aliases: `/costs`, `/tokens`) command to view summed prompt tokens, completion tokens, total tokens, and estimated USD cost.
+- **External MCP Server Management & Cache Purging (`/uninstall`)**:
+  - Added `/uninstall <name|id>` and `/uninstall all_mcp` to disconnect MCP servers from active sessions.
+  - Automatically executes package cache cleanup (`uv cache clean` for Python / `npm cache clean --force` for Node.js) with non-blocking subprocess timeouts so that uninstalled servers reinstall cleanly on next startup.
+- **`dart_mcp_core` Enhancements & Diagnostic Robustness**:
+  - **Context-Safe File Reading**: Enhanced `FsReadFileTool` in `CodingTools` with 800-line safety pagination to protect LLM context windows and guide models with line-range pagination instructions.
+  - **Stateful History Resumption**: Added `Agent.initialMessages` allowing `McpAgentEngine` to resume conversations seamlessly.
+  - **Completion Output Limits**: Fixed provider completion limit handling (`max_tokens: 4096` with automatic clamp above 32k) resolving HTTP 400 errors with DeepSeek / Mistral.
+  - **Explicit Error Banners**: Replaced silent execution halts with comprehensive error and diagnostic banners in `code_command.dart` and `chat_command.dart`.
+
 ## v1.7.1+146 - Modern Flexible Themes (FlexColorScheme 9.0.0) & Vault Server Connection Backup
 
 ### New Features & Enhancements

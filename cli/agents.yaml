@@ -1,0 +1,164 @@
+# TealKit Workflows & Agents Configuration (Auto-discovered)
+workflows:
+  - id: "6fe3a0d4-1ba2-4e7c-b71f-eb2ed9c62697"
+    name: "weather card"
+    description: ""
+    enabled: true
+    agents_count: 1
+    internal_mcps: ["weather"]
+  - id: "64be8e71-334e-4307-a204-18a4a6e7f32e"
+    name: "dlu free space html"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: []
+  - id: "36f84a7c-2df8-4582-99f9-9b8cadb8983c"
+    name: "dlu free space report"
+    description: ""
+    enabled: true
+    agents_count: 1
+    internal_mcps: ["excel"]
+  - id: "a687bac1-be68-4d36-a51a-d6b2d05b31db"
+    name: "filesystem report"
+    description: ""
+    enabled: true
+    agents_count: 1
+    internal_mcps: ["ssh"]
+  - id: "d07dd4e1-ba52-4628-8189-8fd49af4cc52"
+    name: "filesystem report"
+    description: ""
+    enabled: true
+    agents_count: 1
+    internal_mcps: ["ssh"]
+  - id: "4e226d4b-aecf-4537-bf46-e91af1d0386d"
+    name: "statistical-charts-co2"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["web_search"]
+  - id: "bd9de01c-ecca-4e6f-9d27-406cee6c6209"
+    name: "Graz last 12 hours temperatur/air pressure"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: []
+  - id: "4eb46054-6212-4359-9aba-8f6ede9baf3c"
+    name: "ORF headlines"
+    description: ""
+    enabled: true
+    agents_count: 1
+    internal_mcps: ["gh_mcp_594d7d42-4e67-4189-b23a-8232e73e20e8", "gh_mcp_bd774b76-04c6-4e91-8576-d7d95c3bf87a"]
+  - id: "a6ba304a-a5de-4c4a-8983-caa39cd4d784"
+    name: "battery check"
+    description: ""
+    enabled: false
+    agents_count: 3
+    internal_mcps: ["chart", "toolbox"]
+  - id: "d1a77e48-11ed-4b20-a8ff-2568dbafe29a"
+    name: "my sensors last 12 hours"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: []
+  - id: "8eeac4a5-73c1-476f-9ea2-371ca8631a1c"
+    name: "my sensors"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: []
+  - id: "caac3671-7bdd-417d-b971-1c3743fa8a04"
+    name: "Show recorded exchange rates"
+    description: "read recorded exchange rates by Js bridge test"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["ssh"]
+  - id: "c87098de-806e-433b-94a2-dfa267835a40"
+    name: "Fetch exchange rates"
+    description: "currency converter test, calls periodically and upload the create with sftp"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["file", "js_bridge"]
+  - id: "982f4c83-adfa-4bbb-8922-0fe3ebadbe07"
+    name: "embedded test fetch data"
+    description: "simple tool call"
+    enabled: false
+    agents_count: 3
+    internal_mcps: ["ssh", "toolbox"]
+  - id: "ce5f2cc9-a01d-40e7-bd2a-9d7f990c387a"
+    name: "disk usage (chain) tealkit"
+    description: "Check cloud server tealkit"
+    enabled: true
+    agents_count: 2
+    internal_mcps: ["ssh"]
+  - id: "4b35fa27-e002-40f9-9a6b-1a145ea8e890"
+    name: "upload check (slm) version"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["ssh"]
+  - id: "845386c3-610d-4470-9fb9-650a67f464eb"
+    name: "upload check"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["excel", "ssh"]
+  - id: "a091a363-1ce2-41c4-a85d-b18eb2ebf609"
+    name: "doc search test"
+    description: "suche nach sdi12"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["document"]
+  - id: "df36dbdf-12de-4e95-b27f-845a1bb54327"
+    name: "Weather - get data"
+    description: "getting tool data nothing more"
+    enabled: false
+    agents_count: 2
+    internal_mcps: ["weather"]
+  - id: "360ca2fa-363f-4b40-bfb1-15358cb3fc3d"
+    name: "drei Rechnung"
+    description: ""
+    enabled: true
+    agents_count: 1
+    internal_mcps: ["chart", "imap", "excel"]
+  - id: "4598552d-7d7a-4169-84fa-8d63daf20ddf"
+    name: "Weather charts"
+    description: "Next 24 hours Temperature"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["chart", "weather"]
+  - id: "2dcbaa2b-2c8e-4d83-90ee-2d053ad20a39"
+    name: "server check4updates"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["ssh"]
+  - id: "904a50d7-818d-4ac6-a491-d6ef01e5e064"
+    name: "Tokens Verbrauch TaskAI"
+    description: "Kalkulierte Kosten letzten 12 Stunden von TaskAI outputs"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["imap"]
+  - id: "4d219d6f-4d97-46ef-b4c9-305b8c077e87"
+    name: "containers stats"
+    description: "check docker containers on dluc server"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["ssh"]
+  - id: "7f2aa88a-bdff-435e-9cb8-1c68b7353d9f"
+    name: "latest news"
+    description: "indexed suche informationen in Zeitungen"
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["website_search"]
+  - id: "1bd48cdf-ba93-4225-b94d-5998410483ce"
+    name: "disk usage (chain) tcloud"
+    description: "Check cloud server dluc"
+    enabled: true
+    agents_count: 2
+    internal_mcps: ["ssh"]
+  - id: "7e7350da-0ae8-4171-a178-5401753afdb2"
+    name: "Conditional Task (Weather + Flights)"
+    description: ""
+    enabled: false
+    agents_count: 1
+    internal_mcps: ["weather", "web_search"]

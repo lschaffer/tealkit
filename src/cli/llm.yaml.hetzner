@@ -1,0 +1,7 @@
+# TealKit LLM Configuration (Auto-discovered)
+provider: "openai_compatible"
+model: "Qwen/Qwen3.6-35B-A3B-FP8"
+api_key: "kBhz7xs8UxJrvRhPH-9w9Gmk2-0nrnOC"
+base_url: "https://inference.hetzner.com/api/v1"
+temperature: 0.2
+max_tokens: 225000

@@ -3,15 +3,34 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:tealkit_cli/tealkit_cli.dart';
 
+List<String> _preprocessArgs(List<String> rawArgs) {
+  final processed = <String>[];
+  for (final arg in rawArgs) {
+    if (arg.startsWith('--llm:')) {
+      final name = arg.substring('--llm:'.length).trim();
+      processed.add('--llm-name');
+      processed.add(name);
+    } else if (arg.startsWith('-llm:')) {
+      final name = arg.substring('-llm:'.length).trim();
+      processed.add('--llm-name');
+      processed.add(name);
+    } else {
+      processed.add(arg);
+    }
+  }
+  return processed;
+}
+
 Future<void> main(List<String> args) async {
   final runner = buildTealKitCommandRunner();
+  final effectiveArgs = _preprocessArgs(args);
 
   try {
-    if (args.isEmpty) {
+    if (effectiveArgs.isEmpty) {
       runner.printUsage();
       return;
     }
-    await runner.run(args);
+    await runner.run(effectiveArgs);
   } on UsageException catch (e) {
     stderr.writeln(TerminalPrinter.red(e.message));
     stderr.writeln('');
@@ -19,7 +38,7 @@ Future<void> main(List<String> args) async {
     exit(64);
   } catch (e, stack) {
     stderr.writeln(TerminalPrinter.red('Error: $e'));
-    if (args.contains('--verbose') || args.contains('-v')) {
+    if (effectiveArgs.contains('--verbose') || effectiveArgs.contains('-v')) {
       stderr.writeln(stack);
     }
     exit(1);

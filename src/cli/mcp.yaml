@@ -1,0 +1,46 @@
+# TealKit MCP Servers Configuration (Auto-discovered)
+servers:
+  # ── Local / Community Stdio MCP Servers ──
+  - id: "04abe38a-ef1f-4c76-831d-156b67951d5c"
+    name: "mcp-server-github"
+    is_local: true
+    local_type: "nodejs"
+    local_install_method: "npx"
+    local_package: "@modelcontextprotocol/server-github"
+    custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-github"
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ""
+    enabled: false
+
+  - id: "bd774b76-04c6-4e91-8576-d7d95c3bf87a"
+    name: "mcp-server-fetch"
+    is_local: true
+    local_type: "python"
+    local_install_method: "uvx"
+    local_package: "mcp-server-fetch"
+    custom_launch_command: "uvx mcp-server-fetch"
+    enabled: true
+
+  - id: "56b11b56-aef2-4759-b3bb-139849f9d093"
+    name: "mcp-server-puppeteer"
+    is_local: true
+    local_type: "nodejs"
+    local_install_method: "npx"
+    local_package: "@modelcontextprotocol/server-puppeteer"
+    custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-puppeteer"
+    enabled: true
+
+  - id: "99fa8ce5-299d-4b0f-b7c2-5163b90042a3"
+    name: "mcp-server-filesystem"
+    is_local: true
+    local_type: "nodejs"
+    local_install_method: "npx"
+    local_package: "@modelcontextprotocol/server-filesystem"
+    custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-filesystem ."
+    launch_args: ["{{allowed_dirs}}"]
+    env:
+      allowed_dirs: "/home"
+    enabled: true
+
+    
+  

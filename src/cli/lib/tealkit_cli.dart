@@ -18,9 +18,13 @@ export 'src/commands/skill_command.dart';
 export 'src/commands/workflow_command.dart';
 export 'src/config/env_loader.dart';
 export 'src/config/global_config.dart';
+export 'src/config/llm_config_manager.dart';
 export 'src/config/permission_settings.dart';
 export 'src/config/server_config.dart';
+export 'src/engine/mcp_manager_helper.dart';
+export 'src/engine/session_manager.dart';
 export 'src/engine/skill_runner.dart';
+export 'src/engine/token_usage_tracker.dart';
 export 'src/formatters/terminal_printer.dart';
 
 /// Constructs the primary [CommandRunner] for TealKit CLI.

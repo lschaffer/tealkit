@@ -1,25 +1,25 @@
-# TealKit LLM Configuration Sample
-# Global parameters applied across all models:
-temperature: 0.2
+# TealKit LLM Configuration
+# Global parameters applied across all configured LLMs
+temperature: 0.1
 max_tokens: 4096
 
-# Supported providers: openai, claude, gemini, ollama, mistral, openai_compatible
+# Multi-LLM model list (switch with --llm:<name> or /llm:<name>)
 llms:
   - name: "deepseek"
     provider: "openai_compatible"
     model: "deepseek-ai/DeepSeek-V4.1-Flash"
-    api_key: "${DEEPSEEK_API_KEY}"
+    api_key: "${OPENAI_API_KEY}"
     base_url: "https://api.deepinfra.com/v1/openai"
-
-  - name: "ollama"
-    provider: "ollama"
-    model: "llama3"
-    base_url: "http://localhost:11434"
 
   - name: "mistral"
     provider: "mistral"
     model: "mistral-medium-latest"
     api_key: "${MISTRAL_API_KEY}"
+
+  - name: "ollama"
+    provider: "ollama"
+    model: "llama3"
+    base_url: "http://localhost:11434"
 
   - name: "openai"
     provider: "openai"

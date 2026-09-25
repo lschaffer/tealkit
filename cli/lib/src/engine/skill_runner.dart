@@ -7,6 +7,7 @@ import 'package:yaml/yaml.dart';
 
 import '../config/env_loader.dart';
 import '../config/global_config.dart';
+import '../config/llm_config_manager.dart';
 import '../formatters/terminal_printer.dart';
 
 /// Headless skill and prompt execution engine powered by `dart_mcp_core`.
@@ -21,68 +22,11 @@ class SkillRunner {
     this.verbose = false,
   });
 
-  /// Loads [LlmConfig] from [llmConfigPath] (or fallback default / .env).
-  LlmConfig loadLlmConfig() {
-    final file = GlobalConfigLocator.resolveConfigFile(llmConfigPath);
-    if (!file.existsSync()) {
-      // Fallback: check .env for standard keys
-      final dotEnv = EnvLoader.loadDotEnv();
-      final apiKey = dotEnv['OPENAI_API_KEY'] ??
-          dotEnv['ANTHROPIC_API_KEY'] ??
-          dotEnv['GEMINI_API_KEY'] ??
-          dotEnv['MISTRAL_API_KEY'] ??
-          '';
-
-      var provider = LlmProvider.openai;
-      var model = 'gpt-4o-mini';
-
-      if (dotEnv.containsKey('ANTHROPIC_API_KEY')) {
-        provider = LlmProvider.claude;
-        model = 'claude-3-5-sonnet-20241022';
-      } else if (dotEnv.containsKey('GEMINI_API_KEY')) {
-        provider = LlmProvider.gemini;
-        model = 'gemini-1.5-flash';
-      } else if (dotEnv.containsKey('MISTRAL_API_KEY')) {
-        provider = LlmProvider.mistral;
-        model = 'mistral-medium-latest';
-      }
-
-      return LlmConfig(
-        provider: provider,
-        model: dotEnv['LLM_MODEL'] ?? model,
-        apiKey: apiKey,
-        baseUrl: dotEnv['LLM_BASE_URL'] ?? '',
-      );
-    }
-
-    final raw = file.readAsStringSync();
-    final resolved = EnvLoader.substitute(raw, file.parent);
-    final yaml = loadYaml(resolved) as YamlMap?;
-    if (yaml == null) {
-      throw FormatException('Failed to parse LLM configuration at $llmConfigPath');
-    }
-
-    final providerStr =
-        (yaml['provider'] as String?)?.toLowerCase() ?? 'openai';
-    final provider = switch (providerStr) {
-      'claude' || 'anthropic' => LlmProvider.claude,
-      'gemini' || 'google' => LlmProvider.gemini,
-      'ollama' => LlmProvider.ollama,
-      'openai_compatible' || 'openaicompatible' => LlmProvider.openaiCompatible,
-      'mistral' => LlmProvider.mistral,
-      _ => LlmProvider.openai,
-    };
-
-    return LlmConfig(
-      provider: provider,
-      model: (yaml['model'] as String?) ?? 'gpt-4o-mini',
-      apiKey: (yaml['api_key'] as String?) ?? '',
-      baseUrl: (yaml['base_url'] as String?) ?? '',
-      temperature: (yaml['temperature'] as num?)?.toDouble() ?? 0.2,
-      maxTokens: (yaml['max_tokens'] as int?) ?? 0,
-      topP: (yaml['top_p'] as num?)?.toDouble(),
-      topK: yaml['top_k'] as int?,
-      seed: yaml['seed'] as int?,
+  /// Loads [LlmConfig] from [llmConfigPath] or named profile.
+  LlmConfig loadLlmConfig({String? targetName}) {
+    return LlmConfigManager.resolveConfig(
+      nameOrPath: targetName,
+      configPath: llmConfigPath,
     );
   }
 
@@ -475,6 +419,7 @@ class SkillRunner {
           case AgentErrorEvent(:final error):
             stderr.writeln(TerminalPrinter.red('ERROR: $error'));
           case AgentFinalResultEvent():
+          case AgentUsageEvent():
             break;
           case AgentTextChunkEvent():
             break;

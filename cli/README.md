@@ -13,8 +13,8 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 | 🚀 **Remote Workflow Runner** | Trigger asynchronous workflows/agents, poll execution status, stream execution logs, and download generated artifacts. |
 | 🧠 **Direct Skill Execution** | Parse any `SKILL.md` (agentskills.io format), spin up local MCP subprocess tools, and execute prompt sequences end-to-end with live streaming feedback. |
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
-| 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, parameter introspection, and slash commands (`/tools`, `/system`, `/clear`, `/exit`). |
-| 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, and Ask modes, native file editing tools (`fs_find`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `terminal_exec`), `tasks.md` tracking, and `tealkit_agent.md` workspace instructions. |
+| 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, dynamic model switching (`/llm`), session saving/resuming (`.json`/`.md`), MCP uninstallation (`/uninstall`), token cost estimation (`/estimated_costs`), and slash commands. |
+| 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, and Ask modes, 10 native tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`), session persistence, token cost tracking, `tasks.md` checklists, and `tealkit_agent.md` workspace rules. |
 
 ---
 
@@ -71,16 +71,38 @@ servers:
 ```
 *(Environment variables like `${TEALKIT_API_KEY}` are automatically resolved from `.env` or system environment).*
 
-### `llm.yaml` (Local LLM Configuration)
-Used for direct skill and prompt execution:
+### `llm.yaml` (Multi-LLM Configuration Array)
+Define one or more LLM providers with a default fallback or named model profiles:
 ```yaml
-provider: "openai"                  # openai | claude | gemini | ollama | mistral | openai_compatible
-model: "gpt-4o-mini"
-api_key: "${OPENAI_API_KEY}"
-base_url: ""
+# Global defaults inherited by all models unless overridden
 temperature: 0.2
 max_tokens: 4096
+
+# Multi-model array
+models:
+  - name: "deepseek"
+    provider: "openai_compatible"
+    model: "deepseek-ai/DeepSeek-V3"
+    api_key: "${DEEPSEEK_API_KEY}"
+    base_url: "https://api.deepinfra.com/v1/openai"
+
+  - name: "mistral"
+    provider: "mistral"
+    model: "mistral-medium-latest"
+    api_key: "${MISTRAL_API_KEY}"
+    base_url: "https://api.mistral.ai/v1"
+
+  - name: "openai"
+    provider: "openai"
+    model: "gpt-4o-mini"
+    api_key: "${OPENAI_API_KEY}"
+
+  - name: "ollama"
+    provider: "ollama"
+    model: "qwen2.5-coder:7b"
+    base_url: "http://localhost:11434"
 ```
+*(Single model format with top-level `provider` & `model` is also backward-compatible).*
 
 ### `extern_mcp_tools.yaml` (External MCP Tool Servers)
 Define stdio subprocess tools:
@@ -199,9 +221,15 @@ tealkit chat --skill skills/device_audit.md
 ```
 
 **In-chat slash commands:**
+- `/llm` or `/llm:<name>` — List models or switch active model profile on the fly (e.g. `/llm:deepseek`, `/llm:mistral`)
+- `/uninstall <name>` or `/uninstall all_mcp` — Disconnect external MCP server and purge its local package cache (`uv`/`npm`)
+- `/save-session <file.json|.md>` — Save current conversation transcript and turn history
+- `/load-session <file.json|.md>` — Restore and resume a previous conversation session
+- `/estimated_costs` or `/costs` — View token usage summary and estimated session costs
+- `/session` — Display active model, turn count, and token metrics
 - `/tools` — View connected MCP tools
 - `/system` — View current system prompt
-- `/clear` — Reset conversation history
+- `/clear` or `/clear-session` — Reset conversation history and token metrics
 - `/exit` or `/bye` — Quit session
 
 ---
@@ -213,11 +241,21 @@ Run a terminal coding agent (Claude Code / Roo Code style) capable of autonomous
 # Start coding agent in current repository
 tealkit code
 
+# Start with a specific named LLM model profile from llm.yaml
+tealkit code --llm:deepseek
+tealkit code --llm mistral
+
 # Start in Architect (Planning) mode
 tealkit code --mode architect
 
 # Load custom workspace instructions
 tealkit code --instructions tealkit_agent.md
+
+# Resume a previous coding session from JSON or Markdown
+tealkit code --load-session ./coding-session.json
+
+# Automatically save session upon exit
+tealkit code --save-session ./coding-session.md
 
 # Load custom external MCP servers configuration
 tealkit code --tools mcp.yaml
@@ -233,7 +271,7 @@ tealkit code --tools mcp.yaml
 #### 🧰 Native Pure-Dart Tools (Powered by `dart_mcp_core`)
 - `fs_find`: Fast directory and file search matching wildcard patterns (e.g. `src/*.cs`, `*.csproj`) with `.gitignore` filtering.
 - `fs_list_dir`: Structured directory inspection with file sizes and type tags (`[DIR]`, `[FILE]`).
-- `fs_read_file`: Line-numbered, paginated file viewing to avoid context limits.
+- `fs_read_file`: Line-numbered, paginated file viewing (capped to 800 lines max per read to safeguard LLM context windows).
 - `fs_write_file`: File creation and full overwrite with automatic parent directory generation.
 - `fs_replace_text`: Exact, unique search-and-replace block edits (ideal for small/open models).
 - `fs_create_dir`: Create directory hierarchy (`src/Core/Models`) recursively.
@@ -244,12 +282,18 @@ tealkit code --tools mcp.yaml
 
 #### ⚡ In-Session Slash Commands
 - `/plan`, `/code`, `/ask` — Quickly switch operational modes.
+- `/llm` or `/llm:<name>` — List configured models or switch active LLM profile immediately (e.g. `/llm:deepseek`, `/llm:mistral`, `/llm:openai`).
+- `/uninstall <id>` or `/uninstall all_mcp` — Disconnect MCP servers and purge cached packages (`uv cache clean` / `npm cache clean --force`).
+- `/save-session <path.json|.md>` — Export current conversation history and task state.
+- `/load-session <path.json|.md>` — Import previous conversation and continue work seamlessly.
+- `/estimated_costs` or `/costs` — View prompt, completion, total token usage and estimated USD costs.
+- `/session` — Display active model, turn count, and token usage summary.
 - `/permissions` — Inspect current tool approval requirements (read, write, execute, network).
 - `/auto-approve <on|off>` — Toggle auto-approval on the fly for writes and terminal executions.
 - `/tasks` — Display the current contents of `tasks.md`.
 - `/instructions` — View or reload instructions from `tealkit_agent.md`.
 - `/tools` — List active coding tools.
-- `/clear` — Reset conversation turn history.
+- `/clear` or `/clear-session` — Reset conversation turn history and token cost statistics.
 - `/exit` — Quit coding session.
 
 #### 🛡️ Human-in-the-Loop Permissions

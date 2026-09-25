@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dart_mcp_core/dart_mcp_core.dart';
-import 'package:tealkit_api/tealkit_api.dart';
+import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, ChatRole;
 import 'package:tealkit_cli/tealkit_cli.dart';
 import 'package:test/test.dart';
 
@@ -331,5 +331,252 @@ Follow the instructions carefully.
       expect(perms.isAutoApproved(ToolRiskLevel.network), isTrue);
     });
   });
+
+  group('LlmConfigManager (Multi-LLM & Global Params)', () {
+    late Directory tempDir;
+    late String llmYamlPath;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('llm_test_');
+      llmYamlPath = '${tempDir.path}/llm.yaml';
+    });
+
+    tearDown(() {
+      try {
+        tempDir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    test('parses multi-LLM array and inherits global temperature and max_tokens', () {
+      File(llmYamlPath).writeAsStringSync('''
+temperature: 0.15
+max_tokens: 2048
+
+llms:
+  - name: "ollama"
+    provider: "ollama"
+    model: "llama3"
+    base_url: "http://localhost:11434"
+
+  - name: "deepseek"
+    provider: "openai_compatible"
+    model: "deepseek-ai/DeepSeek-V4.1-Flash"
+    api_key: "test_key"
+    base_url: "https://api.deepinfra.com/v1/openai"
+    temperature: 0.05
+''');
+
+      final profiles = LlmConfigManager.loadAllProfiles(configPath: llmYamlPath);
+      expect(profiles.length, 2);
+
+      // Ollama inherits global params
+      final ollama = profiles.firstWhere((p) => p.name == 'ollama');
+      expect(ollama.config.provider, LlmProvider.ollama);
+      expect(ollama.config.model, 'llama3');
+      expect(ollama.config.temperature, 0.15);
+      expect(ollama.config.maxTokens, 2048);
+
+      // Deepseek overrides temperature
+      final deepseek = profiles.firstWhere((p) => p.name == 'deepseek');
+      expect(deepseek.config.provider, LlmProvider.openaiCompatible);
+      expect(deepseek.config.model, 'deepseek-ai/DeepSeek-V4.1-Flash');
+      expect(deepseek.config.temperature, 0.05);
+      expect(deepseek.config.maxTokens, 2048);
+    });
+
+    test('resolves config by model name or provider', () {
+      File(llmYamlPath).writeAsStringSync('''
+temperature: 0.2
+max_tokens: 4096
+
+llms:
+  - name: "mistral"
+    provider: "mistral"
+    model: "mistral-medium-latest"
+    api_key: "mis_key"
+
+  - name: "openai"
+    provider: "openai"
+    model: "gpt-4o-mini"
+    api_key: "oai_key"
+''');
+
+      final mistralConfig = LlmConfigManager.resolveConfig(nameOrPath: 'mistral', configPath: llmYamlPath);
+      expect(mistralConfig.provider, LlmProvider.mistral);
+      expect(mistralConfig.model, 'mistral-medium-latest');
+
+      final openaiConfig = LlmConfigManager.resolveConfig(nameOrPath: 'openai', configPath: llmYamlPath);
+      expect(openaiConfig.provider, LlmProvider.openai);
+      expect(openaiConfig.model, 'gpt-4o-mini');
+    });
+  });
+
+  group('SessionManager (JSON and Markdown)', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('session_test_');
+    });
+
+    tearDown(() {
+      try {
+        tempDir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
+
+    test('saves and restores JSON session', () async {
+      final jsonPath = '${tempDir.path}/test-session.json';
+      final session = SessionData(
+        id: 'sess_1',
+        title: 'Test Session',
+        mode: 'code',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        llmName: 'deepseek',
+        messages: [
+          ChatMessage(
+            id: 'm1',
+            content: 'How do I start?',
+            role: ChatRole.user,
+            timestamp: DateTime.now(),
+          ),
+          ChatMessage(
+            id: 'm2',
+            content: 'You can run tealkit code.',
+            role: ChatRole.assistant,
+            timestamp: DateTime.now(),
+          ),
+        ],
+      );
+
+      await SessionManager.saveSession(session, jsonPath);
+      expect(File(jsonPath).existsSync(), isTrue);
+
+      final restored = await SessionManager.loadSession(jsonPath);
+      expect(restored.id, 'sess_1');
+      expect(restored.mode, 'code');
+      expect(restored.llmName, 'deepseek');
+      expect(restored.messages.length, 2);
+      expect(restored.messages.first.content, 'How do I start?');
+      expect(restored.messages.last.content, 'You can run tealkit code.');
+    });
+
+    test('saves and restores Markdown session with frontmatter', () async {
+      final mdPath = '${tempDir.path}/test-session.md';
+      final session = SessionData(
+        id: 'sess_md_1',
+        title: 'Markdown Session',
+        mode: 'architect',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        llmName: 'ollama',
+        messages: [
+          ChatMessage(
+            id: 'm1',
+            content: 'Draft the architecture.',
+            role: ChatRole.user,
+            timestamp: DateTime.now(),
+          ),
+          ChatMessage(
+            id: 'm2',
+            content: 'Here is the architectural plan.',
+            role: ChatRole.assistant,
+            timestamp: DateTime.now(),
+          ),
+        ],
+      );
+
+      await SessionManager.saveSession(session, mdPath);
+      expect(File(mdPath).existsSync(), isTrue);
+
+      final content = File(mdPath).readAsStringSync();
+      expect(content, contains('title: "Markdown Session"'));
+      expect(content, contains('### 👤 User'));
+      expect(content, contains('Draft the architecture.'));
+
+      final restored = await SessionManager.loadSession(mdPath);
+      expect(restored.mode, 'architect');
+      expect(restored.llmName, 'ollama');
+      expect(restored.messages.length, 2);
+      expect(restored.messages.first.content, contains('Draft the architecture.'));
+      expect(restored.messages.last.content, contains('Here is the architectural plan.'));
+    });
+  });
+
+  group('McpManagerHelper', () {
+    test('filters servers for uninstall by query and all_mcp', () async {
+      final mcpManager = MultiMCPManager();
+      final servers = [
+        const McpServerConfig(
+          id: 's1',
+          name: 'mcp-server-fetch',
+          url: '',
+          isLocal: true,
+          localType: 'python',
+          localInstallMethod: 'uvx',
+          localPackage: 'mcp-server-fetch',
+        ),
+        const McpServerConfig(
+          id: 's2',
+          name: 'mcp-server-puppeteer',
+          url: '',
+          isLocal: true,
+          localType: 'nodejs',
+          localInstallMethod: 'npx',
+          localPackage: '@modelcontextprotocol/server-puppeteer',
+        ),
+      ];
+
+      // Uninstall single
+      final results1 = await McpManagerHelper.uninstallServers(
+        targetQuery: 'fetch',
+        configuredServers: servers,
+        mcpManager: mcpManager,
+      );
+      expect(results1.length, 1);
+      expect(results1.first.serverName, 'mcp-server-fetch');
+
+      // Uninstall all
+      final resultsAll = await McpManagerHelper.uninstallServers(
+        targetQuery: 'all_mcp',
+        configuredServers: servers,
+        mcpManager: mcpManager,
+      );
+      expect(resultsAll.length, 2);
+    });
+  });
+
+  group('TokenUsageTracker', () {
+    test('accumulates tokens, calculates cost, and resets', () {
+      final tracker = TokenUsageTracker();
+      tracker.recordUsage(prompt: 10000, completion: 2000);
+      tracker.recordUsage(prompt: 5000, completion: 1000);
+
+      expect(tracker.promptTokens, 15000);
+      expect(tracker.completionTokens, 3000);
+      expect(tracker.totalTokens, 18000);
+      expect(tracker.turnsCount, 2);
+
+      const deepseekConfig = LlmConfig(
+        provider: LlmProvider.openaiCompatible,
+        model: 'deepseek-ai/DeepSeek-V4.1-Flash',
+        apiKey: 'key',
+      );
+
+      final cost = tracker.calculateEstimatedCost(deepseekConfig);
+      // (15000/1M * 0.14) + (3000/1M * 0.28) = 0.0021 + 0.00084 = 0.00294
+      expect(cost, closeTo(0.00294, 0.00001));
+
+      final report = tracker.formatReport(deepseekConfig);
+      expect(report, contains('Token Usage & Estimated Cost'));
+      expect(report, contains('18,000'));
+      expect(report, contains('\$0.002940'));
+
+      tracker.reset();
+      expect(tracker.totalTokens, 0);
+      expect(tracker.turnsCount, 0);
+    });
+  });
 }
+
 
