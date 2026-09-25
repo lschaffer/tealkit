@@ -75,8 +75,9 @@ servers:
 Define one or more LLM providers with a default fallback or named model profiles:
 ```yaml
 # Global defaults inherited by all models unless overridden
-temperature: 0.2
-max_tokens: 4096
+temperature: 0.1
+max_tokens: 8192
+max_tool_iterations: 100
 
 # Multi-model array
 models:
@@ -256,6 +257,9 @@ tealkit code --load-session ./coding-session.json
 
 # Automatically save session upon exit
 tealkit code --save-session ./coding-session.md
+
+# Configure tool iteration exploration limit (defaults to 100)
+tealkit code --max-tool-iterations 150
 
 # Load custom external MCP servers configuration
 tealkit code --tools mcp.yaml

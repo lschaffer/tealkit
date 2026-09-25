@@ -2,12 +2,19 @@
 
 This file tracks release changes by version.
 
-## TealKit CLI v1.1.0 & dart_mcp_core Upgrade - Multi-LLM Array, Session Persistence & MCP Management
+## TealKit CLI v1.1.1 & dart_mcp_core Upgrade - Multi-LLM Array, Full Session Trajectory & Configurable Tool Iterations
 
 ### New Features & Enhancements
+- **Configurable Tool Iteration Limit (`max_tool_iterations: 100`)**:
+  - Increased default exploration tool limit from `10` to `100` iterations in `McpAgentEngine`, `LlmConfig`, and `Agent`.
+  - Added support for configuring `max_tool_iterations` globally or per model profile in `llm.yaml`, as well as via the `--max-tool-iterations` (`-t`) CLI flag.
+  - Implemented automatic response synthesis: when the tool limit is reached during deep codebase inspection, the engine now gracefully prompts the model to summarize its findings and generate its complete architecture and implementation plan.
+- **Full Multi-Turn Execution Trajectory Retention**:
+  - `AgentFinalResultEvent` and session persistence now retain all intermediate tool calls, parameters, and tool execution outputs across conversational turns.
+  - Continuing sessions or typing `continue` now preserves full context of previous file reads and directory scans without starting over.
 - **Multi-LLM Configuration Array (`llm.yaml`)**:
-  - Added support for configuring multiple named LLM model profiles under a `models:` array in `llm.yaml` (e.g. `deepseek`, `mistral`, `openai`, `ollama`), while maintaining backward compatibility with single-model configurations.
-  - Configured global root-level fallback parameters (e.g., `temperature`, `max_tokens: 4096`) that are automatically inherited across all profiles unless explicitly overridden.
+  - Added support for configuring multiple named LLM model profiles under an `llms:` / `models:` array in `llm.yaml` (e.g. `deepseek`, `mistral`, `openai`, `ollama`), while maintaining backward compatibility with single-model configurations.
+  - Configured global root-level fallback parameters (`temperature: 0.1`, `max_tokens: 8192`, `max_tool_iterations: 100`) that are automatically inherited across all profiles unless explicitly overridden.
   - Added model switching via CLI arguments (`--llm:<name>`, `--llm <name>`, `--llm-name <name>`) and interactive slash commands (`/llm:<name>`, `/llm <name>`, `/llm` to list available profiles) across both `tealkit chat` and `tealkit code`.
 - **Session Recording, Persistence & Resuming (`.json` / `.md`)**:
   - Implemented session persistence in both JSON (`.json`) and human-readable Markdown (`.md` with YAML frontmatter) formats.
@@ -21,10 +28,10 @@ This file tracks release changes by version.
   - Added `/uninstall <name|id>` and `/uninstall all_mcp` to disconnect MCP servers from active sessions.
   - Automatically executes package cache cleanup (`uv cache clean` for Python / `npm cache clean --force` for Node.js) with non-blocking subprocess timeouts so that uninstalled servers reinstall cleanly on next startup.
 - **`dart_mcp_core` Enhancements & Diagnostic Robustness**:
+  - **Full 10-Tool Suite**: Native coding tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`).
   - **Context-Safe File Reading**: Enhanced `FsReadFileTool` in `CodingTools` with 800-line safety pagination to protect LLM context windows and guide models with line-range pagination instructions.
-  - **Stateful History Resumption**: Added `Agent.initialMessages` allowing `McpAgentEngine` to resume conversations seamlessly.
-  - **Completion Output Limits**: Fixed provider completion limit handling (`max_tokens: 4096` with automatic clamp above 32k) resolving HTTP 400 errors with DeepSeek / Mistral.
-  - **Explicit Error Banners**: Replaced silent execution halts with comprehensive error and diagnostic banners in `code_command.dart` and `chat_command.dart`.
+  - **Empty Response Recovery**: Automatically prompts models if they return empty text following tool completion.
+  - **Completion Output Limits**: Raised default `max_tokens` to `8192` with automatic protection clamping against excessive values.
 
 ## v1.7.1+146 - Modern Flexible Themes (FlexColorScheme 9.0.0) & Vault Server Connection Backup
 

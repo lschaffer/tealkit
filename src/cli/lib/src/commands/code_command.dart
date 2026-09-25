@@ -74,6 +74,11 @@ class CodeCommand extends Command {
       'load-session',
       help: 'File path (.json or .md) to load and continue a previous session',
     );
+    argParser.addOption(
+      'max-tool-iterations',
+      abbr: 't',
+      help: 'Maximum tool calls per step before synthesizing final response (defaults to 100)',
+    );
     argParser.addFlag(
       'verbose',
       abbr: 'v',
@@ -572,6 +577,9 @@ Commands:
         userInstructions: userInstructions,
       );
 
+      final cliMaxToolIterations =
+          int.tryParse(argResults?['max-tool-iterations'] as String? ?? '');
+
       final agent = Agent(
         key: 'code_agent',
         name: 'Coding Assistant',
@@ -582,6 +590,7 @@ Commands:
         localServers: localServers.where((s) => s.isLocal).toList(),
         remoteServers: localServers.where((s) => !s.isLocal).toList(),
         initialMessages: history,
+        maxToolIterations: cliMaxToolIterations,
       );
 
       final engine = McpAgentEngine();
@@ -614,9 +623,13 @@ Commands:
               stdout.writeln('');
             case AgentErrorEvent(:final error):
               stderr.writeln(TerminalPrinter.red('❌ ERROR: $error'));
-            case AgentFinalResultEvent(:final response):
+            case AgentFinalResultEvent(:final response, :final messages):
               if (response.isNotEmpty) {
                 lastAssistantResponse = response;
+              }
+              if (messages.isNotEmpty) {
+                history.clear();
+                history.addAll(messages);
               }
             case AgentUsageEvent(:final promptTokens, :final completionTokens):
               usageTracker.recordUsage(prompt: promptTokens, completion: completionTokens);
@@ -722,23 +735,25 @@ Commands:
       }
 
       if (turnSuccess) {
-        history.add(
-          ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            content: input,
-            role: ChatRole.user,
-            timestamp: DateTime.now(),
-          ),
-        );
-        if (lastAssistantResponse.isNotEmpty) {
+        if (history.isEmpty) {
           history.add(
             ChatMessage(
-              id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
-              content: lastAssistantResponse,
-              role: ChatRole.assistant,
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              content: input,
+              role: ChatRole.user,
               timestamp: DateTime.now(),
             ),
           );
+          if (lastAssistantResponse.isNotEmpty) {
+            history.add(
+              ChatMessage(
+                id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
+                content: lastAssistantResponse,
+                role: ChatRole.assistant,
+                timestamp: DateTime.now(),
+              ),
+            );
+          }
         }
 
         // Auto-save session if path is configured

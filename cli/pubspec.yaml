@@ -13,7 +13,7 @@ dependencies:
   path: ^1.9.0
   tealkit_api:
     path: ../api
-  dart_mcp_core: ^1.1.1
+  dart_mcp_core: ^1.1.2
 
 dev_dependencies:
   lints: ^6.0.0

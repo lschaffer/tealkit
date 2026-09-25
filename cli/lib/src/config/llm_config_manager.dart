@@ -42,11 +42,13 @@ class LlmConfigManager {
 
     // 1. Extract global parameters (defaults for all models)
     final globalTemp = (yaml['temperature'] as num?)?.toDouble() ?? 0.2;
-    var globalMaxTokens = (yaml['max_tokens'] as int?) ?? 4096;
+    var globalMaxTokens = (yaml['max_tokens'] as int?) ?? 8192;
     // Protect against unreasonable max_tokens values that break LLM APIs (e.g. 1000000)
     if (globalMaxTokens > 32768) {
-      globalMaxTokens = 4096;
+      globalMaxTokens = 8192;
     }
+    final globalMaxToolIterations =
+        (yaml['max_tool_iterations'] as int?) ?? (yaml['max_tool_iteration'] as int?) ?? 100;
 
     final globalTopP = (yaml['top_p'] as num?)?.toDouble();
     final globalTopK = yaml['top_k'] as int?;
@@ -76,8 +78,12 @@ class LlmConfigManager {
 
         var itemMaxTokens = (item['max_tokens'] as int?) ?? globalMaxTokens;
         if (itemMaxTokens > 32768) {
-          itemMaxTokens = 4096;
+          itemMaxTokens = 8192;
         }
+
+        final itemMaxToolIterations = (item['max_tool_iterations'] as int?) ??
+            (item['max_tool_iteration'] as int?) ??
+            globalMaxToolIterations;
 
         final config = LlmConfig(
           provider: provider,
@@ -86,6 +92,7 @@ class LlmConfigManager {
           baseUrl: (item['base_url'] as String?) ?? (item['baseUrl'] as String?) ?? '',
           temperature: (item['temperature'] as num?)?.toDouble() ?? globalTemp,
           maxTokens: itemMaxTokens,
+          maxToolIterations: itemMaxToolIterations,
           topP: (item['top_p'] as num?)?.toDouble() ?? globalTopP,
           topK: (item['top_k'] as int?) ?? globalTopK,
           repeatPenalty: (item['repeat_penalty'] as num?)?.toDouble() ?? globalRepeatPenalty,
@@ -121,6 +128,7 @@ class LlmConfigManager {
         baseUrl: (yaml['base_url'] as String?) ?? '',
         temperature: globalTemp,
         maxTokens: globalMaxTokens,
+        maxToolIterations: globalMaxToolIterations,
         topP: globalTopP,
         topK: globalTopK,
         repeatPenalty: globalRepeatPenalty,
