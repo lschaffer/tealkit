@@ -9,6 +9,7 @@ import '../config/env_loader.dart';
 import '../config/global_config.dart';
 import '../config/llm_config_manager.dart';
 import '../formatters/terminal_printer.dart';
+import '../formatters/terminal_spinner.dart';
 
 /// Headless skill and prompt execution engine powered by `dart_mcp_core`.
 class SkillRunner {
@@ -394,42 +395,56 @@ class SkillRunner {
     final engine = McpAgentEngine();
     engine.setAgents([agent]);
 
+    final spinner = TerminalProgress('Thinking...');
+    spinner.start();
+
     try {
       final subscription = engine.agentEvents.listen((event) {
         switch (event) {
           case AgentLogEvent(:final message):
             if (verbose) {
+              spinner.clear();
               stdout.writeln(TerminalPrinter.dim('[engine] $message'));
+              spinner.start('Thinking...');
             }
           case AgentToolResultEvent(
             :final toolName,
             :final parameters,
             :final result,
           ):
+            spinner.clear();
             TerminalPrinter.printToolCall(
               toolName: toolName,
               argumentsJson: _truncate(jsonEncode(parameters), 200),
               result: result,
             );
+            spinner.start('Thinking...');
           case AgentAssistantResultEvent(:final response):
+            spinner.clear();
             stdout.writeln('');
             stdout.writeln(TerminalPrinter.bold('─── Assistant ───'));
             stdout.writeln(response.trim());
             stdout.writeln('');
           case AgentErrorEvent(:final error):
+            spinner.clear();
             stderr.writeln(TerminalPrinter.red('ERROR: $error'));
           case AgentFinalResultEvent():
+            spinner.stop();
+            break;
           case AgentUsageEvent():
             break;
           case AgentTextChunkEvent():
+            spinner.clear();
             break;
         }
       });
 
       await engine.run(agent.key, mcpManager: mcpManager);
+      spinner.stop();
       await Future.delayed(const Duration(milliseconds: 50));
       await subscription.cancel();
     } finally {
+      spinner.stop();
       await engine.dispose();
     }
   }

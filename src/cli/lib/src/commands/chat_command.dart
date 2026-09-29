@@ -10,6 +10,7 @@ import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
 import '../engine/token_usage_tracker.dart';
 import '../formatters/terminal_printer.dart';
+import '../formatters/terminal_spinner.dart';
 
 /// `tealkit chat [--skill <path>]`
 class ChatCommand extends Command {
@@ -398,32 +399,41 @@ Commands:
 
         bool turnSuccess = false;
         String lastAssistantResponse = '';
+        final spinner = TerminalProgress('Thinking...');
+        spinner.start();
 
         try {
           final subscription = engine.agentEvents.listen((event) {
             switch (event) {
               case AgentLogEvent(:final message):
                 if (verbose) {
+                  spinner.clear();
                   stdout.writeln(TerminalPrinter.dim('[log] $message'));
+                  spinner.start('Thinking...');
                 }
               case AgentToolResultEvent(
                 :final toolName,
                 :final parameters,
                 :final result,
               ):
+                spinner.clear();
                 TerminalPrinter.printToolCall(
                   toolName: toolName,
                   argumentsJson: jsonEncode(parameters),
                   result: result,
                 );
+                spinner.start('Thinking...');
               case AgentAssistantResultEvent(:final response):
+                spinner.clear();
                 lastAssistantResponse = response;
                 stdout.writeln('');
                 stdout.writeln(response.trim());
                 stdout.writeln('');
               case AgentErrorEvent(:final error):
+                spinner.clear();
                 stderr.writeln(TerminalPrinter.red('❌ ERROR: $error'));
               case AgentFinalResultEvent(:final response, :final messages):
+                spinner.stop();
                 if (response.isNotEmpty) {
                   lastAssistantResponse = response;
                 }
@@ -434,6 +444,7 @@ Commands:
               case AgentUsageEvent(:final promptTokens, :final completionTokens):
                 usageTracker.recordUsage(prompt: promptTokens, completion: completionTokens);
               case AgentTextChunkEvent():
+                spinner.clear();
                 break;
             }
           });
@@ -442,6 +453,7 @@ Commands:
             await engine.run(agent.key, mcpManager: mcpManager);
             turnSuccess = true;
           } catch (e, stack) {
+            spinner.stop();
             stderr.writeln('');
             stderr.writeln(TerminalPrinter.red('❌ Execution Error during turn:'));
             stderr.writeln(TerminalPrinter.yellow('   $e'));
@@ -462,6 +474,7 @@ Commands:
               );
             }
           } finally {
+            spinner.stop();
             await Future.delayed(const Duration(milliseconds: 50));
             await subscription.cancel();
           }

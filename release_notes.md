@@ -2,6 +2,23 @@
 
 This file tracks release changes by version.
 
+## v1.7.3+149 - Multi-Day Weekly Cron Scheduler, Google Drive SAF Layout & Website Crawl Subpaths
+
+### Bug Fixes & Improvements
+- **Multi-Day & Range Weekly Cron Scheduler Support**:
+  - Resolved an issue in `cron_utils.dart` (both local client and headless server) where multi-day weekly cron expressions (e.g. `0 10 * * 1,4` for Mon, Thu) failed single-integer parsing and incorrectly fell back to running daily at that hour.
+  - Added robust parsing for comma-separated days (`1,4`), day ranges (`1-5`), and standard cron Sunday notations (`0` and `7`).
+  - Added comprehensive test assertions in `server/test/cron_utils_test.dart` to verify multi-day schedules in both client and server modes.
+- **Document Index Folder Chips & Google Drive SAF Handling**:
+  - Fixed horizontal layout overflows in Document Index settings when selecting deeply nested Android SAF directories and Google Drive tree URIs (`content://com.google.android.apps.docs.storage/tree/...`).
+  - Folder chips are now constrained with text truncation (`TextOverflow.ellipsis`) and clean labels (`Google Drive: <Folder>` or directory name).
+  - Tapping a folder chip now opens a full details dialog displaying the complete path with a prominent red **Remove** action button below it.
+  - Document indexing reads Google Drive SAF files via Android ContentResolver input streams in local mode.
+- **Website Crawl Subpath Support & Responsive Chips**:
+  - Enabled website auto-indexing with subpaths (e.g. `pub.dev/packages/trina_grid`, not just root domains like `pub.dev`).
+  - URL chips now format with compact labels (`host/path`), protecting mobile layouts against text clipping.
+  - Tapping a website chip opens an interactive dialog showing the full URL with a red **Remove** button below the URL.
+
 ## TealKit CLI v1.1.1 & dart_mcp_core Upgrade - Multi-LLM Array, Full Session Trajectory & Configurable Tool Iterations
 
 ### New Features & Enhancements

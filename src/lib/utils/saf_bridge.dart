@@ -87,7 +87,7 @@ class SafBridge {
   static String labelFromUri(String uri) {
     if (!isSafUri(uri)) {
       // Real path — return the last segment
-      return uri.split('/').where((s) => s.isNotEmpty).lastOrNull ?? uri;
+      return uri.split(RegExp(r'[\\/]')).where((s) => s.isNotEmpty).lastOrNull ?? uri;
     }
     try {
       final decoded = Uri.decodeFull(uri);
@@ -96,6 +96,18 @@ class SafBridge {
         final rel = treeMatch.group(1) ?? '';
         if (rel.isEmpty) return 'Internal Storage';
         return rel.split('/').where((s) => s.isNotEmpty).lastOrNull ?? rel;
+      }
+      // Check for Google Drive SAF URIs or other document providers
+      final parsed = Uri.tryParse(decoded);
+      if (parsed != null) {
+        final pathSegments = parsed.pathSegments.where((s) => s.isNotEmpty).toList();
+        if (parsed.authority.contains('google.android.apps.docs')) {
+          final lastSeg = pathSegments.isNotEmpty ? pathSegments.last : '';
+          return lastSeg.isNotEmpty ? 'Google Drive: $lastSeg' : 'Google Drive';
+        }
+        if (pathSegments.isNotEmpty) {
+          return pathSegments.last;
+        }
       }
     } catch (_) {}
     return uri;

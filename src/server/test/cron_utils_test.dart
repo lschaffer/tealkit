@@ -100,6 +100,32 @@ void main() {
     expect('0 6 * * 3 → next Wednesday', next, DateTime(2026, 4, 15, 6, 0));
   }
 
+  // Multi-day: Monday and Thursday at 10:00 (0 10 * * 1,4)
+  // ref is Wednesday 2026-04-08 08:30.
+  // Next match should be Thursday 2026-04-09 10:00 (DOW=4), NOT Wednesday daily!
+  {
+    final next = nextCronFire('0 10 * * 1,4', from: ref);
+    expect('0 10 * * 1,4 → Thursday 10:00 (not Wednesday)', next, DateTime(2026, 4, 9, 10, 0));
+  }
+
+  // Multi-day after Thursday: from Thursday 2026-04-09 11:00 → next is Monday 2026-04-13 10:00
+  {
+    final nextThuAfter = nextCronFire('0 10 * * 1,4', from: DateTime(2026, 4, 9, 11, 0));
+    expect('0 10 * * 1,4 from Thu 11:00 → next Monday 10:00', nextThuAfter, DateTime(2026, 4, 13, 10, 0));
+  }
+
+  // Weekdays range (1-5) at 10:00
+  {
+    final next = nextCronFire('0 10 * * 1-5', from: ref);
+    expect('0 10 * * 1-5 → today Wednesday 10:00', next, DateTime(2026, 4, 8, 10, 0));
+  }
+
+  // Sunday as 7 support
+  {
+    final next = nextCronFire('0 10 * * 7', from: ref);
+    expect('0 10 * * 7 → next Sunday', next, DateTime(2026, 4, 12, 10, 0));
+  }
+
   // ── DOM specific ─────────────────────────────────────────────────────
 
   // 15th of every month at 10:00 — ref is 8th → April 15

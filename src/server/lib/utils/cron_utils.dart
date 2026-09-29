@@ -65,12 +65,12 @@ DateTime nextCronFire(String cron, {DateTime? from}) {
 
   // ── DOW-specific: `M H * * D` ────────────────────────────────────────
   if (domPart == '*' && dowPart != '*' && !dowPart.contains('/')) {
-    final targetDow = int.tryParse(dowPart);
-    if (targetDow != null) {
-      var candidate = DateTime(now.year, now.month, now.day, hour, minute);
-      for (var d = 0; d < 8; d++) {
-        final c = candidate.add(Duration(days: d));
-        if (c.isAfter(now) && c.weekday % 7 == targetDow) return c;
+    final targetDows = _parseDowSet(dowPart);
+    if (targetDows.isNotEmpty) {
+      final baseDate = DateTime(now.year, now.month, now.day, hour, minute);
+      for (var d = 0; d < 14; d++) {
+        final c = baseDate.add(Duration(days: d));
+        if (c.isAfter(now) && targetDows.contains(c.weekday % 7)) return c;
       }
     }
   }
@@ -92,4 +92,32 @@ DateTime nextCronFire(String cron, {DateTime? from}) {
   var candidate = DateTime(now.year, now.month, now.day, hour, minute);
   if (!candidate.isAfter(now)) candidate = candidate.add(const Duration(days: 1));
   return candidate;
+}
+
+/// Parses day-of-week cron tokens like `1,4`, `1-5`, `0` or `7` (both Sunday).
+/// Returns a set of integers 0..6 where 0=Sun, 1=Mon, ..., 6=Sat.
+Set<int> _parseDowSet(String dowPart) {
+  final result = <int>{};
+  for (final part in dowPart.split(',')) {
+    final trimmed = part.trim();
+    if (trimmed.isEmpty) continue;
+    if (trimmed.contains('-')) {
+      final sub = trimmed.split('-');
+      if (sub.length == 2) {
+        final start = int.tryParse(sub[0]);
+        final end = int.tryParse(sub[1]);
+        if (start != null && end != null && start <= end) {
+          for (var i = start; i <= end; i++) {
+            result.add(i % 7);
+          }
+        }
+      }
+    } else {
+      final v = int.tryParse(trimmed);
+      if (v != null) {
+        result.add(v % 7);
+      }
+    }
+  }
+  return result;
 }

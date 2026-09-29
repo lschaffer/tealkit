@@ -1437,6 +1437,23 @@ class _DataSourcesSettingsScreenState
         path;
   }
 
+  /// Returns a human-readable shortened label for a website URL (including subpaths).
+  static String _urlLabel(String url) {
+    try {
+      final parsed = Uri.parse(url.contains('://') ? url : 'https://$url');
+      final host = parsed.host;
+      final path = parsed.path.trim();
+      if (path.isEmpty || path == '/') {
+        return host.isNotEmpty ? host : url;
+      }
+      // If path exists, format like 'pub.dev/packages/...'
+      final cleanPath = path.startsWith('/') ? path.substring(1) : path;
+      return '$host/$cleanPath';
+    } catch (_) {
+      return url;
+    }
+  }
+
   Future<void> _docPickFiles() async {
     // Use the user's selected file types; fall back to a broad default.
     final extensions = _documentFileTypes.isNotEmpty
@@ -2978,28 +2995,68 @@ class _DataSourcesSettingsScreenState
                                     spacing: 6,
                                     runSpacing: 4,
                                     children: _websiteIndexUrls.map((url) {
-                                      Uri? parsed;
-                                      try {
-                                        parsed = Uri.parse(
-                                          url.contains('://')
-                                              ? url
-                                              : 'https://$url',
+                                      final label = _urlLabel(url);
+                                      void showUrlDetails() {
+                                        showDialog<void>(
+                                          context: context,
+                                          builder: (dialogCtx) => AlertDialog(
+                                            title: const Row(
+                                              children: [
+                                                Icon(Icons.public, size: 20),
+                                                SizedBox(width: 8),
+                                                Text('Website URL', style: TextStyle(fontSize: 16)),
+                                              ],
+                                            ),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                SelectableText(
+                                                  url,
+                                                  style: const TextStyle(fontSize: 13),
+                                                ),
+                                                const SizedBox(height: 20),
+                                                if (!_websiteIndexing)
+                                                  FilledButton.icon(
+                                                    style: FilledButton.styleFrom(
+                                                      backgroundColor: AppTheme.error,
+                                                      foregroundColor: Colors.white,
+                                                    ),
+                                                    icon: const Icon(Icons.delete_outline, size: 18),
+                                                    label: const Text('Remove'),
+                                                    onPressed: () {
+                                                      Navigator.pop(dialogCtx);
+                                                      setState(() => _websiteIndexUrls.remove(url));
+                                                    },
+                                                  ),
+                                              ],
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(dialogCtx),
+                                                child: const Text('Close'),
+                                              ),
+                                            ],
+                                          ),
                                         );
-                                      } catch (_) {}
-                                      final host =
-                                          parsed?.host.isNotEmpty == true
-                                          ? parsed!.host
-                                          : url;
+                                      }
+
                                       return InputChip(
-                                        label: Text(
-                                          host,
-                                          style: const TextStyle(fontSize: 12),
+                                        label: ConstrainedBox(
+                                          constraints: const BoxConstraints(maxWidth: 200),
+                                          child: Text(
+                                            label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
                                         ),
                                         avatar: const Icon(
                                           Icons.public,
                                           size: 16,
                                         ),
                                         tooltip: url,
+                                        onPressed: showUrlDetails,
                                         deleteIcon: const Icon(
                                           Icons.close,
                                           size: 16,
@@ -3260,118 +3317,114 @@ class _DataSourcesSettingsScreenState
                                     runSpacing: 6,
                                     children: _documentRootPaths.map((p) {
                                       final label = _folderLabel(p);
-                                      return Container(
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerHighest,
-                                          borderRadius: BorderRadius.circular(
-                                            20,
+                                      void showFolderDetails() {
+                                        showDialog<void>(
+                                          context: context,
+                                          builder: (dialogCtx) => AlertDialog(
+                                            title: const Row(
+                                              children: [
+                                                Icon(Icons.folder, size: 20),
+                                                SizedBox(width: 8),
+                                                Text('Folder Path', style: TextStyle(fontSize: 16)),
+                                              ],
+                                            ),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                SelectableText(
+                                                  p,
+                                                  style: const TextStyle(fontSize: 13),
+                                                ),
+                                                const SizedBox(height: 20),
+                                                if (!_documentIndexing)
+                                                  FilledButton.icon(
+                                                    style: FilledButton.styleFrom(
+                                                      backgroundColor: AppTheme.error,
+                                                      foregroundColor: Colors.white,
+                                                    ),
+                                                    icon: const Icon(Icons.delete_outline, size: 18),
+                                                    label: const Text('Remove'),
+                                                    onPressed: () async {
+                                                      Navigator.pop(dialogCtx);
+                                                      final updated = {
+                                                        ..._documentRootPaths,
+                                                      }..remove(p);
+                                                      setState(
+                                                        () => _documentRootPaths = updated,
+                                                      );
+                                                      await widget.service.saveDocumentIndex(
+                                                        rootPaths: updated.join(';'),
+                                                        cron: _documentIndexCron,
+                                                      );
+                                                    },
+                                                  ),
+                                              ],
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(dialogCtx),
+                                                child: const Text('Close'),
+                                              ),
+                                            ],
                                           ),
-                                          border: Border.all(
+                                        );
+                                      }
+
+                                      return InkWell(
+                                        borderRadius: BorderRadius.circular(20),
+                                        onTap: showFolderDetails,
+                                        child: Container(
+                                          constraints: const BoxConstraints(maxWidth: 240),
+                                          decoration: BoxDecoration(
                                             color: Theme.of(
                                               context,
-                                            ).dividerColor,
+                                            ).colorScheme.surfaceContainerHighest,
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: Theme.of(
+                                                context,
+                                              ).dividerColor,
+                                            ),
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // ── Info button (left) ──
-                                            InkWell(
-                                              borderRadius:
-                                                  const BorderRadius.horizontal(
-                                                    left: Radius.circular(20),
-                                                  ),
-                                              onTap: () {
-                                                showDialog<void>(
-                                                  context: context,
-                                                  builder: (dialogCtx) =>
-                                                      AlertDialog(
-                                                        title: const Text(
-                                                          'Full path',
-                                                        ),
-                                                        content: SelectableText(
-                                                          p,
-                                                        ),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () =>
-                                                                Navigator.pop(
-                                                                  dialogCtx,
-                                                                ),
-                                                            child: const Text(
-                                                              'OK',
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                );
-                                              },
-                                              child: const Padding(
-                                                padding: EdgeInsets.fromLTRB(
-                                                  10,
-                                                  6,
-                                                  4,
-                                                  6,
-                                                ),
-                                                child: Icon(
-                                                  Icons.info_outline,
-                                                  size: 14,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.folder, size: 16),
+                                              const SizedBox(width: 6),
+                                              Flexible(
+                                                child: Text(
+                                                  label,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(fontSize: 12),
                                                 ),
                                               ),
-                                            ),
-                                            // ── Folder icon + label ──
-                                            const Icon(Icons.folder, size: 16),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              label,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            // ── Remove button (right) ──
-                                            if (!_documentIndexing)
-                                              InkWell(
-                                                borderRadius:
-                                                    const BorderRadius.horizontal(
-                                                      right: Radius.circular(
-                                                        20,
-                                                      ),
-                                                    ),
-                                                onTap: () async {
-                                                  final updated = {
-                                                    ..._documentRootPaths,
-                                                  }..remove(p);
-                                                  setState(
-                                                    () => _documentRootPaths =
-                                                        updated,
-                                                  );
-                                                  await widget.service
-                                                      .saveDocumentIndex(
-                                                        rootPaths: updated.join(
-                                                          ';',
-                                                        ),
-                                                        cron:
-                                                            _documentIndexCron,
-                                                      );
-                                                },
-                                                child: const Padding(
-                                                  padding: EdgeInsets.fromLTRB(
-                                                    4,
-                                                    6,
-                                                    10,
-                                                    6,
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.close,
-                                                    size: 14,
+                                              if (!_documentIndexing) ...[
+                                                const SizedBox(width: 4),
+                                                InkWell(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  onTap: () async {
+                                                    final updated = {
+                                                      ..._documentRootPaths,
+                                                    }..remove(p);
+                                                    setState(
+                                                      () => _documentRootPaths = updated,
+                                                    );
+                                                    await widget.service.saveDocumentIndex(
+                                                      rootPaths: updated.join(';'),
+                                                      cron: _documentIndexCron,
+                                                    );
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.all(2),
+                                                    child: Icon(Icons.close, size: 14),
                                                   ),
                                                 ),
-                                              )
-                                            else
-                                              const SizedBox(width: 10),
-                                          ],
+                                              ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     }).toList(),
