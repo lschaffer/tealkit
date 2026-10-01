@@ -2,6 +2,16 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.1.2
+
+- **Global Configuration Initialization & `--reinit` Parameter**:
+  - Added automatic detection on first startup if the user's global settings directory (`~/.tealkit/` on Linux/macOS or `%USERPROFILE%\.tealkit` on Windows) exists.
+  - Interactively prompts to create the global configuration directory if not found (`Create global directory for settings at ...? [y/N]`).
+  - Added `--reinit` command-line flag to force reinitializing and re-copying settings into the global `.tealkit` directory.
+  - Automatically copies `.env`, `llm.yaml`, `mcp.yaml`, all other `*.yaml` files, and recursively syncs the `skills/` directory from the installation/working directory into `~/.tealkit/`.
+- **Enhanced .NET Skills**:
+  - Added `dotnet-engineer-skill.md` for end-to-end WinForms modernization, service layer testing, and project upgrades.
+
 ## 1.1.1
 
 - **Configurable Tool Iteration Limit (`max_tool_iterations: 100`)**:

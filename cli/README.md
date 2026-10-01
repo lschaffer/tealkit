@@ -8,6 +8,7 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 
 | Capability | Description |
 |---|---|
+| 📁 **Global Setup & Fallbacks** | Auto-detects and prompts to initialize `~/.tealkit/` settings directory, copies local configs/skills, and supports `--reinit`. |
 | 🌐 **Server Management** | Switch between dev/prod server profiles in `server.yaml` and ping health status. |
 | 🔍 **Auto-Discovery** | Pull remote LLM settings, task definitions, MCP registry, and skills down to local YAML / Markdown files. |
 | 🚀 **Remote Workflow Runner** | Trigger asynchronous workflows/agents, poll execution status, stream execution logs, and download generated artifacts. |
@@ -54,6 +55,15 @@ TealKit resolves configuration files (`server.yaml`, `llm.yaml`, `extern_mcp_too
 1. **Local Directory**: First checks `./<file>` in current working directory.
 2. **Global Fallback Directory**: If not found locally, checks user's home directory (`~/.tealkit/` on Linux/macOS or `%USERPROFILE%\.tealkit` on Windows).
 3. **Environment Variables**: Reads `.env` / system environment variables for API keys and endpoint substitutions.
+
+### 🚀 First-Run Initialization & `--reinit`
+On first startup (or when passing `--reinit`), TealKit checks if the global directory (`~/.tealkit/` or `%USERPROFILE%\.tealkit`) exists:
+- If not found, it prompts: `Create global directory for settings at "~/.tealkit"? [y/N]`
+- When confirmed (`y`), it creates the `.tealkit` directory, copies `.env`, `llm.yaml`, `mcp.yaml`, and all other `*.yaml` files found in the installation/executable directory, and recursively copies the `skills/` directory.
+- You can force reinitializing and re-copying default settings at any time:
+  ```bash
+  tealkit --reinit
+  ```
 
 ### `server.yaml` (Server Profiles)
 Manage one or more TealKit server endpoints:
