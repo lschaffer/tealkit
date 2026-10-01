@@ -47,7 +47,7 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
         'type': 'string',
         'description':
             'Comma-separated seed URLs to index, e.g. "https://example.com/docs, https://mysite.org". '
-            'Maximum 3 websites.',
+            'Maximum 10 websites.',
       },
       'maxPages': {
         'type': 'integer',
@@ -172,8 +172,8 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
     if (seeds.isEmpty) {
       return 'websiteUrls is required (comma-separated list of URLs).';
     }
-    if (seeds.length > 3) {
-      return 'Maximum 3 website URLs are allowed per task.';
+    if (seeds.length > 10) {
+      return 'Maximum 10 website URLs are allowed per task.';
     }
     return null;
   }
@@ -427,7 +427,7 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
       if (visited.contains(normalizedUrl)) continue;
       visited.add(normalizedUrl);
 
-      if (!_isAllowed(item.url, allowedDomains)) continue;
+      if (!_isAllowed(item.url, allowedDomains, seed: item.seed)) continue;
 
       final page = await _fetchPage(item.url);
       if (page == null) {
@@ -850,15 +850,36 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
     return urls;
   }
 
-  bool _isAllowed(Uri url, Set<String> allowedDomains) {
+  bool _isAllowed(Uri url, Set<String> allowedDomains, {Uri? seed}) {
     if (url.scheme != 'http' && url.scheme != 'https') return false;
     final host = url.host.toLowerCase();
-    if (allowedDomains.contains(host)) return true;
-
-    for (final domain in allowedDomains) {
-      if (host.endsWith('.$domain')) return true;
+    var domainAllowed = allowedDomains.contains(host);
+    if (!domainAllowed) {
+      for (final domain in allowedDomains) {
+        if (host.endsWith('.$domain')) {
+          domainAllowed = true;
+          break;
+        }
+      }
     }
-    return false;
+    if (!domainAllowed) return false;
+
+    // If seed specifies a subpath (e.g. /packages/trina_grid), restrict crawling
+    // to pages under that path prefix.
+    if (seed != null) {
+      var seedPath = seed.path.trim();
+      if (seedPath.endsWith('/')) {
+        seedPath = seedPath.substring(0, seedPath.length - 1);
+      }
+      if (seedPath.isNotEmpty && seedPath != '/') {
+        final urlPath = url.path.trim();
+        if (!urlPath.startsWith(seedPath)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   String _normalizeUrl(Uri uri) {
@@ -880,7 +901,17 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
   Future<_FetchedPage?> _fetchPage(Uri url) async {
     try {
       final response = await http
-          .get(url, headers: {'Accept': 'text/html,application/xhtml+xml'})
+          .get(
+            url,
+            headers: {
+              'Accept':
+                  'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9,de;q=0.8',
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            },
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {

@@ -2699,197 +2699,220 @@ RULES (follow strictly):
       if (mcpClient.availableTools.isNotEmpty) {
         final totalTools = mcpClient.availableTools.length;
 
-        // Build semantic query from original user message + most recent tool call context
-        String semanticQuery = lastUserMessage.content;
-        if (_toolIterationCount > 0 && _toolIterationCount <= 2) {
-          final lastToolMessage = chatMessages.lastWhere(
-            (m) =>
-                m.role == ChatRole.tool && m.lastCalledToolName != null,
-            orElse: () => chatMessages.last,
-          );
-          if (lastToolMessage.role == ChatRole.tool &&
-              lastToolMessage.lastCalledToolName != null) {
-            semanticQuery +=
-                '\nLast tool: ${lastToolMessage.lastCalledToolName}';
-            talker.info(
-              '🔄 Enhanced semantic query with last tool: ${lastToolMessage.lastCalledToolName}',
-            );
-          }
-        }
+        // Sub-prompt per-step tool-mode override:
+        // When _subPromptEnabledTools != null, a specific subset (or no tools) was selected.
+        // In that case, bypass LLM prefetch / semantic tool filtering and send the selected tools directly.
+        final enabledTools = _subPromptEnabledTools;
+        final bool isSubsetSelected = enabledTools != null;
 
-  void emitToolPreselectionLog({
-    required String sourceLabel,
-    required int totalCount,
-    required List<MCPTool> selectedTools,
-    int? initialTotalCount,
-  }) {
-    final count = selectedTools.length;
-    final selectedNames = selectedTools.map((t) => t.name).join(', ');
-    final contextInfo = (initialTotalCount != null && initialTotalCount != totalCount)
-        ? ' (from $initialTotalCount total candidate tools)'
-        : '';
-    final summary = count == 0
-        ? '🧠 [Tool Preselection] $sourceLabel evaluated $totalCount tools$contextInfo → 0 tools selected (query requires no tools)'
-        : '🧠 [Tool Preselection] $sourceLabel evaluated $totalCount tools$contextInfo → $count tools selected: [$selectedNames]';
-    talker.info(summary);
-    _addMessage(
-      ChatMessage(
-        id: _uuid.v4(),
-        role: ChatRole.system,
-        actionType: 'tool_preselection',
-        content: summary,
-        timestamp: DateTime.now(),
-      ),
-    );
-  }
-
-        // For small toolsets (<= 20 tools):
-        if (totalTools <= 20) {
-          List<MCPTool> tools = mcpClient.availableTools.toList();
-          // If > 5 tools and 2nd stage LLM tool filtering is enabled, filter down
-          if (llmService.enable2ndStageToolFiltering && totalTools > 5) {
-            final sourceLabel =
-                llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
-            try {
-              talker.info(
-                '🧠 [Stage 2] Running LLM tool selection on $totalTools tools using $sourceLabel...',
-              );
-              tools = await LLMToolSelector.filterTools(
-                query: semanticQuery,
-                candidateTools: tools,
-                llmService: llmService,
-              );
-              emitToolPreselectionLog(
-                sourceLabel: sourceLabel,
-                totalCount: totalTools,
-                selectedTools: tools,
-              );
-            } catch (e) {
-              talker.warning('LLM tool selection failed, using all tools: $e');
-              tools = mcpClient.availableTools.toList();
-            }
-          }
-
-          if (tools.isEmpty) {
-            talker.info('📭 Tool filtering returned 0 tools - query does not require tools');
-            toolsToSend = [];
+        if (isSubsetSelected) {
+          if (enabledTools.isEmpty) {
+            toolsToSend = null;
+            talker.info('[SubPrompt] noTools step — tool calls disabled');
           } else {
-            tools.sort((a, b) => a.name.compareTo(b.name));
-            toolsToSend = tools;
+            final constrained = mcpClient.availableTools
+                .where((t) => enabledTools.contains(t.name))
+                .toList();
+            constrained.sort((a, b) => a.name.compareTo(b.name));
+            toolsToSend = constrained;
             talker.info(
-              'Using ${toolsToSend.length} tools for small toolset (${toolsToSend.map((t) => t.name).join(", ")})',
+              '[SubPrompt] namedTools step — forcing ${toolsToSend.length} tools (${toolsToSend.map((t) => t.name).join(", ")}) — bypassing LLM tool preselection',
             );
           }
         } else {
-          // Large toolsets (> 20 tools): Use Stage 1 semantic router + Stage 2 LLM selector
-          if (_toolRouter == null && !_isInitializingSemanticFiltering) {
-            talker.info(
-              '🚀 First user message detected, initializing semantic filtering...',
+          // All tools are selected.
+          // Build semantic query from original user message + most recent tool call context
+          String semanticQuery = lastUserMessage.content;
+          if (_toolIterationCount > 0 && _toolIterationCount <= 2) {
+            final lastToolMessage = chatMessages.lastWhere(
+              (m) =>
+                  m.role == ChatRole.tool && m.lastCalledToolName != null,
+              orElse: () => chatMessages.last,
             );
-            try {
-              await _initializeToolRouter();
-            } catch (e) {
-              talker.error('Failed to initialize semantic filtering: $e');
+            if (lastToolMessage.role == ChatRole.tool &&
+                lastToolMessage.lastCalledToolName != null) {
+              semanticQuery +=
+                  '\nLast tool: ${lastToolMessage.lastCalledToolName}';
+              talker.info(
+                '🔄 Enhanced semantic query with last tool: ${lastToolMessage.lastCalledToolName}',
+              );
             }
           }
 
-          if (_toolRouter != null) {
-            try {
-              final k = math.max(
-                1,
-                (mcpClient.availableTools.length * 0.6).round(),
-              );
+          void emitToolPreselectionLog({
+            required String sourceLabel,
+            required int totalCount,
+            required List<MCPTool> selectedTools,
+            int? initialTotalCount,
+          }) {
+            final count = selectedTools.length;
+            final selectedNames = selectedTools.map((t) => t.name).join(', ');
+            final contextInfo = (initialTotalCount != null && initialTotalCount != totalCount)
+                ? ' (from $initialTotalCount total candidate tools)'
+                : '';
+            final summary = count == 0
+                ? '🧠 [Tool Preselection] $sourceLabel evaluated $totalCount tools$contextInfo → 0 tools selected (query requires no tools)'
+                : '🧠 [Tool Preselection] $sourceLabel evaluated $totalCount tools$contextInfo → $count tools selected: [$selectedNames]';
+            talker.info(summary);
+            _addMessage(
+              ChatMessage(
+                id: _uuid.v4(),
+                role: ChatRole.system,
+                actionType: 'tool_preselection',
+                content: summary,
+                timestamp: DateTime.now(),
+              ),
+            );
+          }
 
-              talker.info(
-                '🔍 Semantic filtering: Query="${semanticQuery.substring(0, math.min(150, semanticQuery.length))}..."',
-              );
-              final selectedToolDefs = await _toolRouter!.selectTools(
-                semanticQuery,
-                topK: k,
-              );
-              final candidateTools = mcpClient.availableTools
-                  .where(
-                    (tool) =>
-                        selectedToolDefs.any((def) => def.name == tool.name),
-                  )
-                  .toList();
-
-              List<MCPTool> filteredTools = candidateTools;
-
-              // Stage 2: LLM Tool Selector (if enabled and tool count > 5)
-              if (llmService.enable2ndStageToolFiltering && candidateTools.length > 5) {
-                final sourceLabel =
-                    llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
-                talker.info(
-                  '🧠 [Stage 2] Running LLM tool selection on ${candidateTools.length} candidate tools using $sourceLabel...',
-                );
-                filteredTools = await LLMToolSelector.filterTools(
-                  query: semanticQuery,
-                  candidateTools: candidateTools,
-                  llmService: llmService,
-                );
-                emitToolPreselectionLog(
-                  sourceLabel: sourceLabel,
-                  totalCount: candidateTools.length,
-                  initialTotalCount: mcpClient.availableTools.length,
-                  selectedTools: filteredTools,
-                );
-              }
-
-              if (filteredTools.isEmpty && candidateTools.isNotEmpty && !llmService.enable2ndStageToolFiltering) {
-                talker.warning(
-                  'Semantic filtering returned 0 tools; falling back to all available tools',
-                );
-                final allTools = mcpClient.availableTools.toList();
-                allTools.sort((a, b) => a.name.compareTo(b.name));
-                toolsToSend = allTools;
-                talker.info(
-                  'Fallback prompt sent with ${allTools.length} tools',
-                );
-              } else if (filteredTools.isEmpty) {
-                talker.info('📭 Tool filtering returned 0 tools - query does not require tools');
-                toolsToSend = [];
-              } else {
-                filteredTools.sort((a, b) => a.name.compareTo(b.name));
-                toolsToSend = filteredTools;
-                talker.info(
-                  '[ToolFilter] Filter selected ${filteredTools.length} tools (${filteredTools.map((t) => t.name).join(", ")})',
-                );
-              }
-            } catch (e) {
-              talker.warning('Semantic filtering failed, using all tools: $e');
-              final allTools = mcpClient.availableTools.toList();
-              allTools.sort((a, b) => a.name.compareTo(b.name));
-              toolsToSend = allTools;
-            }
-          } else {
-            // Router not ready yet
+          // For small toolsets (<= 20 tools):
+          if (totalTools <= 20) {
             List<MCPTool> tools = mcpClient.availableTools.toList();
-            if (llmService.enable2ndStageToolFiltering && tools.length > 5) {
+            // LLM tool preselection runs only if all tools are selected AND tool count >= 5
+            if (llmService.enable2ndStageToolFiltering && totalTools >= 5) {
               final sourceLabel =
                   llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
               try {
                 talker.info(
-                  '🧠 [Stage 2] Router not ready; running direct LLM tool selection on ${tools.length} available tools using $sourceLabel...',
+                  '🧠 [Stage 2] Running LLM tool selection on $totalTools tools using $sourceLabel...',
                 );
-                final filtered = await LLMToolSelector.filterTools(
+                tools = await LLMToolSelector.filterTools(
                   query: semanticQuery,
                   candidateTools: tools,
                   llmService: llmService,
                 );
                 emitToolPreselectionLog(
                   sourceLabel: sourceLabel,
-                  totalCount: tools.length,
-                  selectedTools: filtered,
+                  totalCount: totalTools,
+                  selectedTools: tools,
                 );
-                tools = filtered;
-              } catch (_) {}
+              } catch (e) {
+                talker.warning('LLM tool selection failed, using all tools: $e');
+                tools = mcpClient.availableTools.toList();
+              }
             }
-            tools.sort((a, b) => a.name.compareTo(b.name));
-            toolsToSend = tools;
-            talker.info(
-              '⏳ Using ${toolsToSend.length} tools (${toolsToSend.map((t) => t.name).join(", ")})',
-            );
+
+            if (tools.isEmpty) {
+              talker.info('📭 Tool filtering returned 0 tools - query does not require tools');
+              toolsToSend = [];
+            } else {
+              tools.sort((a, b) => a.name.compareTo(b.name));
+              toolsToSend = tools;
+              talker.info(
+                'Using ${toolsToSend.length} tools for small toolset (${toolsToSend.map((t) => t.name).join(", ")})',
+              );
+            }
+          } else {
+            // Large toolsets (> 20 tools): Use Stage 1 semantic router + Stage 2 LLM selector
+            if (_toolRouter == null && !_isInitializingSemanticFiltering) {
+              talker.info(
+                '🚀 First user message detected, initializing semantic filtering...',
+              );
+              try {
+                await _initializeToolRouter();
+              } catch (e) {
+                talker.error('Failed to initialize semantic filtering: $e');
+              }
+            }
+
+            if (_toolRouter != null) {
+              try {
+                final k = math.max(
+                  1,
+                  (mcpClient.availableTools.length * 0.6).round(),
+                );
+
+                talker.info(
+                  '🔍 Semantic filtering: Query="${semanticQuery.substring(0, math.min(150, semanticQuery.length))}..."',
+                );
+                final selectedToolDefs = await _toolRouter!.selectTools(
+                  semanticQuery,
+                  topK: k,
+                );
+                final candidateTools = mcpClient.availableTools
+                    .where(
+                      (tool) =>
+                          selectedToolDefs.any((def) => def.name == tool.name),
+                    )
+                    .toList();
+
+                List<MCPTool> filteredTools = candidateTools;
+
+                // Stage 2: LLM Tool Selector (if enabled and tool count >= 5)
+                if (llmService.enable2ndStageToolFiltering && candidateTools.length >= 5) {
+                  final sourceLabel =
+                      llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
+                  talker.info(
+                    '🧠 [Stage 2] Running LLM tool selection on ${candidateTools.length} candidate tools using $sourceLabel...',
+                  );
+                  filteredTools = await LLMToolSelector.filterTools(
+                    query: semanticQuery,
+                    candidateTools: candidateTools,
+                    llmService: llmService,
+                  );
+                  emitToolPreselectionLog(
+                    sourceLabel: sourceLabel,
+                    totalCount: candidateTools.length,
+                    initialTotalCount: mcpClient.availableTools.length,
+                    selectedTools: filteredTools,
+                  );
+                }
+
+                if (filteredTools.isEmpty && candidateTools.isNotEmpty && !llmService.enable2ndStageToolFiltering) {
+                  talker.warning(
+                    'Semantic filtering returned 0 tools; falling back to all available tools',
+                  );
+                  final allTools = mcpClient.availableTools.toList();
+                  allTools.sort((a, b) => a.name.compareTo(b.name));
+                  toolsToSend = allTools;
+                  talker.info(
+                    'Fallback prompt sent with ${allTools.length} tools',
+                  );
+                } else if (filteredTools.isEmpty) {
+                  talker.info('📭 Tool filtering returned 0 tools - query does not require tools');
+                  toolsToSend = [];
+                } else {
+                  filteredTools.sort((a, b) => a.name.compareTo(b.name));
+                  toolsToSend = filteredTools;
+                  talker.info(
+                    '[ToolFilter] Filter selected ${filteredTools.length} tools (${filteredTools.map((t) => t.name).join(", ")})',
+                  );
+                }
+              } catch (e) {
+                talker.warning('Semantic filtering failed, using all tools: $e');
+                final allTools = mcpClient.availableTools.toList();
+                allTools.sort((a, b) => a.name.compareTo(b.name));
+                toolsToSend = allTools;
+              }
+            } else {
+              // Router not ready yet
+              List<MCPTool> tools = mcpClient.availableTools.toList();
+              if (llmService.enable2ndStageToolFiltering && tools.length >= 5) {
+                final sourceLabel =
+                    llmService.toolFilteringLlmSource == 'llm2' ? 'LLM 2' : 'LLM 1';
+                try {
+                  talker.info(
+                    '🧠 [Stage 2] Router not ready; running direct LLM tool selection on ${tools.length} available tools using $sourceLabel...',
+                  );
+                  final filtered = await LLMToolSelector.filterTools(
+                    query: semanticQuery,
+                    candidateTools: tools,
+                    llmService: llmService,
+                  );
+                  emitToolPreselectionLog(
+                    sourceLabel: sourceLabel,
+                    totalCount: tools.length,
+                    selectedTools: filtered,
+                  );
+                  tools = filtered;
+                } catch (_) {}
+              }
+              tools.sort((a, b) => a.name.compareTo(b.name));
+              toolsToSend = tools;
+              talker.info(
+                '⏳ Using ${toolsToSend.length} tools (${toolsToSend.map((t) => t.name).join(", ")})',
+              );
+            }
           }
         }
       } else {
@@ -2903,26 +2926,6 @@ RULES (follow strictly):
     if (forceNoToolCallsThisTurn) {
       toolsToSend = null;
       talker.info('🔒 Tools disabled for this turn (forced final response)');
-    }
-
-    // Sub-prompt per-step tool-mode override.
-    // For named-tools steps, this is authoritative: bypass semantic filtering
-    // output and send exactly the selected tool set (if available).
-    final enabledTools = _subPromptEnabledTools;
-    if (enabledTools != null) {
-      if (enabledTools.isEmpty) {
-        toolsToSend = null;
-        talker.info('[SubPrompt] noTools step — tool calls disabled');
-      } else {
-        final constrained = mcpClient.availableTools
-            .where((t) => enabledTools.contains(t.name))
-            .toList();
-        constrained.sort((a, b) => a.name.compareTo(b.name));
-        toolsToSend = constrained;
-        talker.info(
-          '[SubPrompt] namedTools step — forcing ${toolsToSend.length} tools (${toolsToSend.map((t) => t.name).join(", ")})',
-        );
-      }
     }
 
     final outboundToolCount = toolsToSend?.length ?? 0;

@@ -16,6 +16,7 @@ class ServerStatusBanner extends ConsumerWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
+    if (isMobile) return const SizedBox.shrink();
 
     final isConnected = state.isConnected;
     final isLight = state.isLightMode;

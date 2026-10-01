@@ -5821,15 +5821,15 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   int.tryParse(_websiteMaxPagesCtrl.text.trim()) ??
                   100)
               .clamp(1, 1000);
+      const maxUrls = 10;
       final selectedUrls = rawUrls
           .split(',')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
-          .take(3)
+          .take(maxUrls)
           .toList();
       final typedParsed = _normalizeWebsiteUrl(_websiteUrlCtrl.text);
       final typedUrlValid = typedParsed != null;
-      const maxUrls = 10;
       final canAddTypedUrl =
           typedParsed != null &&
           selectedUrls.length < maxUrls &&
@@ -5866,39 +5866,173 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                     spacing: 6,
                     runSpacing: 4,
                     children: selectedUrls.map<Widget>((url) {
-                      Uri? parsed;
-                      try {
-                        parsed = Uri.parse(
-                          url.contains('://') ? url : 'https://$url',
-                        );
-                      } catch (_) {
-                        parsed = null;
+                      String urlLabel(String rawUrl) {
+                        try {
+                          final parsed = Uri.parse(
+                            rawUrl.contains('://')
+                                ? rawUrl
+                                : 'https://$rawUrl',
+                          );
+                          final host = parsed.host;
+                          final path = parsed.path.trim();
+                          if (path.isEmpty || path == '/') {
+                            return host.isNotEmpty ? host : rawUrl;
+                          }
+                          final cleanPath = path.startsWith('/')
+                              ? path.substring(1)
+                              : path;
+                          return '$host/$cleanPath';
+                        } catch (_) {
+                          return rawUrl;
+                        }
                       }
-                      final host = parsed?.host.isNotEmpty == true
-                          ? parsed!.host
-                          : url;
+
+                      void showUrlDetails() {
+                        showDialog<void>(
+                          context: context,
+                          builder: (dialogCtx) => AlertDialog(
+                            title: const Row(
+                              children: [
+                                Icon(Icons.public, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Website URL',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ],
+                            ),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
+                              children: [
+                                SelectableText(
+                                  url,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 20),
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppTheme.error,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Remove'),
+                                  onPressed: () {
+                                    Navigator.pop(dialogCtx);
+                                    final updated =
+                                        List<String>.from(selectedUrls)
+                                          ..remove(url);
+                                    setState(() {
+                                      _mcpInitParams['website_search'] = {
+                                        ...(_mcpInitParams['website_search'] ?? {}),
+                                        'websiteUrls': updated.join(', '),
+                                      };
+                                    });
+                                    _savePersistedWebsiteSearchSettings(
+                                      urls: updated,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogCtx),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final label = urlLabel(url);
                       final isGlobal = _globalWebsiteUrls.contains(url);
                       if (isGlobal) {
                         return Tooltip(
                           message:
                               '$url (configured in Settings → Data Sources)',
-                          child: Chip(
-                            label: Text(
-                              host,
-                              style: const TextStyle(fontSize: 12),
+                          child: ActionChip(
+                            label: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: 200,
+                              ),
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
                             avatar: const Icon(Icons.settings, size: 14),
                             backgroundColor: Theme.of(context)
                                 .colorScheme
                                 .primaryContainer
                                 .withValues(alpha: 0.5),
+                            onPressed: () {
+                              showDialog<void>(
+                                context: context,
+                                builder: (dialogCtx) => AlertDialog(
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.public, size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Website URL',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      SelectableText(
+                                        url,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'Configured in Settings → Data Sources',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(dialogCtx),
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         );
                       }
                       return InputChip(
-                        label: Text(host, style: const TextStyle(fontSize: 12)),
+                        label: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 200),
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
                         avatar: const Icon(Icons.public, size: 16),
                         tooltip: url,
+                        onPressed: showUrlDetails,
                         deleteIcon: const Icon(Icons.close, size: 16),
                         onDeleted: () {
                           final updated = List<String>.from(selectedUrls)

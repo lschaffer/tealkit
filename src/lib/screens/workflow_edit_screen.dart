@@ -68,12 +68,8 @@ class WorkflowEditScreen extends ConsumerStatefulWidget {
 
 class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     with TickerProviderStateMixin {
-  static const String _websiteSeedUrlsPrefsKey = 'playground_website_seed_urls';
-  // Global URLs from Data Sources settings, pre-populated into website_search tool
   static const String _websiteMaxPagesPrefsKey = 'playground_website_max_pages';
 
-  // Website search editor state
-  List<String> _globalWebsiteUrls = [];
   late TextEditingController _websiteUrlCtrl;
 
   // ─── Agents ──────────────────────────────────────
@@ -2107,25 +2103,10 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
   Future<void> _loadPersistedWebsiteSearchForTaskEdit() async {
     try {
-      // Primary source: global URLs from Data Sources settings (shared index).
       final ds = DataSourcesSettingsService.instance;
       if (!ds.isLoaded) await ds.load();
-      final globalUrls = ds.websiteIndexUrls
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      if (mounted) setState(() => _globalWebsiteUrls = globalUrls);
 
-      // Secondary source: extra playground-session URLs.
       final prefs = await SharedPreferences.getInstance();
-      final extraRaw = (prefs.getString(_websiteSeedUrlsPrefsKey) ?? '');
-      final extraUrls = extraRaw
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty && !globalUrls.contains(e))
-          .toList();
-
       final savedMaxPages =
           (prefs.getInt(_websiteMaxPagesPrefsKey) ?? ds.websiteIndexMaxPages)
               .clamp(1, 1000);
@@ -2137,39 +2118,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       final websiteEntry = _internalMcps[websiteIdx];
       final params = Map<String, dynamic>.from(websiteEntry.initParams);
 
-      // Existing task-specific URLs (saved with the task).
-      final existingRaw = (params['websiteUrls'] as String? ?? '').trim();
-      final existingUrls = existingRaw
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      // Merge: global + (existing task-specific or playground extra), deduplicated.
-      final mergedUrls = <String>[...globalUrls];
-      for (final u in (existingUrls.isNotEmpty ? existingUrls : extraUrls)) {
-        if (!mergedUrls.contains(u)) mergedUrls.add(u);
-      }
-
-      var changed = false;
-      if (mergedUrls.isNotEmpty &&
-          params['websiteUrls'] != mergedUrls.join(', ')) {
-        params['websiteUrls'] = mergedUrls.join(', ');
-        changed = true;
-      }
       if (params['maxPages'] == null) {
         params['maxPages'] = savedMaxPages;
-        changed = true;
-      }
-
-      if (!mounted) return;
-      if (globalUrls.isNotEmpty || changed) {
+        if (!mounted) return;
         setState(() {
-          if (changed) {
-            _internalMcps[websiteIdx] = websiteEntry.copyWith(
-              initParams: params,
-            );
-          } else {}
+          _internalMcps[websiteIdx] = websiteEntry.copyWith(
+            initParams: params,
+          );
         });
       }
     } catch (_) {
@@ -5351,60 +5306,125 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   _mcpIcon(info.iconName),
                   color: isAdded ? AppTheme.primaryBlue : Colors.grey,
                 ),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        info.displayName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isAdded ? null : Colors.grey,
-                        ),
-                      ),
-                    ),
-                    if (isAdded) ...[
-                      const SizedBox(width: 4),
-                      Chip(
-                        label: Text(
-                          l.toolsChip(info.toolCount),
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: AppTheme.primaryBlue.withAlpha(25),
-                      ),
-                      const SizedBox(width: 2),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          final server = InternalMcpRegistry().create(
-                            info.type,
-                          );
-                          if (server == null) return;
-                          ToolListExportSheet.show(
-                            context,
-                            serverName: info.displayName,
-                            tools: server.tools
-                                .map(
-                                  (t) => {
-                                    'name': t.name,
-                                    'description': t.description,
-                                    'inputSchema': t.inputSchema,
-                                  },
-                                )
-                                .toList(),
-                          );
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.model_training,
-                            size: 16,
-                            color: AppTheme.primaryBlue,
+                title: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 280;
+                    if (isNarrow && isAdded) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            info.displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isAdded ? null : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Chip(
+                                label: Text(
+                                  l.toolsChip(info.toolCount),
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor:
+                                    AppTheme.primaryBlue.withAlpha(25),
+                              ),
+                              const SizedBox(width: 2),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () {
+                                  final server = InternalMcpRegistry().create(
+                                    info.type,
+                                  );
+                                  if (server == null) return;
+                                  ToolListExportSheet.show(
+                                    context,
+                                    serverName: info.displayName,
+                                    tools: server.tools
+                                        .map(
+                                          (t) => {
+                                            'name': t.name,
+                                            'description': t.description,
+                                            'inputSchema': t.inputSchema,
+                                          },
+                                        )
+                                        .toList(),
+                                  );
+                                },
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.model_training,
+                                    size: 16,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            info.displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isAdded ? null : Colors.grey,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ],
+                        if (isAdded) ...[
+                          const SizedBox(width: 4),
+                          Chip(
+                            label: Text(
+                              l.toolsChip(info.toolCount),
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: AppTheme.primaryBlue.withAlpha(25),
+                          ),
+                          const SizedBox(width: 2),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              final server = InternalMcpRegistry().create(
+                                info.type,
+                              );
+                              if (server == null) return;
+                              ToolListExportSheet.show(
+                                context,
+                                serverName: info.displayName,
+                                tools: server.tools
+                                    .map(
+                                      (t) => {
+                                        'name': t.name,
+                                        'description': t.description,
+                                        'inputSchema': t.inputSchema,
+                                      },
+                                    )
+                                    .toList(),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.model_training,
+                                size: 16,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
                 subtitle: Text(
                   info.description,
@@ -7007,39 +7027,95 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                         spacing: 6,
                         runSpacing: 4,
                         children: selUrls.map<Widget>((url) {
-                          Uri? parsed;
-                          try {
-                            parsed = Uri.parse(
-                              url.contains('://') ? url : 'https://\$url',
-                            );
-                          } catch (_) {}
-                          final host = parsed?.host.isNotEmpty == true
-                              ? parsed!.host
-                              : url;
-                          final isGlobal = _globalWebsiteUrls.contains(url);
-                          if (isGlobal) {
-                            return Tooltip(
-                              message: '\$url (from Settings → Data Sources)',
-                              child: Chip(
-                                label: Text(
-                                  host,
-                                  style: const TextStyle(fontSize: 12),
+                          String urlLabel(String rawUrl) {
+                            try {
+                              final parsed = Uri.parse(
+                                rawUrl.contains('://')
+                                    ? rawUrl
+                                    : 'https://$rawUrl',
+                              );
+                              final host = parsed.host;
+                              final path = parsed.path.trim();
+                              if (path.isEmpty || path == '/') {
+                                return host.isNotEmpty ? host : rawUrl;
+                              }
+                              final cleanPath = path.startsWith('/')
+                                  ? path.substring(1)
+                                  : path;
+                              return '$host/$cleanPath';
+                            } catch (_) {
+                              return rawUrl;
+                            }
+                          }
+
+                          void showUrlDetails() {
+                            showDialog<void>(
+                              context: context,
+                              builder: (dialogCtx) => AlertDialog(
+                                title: const Row(
+                                  children: [
+                                    Icon(Icons.public, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Website URL',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ],
                                 ),
-                                avatar: const Icon(Icons.settings, size: 14),
-                                backgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .primaryContainer
-                                    .withValues(alpha: 0.5),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    SelectableText(
+                                      url,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppTheme.error,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                      ),
+                                      label: const Text('Remove'),
+                                      onPressed: () {
+                                        Navigator.pop(dialogCtx);
+                                        final updated =
+                                            List<String>.from(selUrls)
+                                              ..remove(url);
+                                        saveUrls(updated);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogCtx),
+                                    child: const Text('Close'),
+                                  ),
+                                ],
                               ),
                             );
                           }
+
+                          final label = urlLabel(url);
                           return InputChip(
-                            label: Text(
-                              host,
-                              style: const TextStyle(fontSize: 12),
+                            label: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 200),
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
                             avatar: const Icon(Icons.public, size: 16),
                             tooltip: url,
+                            onPressed: showUrlDetails,
                             deleteIcon: const Icon(Icons.close, size: 16),
                             onDeleted: () {
                               final updated = List<String>.from(selUrls)
@@ -7121,19 +7197,6 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                                 : Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    if (_globalWebsiteUrls.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '${_globalWebsiteUrls.length} site${_globalWebsiteUrls.length == 1 ? '' : 's'} from Settings (locked). Add more above (max $maxUrls).',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),

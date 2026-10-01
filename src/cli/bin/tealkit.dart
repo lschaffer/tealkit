@@ -22,8 +22,18 @@ List<String> _preprocessArgs(List<String> rawArgs) {
 }
 
 Future<void> main(List<String> args) async {
+  final hasReinit = args.contains('--reinit');
+  final cleanedArgs = args.where((a) => a != '--reinit').toList();
+
+  // Check if first-time run or --reinit requested
+  await GlobalConfigLocator.ensureInitialized(forceReinit: hasReinit);
+
+  if (hasReinit && cleanedArgs.isEmpty) {
+    return;
+  }
+
   final runner = buildTealKitCommandRunner();
-  final effectiveArgs = _preprocessArgs(args);
+  final effectiveArgs = _preprocessArgs(cleanedArgs);
 
   try {
     if (effectiveArgs.isEmpty) {

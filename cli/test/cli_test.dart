@@ -565,16 +565,62 @@ llms:
 
       final cost = tracker.calculateEstimatedCost(deepseekConfig);
       // (15000/1M * 0.14) + (3000/1M * 0.28) = 0.0021 + 0.00084 = 0.00294
-      expect(cost, closeTo(0.00294, 0.00001));
+      expect(cost, isNotNull);
+      expect(cost!, closeTo(0.00294, 0.00001));
 
       final report = tracker.formatReport(deepseekConfig);
       expect(report, contains('Token Usage & Estimated Cost'));
+      expect(report, contains('DeepSeek-V4.1-Flash'));
       expect(report, contains('18,000'));
       expect(report, contains('\$0.002940'));
 
       tracker.reset();
       expect(tracker.totalTokens, 0);
       expect(tracker.turnsCount, 0);
+    });
+
+    test('always shows active model and handles unlisted / Qwen / free models correctly', () {
+      final tracker = TokenUsageTracker();
+      tracker.recordUsage(prompt: 1000000, completion: 1000000);
+
+      // 1. Qwen 2.5 72B static pricing
+      const qwenConfig = LlmConfig(
+        provider: LlmProvider.openaiCompatible,
+        model: 'Qwen/Qwen2.5-72B-Instruct',
+        apiKey: 'key',
+      );
+      final qwenCost = tracker.calculateEstimatedCost(qwenConfig);
+      expect(qwenCost, isNotNull);
+      // 1M * 0.35 + 1M * 0.40 = 0.75
+      expect(qwenCost!, closeTo(0.75, 0.001));
+      final qwenReport = tracker.formatReport(qwenConfig, modelDisplayName: 'MyQwen');
+      expect(qwenReport, contains('Active LLM       : MyQwen (${qwenConfig.provider.displayName} / Qwen/Qwen2.5-72B-Instruct)'));
+      expect(qwenReport, contains(r'$0.750000'));
+
+      // 2. Local Ollama model (free)
+      const ollamaConfig = LlmConfig(
+        provider: LlmProvider.ollama,
+        model: 'llama3:8b',
+        apiKey: '',
+      );
+      final ollamaCost = tracker.calculateEstimatedCost(ollamaConfig);
+      expect(ollamaCost, isNotNull);
+      expect(ollamaCost!, 0.0);
+      final ollamaReport = tracker.formatReport(ollamaConfig);
+      expect(ollamaReport, contains('Free (\$0.00)'));
+      expect(ollamaReport, contains(r'$0.000000'));
+
+      // 3. Unlisted / unknown model without public pricing should return null and Not available
+      const unlistedConfig = LlmConfig(
+        provider: LlmProvider.openaiCompatible,
+        model: 'custom-internal-exp-model-v99',
+        apiKey: 'key',
+      );
+      final unlistedCost = tracker.calculateEstimatedCost(unlistedConfig);
+      expect(unlistedCost, isNull);
+      final unlistedReport = tracker.formatReport(unlistedConfig);
+      expect(unlistedReport, contains('Active LLM       : ${unlistedConfig.provider.displayName} / custom-internal-exp-model-v99 (${unlistedConfig.provider.displayName} / custom-internal-exp-model-v99)'));
+      expect(unlistedReport, contains('Not available'));
     });
   });
 }

@@ -20,6 +20,7 @@ import '../services/email_delivery_service.dart';
 import '../services/messaging_delivery_service.dart';
 import '../services/location_service.dart';
 import '../services/server_api_client.dart';
+import '../database/duckdb_service.dart';
 import '../mcp/servers/web_search_mcp_server.dart';
 import '../mcp/servers/google_drive_mcp_server.dart';
 import '../mcp/servers/website_search_mcp_server.dart';
@@ -2000,6 +2001,88 @@ class _DataSourcesSettingsScreenState
     }
   }
 
+  Future<void> _clearWebsiteIndexDb() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Website Index DB?'),
+        content: Text(
+          _isRemote
+              ? 'This will clear all indexed website pages stored in the remote server DuckDB.'
+              : 'This will clear all indexed website pages stored in the local DuckDB.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Clear DB', style: TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      int clearedCount = 0;
+      if (_isRemote) {
+        if (widget.serverClient != null) {
+          final res = await widget.serverClient!.purgeStaleWebsiteIndex();
+          clearedCount = (res['purgedRows'] as int?) ?? 0;
+        }
+      } else {
+        final db = DuckDbService();
+        final beforeRows = await db.query('SELECT COUNT(*) FROM website_index');
+        final beforeCount = beforeRows.isNotEmpty
+            ? int.tryParse(beforeRows.first.first.toString()) ?? 0
+            : 0;
+        await db.execute('DELETE FROM website_index');
+        clearedCount = beforeCount;
+      }
+
+      final urlStr = _websiteIndexUrls.join(', ');
+      final maxPages =
+          (int.tryParse(_websiteIndexMaxPagesCtrl.text.trim()) ?? 100).clamp(
+            1,
+            1000,
+          );
+      await widget.service.saveWebsiteIndex(
+        urls: urlStr,
+        maxPages: maxPages,
+        cron: _websiteIndexCron,
+        lastIndexedAt: null,
+      );
+
+      if (mounted) {
+        setState(() {
+          _websiteIndexLastIndexedAt = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              clearedCount > 0
+                  ? 'Cleared $clearedCount page${clearedCount == 1 ? '' : 's'} from website index DB.'
+                  : 'Website index DB is empty (0 pages).',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to clear website index DB: $e'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   // ═══════════════════════════════════════════════════
   // Clear
   // ═══════════════════════════════════════════════════
@@ -3233,34 +3316,58 @@ class _DataSourcesSettingsScreenState
                                 ],
 
                                 const SizedBox(height: 12),
-                                // ── Index Now button ──
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed:
-                                        (_websiteIndexUrls.isEmpty ||
-                                            _websiteIndexing)
-                                        ? null
-                                        : _doWebsiteIndex,
-                                    icon: _websiteIndexing
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : const Icon(Icons.play_arrow),
-                                    label: Text(
-                                      _websiteIndexing
-                                          ? 'Indexing\u2026'
-                                          : 'Index Now',
+                                // ── Action buttons ──
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: FilledButton.icon(
+                                        onPressed:
+                                            (_websiteIndexUrls.isEmpty ||
+                                                _websiteIndexing)
+                                            ? null
+                                            : _doWebsiteIndex,
+                                        icon: _websiteIndexing
+                                            ? const SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : const Icon(Icons.play_arrow),
+                                        label: Text(
+                                          _websiteIndexing
+                                              ? 'Indexing\u2026'
+                                              : 'Index Now',
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      ),
                                     ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.green,
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: OutlinedButton.icon(
+                                        onPressed: _websiteIndexing
+                                            ? null
+                                            : _clearWebsiteIndexDb,
+                                        icon: Icon(
+                                          Icons.delete_sweep,
+                                          size: 18,
+                                          color: AppTheme.error,
+                                        ),
+                                        label: Text(
+                                          'Clear DB',
+                                          style: TextStyle(
+                                            color: AppTheme.error,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),

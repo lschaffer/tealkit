@@ -398,7 +398,7 @@ class ServerIndexingService {
       if (visited.contains(normalizedUrl)) continue;
       visited.add(normalizedUrl);
 
-      if (!_isAllowed(item.url, allowedDomains)) continue;
+      if (!_isAllowed(item.url, allowedDomains, seed: item.seed)) continue;
 
       _websiteCurrentUrl = normalizedUrl;
 
@@ -803,11 +803,29 @@ class ServerIndexingService {
     return urls;
   }
 
-  bool _isAllowed(Uri url, Set<String> allowedDomains) {
+  bool _isAllowed(Uri url, Set<String> allowedDomains, {Uri? seed}) {
     if (url.scheme != 'http' && url.scheme != 'https') return false;
     final host = url.host.toLowerCase();
-    if (allowedDomains.contains(host)) return true;
-    return allowedDomains.any((d) => host.endsWith('.$d'));
+    var domainAllowed = allowedDomains.contains(host) ||
+        allowedDomains.any((d) => host.endsWith('.$d'));
+    if (!domainAllowed) return false;
+
+    // If seed specifies a subpath (e.g. /packages/trina_grid), restrict crawling
+    // to pages under that path prefix.
+    if (seed != null) {
+      var seedPath = seed.path.trim();
+      if (seedPath.endsWith('/')) {
+        seedPath = seedPath.substring(0, seedPath.length - 1);
+      }
+      if (seedPath.isNotEmpty && seedPath != '/') {
+        final urlPath = url.path.trim();
+        if (!urlPath.startsWith(seedPath)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   String _normalizeUrl(Uri uri) {

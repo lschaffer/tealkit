@@ -257,7 +257,16 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         _provider = s.provider;
         _modelCtrl.text = s.getModelForProvider(_provider);
         _apiKeyCtrl.text = s.getApiKeyForProvider(_provider);
-        _baseUrlCtrl.text = s.getBaseUrlForProvider(_provider);
+        var loadedBaseUrl = s.getBaseUrlForProvider(_provider);
+        if (_provider == LlmProvider.mistral) {
+          if (loadedBaseUrl.isEmpty ||
+              loadedBaseUrl.contains('deepinfra') ||
+              loadedBaseUrl.contains('openai.com') ||
+              loadedBaseUrl.contains('localhost')) {
+            loadedBaseUrl = 'https://api.mistral.ai/v1';
+          }
+        }
+        _baseUrlCtrl.text = loadedBaseUrl;
         _temperatureCtrl.text = s.temperature.toString();
         _maxTokensCtrl.text = s.maxTokens.toString();
         _maxToolOutputSizeCtrl.text = s.maxToolOutputSize.toString();

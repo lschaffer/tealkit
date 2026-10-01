@@ -785,15 +785,28 @@ class LlmSettingsService extends ChangeNotifier {
   }
 
   String getApiKeyForProvider(LlmProvider provider) {
-    if (provider == _provider) return _apiKey;
     final key = _apiKeysByProvider[provider.configKey];
-    return key ?? '';
+    if (key != null && key.isNotEmpty) return key;
+    if (provider == _provider) return _apiKey;
+    return '';
   }
 
   String getBaseUrlForProvider(LlmProvider provider) {
-    if (provider == _provider) return _baseUrl;
     final url = _baseUrlsByProvider[provider.configKey];
-    if (url != null && url.isNotEmpty) return url;
+    if (url != null && url.isNotEmpty) {
+      if (provider == LlmProvider.mistral &&
+          (url.contains('deepinfra') || url.contains('openai.com') || url.contains('localhost'))) {
+        return 'https://api.mistral.ai/v1';
+      }
+      return url;
+    }
+    if (provider == _provider && _baseUrl.isNotEmpty) {
+      if (provider == LlmProvider.mistral &&
+          (_baseUrl.contains('deepinfra') || _baseUrl.contains('openai.com') || _baseUrl.contains('localhost'))) {
+        return 'https://api.mistral.ai/v1';
+      }
+      return _baseUrl;
+    }
     return provider == LlmProvider.mistral ? 'https://api.mistral.ai/v1' : '';
   }
 

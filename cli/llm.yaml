@@ -1,31 +1,36 @@
-# TealKit LLM Configuration
-# Global parameters applied across all configured LLMs
-temperature: 0.1
+# TealKit LLM Configuration Sample
+# Global parameters applied across all models:
+temperature: 0.2
 max_tokens: 8192
-max_tool_iterations: 100
+max_tool_iterations: 150
 
-# Multi-LLM model list (switch with --llm:<name> or /llm:<name>)
+# Supported providers: openai, claude, gemini, ollama, mistral, openai_compatible
 llms:
   - name: "deepseek"
     provider: "openai_compatible"
     model: "deepseek-ai/DeepSeek-V4.1-Flash"
-    api_key: "${OPENAI_API_KEY}"
+    api_key: "${DEEPSEEK_API_KEY}"
     base_url: "https://api.deepinfra.com/v1/openai"
-
-  - name: "mistral"
-    provider: "mistral"
-    model: "mistral-medium-latest"
-    api_key: "${MISTRAL_API_KEY}"
 
   - name: "ollama"
     provider: "ollama"
     model: "llama3"
     base_url: "http://localhost:11434"
 
-  - name: "openai"
-    provider: "openai"
-    model: "gpt-4o-mini"
-    api_key: "${OPENAI_API_KEY}"
+  - name: "mistral"
+    provider: "mistral"
+    model: "mistral-medium-latest"
+    api_key: "${MISTRAL_API_KEY}"
+
+  - name: "hetzner-qwen3.6"
+    model: "Qwen/Qwen3.6-35B-A3B-FP8"
+    api_key: "${HETZNER_API_KEY}"
+    base_url: "https://inference.hetzner.com/api/v1"
+
+  - name: "hetzner-qwen3.8"
+    model: "Qwen3.8-27B"
+    api_key: "${HETZNER_API_KEY}"
+    base_url: "https://inference.hetzner.com/api/v1"
 
   - name: "gemini"
     provider: "gemini"

@@ -159,11 +159,16 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
         list.addAll(fetched);
       } else {
         var resolvedBaseUrl = baseUrl;
-        if (resolvedBaseUrl.isEmpty) {
+        if (provider == LlmProvider.mistral) {
+          if (resolvedBaseUrl.isEmpty ||
+              resolvedBaseUrl.contains('deepinfra') ||
+              resolvedBaseUrl.contains('openai.com') ||
+              resolvedBaseUrl.contains('localhost')) {
+            resolvedBaseUrl = 'https://api.mistral.ai/v1';
+          }
+        } else if (resolvedBaseUrl.isEmpty) {
           if (provider == LlmProvider.openai) {
             resolvedBaseUrl = 'https://api.openai.com/v1';
-          } else if (provider == LlmProvider.mistral) {
-            resolvedBaseUrl = 'https://api.mistral.ai/v1';
           }
         }
         final base = resolvedBaseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -176,7 +181,16 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
             .get(url, headers: headers)
             .timeout(const Duration(seconds: 15));
         if (resp.statusCode < 200 || resp.statusCode >= 300) {
-          throw Exception('HTTP ${resp.statusCode}');
+          String detail = 'HTTP ${resp.statusCode}';
+          try {
+            final errJson = jsonDecode(resp.body);
+            if (errJson is Map && errJson['message'] != null) {
+              detail = 'HTTP ${resp.statusCode}: ${errJson['message']}';
+            } else if (errJson is Map && errJson['detail'] != null) {
+              detail = 'HTTP ${resp.statusCode}: ${errJson['detail']}';
+            }
+          } catch (_) {}
+          throw Exception(detail);
         }
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final fetched = (data['data'] as List<dynamic>? ?? [])
@@ -363,7 +377,10 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
           if (!success) errorMsg = 'HTTP ${resp.statusCode}';
           break;
         case LlmProvider.mistral:
-          final base = baseUrl.isEmpty ? 'https://api.mistral.ai/v1' : baseUrl;
+          var base = baseUrl.isEmpty ? 'https://api.mistral.ai/v1' : baseUrl;
+          if (base.contains('deepinfra') || base.contains('openai.com') || base.contains('localhost')) {
+            base = 'https://api.mistral.ai/v1';
+          }
           final url = Uri.parse('$base/models');
           final resp = await http
               .get(url, headers: {'Authorization': 'Bearer $apiKey'})
@@ -389,7 +406,25 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
               }
             } catch (_) {}
           } else {
-            errorMsg = 'HTTP ${resp.statusCode}';
+            try {
+              final errJson = jsonDecode(resp.body);
+              if (errJson is Map && errJson['message'] != null) {
+                errorMsg = 'HTTP ${resp.statusCode}: ${errJson['message']}';
+              } else if (errJson is Map && errJson['detail'] != null) {
+                errorMsg = 'HTTP ${resp.statusCode}: ${errJson['detail']}';
+              } else if (errJson is Map && errJson['error'] != null) {
+                final err = errJson['error'];
+                errorMsg = err is Map && err['message'] != null
+                    ? 'HTTP ${resp.statusCode}: ${err['message']}'
+                    : 'HTTP ${resp.statusCode}: $err';
+              } else {
+                final text = resp.body.trim();
+                final snippet = text.length > 120 ? '${text.substring(0, 120)}…' : text;
+                errorMsg = 'HTTP ${resp.statusCode}: $snippet';
+              }
+            } catch (_) {
+              errorMsg = 'HTTP ${resp.statusCode}';
+            }
           }
           break;
         case LlmProvider.embedded:
@@ -640,9 +675,17 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                 newProvider == LlmProvider.openaiCompatible ||
                 newProvider == LlmProvider.mistral;
             if (providerNeedsBaseUrl) {
-              final savedBaseUrl = widget.service.getBaseUrlForProvider(
+              var savedBaseUrl = widget.service.getBaseUrlForProvider(
                 newProvider,
               );
+              if (newProvider == LlmProvider.mistral) {
+                if (savedBaseUrl.isEmpty ||
+                    savedBaseUrl.contains('deepinfra') ||
+                    savedBaseUrl.contains('openai.com') ||
+                    savedBaseUrl.contains('localhost')) {
+                  savedBaseUrl = 'https://api.mistral.ai/v1';
+                }
+              }
               widget.baseUrlController.text = savedBaseUrl;
             } else {
               widget.baseUrlController.clear();

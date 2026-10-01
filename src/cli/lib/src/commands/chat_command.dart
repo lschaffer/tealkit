@@ -334,16 +334,20 @@ Commands:
         }
 
         if (input == '/estimated_costs' || input == '/costs' || input == '/cost' || input == '/tokens' || input == '/usage') {
-          stdout.writeln(usageTracker.formatReport(activeLlmConfig, modelDisplayName: activeLlmName));
+          stdout.writeln(await usageTracker.formatReportAsync(activeLlmConfig, modelDisplayName: activeLlmName));
           stdout.writeln('');
           continue;
         }
 
         if (input == '/session') {
+          final rates = await TokenUsageTracker.getRatesAsync(activeLlmConfig);
+          final estCost = usageTracker.calculateEstimatedCost(activeLlmConfig, rates: rates);
+          final costStr = estCost != null ? 'est. \$${estCost.toStringAsFixed(6)}' : 'cost N/A';
+
           stdout.writeln(TerminalPrinter.bold('--- Session Information ---'));
           stdout.writeln('  Active LLM       : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})');
           stdout.writeln('  History Messages : ${conversation.length}');
-          stdout.writeln('  Tokens Tracked   : ${usageTracker.totalTokens} (est. \$${usageTracker.calculateEstimatedCost(activeLlmConfig).toStringAsFixed(6)})');
+          stdout.writeln('  Tokens Tracked   : ${usageTracker.totalTokens} ($costStr)');
           stdout.writeln('  Auto-Save File   : ${autoSavePath ?? "(not set, use /save-session <path>)"}');
           stdout.writeln('---------------------------');
           stdout.writeln('');
