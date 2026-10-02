@@ -95,11 +95,7 @@ Output formatting: default to concise plain text unless the task specifies a spe
   final ServerLlmSettingsService _llmSettings;
   final _uuid = const Uuid();
 
-  ServerTaskRunner({
-    required ServerDatabaseAdapter db,
-    required ServerLlmSettingsService llmSettings,
-  }) : _db = db,
-       _llmSettings = llmSettings;
+  ServerTaskRunner({required this._db, required this._llmSettings});
 
   // ── Public API ───────────────────────────────────────────────
 

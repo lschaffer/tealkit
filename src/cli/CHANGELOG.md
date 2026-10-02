@@ -2,6 +2,19 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.1.4
+
+- **Dynamic Workspace Management (`/workspace`)**:
+  - `/workspace set <directory_name>`: Dynamically sets the active working directory for the session. Rebinds all native file operations (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `terminal_exec`) to the specified base path and updates system prompts and instructions accordingly.
+  - `/workspace`: Displays the current active base workspace directory, startup directory, and default status.
+  - `/workspace clear` / `/workspace reset`: Resets the workspace directory back to the startup path.
+- **Interactive Remote SSH Session Management (`/ssh`)**:
+  - `/ssh connect <user:pwd@host[:port]>` or `<user@host[:port]>`: Overrides `ssh.yaml` in-memory for the current session and connects immediately to the remote server.
+  - `/ssh`: Displays current SSH connection status, remote target host, and available SSH tools.
+  - `/ssh disconnect`: Closes the active SSH connection and clears the session override, safely preserving preconfigured `ssh.yaml`.
+- **Built-in Skill Tool Declarations**:
+  - Added native built-in tools (`create_mermaid_png`, `calculate`, `sum_numbers`, `get_current_time`, `ssh_execute_command`, `ssh_list_directory`, `ssh_read_file`) directly into `cli/skills/` (`coding-agent-skill.md`, `dotnet-engineer-skill.md`, `dotnet-upgrade-skill.md`, `winforms-to-flutter-skill.md`).
+
 ## 1.1.3
 
 - **Fixed MCP Uninstallation Workflow (`/uninstall <name|all_mcp>`)**:

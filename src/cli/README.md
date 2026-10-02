@@ -311,7 +311,12 @@ The CLI provides built-in tools that do not require external subprocesses:
 - **Remote SSH (`ssh.yaml`)**:
   - `ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`, `ssh_download_file`, `ssh_make_directory`, `ssh_remove_directory`, and `ssh_execute_command` for remote server execution and SFTP management.
 
-#### ⚡ In-Session Slash Commands
+- `/workspace` — Show the current active workspace directory.
+- `/workspace set <directory>` — Switch active base workspace directory on the fly (rebinds `fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `terminal_exec` to new target directory).
+- `/workspace clear` or `/workspace reset` — Reset workspace base directory back to initial launch directory.
+- `/ssh` — Display remote SSH connection status, target host, and available SSH tools.
+- `/ssh connect <user:pwd@host[:port]>` — Dynamically connect to a remote host for the active session (in-memory override; preserves preconfigured `ssh.yaml`).
+- `/ssh disconnect` — Disconnect the active remote SSH session and restore default `ssh.yaml` configuration.
 - `/plan`, `/code`, `/ask` — Quickly switch operational modes.
 - `/llm` or `/llm:<name>` — List configured models or switch active LLM profile immediately (e.g. `/llm:deepseek`, `/llm:mistral`, `/llm:openai`).
 - `/uninstall <name|all_mcp>` — Uninstall MCP server package from the filesystem (`npm uninstall -g` / `uv tool uninstall`), disable entry in `mcp.yaml` (`enabled: false`), and disconnect in-memory (does NOT clear package manager caches). Remote servers (`https://...`) are only disabled in `mcp.yaml`.

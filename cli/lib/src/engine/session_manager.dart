@@ -31,31 +31,39 @@ class SessionData {
   });
 
   Map<String, dynamic> toJson() => {
-        'version': version,
-        'id': id,
-        'title': title,
-        'mode': mode,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        if (llmName != null) 'llmName': llmName,
-        if (llmProvider != null) 'llmProvider': llmProvider,
-        if (llmModel != null) 'llmModel': llmModel,
-        'messages': messages.map((m) => m.toJson()).toList(),
-      };
+    'version': version,
+    'id': id,
+    'title': title,
+    'mode': mode,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    if (llmName != null) 'llmName': llmName,
+    if (llmProvider != null) 'llmProvider': llmProvider,
+    if (llmModel != null) 'llmModel': llmModel,
+    'messages': messages.map((m) => m.toJson()).toList(),
+  };
 
   factory SessionData.fromJson(Map<String, dynamic> json) {
     final rawMsgs = (json['messages'] as List?) ?? [];
     return SessionData(
       version: json['version'] as String? ?? '1.0',
-      id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          json['id'] as String? ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       title: json['title'] as String? ?? 'TealKit Session',
       mode: json['mode'] as String? ?? 'code',
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
       llmName: json['llmName'] as String?,
       llmProvider: json['llmProvider'] as String?,
       llmModel: json['llmModel'] as String?,
-      messages: rawMsgs.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>)).toList(),
+      messages: rawMsgs
+          .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -63,7 +71,10 @@ class SessionData {
 /// Helper for exporting, saving, loading, and continuing interactive sessions.
 class SessionManager {
   /// Saves a session to a JSON or Markdown file depending on extension.
-  static Future<File> saveSession(SessionData session, String targetPath) async {
+  static Future<File> saveSession(
+    SessionData session,
+    String targetPath,
+  ) async {
     final file = File(p.normalize(targetPath));
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);
@@ -73,7 +84,9 @@ class SessionManager {
       final mdContent = exportMarkdown(session);
       await file.writeAsString(mdContent);
     } else {
-      final jsonStr = const JsonEncoder.withIndent('  ').convert(session.toJson());
+      final jsonStr = const JsonEncoder.withIndent(
+        '  ',
+      ).convert(session.toJson());
       await file.writeAsString(jsonStr);
     }
     return file;
@@ -108,7 +121,8 @@ class SessionManager {
     buffer.writeln('id: "${session.id}"');
     buffer.writeln('mode: "${session.mode}"');
     if (session.llmName != null) buffer.writeln('llm: "${session.llmName}"');
-    if (session.llmModel != null) buffer.writeln('model: "${session.llmModel}"');
+    if (session.llmModel != null)
+      buffer.writeln('model: "${session.llmModel}"');
     buffer.writeln('created: "${session.createdAt.toIso8601String()}"');
     buffer.writeln('updated: "${session.updatedAt.toIso8601String()}"');
     buffer.writeln('turns: ${session.messages.length}');
@@ -182,11 +196,13 @@ class SessionManager {
       if (text.isNotEmpty) {
         messages.add(
           ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString() + '_' + messages.length.toString(),
+            id: '${DateTime.now().millisecondsSinceEpoch}_${messages.length}',
             content: text,
             role: currentRole,
             toolName: currentToolName,
-            type: currentRole == ChatRole.tool ? MessageType.toolResponse : MessageType.text,
+            type: currentRole == ChatRole.tool
+                ? MessageType.toolResponse
+                : MessageType.text,
             timestamp: currentTs,
           ),
         );
@@ -199,15 +215,21 @@ class SessionManager {
       final line = lines[i];
       final trimmed = line.trim();
 
-      if (trimmed.startsWith('### 👤 User') || trimmed.startsWith('## User') || trimmed == 'User:') {
+      if (trimmed.startsWith('### 👤 User') ||
+          trimmed.startsWith('## User') ||
+          trimmed == 'User:') {
         flushMessage();
         currentRole = ChatRole.user;
         currentTs = _extractTimestamp(line) ?? DateTime.now();
-      } else if (trimmed.startsWith('### 🤖 Assistant') || trimmed.startsWith('## Assistant') || trimmed == 'Assistant:') {
+      } else if (trimmed.startsWith('### 🤖 Assistant') ||
+          trimmed.startsWith('## Assistant') ||
+          trimmed == 'Assistant:') {
         flushMessage();
         currentRole = ChatRole.assistant;
         currentTs = _extractTimestamp(line) ?? DateTime.now();
-      } else if (trimmed.startsWith('### ⚙️ Tool Result') || trimmed.startsWith('## Tool Result') || trimmed.startsWith('### Tool')) {
+      } else if (trimmed.startsWith('### ⚙️ Tool Result') ||
+          trimmed.startsWith('## Tool Result') ||
+          trimmed.startsWith('### Tool')) {
         flushMessage();
         currentRole = ChatRole.tool;
         currentTs = _extractTimestamp(line) ?? DateTime.now();
@@ -222,7 +244,9 @@ class SessionManager {
     }
     flushMessage();
 
-    final title = filePath != null ? p.basenameWithoutExtension(filePath) : 'TealKit Session';
+    final title = filePath != null
+        ? p.basenameWithoutExtension(filePath)
+        : 'TealKit Session';
     return SessionData(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,

@@ -13,6 +13,8 @@ system_prompt: |
   2. Data Grids: data_table_2 for responsive, sortable, paginated desktop tables.
   3. Networking: REST client (dio/http) pointing to default http://localhost:5000 with auth interceptors and model serialization.
   4. Desktop Environments: Initialize both Windows (windows/runner/main.cpp) and Linux (linux/my_application.cc) desktop shells.
+  5. Web Search: Use the built-in `web_search` tool to look up current Flutter/Dart package versions, Riverpod syntax, and desktop platform channels.
+  6. Diagrams: Use `create_mermaid_png` to diagram UI routing, Riverpod dependency graphs, and WinForms-to-Flutter widget mappings.
 
 tools:
   - name: fs_find
@@ -21,6 +23,10 @@ tools:
   - name: fs_write_file
   - name: fs_replace_text
   - name: terminal_exec
+  - name: web_search
+  - name: create_mermaid_png
+  - name: calculate
+  - name: get_current_time
 
 prompts:
   - text: |
@@ -44,22 +50,25 @@ prompts:
          - REST client endpoints and DTO models for http://localhost:5000
          - Multiplatform desktop configuration (Windows & Linux GTK)
       2. Create `tasks.md` with an actionable checklist (`- [ ]`) for phase-by-phase execution.
+      3. Use `web_search` if needed to verify latest pub.dev package APIs.
       
       Analysis Findings:
       ${tool_result}
     enabledToolNames:
       - fs_write_file
       - fs_read_file
+      - web_search
 
   - text: |
       Review `tasks.md` in `C:\projects\thies\dluc\dluc_wins\DlucFlutterUI\` and begin initial Flutter project setup:
       1. Initialize Flutter project for Windows and Linux platforms if not yet initialized.
-      2. Configure `pubspec.yaml` with `flutter_riverpod`, `data_table_2`, `dio`, `window_manager`, and `intl`.
+      2. Configure `pubspec.yaml` with `flutter_riverpod`, `data_table_2`, `dio`, `window_manager`, and `intl` (using `web_search` for compatible pub versions).
       3. Create core directory structure (`lib/core/`, `lib/features/`).
     enabledToolNames:
       - fs_read_file
       - fs_write_file
       - terminal_exec
+      - web_search
 ---
 # WinForms to Flutter Desktop Conversion Skill
 

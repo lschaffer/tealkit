@@ -50,8 +50,14 @@ class BuiltinMcpServers {
   }
 
   // ── SSH Tools ────────────────────────────────────────────────
+  static _SshManager? _sharedSshManager;
+
+  static _SshManager getSharedSshManager({String configPath = 'ssh.yaml'}) {
+    return _sharedSshManager ??= _SshManager(configPath: configPath);
+  }
+
   static List<McpLocalTool> createSshTools({String configPath = 'ssh.yaml'}) {
-    final client = _SshManager(configPath: configPath);
+    final client = getSharedSshManager(configPath: configPath);
     return [
       _SshListDirectoryTool(client),
       _SshReadFileTool(client),
@@ -61,6 +67,37 @@ class BuiltinMcpServers {
       _SshRemoveDirectoryTool(client),
       _SshExecuteCommandTool(client),
     ];
+  }
+
+  /// Sets in-memory SSH connection details for the active session without modifying ssh.yaml.
+  static Future<void> connectSshSession({
+    required String host,
+    int port = 22,
+    required String username,
+    String? password,
+    String? privateKey,
+    String configPath = 'ssh.yaml',
+  }) async {
+    final manager = getSharedSshManager(configPath: configPath);
+    await manager.connectOverride(
+      host: host,
+      port: port,
+      username: username,
+      password: password ?? '',
+      privateKey: privateKey ?? '',
+    );
+  }
+
+  /// Disconnects the active session SSH client and reverts to preconfigured ssh.yaml.
+  static Future<void> disconnectSshSession({String configPath = 'ssh.yaml'}) async {
+    final manager = getSharedSshManager(configPath: configPath);
+    await manager.disconnectOverride();
+  }
+
+  /// Gets current SSH status details.
+  static Map<String, dynamic> getSshStatus({String configPath = 'ssh.yaml'}) {
+    final manager = getSharedSshManager(configPath: configPath);
+    return manager.getStatus();
   }
 
   /// Create all built-in tools configured for the workspace.
@@ -621,10 +658,31 @@ class _SshManager {
   SSHClient? _client;
   SftpClient? _sftp;
 
+  // In-memory session override (does not modify ssh.yaml)
+  Map<String, dynamic>? _sessionOverride;
+
   _SshManager({required this.configPath});
 
-  Future<SSHClient> getClient() async {
-    if (_client != null) return _client!;
+  bool get hasSessionOverride => _sessionOverride != null;
+
+  Map<String, dynamic> getStatus() {
+    final effective = _getEffectiveConfig();
+    return {
+      'hasSessionOverride': hasSessionOverride,
+      'isConnected': _client != null && !_client!.isClosed,
+      'host': effective['host'] ?? '',
+      'port': effective['port'] ?? 22,
+      'username': effective['username'] ?? '',
+      'hasPassword': ((effective['password'] as String?) ?? '').isNotEmpty,
+      'hasPrivateKey': ((effective['privateKey'] as String?) ?? '').isNotEmpty,
+      'configPath': configPath,
+    };
+  }
+
+  Map<String, dynamic> _getEffectiveConfig() {
+    if (_sessionOverride != null) {
+      return Map<String, dynamic>.from(_sessionOverride!);
+    }
 
     String host = '';
     int port = 22;
@@ -654,8 +712,66 @@ class _SshManager {
       privateKey = Platform.environment['SSH_KEY'] ?? '';
     }
 
+    return {
+      'host': host,
+      'port': port,
+      'username': username,
+      'password': password,
+      'privateKey': privateKey,
+    };
+  }
+
+  Future<void> connectOverride({
+    required String host,
+    int port = 22,
+    required String username,
+    required String password,
+    required String privateKey,
+  }) async {
+    // Close existing connection if any
+    await _closeCurrent();
+
+    _sessionOverride = {
+      'host': host,
+      'port': port,
+      'username': username,
+      'password': password,
+      'privateKey': privateKey,
+    };
+
+    // Establish immediately to verify credentials & connectivity
+    await getClient();
+  }
+
+  Future<void> disconnectOverride() async {
+    await _closeCurrent();
+    _sessionOverride = null;
+  }
+
+  Future<void> _closeCurrent() async {
+    try {
+      _sftp?.close();
+    } catch (_) {}
+    _sftp = null;
+
+    try {
+      _client?.close();
+    } catch (_) {}
+    _client = null;
+  }
+
+  Future<SSHClient> getClient() async {
+    if (_client != null && !_client!.isClosed) return _client!;
+
+    final config = _getEffectiveConfig();
+    final host = config['host'] as String? ?? '';
+    final port = config['port'] as int? ?? 22;
+    final username = config['username'] as String? ?? '';
+    final password = config['password'] as String? ?? '';
+    final privateKey = config['privateKey'] as String? ?? '';
+
     if (host.isEmpty || username.isEmpty) {
-      throw StateError('SSH is not configured. Please create "$configPath" with host and username.');
+      throw StateError('SSH is not configured. Please connect with "/ssh connect user:pwd@host" or configure "$configPath".');
     }
 
     final socket = await SSHSocket.connect(host, port).timeout(const Duration(seconds: 15));

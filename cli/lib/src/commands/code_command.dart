@@ -97,6 +97,12 @@ Commands:
   /ask                       Shortcut to switch to ASK mode
   /llm                       List all configured LLM profiles and show active
   /llm <name> or /llm:<name> Switch active LLM profile (e.g. /llm:ollama, /llm deepseek)
+  /workspace                 Show current active workspace directory
+  /workspace set <dir>       Change active workspace directory dynamically
+  /workspace clear, reset    Reset workspace back to original startup directory
+  /ssh                       Show SSH connection status and available remote tools
+  /ssh connect user:pwd@host Connect/override SSH remote host for the active session
+  /ssh disconnect            Disconnect active SSH session (restores ssh.yaml config)
   /uninstall <name|all_mcp>  Uninstall MCP server package from filesystem & disable in mcp.yaml
   /mcp_inspect [server_name] Inspect functions & schemas of enabled MCP servers
   /mcp_enable_fnc <srv> <f1,f2> Whitelist specific tools for an MCP server (temporary until exit/reset)
@@ -153,12 +159,14 @@ Commands:
       }
     }
 
-    final workspaceDir = Directory.current.path;
+    final defaultWorkspaceDir = Directory.current.path;
+    var workspaceDir = defaultWorkspaceDir;
     final permissions = ToolPermissionSettings.load();
 
     // Load workspace custom instructions (tealkit_agent.md, AGENTS.md, or specified)
     String userInstructions = _loadWorkspaceInstructions(
       customInstructionsPath,
+      workspaceDir: workspaceDir,
     );
 
     // 1. Initialize Native Coding Tools & Built-in TealKit Tools (web_search, mermaid, toolbox, ssh)
@@ -377,7 +385,241 @@ Commands:
         continue;
       }
 
-      // ── MCP Uninstall / Remove (/uninstall <name|all_mcp>) ──
+      // ── Workspace Directory Management: /workspace [set <dir>|clear|reset] ──
+      if (input.startsWith('/workspace')) {
+        final parts = input.split(RegExp(r'\s+'));
+        final subCmd = parts.length > 1 ? parts[1].toLowerCase() : '';
+
+        if (subCmd == 'clear' || subCmd == 'reset') {
+          workspaceDir = defaultWorkspaceDir;
+          userInstructions = _loadWorkspaceInstructions(
+            customInstructionsPath,
+            workspaceDir: workspaceDir,
+          );
+          // Rebuild native coding tools bound to reset workspace
+          dartTools.clear();
+          dartTools.addAll(CodingTools.createAll(workingDirectory: workspaceDir));
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+          for (final bEntry in builtinGroups.entries) {
+            final bFilter = activeFilters[bEntry.key.toLowerCase()];
+            if (bFilter != null) {
+              dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+            } else {
+              dartTools.addAll(bEntry.value);
+            }
+          }
+          stdout.writeln(
+            TerminalPrinter.green(
+              '✔ Workspace reset to startup directory: $workspaceDir',
+            ),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        if (subCmd == 'set') {
+          if (parts.length < 3) {
+            stdout.writeln('Usage: /workspace set <directory_path>');
+            stdout.writeln('');
+            continue;
+          }
+          final rawPath = parts.sublist(2).join(' ').trim();
+          // Remove surrounding quotes if supplied
+          var cleanedPath = rawPath;
+          if ((cleanedPath.startsWith('"') && cleanedPath.endsWith('"')) ||
+              (cleanedPath.startsWith("'") && cleanedPath.endsWith("'"))) {
+            cleanedPath = cleanedPath.substring(1, cleanedPath.length - 1);
+          }
+
+          final targetDir = Directory(p.isAbsolute(cleanedPath)
+              ? cleanedPath
+              : p.normalize(p.join(workspaceDir, cleanedPath)));
+
+          if (!targetDir.existsSync()) {
+            try {
+              targetDir.createSync(recursive: true);
+              stdout.writeln(
+                TerminalPrinter.dim('Created directory: ${targetDir.path}'),
+              );
+            } catch (e) {
+              stderr.writeln(TerminalPrinter.red('Directory does not exist and could not be created: $e'));
+              stdout.writeln('');
+              continue;
+            }
+          }
+
+          workspaceDir = p.canonicalize(targetDir.path);
+          userInstructions = _loadWorkspaceInstructions(
+            customInstructionsPath,
+            workspaceDir: workspaceDir,
+          );
+
+          // Rebind native coding tools to new base workspace directory
+          dartTools.clear();
+          dartTools.addAll(CodingTools.createAll(workingDirectory: workspaceDir));
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+          for (final bEntry in builtinGroups.entries) {
+            final bFilter = activeFilters[bEntry.key.toLowerCase()];
+            if (bFilter != null) {
+              dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+            } else {
+              dartTools.addAll(bEntry.value);
+            }
+          }
+
+          stdout.writeln(
+            TerminalPrinter.green(
+              '✔ Workspace base directory switched to: $workspaceDir',
+            ),
+          );
+          stdout.writeln(
+            TerminalPrinter.dim(
+              '  File search, read, write, replace, and terminal execution are now rooted in this directory.',
+            ),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        // Default /workspace -> print current active workspace
+        stdout.writeln(TerminalPrinter.bold('--- Workspace Directory ---'));
+        stdout.writeln('  Active Base Directory : $workspaceDir');
+        stdout.writeln('  Startup Directory     : $defaultWorkspaceDir');
+        stdout.writeln('  Is Default            : ${workspaceDir == defaultWorkspaceDir}');
+        stdout.writeln('---------------------------');
+        stdout.writeln(TerminalPrinter.dim('Commands: /workspace set <path> | /workspace clear | /workspace reset'));
+        stdout.writeln('');
+        continue;
+      }
+
+      // ── Interactive SSH Session Management: /ssh [connect <url>|disconnect] ──
+      if (input.startsWith('/ssh')) {
+        final parts = input.split(RegExp(r'\s+'));
+        final subCmd = parts.length > 1 ? parts[1].toLowerCase() : '';
+
+        if (subCmd == 'disconnect') {
+          try {
+            await BuiltinMcpServers.disconnectSshSession();
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Disconnected active SSH session. Preconfigured ssh.yaml restored.',
+              ),
+            );
+          } catch (e) {
+            stderr.writeln(TerminalPrinter.red('Error disconnecting SSH: $e'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (subCmd == 'connect') {
+          if (parts.length < 3) {
+            stdout.writeln('Usage: /ssh connect user:pwd@host[:port] or user@host[:port]');
+            stdout.writeln('');
+            continue;
+          }
+
+          final connStr = parts.sublist(2).join(' ').trim();
+          // Regex to parse user:pwd@host:port or user@host:port
+          final uriReg = RegExp(
+            r'^(?:(?<user>[^:@\s]+)(?::(?<pwd>[^@\s]+))?@)?(?<host>[^:\s]+)(?::(?<port>\d+))?$',
+          );
+          final match = uriReg.firstMatch(connStr);
+          if (match == null) {
+            stderr.writeln(
+              TerminalPrinter.red(
+                'Invalid connection format. Expected: user:password@host[:port] or user@host[:port]',
+              ),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          final user = match.namedGroup('user') ?? '';
+          final pwd = match.namedGroup('pwd') ?? '';
+          final host = match.namedGroup('host') ?? '';
+          final port = int.tryParse(match.namedGroup('port') ?? '') ?? 22;
+
+          if (host.isEmpty || user.isEmpty) {
+            stderr.writeln(
+              TerminalPrinter.red(
+                'Host and username are required. Example: /ssh connect root:secret@192.168.1.50:22',
+              ),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          stdout.writeln(
+            TerminalPrinter.bold(
+              'Connecting via SSH to $user@$host:$port for this session...',
+            ),
+          );
+          try {
+            await BuiltinMcpServers.connectSshSession(
+              host: host,
+              port: port,
+              username: user,
+              password: pwd,
+            );
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Connected successfully to $user@$host:$port (Session override active).',
+              ),
+            );
+            stdout.writeln(
+              TerminalPrinter.dim(
+                '  Note: Preconfigured ssh.yaml is preserved. Use "/ssh disconnect" to revert.',
+              ),
+            );
+          } catch (e) {
+            stderr.writeln(TerminalPrinter.red('❌ SSH connection failed: $e'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        // Default /ssh -> list SSH features, status, and tools
+        final status = BuiltinMcpServers.getSshStatus();
+        final hasOverride = status['hasSessionOverride'] as bool? ?? false;
+        final isConn = status['isConnected'] as bool? ?? false;
+        final host = status['host'] as String? ?? '';
+        final port = status['port'] ?? 22;
+        final user = status['username'] as String? ?? '';
+        final hasPwd = status['hasPassword'] as bool? ?? false;
+        final hasKey = status['hasPrivateKey'] as bool? ?? false;
+
+        stdout.writeln(TerminalPrinter.bold('--- SSH Feature & Connection Status ---'));
+        stdout.writeln('  Active Target Host  : ${host.isNotEmpty ? "$user@$host:$port" : "(not connected / not configured)"}');
+        stdout.writeln('  Session Override    : ${hasOverride ? TerminalPrinter.yellow("Active (in-memory)") : "None (using ssh.yaml / env)"}');
+        stdout.writeln('  Connected Socket    : ${isConn ? TerminalPrinter.green("Connected") : TerminalPrinter.dim("Idle / Disconnected")}');
+        stdout.writeln('  Authentication      : ${hasPwd ? "Password" : (hasKey ? "Private Key" : "None")}');
+        stdout.writeln('  Config File         : ${status['configPath']}');
+        stdout.writeln('');
+        stdout.writeln(TerminalPrinter.bold('Available SSH Tools:'));
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_execute_command")}: Execute a shell command on remote server');
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_list_directory")}: List remote directory contents');
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_read_file")}: Read remote text file content');
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_upload_file")}: Upload text content to remote file');
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_download_file")}: Download remote file as base64');
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_make_directory")}: Create remote directory (mkdir -p)');
+        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_remove_directory")}: Remove remote empty directory (rmdir)');
+        stdout.writeln('----------------------------------------');
+        stdout.writeln(TerminalPrinter.dim('Usage: /ssh connect user:pwd@host[:port] | /ssh disconnect | /ssh'));
+        stdout.writeln('');
+        continue;
+      }
+
       if (input.startsWith('/uninstall')) {
         final parts = input.split(RegExp(r'\s+'));
         if (parts.length < 2) {
@@ -819,7 +1061,10 @@ Commands:
       }
 
       if (input == '/instructions') {
-        userInstructions = _loadWorkspaceInstructions(customInstructionsPath);
+        userInstructions = _loadWorkspaceInstructions(
+          customInstructionsPath,
+          workspaceDir: workspaceDir,
+        );
         if (userInstructions.isNotEmpty) {
           stdout.writeln(TerminalPrinter.bold('Workspace Instructions:'));
           stdout.writeln(userInstructions);
@@ -1091,13 +1336,17 @@ Commands:
     );
   }
 
-  String _loadWorkspaceInstructions(String? explicitPath) {
+  String _loadWorkspaceInstructions(
+    String? explicitPath, {
+    String? workspaceDir,
+  }) {
     if (explicitPath != null && File(explicitPath).existsSync()) {
       return File(explicitPath).readAsStringSync().trim();
     }
+    final baseDir = workspaceDir ?? Directory.current.path;
     // Check standard files: tealkit_agent.md, AGENTS.md, CLAUDE.md
     for (final filename in ['tealkit_agent.md', 'AGENTS.md', 'CLAUDE.md']) {
-      final file = File(p.join(Directory.current.path, filename));
+      final file = File(p.join(baseDir, filename));
       if (file.existsSync()) {
         return file.readAsStringSync().trim();
       }
@@ -1118,9 +1367,10 @@ Working Directory: $workspaceDir
 
 Operating Principles:
 1. EXPLORE FIRST: Discover project files, frameworks, build systems, and versions using `fs_find` and `fs_read_file`.
-2. SURGICAL EDITS: When modifying existing files, use `fs_replace_text` with unique context blocks instead of rewriting full files whenever possible. Use `fs_write_file` to create new files.
-3. VERIFY WITH TERMINAL: After code changes, execute build and test commands (e.g. `dotnet build`, `dart test`, `npm test`) using `terminal_exec`.
-4. FORMATTING: Use clean markdown, diff blocks, and concise technical explanations.
+2. RESEARCH & WEB SEARCH: When needing documentation, latest library APIs, or troubleshooting errors, use the built-in `web_search` tool (powered by web_search.yaml / DuckDuckGo).
+3. SURGICAL EDITS: When modifying existing files, use `fs_replace_text` with unique context blocks instead of rewriting full files whenever possible. Use `fs_write_file` to create new files.
+4. VERIFY WITH TERMINAL: After code changes, execute build and test commands (e.g. `dotnet build`, `dart test`, `npm test`) using `terminal_exec`.
+5. FORMATTING: Use clean markdown, diff blocks, and concise technical explanations.
 ''');
 
     switch (mode) {
