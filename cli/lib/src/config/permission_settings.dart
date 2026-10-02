@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:yaml/yaml.dart';
+import 'env_loader.dart';
 
 /// Configuration managing human-in-the-loop tool approvals.
 class ToolPermissionSettings {
@@ -44,7 +45,8 @@ class ToolPermissionSettings {
 
     try {
       final raw = file.readAsStringSync();
-      final yaml = loadYaml(raw) as YamlMap?;
+      final substituted = EnvLoader.substitute(raw, file.parent);
+      final yaml = loadYaml(substituted) as YamlMap?;
       if (yaml == null) return ToolPermissionSettings();
 
       return ToolPermissionSettings(

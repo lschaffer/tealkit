@@ -1,5 +1,5 @@
 # TealKit Web Search Configuration
 # Providers: serpapi, serper, duckduckgo, auto
 provider: serpapi
-api_key: $SERP_API_KEY
+api_key: ${SERP_API_KEY}
 max_results: 15

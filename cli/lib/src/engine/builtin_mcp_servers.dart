@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import '../config/env_loader.dart';
 import '../config/global_config.dart';
 
 MCPToolResult _toolResultError(String message) => MCPToolResult(
@@ -164,45 +165,68 @@ class _WebSearchTool extends McpLocalTool {
     // Read web_search.yaml config if present
     String provider = reqProvider ?? 'auto';
     String apiKey = '';
+    int configuredMaxResults = maxResults;
+    bool explicitProviderConfigured = reqProvider != null;
 
     final file = GlobalConfigLocator.resolveConfigFile(configPath);
     if (file.existsSync()) {
       try {
-        final yaml = loadYaml(file.readAsStringSync()) as YamlMap?;
+        final rawContent = file.readAsStringSync();
+        // Interpolate ${VAR} and $VAR using .env / system env
+        final substituted = EnvLoader.substitute(rawContent, file.parent);
+        final yaml = loadYaml(substituted) as YamlMap?;
         if (yaml != null) {
           if (provider == 'auto' && yaml['provider'] != null) {
             provider = yaml['provider'].toString().toLowerCase().trim();
+            explicitProviderConfigured = true;
           }
           if (yaml['api_key'] != null) {
             apiKey = yaml['api_key'].toString().trim();
+          }
+          if (arguments['maxResults'] == null && yaml['max_results'] != null) {
+            final mr = int.tryParse(yaml['max_results'].toString());
+            if (mr != null) configuredMaxResults = mr.clamp(1, 20);
           }
         }
       } catch (_) {}
     }
 
-    // Environment variable fallback
+    final effectiveMaxResults = arguments['maxResults'] != null ? maxResults : configuredMaxResults;
+
+    // Environment variable fallback if not set or left empty
     if (apiKey.isEmpty) {
-      apiKey = Platform.environment['SERPAPI_API_KEY'] ??
+      final dotEnv = EnvLoader.loadDotEnv(file.existsSync() ? file.parent : null);
+      apiKey = dotEnv['SERPAPI_API_KEY'] ??
+          dotEnv['SERP_API_KEY'] ??
+          dotEnv['SERPER_API_KEY'] ??
+          dotEnv['WEB_SEARCH_API_KEY'] ??
+          Platform.environment['SERPAPI_API_KEY'] ??
+          Platform.environment['SERP_API_KEY'] ??
           Platform.environment['SERPER_API_KEY'] ??
           Platform.environment['WEB_SEARCH_API_KEY'] ??
           '';
     }
 
-    // Try SerpApi
+    // ── 1. SerpApi ──
     if (provider == 'serpapi' || (provider == 'auto' && apiKey.isNotEmpty)) {
+      if (apiKey.isEmpty) {
+        return _toolResultError(
+          'SerpApi search provider is configured, but no API key was found in web_search.yaml or .env (expected api_key: \${SERP_API_KEY} or SERPAPI_API_KEY).',
+        );
+      }
       try {
         final uri = Uri.parse('https://serpapi.com/search').replace(queryParameters: {
           'engine': 'google',
           'q': query,
-          'num': '$maxResults',
-          if (apiKey.isNotEmpty) 'api_key': apiKey,
+          'num': '$effectiveMaxResults',
+          'api_key': apiKey,
         });
         final resp = await http.get(uri).timeout(const Duration(seconds: 15));
         if (resp.statusCode == 200) {
           final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           final raw = (data['organic_results'] as List<dynamic>? ?? const [])
               .whereType<Map<String, dynamic>>()
-              .take(maxResults)
+              .take(effectiveMaxResults)
               .map((item) => {
                     'title': item['title']?.toString() ?? '',
                     'url': item['link']?.toString() ?? '',
@@ -216,23 +240,47 @@ class _WebSearchTool extends McpLocalTool {
             'results': raw,
           });
         }
-      } catch (_) {}
+
+        // Handle error responses from SerpApi
+        String errMsg = 'HTTP ${resp.statusCode}';
+        try {
+          final errBody = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          if (errBody['error'] != null) {
+            errMsg = errBody['error'].toString();
+          }
+        } catch (_) {
+          errMsg = resp.body.trim();
+        }
+
+        if (explicitProviderConfigured || provider == 'serpapi') {
+          return _toolResultError('SerpApi error ($errMsg). Please check your API key in .env / web_search.yaml.');
+        }
+      } catch (e) {
+        if (explicitProviderConfigured || provider == 'serpapi') {
+          return _toolResultError('SerpApi request failed: $e');
+        }
+      }
     }
 
-    // Try Serper
-    if (provider == 'serper' || (provider == 'auto' && apiKey.isNotEmpty)) {
+    // ── 2. Serper ──
+    if (provider == 'serper') {
+      if (apiKey.isEmpty) {
+        return _toolResultError(
+          'Serper search provider is configured, but no API key was found in web_search.yaml or .env (expected SERPER_API_KEY).',
+        );
+      }
       try {
         final uri = Uri.parse('https://google.serper.dev/search');
         final resp = await http.post(
           uri,
           headers: {'Content-Type': 'application/json', 'X-API-KEY': apiKey},
-          body: jsonEncode({'q': query, 'num': maxResults}),
+          body: jsonEncode({'q': query, 'num': effectiveMaxResults}),
         ).timeout(const Duration(seconds: 15));
         if (resp.statusCode == 200) {
           final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           final raw = (data['organic'] as List<dynamic>? ?? const [])
               .whereType<Map<String, dynamic>>()
-              .take(maxResults)
+              .take(effectiveMaxResults)
               .map((item) => {
                     'title': item['title']?.toString() ?? '',
                     'url': item['link']?.toString() ?? '',
@@ -246,10 +294,26 @@ class _WebSearchTool extends McpLocalTool {
             'results': raw,
           });
         }
-      } catch (_) {}
+
+        String errMsg = 'HTTP ${resp.statusCode}';
+        try {
+          final errBody = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          if (errBody['message'] != null) {
+            errMsg = errBody['message'].toString();
+          }
+        } catch (_) {}
+
+        return _toolResultError('Serper error ($errMsg). Please check your API key in .env / web_search.yaml.');
+      } catch (e) {
+        return _toolResultError('Serper request failed: $e');
+      }
     }
 
-    // Fallback: DuckDuckGo Instant Answer API
+    // ── 3. DuckDuckGo (Only if explicitly requested or auto with no provider configured) ──
+    if (explicitProviderConfigured && provider != 'duckduckgo' && provider != 'auto') {
+      return _toolResultError('Configured search provider "$provider" failed or key is invalid.');
+    }
+
     try {
       final uri = Uri.parse('https://api.duckduckgo.com/').replace(queryParameters: {
         'q': query,
@@ -270,7 +334,7 @@ class _WebSearchTool extends McpLocalTool {
 
         final related = data['RelatedTopics'] as List<dynamic>? ?? const [];
         for (final topic in related) {
-          if (results.length >= maxResults) break;
+          if (results.length >= effectiveMaxResults) break;
           if (topic is Map<String, dynamic>) {
             final text = (topic['Text'] ?? '').toString();
             final url = (topic['FirstURL'] ?? '').toString();
@@ -693,7 +757,9 @@ class _SshManager {
     final file = GlobalConfigLocator.resolveConfigFile(configPath);
     if (file.existsSync()) {
       try {
-        final yaml = loadYaml(file.readAsStringSync()) as YamlMap?;
+        final raw = file.readAsStringSync();
+        final substituted = EnvLoader.substitute(raw, file.parent);
+        final yaml = loadYaml(substituted) as YamlMap?;
         if (yaml != null) {
           host = (yaml['host'] as String?)?.trim() ?? '';
           port = (yaml['port'] as int?) ?? 22;
