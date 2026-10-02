@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.198
 
 environment:
-  sdk: ^3.8.0
+  sdk: ">=3.12.0 <4.0.0"
 
 dependencies:
   # HTTP server
@@ -37,13 +37,13 @@ dependencies:
   web_socket_channel: ^3.0.2
 
   # LLM providers (same as main app)
-  googleai_dart: ^11.0.0
-  openai_dart: ^8.0.0
-  anthropic_sdk_dart: ^7.0.0
-  ollama_dart: ^2.5.0
+  googleai_dart: ^13.0.0
+  openai_dart: ^10.0.0
+  anthropic_sdk_dart: ^9.0.0
+  ollama_dart: ^4.0.0
 
   # SSH / SFTP
-  dartssh2: ^2.18.0
+  dartssh2: ^4.1.0
     #path: ../third_party/dartssh2
 
   # IMAP email (pure Dart — used by ServerImapMcp)

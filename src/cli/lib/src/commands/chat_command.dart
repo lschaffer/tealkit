@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_mcp_core/dart_mcp_core.dart';
 
 import '../config/llm_config_manager.dart';
+import '../engine/builtin_mcp_servers.dart';
 import '../engine/mcp_manager_helper.dart';
 import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
@@ -65,13 +66,16 @@ class ChatCommand extends Command {
 Commands:
   /llm                       List all configured LLM profiles and show active
   /llm <name> or /llm:<name> Switch active LLM profile (e.g. /llm:ollama, /llm mistral)
-  /uninstall <name|all_mcp>  Uninstall/disconnect MCP server & clean package cache
+  /uninstall <name|all_mcp>  Uninstall MCP server package from filesystem & disable in mcp.yaml
+  /mcp_inspect [server_name] Inspect functions & schemas of enabled MCP servers
+  /mcp_enable_fnc <srv> <f1,f2> Whitelist specific tools for an MCP server (temporary until exit/reset)
+  /mcp_reset_fnc [server]    Reset tool filters and restore all MCP functions
   /save-session [path]       Save session transcript to .json or .md file
   /load-session <path>       Load and continue a saved session from .json or .md
   /clear-session, /clear     Clear conversation history and token statistics
   /estimated_costs, /costs   Display accumulated token usage and estimated API cost
   /session                   Display current session statistics and configuration
-  /tools                     List available MCP tools
+  /tools                     List available MCP and built-in tools
   /system                    Display current system prompt
   /bye, /exit                Quit interactive chat
   /help, /?                  Show this help
@@ -157,6 +161,18 @@ Commands:
     ]);
 
     var mcpManager = await runner.connectMcpServers(localServers);
+
+    // Built-in tools (web_search, mermaid, toolbox, ssh)
+    final builtinTools = BuiltinMcpServers.createAll();
+    final allDartTools = List<McpLocalTool>.from(builtinTools);
+    final dartTools = List<McpLocalTool>.from(builtinTools);
+
+    // Track original tools per server for /mcp_enable_fnc and /mcp_reset_fnc
+    final originalServerTools = <String, List<MCPTool>>{};
+    for (final clientDef in mcpManager.clients) {
+      originalServerTools[clientDef.label.toLowerCase()] = List<MCPTool>.from(clientDef.availableTools);
+    }
+    final activeFilters = <String, Set<String>>{};
 
     stdout.writeln('');
     stdout.writeln('Enter your message (type /exit to quit):');
@@ -260,6 +276,244 @@ Commands:
           continue;
         }
 
+        // ── MCP Inspect: /mcp_inspect [server_name] ──
+        if (input.startsWith('/mcp_inspect')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final serverQuery = parts.length > 1 ? parts[1].trim().toLowerCase() : null;
+
+          stdout.writeln(TerminalPrinter.bold('--- MCP Function & Schema Inspector ---'));
+
+          // 1. External MCP Servers
+          bool foundAny = false;
+          for (final clientDef in mcpManager.clients) {
+            final sName = clientDef.label;
+            if (serverQuery != null &&
+                !sName.toLowerCase().contains(serverQuery) &&
+                !clientDef.name.toLowerCase().contains(serverQuery)) {
+              continue;
+            }
+            foundAny = true;
+            final original = originalServerTools[sName.toLowerCase()] ??
+                originalServerTools[clientDef.name.toLowerCase()] ??
+                clientDef.availableTools;
+            final activeSet = activeFilters[sName.toLowerCase()] ??
+                activeFilters[clientDef.name.toLowerCase()];
+            final filterBadge = activeSet != null
+                ? TerminalPrinter.yellow(' [RESTRICTED: ${activeSet.length}/${original.length} tools visible]')
+                : TerminalPrinter.green(' [ALL ${original.length} tools active]');
+
+            stdout.writeln('\n${TerminalPrinter.bold("● External Server:")} ${TerminalPrinter.cyan(sName)}$filterBadge');
+            final isLocal = clientDef.client is LocalMCPClient;
+            stdout.writeln('  Transport: ${isLocal ? "stdio (${clientDef.url})" : "remote (${clientDef.url})"}');
+
+            for (final tool in original) {
+              final isEnabled = activeSet == null || activeSet.contains(tool.name);
+              final statusIcon = isEnabled ? TerminalPrinter.green('✔') : TerminalPrinter.red('✖ (hidden)');
+              stdout.writeln('  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description ?? "(no description)"}');
+              if (tool.inputSchema != null && (tool.inputSchema as Map).isNotEmpty) {
+                final schemaStr = jsonEncode(tool.inputSchema);
+                final preview = schemaStr.length > 120 ? '${schemaStr.substring(0, 117)}...' : schemaStr;
+                stdout.writeln('      ${TerminalPrinter.dim("Schema: $preview")}');
+              }
+            }
+          }
+
+          // 2. Built-in Tools (web_search, mermaid, toolbox, ssh)
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+
+          for (final entry in builtinGroups.entries) {
+            final bName = entry.key;
+            if (serverQuery != null && !bName.toLowerCase().contains(serverQuery)) {
+              continue;
+            }
+            foundAny = true;
+            final bTools = entry.value;
+            final activeSet = activeFilters[bName.toLowerCase()];
+            final filterBadge = activeSet != null
+                ? TerminalPrinter.yellow(' [RESTRICTED: ${activeSet.length}/${bTools.length} tools visible]')
+                : TerminalPrinter.green(' [ALL ${bTools.length} tools active]');
+
+            stdout.writeln('\n${TerminalPrinter.bold("● Built-in Server:")} ${TerminalPrinter.cyan(bName)}$filterBadge');
+            stdout.writeln('  Integration: Native TealKit Tool');
+
+            for (final tool in bTools) {
+              final isEnabled = activeSet == null || activeSet.contains(tool.name);
+              final statusIcon = isEnabled ? TerminalPrinter.green('✔') : TerminalPrinter.red('✖ (hidden)');
+              stdout.writeln('  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description}');
+              final schemaStr = jsonEncode(tool.inputSchema);
+              final preview = schemaStr.length > 120 ? '${schemaStr.substring(0, 117)}...' : schemaStr;
+              stdout.writeln('      ${TerminalPrinter.dim("Schema: $preview")}');
+            }
+          }
+
+          if (!foundAny) {
+            stdout.writeln('No MCP server or built-in service found matching "$serverQuery".');
+            stdout.writeln(TerminalPrinter.dim('Available: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}'));
+          }
+
+          stdout.writeln('----------------------------------------');
+          stdout.writeln(TerminalPrinter.dim('Tip: Use /mcp_enable_fnc <server> <tool1,tool2> to restrict visible functions.'));
+          stdout.writeln(TerminalPrinter.dim('     Use /mcp_reset_fnc [server] to restore all functions.'));
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── MCP Enable Function: /mcp_enable_fnc <server> <tool1,tool2,...> ──
+        if (input.startsWith('/mcp_enable_fnc') || input.startsWith('/mcp_enable')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 3) {
+            stdout.writeln('Usage: /mcp_enable_fnc <server_name> <func1,func2,...>');
+            stdout.writeln('Example: /mcp_enable_fnc fetch fetch');
+            stdout.writeln('Example: /mcp_enable_fnc toolbox calculate,get_current_time');
+            stdout.writeln('');
+            continue;
+          }
+
+          final serverName = parts[1].trim().toLowerCase();
+          final rawFuncs = parts.sublist(2).join(',').split(',');
+          final allowedTools = rawFuncs.map((f) => f.trim()).where((f) => f.isNotEmpty).toSet();
+
+          bool applied = false;
+
+          // Check external MCP servers
+          for (final clientDef in mcpManager.clients) {
+            final label = clientDef.label.toLowerCase();
+            final idName = clientDef.name.toLowerCase();
+            if (label == serverName || label.contains(serverName) || idName == serverName || idName.contains(serverName)) {
+              final orig = originalServerTools[label] ?? originalServerTools[idName] ?? clientDef.availableTools;
+              final filtered = orig.where((t) => allowedTools.contains(t.name)).toList();
+              if (filtered.isEmpty) {
+                stdout.writeln(TerminalPrinter.yellow('Warning: None of [${allowedTools.join(", ")}] match tools in server "${clientDef.label}".'));
+                stdout.writeln(TerminalPrinter.dim('Available in ${clientDef.label}: ${orig.map((t) => t.name).join(", ")}'));
+              } else {
+                clientDef.cachedTools = filtered;
+                activeFilters[label] = allowedTools;
+                activeFilters[idName] = allowedTools;
+                stdout.writeln(TerminalPrinter.green('✔ Server "${clientDef.label}" restricted to [${filtered.map((t) => t.name).join(", ")}] until /bye or reset.'));
+                applied = true;
+              }
+            }
+          }
+
+          // Check built-in servers (web_search, mermaid, toolbox, ssh)
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+
+          for (final entry in builtinGroups.entries) {
+            final bName = entry.key;
+            if (bName.toLowerCase() == serverName || bName.toLowerCase().contains(serverName)) {
+              final orig = entry.value;
+              final matched = orig.where((t) => allowedTools.contains(t.name)).toList();
+              if (matched.isEmpty) {
+                stdout.writeln(TerminalPrinter.yellow('Warning: None of [${allowedTools.join(", ")}] match tools in built-in "$bName".'));
+                stdout.writeln(TerminalPrinter.dim('Available in $bName: ${orig.map((t) => t.name).join(", ")}'));
+              } else {
+                activeFilters[bName.toLowerCase()] = allowedTools;
+                // Recompute dartTools
+                dartTools.clear();
+                for (final bEntry in builtinGroups.entries) {
+                  final bFilter = activeFilters[bEntry.key.toLowerCase()];
+                  if (bFilter != null) {
+                    dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+                  } else {
+                    dartTools.addAll(bEntry.value);
+                  }
+                }
+                stdout.writeln(TerminalPrinter.green('✔ Built-in "$bName" restricted to [${matched.map((t) => t.name).join(", ")}] until /bye or reset.'));
+                applied = true;
+              }
+            }
+          }
+
+          if (!applied) {
+            stdout.writeln(TerminalPrinter.red('Error: Server "$serverName" not found.'));
+            stdout.writeln(TerminalPrinter.dim('Available servers: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── MCP Reset Functions: /mcp_reset_fnc [server] ──
+        if (input.startsWith('/mcp_reset_fnc') || input.startsWith('/mcp_reset')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final serverQuery = parts.length > 1 ? parts[1].trim().toLowerCase() : null;
+
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+
+          if (serverQuery == null || serverQuery == 'all') {
+            // Reset all external
+            for (final clientDef in mcpManager.clients) {
+              final orig = originalServerTools[clientDef.label.toLowerCase()] ??
+                  originalServerTools[clientDef.name.toLowerCase()];
+              if (orig != null) {
+                clientDef.cachedTools = List<MCPTool>.from(orig);
+              }
+            }
+            activeFilters.clear();
+
+            // Reset all built-in
+            dartTools.clear();
+            dartTools.addAll(allDartTools);
+
+            stdout.writeln(TerminalPrinter.green('✔ All MCP tool filters reset. All tools restored to active visibility.'));
+          } else {
+            bool resetFound = false;
+            // Reset specific external
+            for (final clientDef in mcpManager.clients) {
+              final label = clientDef.label.toLowerCase();
+              final idName = clientDef.name.toLowerCase();
+              if (label == serverQuery || label.contains(serverQuery) || idName == serverQuery || idName.contains(serverQuery)) {
+                final orig = originalServerTools[label] ?? originalServerTools[idName];
+                if (orig != null) {
+                  clientDef.cachedTools = List<MCPTool>.from(orig);
+                }
+                activeFilters.remove(label);
+                activeFilters.remove(idName);
+                stdout.writeln(TerminalPrinter.green('✔ Server "${clientDef.label}" filters reset. All ${orig?.length ?? 0} tools restored.'));
+                resetFound = true;
+              }
+            }
+
+            // Reset specific built-in
+            for (final entry in builtinGroups.entries) {
+              if (entry.key.toLowerCase() == serverQuery || entry.key.toLowerCase().contains(serverQuery)) {
+                activeFilters.remove(entry.key.toLowerCase());
+                dartTools.clear();
+                for (final bEntry in builtinGroups.entries) {
+                  final bFilter = activeFilters[bEntry.key.toLowerCase()];
+                  if (bFilter != null) {
+                    dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+                  } else {
+                    dartTools.addAll(bEntry.value);
+                  }
+                }
+                stdout.writeln(TerminalPrinter.green('✔ Built-in "${entry.key}" filters reset. All ${entry.value.length} tools restored.'));
+                resetFound = true;
+              }
+            }
+
+            if (!resetFound) {
+              stdout.writeln(TerminalPrinter.red('Error: Server "$serverQuery" not found to reset.'));
+            }
+          }
+          stdout.writeln('');
+          continue;
+        }
+
         // ── Session Management: /save-session, /load-session, /clear-session, /session ──
         if (input.startsWith('/save-session') || input.startsWith('/save')) {
           final parts = input.split(RegExp(r'\s+'));
@@ -355,9 +609,20 @@ Commands:
         }
 
         if (input == '/tools') {
+          if (dartTools.isNotEmpty) {
+            stdout.writeln(
+              TerminalPrinter.bold('Built-in TealKit Tools (${dartTools.length}):'),
+            );
+            for (final t in dartTools) {
+              stdout.writeln(
+                '  • ${TerminalPrinter.cyan(t.name)} (${t.riskLevel.name}) — ${t.description}',
+              );
+            }
+            stdout.writeln('');
+          }
           final tools = mcpManager.availableTools;
           if (tools.isEmpty) {
-            stdout.writeln('No MCP tools connected.');
+            stdout.writeln('No external MCP tools connected.');
             stdout.writeln(
               TerminalPrinter.dim(
                 'Tip: Check mcp.yaml or run with "tealkit chat --verbose" for diagnostics.',
@@ -365,11 +630,11 @@ Commands:
             );
           } else {
             stdout.writeln(
-              TerminalPrinter.bold('Available tools (${tools.length}):'),
+              TerminalPrinter.bold('External MCP Tools (${tools.length}):'),
             );
             for (final t in tools) {
               stdout.writeln(
-                '  • ${TerminalPrinter.cyan(t.name)} — ${t.description ?? "(no description)"}',
+                '  • ${TerminalPrinter.green(t.name)} — ${t.description ?? "(no description)"}',
               );
             }
           }
@@ -393,6 +658,7 @@ Commands:
           llmConfig: activeLlmConfig,
           systemPrompt: systemPrompt,
           prompts: [SubPromptStep(text: input)],
+          dartTools: dartTools,
           localServers: [],
           initialMessages: conversation,
           maxToolIterations: cliMaxToolIterations,

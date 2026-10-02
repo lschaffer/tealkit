@@ -10,7 +10,7 @@ servers:
     custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-github"
     env:
       GITHUB_PERSONAL_ACCESS_TOKEN: ""
-    enabled: false
+    enabled: true
 
   - id: "bd774b76-04c6-4e91-8576-d7d95c3bf87a"
     name: "mcp-server-fetch"
@@ -19,7 +19,7 @@ servers:
     local_install_method: "uvx"
     local_package: "mcp-server-fetch"
     custom_launch_command: "uvx mcp-server-fetch"
-    enabled: false
+    enabled: true
 
   - id: "56b11b56-aef2-4759-b3bb-139849f9d093"
     name: "mcp-server-puppeteer"
@@ -28,7 +28,7 @@ servers:
     local_install_method: "npx"
     local_package: "@modelcontextprotocol/server-puppeteer"
     custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-puppeteer"
-    enabled: false
+    enabled: true
 
   - id: "99fa8ce5-299d-4b0f-b7c2-5163b90042a3"
     name: "mcp-server-filesystem"

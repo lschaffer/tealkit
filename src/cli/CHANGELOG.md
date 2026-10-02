@@ -2,6 +2,24 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.1.3
+
+- **Fixed MCP Uninstallation Workflow (`/uninstall <name|all_mcp>`)**:
+  - Uninstalls local MCP packages directly from the filesystem (`npm uninstall -g <pkg>` for Node.js, `uv tool uninstall <pkg>` for Python, or cleaning local `.venv`).
+  - Switched behavior to update `mcp.yaml` by setting `enabled: false` (persisting the server entry rather than destroying it).
+  - For remote servers (`https://...`), files are left untouched and only disabled in `mcp.yaml`.
+  - Disconnects and unregisters the server from the live multi-client MCP manager immediately.
+  - Eliminated disruptive package manager cache purges (`npm cache clean --force` / `uv cache clean` removed).
+- **Dynamic MCP Function Inspection & Filtering**:
+  - `/mcp_inspect [server_name]`: Interactively inspects all available tools, transports, active whitelist states, and JSON schemas for external MCP servers and built-in tools.
+  - `/mcp_enable_fnc <server_name> <fnc1,fnc2,...>`: Temporarily restricts/whitelists the visible functions of a server in-memory for the current session (valid until `/bye`, process exit, or reset).
+  - `/mcp_reset_fnc [server_name]`: Clears all function restrictions and restores tool visibility across one or all MCP servers.
+- **Built-in TealKit MCP Tools**:
+  - `web_search`: Configured via `web_search.yaml` with multi-provider fallback (`serpapi`, `serper`, and free `duckduckgo` Instant Answer).
+  - `create_mermaid_png`: Converts Mermaid diagrams (`flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, etc.) into PNG files via the Kroki API.
+  - `toolbox`: General calculation and metadata utility tools (`get_current_time`, `get_timezone_info`, `calculate`, `sum_numbers`, `geocode_city`).
+  - `ssh`: Configured via `ssh.yaml` (`host`, `port`, `username`, `password`, `private_key`) offering remote execution and SFTP file operations (`ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`, `ssh_download_file`, `ssh_make_directory`, `ssh_remove_directory`, `ssh_execute_command`).
+
 ## 1.1.2
 
 - **Global Configuration Initialization & `--reinit` Parameter**:

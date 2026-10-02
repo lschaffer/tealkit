@@ -1,0 +1,7 @@
+# TealKit Remote SSH Configuration
+# Host, port, username and authentication credentials
+host: ''
+port: 22
+username: ''
+password: ''
+private_key: ''

@@ -233,12 +233,15 @@ tealkit chat --skill skills/device_audit.md
 
 **In-chat slash commands:**
 - `/llm` or `/llm:<name>` — List models or switch active model profile on the fly (e.g. `/llm:deepseek`, `/llm:mistral`)
-- `/uninstall <name>` or `/uninstall all_mcp` — Disconnect external MCP server and purge its local package cache (`uv`/`npm`)
+- `/uninstall <name>` or `/uninstall all_mcp` — Remove MCP package from filesystem (`npm uninstall -g` / `uv tool uninstall`), disable entry in `mcp.yaml` (`enabled: false`), and disconnect in-memory (never wipes npm/uv caches)
+- `/mcp_inspect [server_name]` — Inspect available functions, transport, and JSON schemas of enabled MCP servers and built-in tools
+- `/mcp_enable_fnc <srv> <f1,f2>` — Temporarily restrict/whitelist visible tools for an MCP server (in-memory until exit or reset)
+- `/mcp_reset_fnc [server]` — Restore all tools and reset function filters for a server (or `all`)
 - `/save-session <file.json|.md>` — Save current conversation transcript and turn history
 - `/load-session <file.json|.md>` — Restore and resume a previous conversation session
 - `/estimated_costs` or `/costs` — View token usage summary and estimated session costs
 - `/session` — Display active model, turn count, and token metrics
-- `/tools` — View connected MCP tools
+- `/tools` — View connected native and MCP tools
 - `/system` — View current system prompt
 - `/clear` or `/clear-session` — Reset conversation history and token metrics
 - `/exit` or `/bye` — Quit session
@@ -282,22 +285,39 @@ tealkit code --tools mcp.yaml
 - **💻 CODE (`/code` or `/mode code`)**: Follows `tasks.md`, executes minimal surgical edits (`fs_replace_text`), runs terminal build/test checks (`terminal_exec`), and checks off items (`- [x]`).
 - **💬 ASK (`/ask` or `/mode ask`)**: Read-only Q&A and codebase exploration.
 
-#### 🧰 Native Pure-Dart Tools (Powered by `dart_mcp_core`)
-- `fs_find`: Fast directory and file search matching wildcard patterns (e.g. `src/*.cs`, `*.csproj`) with `.gitignore` filtering.
-- `fs_list_dir`: Structured directory inspection with file sizes and type tags (`[DIR]`, `[FILE]`).
-- `fs_read_file`: Line-numbered, paginated file viewing (capped to 800 lines max per read to safeguard LLM context windows).
-- `fs_write_file`: File creation and full overwrite with automatic parent directory generation.
-- `fs_replace_text`: Exact, unique search-and-replace block edits (ideal for small/open models).
-- `fs_create_dir`: Create directory hierarchy (`src/Core/Models`) recursively.
-- `fs_move`: Rename or move files and directories.
-- `fs_delete`: Delete files or directories (supports recursive folder deletion).
-- `terminal_exec`: Execution of workspace commands (`dotnet build`, `dart test`, `git status`) with output capture.
-- `fetch_web`: Direct HTTP GET tool for querying web pages, pub.dev API, NuGet, and docs without external proxies.
+#### 🧰 Native Pure-Dart & Built-in MCP Tools
+The CLI provides built-in tools that do not require external subprocesses:
+- **Filesystem & OS**:
+  - `fs_find`: Fast directory and file search matching wildcard patterns (e.g. `src/*.cs`, `*.csproj`) with `.gitignore` filtering.
+  - `fs_list_dir`: Structured directory inspection with file sizes and type tags (`[DIR]`, `[FILE]`).
+  - `fs_read_file`: Line-numbered, paginated file viewing (capped to 800 lines max per read to safeguard LLM context windows).
+  - `fs_write_file`: File creation and full overwrite with automatic parent directory generation.
+  - `fs_replace_text`: Exact, unique search-and-replace block edits (ideal for small/open models).
+  - `fs_create_dir`: Create directory hierarchy recursively.
+  - `fs_move`: Rename or move files and directories.
+  - `fs_delete`: Delete files or directories (supports recursive folder deletion).
+  - `terminal_exec`: Execution of workspace commands (`dotnet build`, `dart test`, `git status`) with output capture.
+  - `fetch_web`: Direct HTTP GET tool for querying web pages and APIs without external proxies.
+- **Web Search (`web_search.yaml`)**:
+  - `web_search`: Search the public web for real-time information and documentation. Configured via `web_search.yaml` with support for `serpapi`, `serper`, and automatic fallback to `duckduckgo` (no API key required).
+- **Mermaid Diagram Generator**:
+  - `create_mermaid_png`: Converts Mermaid diagram code (`flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`) directly into PNG diagrams using the Kroki API.
+- **Toolbox Utilities**:
+  - `get_current_time`: ISO8601 timestamps, epoch milliseconds, and local/UTC timezone offsets.
+  - `get_timezone_info`: Detailed timezone offsets and local/UTC comparisons.
+  - `calculate`: Safe evaluation of arithmetic expressions (`+`, `-`, `*`, `/`, `%`, `^`, parentheses).
+  - `sum_numbers`: Numerical calculations for arrays (`sum`, `average`, `min`, `max`, `count`).
+  - `geocode_city`: Resolves city names to latitude, longitude, country, elevation, and timezone.
+- **Remote SSH (`ssh.yaml`)**:
+  - `ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`, `ssh_download_file`, `ssh_make_directory`, `ssh_remove_directory`, and `ssh_execute_command` for remote server execution and SFTP management.
 
 #### ⚡ In-Session Slash Commands
 - `/plan`, `/code`, `/ask` — Quickly switch operational modes.
 - `/llm` or `/llm:<name>` — List configured models or switch active LLM profile immediately (e.g. `/llm:deepseek`, `/llm:mistral`, `/llm:openai`).
-- `/uninstall <id>` or `/uninstall all_mcp` — Disconnect MCP servers and purge cached packages (`uv cache clean` / `npm cache clean --force`).
+- `/uninstall <name|all_mcp>` — Uninstall MCP server package from the filesystem (`npm uninstall -g` / `uv tool uninstall`), disable entry in `mcp.yaml` (`enabled: false`), and disconnect in-memory (does NOT clear package manager caches). Remote servers (`https://...`) are only disabled in `mcp.yaml`.
+- `/mcp_inspect [server_name]` — Inspect tools and JSON schemas of enabled external MCP servers and built-in services.
+- `/mcp_enable_fnc <server_name> <f1,f2,...>` — Restrict LLM tool visibility for a specific server (e.g. `/mcp_enable_fnc fetch fetch` or `/mcp_enable_fnc toolbox calculate,get_current_time`). Temporary in memory until session exit (`/bye`) or reset.
+- `/mcp_reset_fnc [server_name]` — Clear function restrictions and restore all tools for an MCP server (or `all`).
 - `/save-session <path.json|.md>` — Export current conversation history and task state.
 - `/load-session <path.json|.md>` — Import previous conversation and continue work seamlessly.
 - `/estimated_costs` or `/costs` — View prompt, completion, total token usage and estimated USD costs.
@@ -306,9 +326,9 @@ tealkit code --tools mcp.yaml
 - `/auto-approve <on|off>` — Toggle auto-approval on the fly for writes and terminal executions.
 - `/tasks` — Display the current contents of `tasks.md`.
 - `/instructions` — View or reload instructions from `tealkit_agent.md`.
-- `/tools` — List active coding tools.
+- `/tools` — List active native coding and external MCP tools.
 - `/clear` or `/clear-session` — Reset conversation turn history and token cost statistics.
-- `/exit` — Quit coding session.
+- `/exit` or `/bye` — Quit coding session.
 
 #### 🛡️ Human-in-the-Loop Permissions
 Whenever the agent attempts to modify a file (`fs_write_file`, `fs_replace_text`) or run a shell command (`terminal_exec`), the CLI prompts for confirmation:
