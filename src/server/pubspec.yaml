@@ -1,7 +1,7 @@
 name: tealkit_server
 description: "TealKit Server — headless Docker/Linux daemon with REST API"
 publish_to: 'none'
-version: 1.0.198
+version: 1.0.199
 
 environment:
   sdk: ">=3.12.0 <4.0.0"

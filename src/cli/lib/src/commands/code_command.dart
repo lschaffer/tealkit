@@ -441,16 +441,13 @@ Commands:
               : p.normalize(p.join(workspaceDir, cleanedPath)));
 
           if (!targetDir.existsSync()) {
-            try {
-              targetDir.createSync(recursive: true);
-              stdout.writeln(
-                TerminalPrinter.dim('Created directory: ${targetDir.path}'),
-              );
-            } catch (e) {
-              stderr.writeln(TerminalPrinter.red('Directory does not exist and could not be created: $e'));
-              stdout.writeln('');
-              continue;
-            }
+            stderr.writeln(
+              TerminalPrinter.red(
+                '❌ Directory does not exist: "${targetDir.path}"\nPlease verify the path and specify an existing folder.',
+              ),
+            );
+            stdout.writeln('');
+            continue;
           }
 
           workspaceDir = p.canonicalize(targetDir.path);
