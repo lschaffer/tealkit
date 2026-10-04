@@ -121,8 +121,9 @@ class SessionManager {
     buffer.writeln('id: "${session.id}"');
     buffer.writeln('mode: "${session.mode}"');
     if (session.llmName != null) buffer.writeln('llm: "${session.llmName}"');
-    if (session.llmModel != null)
+    if (session.llmModel != null) {
       buffer.writeln('model: "${session.llmModel}"');
+    }
     buffer.writeln('created: "${session.createdAt.toIso8601String()}"');
     buffer.writeln('updated: "${session.updatedAt.toIso8601String()}"');
     buffer.writeln('turns: ${session.messages.length}');

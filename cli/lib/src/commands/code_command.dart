@@ -61,7 +61,8 @@ class CodeCommand extends Command {
     );
     argParser.addOption(
       'llm-name',
-      help: 'Select named LLM model profile from llm.yaml (e.g. ollama, deepseek, mistral)',
+      help:
+          'Select named LLM model profile from llm.yaml (e.g. ollama, deepseek, mistral)',
     );
     argParser.addOption(
       'tools',
@@ -79,7 +80,8 @@ class CodeCommand extends Command {
     argParser.addOption(
       'max-tool-iterations',
       abbr: 't',
-      help: 'Maximum tool calls per step before synthesizing final response (defaults to 100)',
+      help:
+          'Maximum tool calls per step before synthesizing final response (defaults to 100)',
     );
     argParser.addFlag(
       'verbose',
@@ -146,14 +148,22 @@ Commands:
     );
 
     // Resolve initial LLM config (supporting named profile or path)
-    final targetLlm = explicitLlmName ?? (llmPath != 'llm.yaml' && !llmPath.endsWith('.yaml') && !llmPath.endsWith('.yml') && !File(llmPath).existsSync() ? llmPath : null);
+    final targetLlm =
+        explicitLlmName ??
+        (llmPath != 'llm.yaml' &&
+                !llmPath.endsWith('.yaml') &&
+                !llmPath.endsWith('.yml') &&
+                !File(llmPath).existsSync()
+            ? llmPath
+            : null);
     LlmConfig activeLlmConfig = runner.loadLlmConfig(targetName: targetLlm);
     String activeLlmName = targetLlm ?? 'default';
 
     // Find friendly active LLM name if possible
     final allProfiles = LlmConfigManager.loadAllProfiles(configPath: llmPath);
     for (final p in allProfiles) {
-      if (p.config.model == activeLlmConfig.model && p.config.provider == activeLlmConfig.provider) {
+      if (p.config.model == activeLlmConfig.model &&
+          p.config.provider == activeLlmConfig.provider) {
         activeLlmName = p.name;
         break;
       }
@@ -185,7 +195,9 @@ Commands:
     // Track original tools per server for /mcp_enable_fnc and /mcp_reset_fnc
     final originalServerTools = <String, List<MCPTool>>{};
     for (final clientDef in mcpManager.clients) {
-      originalServerTools[clientDef.label.toLowerCase()] = List<MCPTool>.from(clientDef.availableTools);
+      originalServerTools[clientDef.label.toLowerCase()] = List<MCPTool>.from(
+        clientDef.availableTools,
+      );
     }
     final activeFilters = <String, Set<String>>{};
 
@@ -242,7 +254,9 @@ Commands:
         autoSavePath ??= loadSessionPath;
       } catch (e) {
         stderr.writeln(
-          TerminalPrinter.yellow('Warning: Could not load session from "$loadSessionPath": $e'),
+          TerminalPrinter.yellow(
+            'Warning: Could not load session from "$loadSessionPath": $e',
+          ),
         );
       }
     }
@@ -348,23 +362,58 @@ Commands:
         final profiles = LlmConfigManager.loadAllProfiles(configPath: llmPath);
 
         if (target == null || target.isEmpty) {
-          stdout.writeln(TerminalPrinter.bold('--- Configured LLM Profiles ---'));
+          stdout.writeln(
+            TerminalPrinter.bold('--- Configured LLM Profiles ---'),
+          );
           for (final p in profiles) {
-            final isCurrent = (p.name == activeLlmName) ||
-                (p.config.model == activeLlmConfig.model && p.config.provider == activeLlmConfig.provider);
-            final marker = isCurrent ? TerminalPrinter.green('* [ACTIVE]') : ' ';
+            final isCurrent =
+                (p.name == activeLlmName) ||
+                (p.config.model == activeLlmConfig.model &&
+                    p.config.provider == activeLlmConfig.provider);
+            final marker = isCurrent
+                ? TerminalPrinter.green('* [ACTIVE]')
+                : ' ';
+            final rates = await TokenUsageTracker.getRatesAsync(p.config);
+            final badgeParts = <String>[];
+            if (rates?.contextWindow != null) {
+              badgeParts.add(
+                TokenUsageTracker.formatContextWindow(rates!.contextWindow),
+              );
+            }
+            if (rates != null &&
+                rates.inputPerM == 0.0 &&
+                rates.outputPerM == 0.0) {
+              badgeParts.add("Free");
+            } else if (rates != null) {
+              badgeParts.add(
+                r"$" +
+                    rates.inputPerM.toStringAsFixed(2) +
+                    r"/$" +
+                    rates.outputPerM.toStringAsFixed(2),
+              );
+            }
+            final badgeStr = badgeParts.isNotEmpty
+                ? TerminalPrinter.cyan(" [${badgeParts.join(" • ")}]")
+                : "";
             stdout.writeln(
-              '  $marker ${TerminalPrinter.bold(p.name.padRight(12))} : ${p.config.provider.displayName} / ${p.config.model} (temp: ${p.config.temperature}, max_tokens: ${p.config.maxTokens})',
+              '  $marker ${TerminalPrinter.bold(p.name.padRight(12))} : ${p.config.provider.displayName} / ${p.config.model}$badgeStr (temp: ${p.config.temperature}, max_tokens: ${p.config.maxTokens})',
             );
           }
           stdout.writeln('--------------------------------');
-          stdout.writeln(TerminalPrinter.dim('Usage: /llm <name> or /llm:<name> (e.g. /llm:ollama, /llm deepseek)'));
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Usage: /llm <name> or /llm:<name> (e.g. /llm:ollama, /llm deepseek)',
+            ),
+          );
           stdout.writeln('');
           continue;
         }
 
         try {
-          final newConfig = LlmConfigManager.resolveConfig(nameOrPath: target, configPath: llmPath);
+          final newConfig = LlmConfigManager.resolveConfig(
+            nameOrPath: target,
+            configPath: llmPath,
+          );
           activeLlmConfig = newConfig;
           activeLlmName = target;
           for (final p in profiles) {
@@ -398,7 +447,9 @@ Commands:
           );
           // Rebuild native coding tools bound to reset workspace
           dartTools.clear();
-          dartTools.addAll(CodingTools.createAll(workingDirectory: workspaceDir));
+          dartTools.addAll(
+            CodingTools.createAll(workingDirectory: workspaceDir),
+          );
           final builtinGroups = <String, List<McpLocalTool>>{
             'web_search': [BuiltinMcpServers.createWebSearchTool()],
             'mermaid': [BuiltinMcpServers.createMermaidTool()],
@@ -408,7 +459,9 @@ Commands:
           for (final bEntry in builtinGroups.entries) {
             final bFilter = activeFilters[bEntry.key.toLowerCase()];
             if (bFilter != null) {
-              dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+              dartTools.addAll(
+                bEntry.value.where((t) => bFilter.contains(t.name)),
+              );
             } else {
               dartTools.addAll(bEntry.value);
             }
@@ -436,9 +489,11 @@ Commands:
             cleanedPath = cleanedPath.substring(1, cleanedPath.length - 1);
           }
 
-          final targetDir = Directory(p.isAbsolute(cleanedPath)
-              ? cleanedPath
-              : p.normalize(p.join(workspaceDir, cleanedPath)));
+          final targetDir = Directory(
+            p.isAbsolute(cleanedPath)
+                ? cleanedPath
+                : p.normalize(p.join(workspaceDir, cleanedPath)),
+          );
 
           if (!targetDir.existsSync()) {
             stderr.writeln(
@@ -458,7 +513,9 @@ Commands:
 
           // Rebind native coding tools to new base workspace directory
           dartTools.clear();
-          dartTools.addAll(CodingTools.createAll(workingDirectory: workspaceDir));
+          dartTools.addAll(
+            CodingTools.createAll(workingDirectory: workspaceDir),
+          );
           final builtinGroups = <String, List<McpLocalTool>>{
             'web_search': [BuiltinMcpServers.createWebSearchTool()],
             'mermaid': [BuiltinMcpServers.createMermaidTool()],
@@ -468,7 +525,9 @@ Commands:
           for (final bEntry in builtinGroups.entries) {
             final bFilter = activeFilters[bEntry.key.toLowerCase()];
             if (bFilter != null) {
-              dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+              dartTools.addAll(
+                bEntry.value.where((t) => bFilter.contains(t.name)),
+              );
             } else {
               dartTools.addAll(bEntry.value);
             }
@@ -492,9 +551,15 @@ Commands:
         stdout.writeln(TerminalPrinter.bold('--- Workspace Directory ---'));
         stdout.writeln('  Active Base Directory : $workspaceDir');
         stdout.writeln('  Startup Directory     : $defaultWorkspaceDir');
-        stdout.writeln('  Is Default            : ${workspaceDir == defaultWorkspaceDir}');
+        stdout.writeln(
+          '  Is Default            : ${workspaceDir == defaultWorkspaceDir}',
+        );
         stdout.writeln('---------------------------');
-        stdout.writeln(TerminalPrinter.dim('Commands: /workspace set <path> | /workspace clear | /workspace reset'));
+        stdout.writeln(
+          TerminalPrinter.dim(
+            'Commands: /workspace set <path> | /workspace clear | /workspace reset',
+          ),
+        );
         stdout.writeln('');
         continue;
       }
@@ -521,7 +586,9 @@ Commands:
 
         if (subCmd == 'connect') {
           if (parts.length < 3) {
-            stdout.writeln('Usage: /ssh connect user:pwd@host[:port] or user@host[:port]');
+            stdout.writeln(
+              'Usage: /ssh connect user:pwd@host[:port] or user@host[:port]',
+            );
             stdout.writeln('');
             continue;
           }
@@ -596,23 +663,51 @@ Commands:
         final hasPwd = status['hasPassword'] as bool? ?? false;
         final hasKey = status['hasPrivateKey'] as bool? ?? false;
 
-        stdout.writeln(TerminalPrinter.bold('--- SSH Feature & Connection Status ---'));
-        stdout.writeln('  Active Target Host  : ${host.isNotEmpty ? "$user@$host:$port" : "(not connected / not configured)"}');
-        stdout.writeln('  Session Override    : ${hasOverride ? TerminalPrinter.yellow("Active (in-memory)") : "None (using ssh.yaml / env)"}');
-        stdout.writeln('  Connected Socket    : ${isConn ? TerminalPrinter.green("Connected") : TerminalPrinter.dim("Idle / Disconnected")}');
-        stdout.writeln('  Authentication      : ${hasPwd ? "Password" : (hasKey ? "Private Key" : "None")}');
+        stdout.writeln(
+          TerminalPrinter.bold('--- SSH Feature & Connection Status ---'),
+        );
+        stdout.writeln(
+          '  Active Target Host  : ${host.isNotEmpty ? "$user@$host:$port" : "(not connected / not configured)"}',
+        );
+        stdout.writeln(
+          '  Session Override    : ${hasOverride ? TerminalPrinter.yellow("Active (in-memory)") : "None (using ssh.yaml / env)"}',
+        );
+        stdout.writeln(
+          '  Connected Socket    : ${isConn ? TerminalPrinter.green("Connected") : TerminalPrinter.dim("Idle / Disconnected")}',
+        );
+        stdout.writeln(
+          '  Authentication      : ${hasPwd ? "Password" : (hasKey ? "Private Key" : "None")}',
+        );
         stdout.writeln('  Config File         : ${status['configPath']}');
         stdout.writeln('');
         stdout.writeln(TerminalPrinter.bold('Available SSH Tools:'));
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_execute_command")}: Execute a shell command on remote server');
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_list_directory")}: List remote directory contents');
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_read_file")}: Read remote text file content');
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_upload_file")}: Upload text content to remote file');
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_download_file")}: Download remote file as base64');
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_make_directory")}: Create remote directory (mkdir -p)');
-        stdout.writeln('  • ${TerminalPrinter.cyan("ssh_remove_directory")}: Remove remote empty directory (rmdir)');
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_execute_command")}: Execute a shell command on remote server',
+        );
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_list_directory")}: List remote directory contents',
+        );
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_read_file")}: Read remote text file content',
+        );
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_upload_file")}: Upload text content to remote file',
+        );
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_download_file")}: Download remote file as base64',
+        );
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_make_directory")}: Create remote directory (mkdir -p)',
+        );
+        stdout.writeln(
+          '  • ${TerminalPrinter.cyan("ssh_remove_directory")}: Remove remote empty directory (rmdir)',
+        );
         stdout.writeln('----------------------------------------');
-        stdout.writeln(TerminalPrinter.dim('Usage: /ssh connect user:pwd@host[:port] | /ssh disconnect | /ssh'));
+        stdout.writeln(
+          TerminalPrinter.dim(
+            'Usage: /ssh connect user:pwd@host[:port] | /ssh disconnect | /ssh',
+          ),
+        );
         stdout.writeln('');
         continue;
       }
@@ -621,13 +716,21 @@ Commands:
         final parts = input.split(RegExp(r'\s+'));
         if (parts.length < 2) {
           stdout.writeln('Usage: /uninstall <server_name|server_id|all_mcp>');
-          stdout.writeln(TerminalPrinter.dim('Available MCP servers: ${localServers.map((s) => s.name).join(", ")}'));
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Available MCP servers: ${localServers.map((s) => s.name).join(", ")}',
+            ),
+          );
           stdout.writeln('');
           continue;
         }
 
         final target = parts.sublist(1).join(' ').trim();
-        stdout.writeln(TerminalPrinter.bold('Uninstalling MCP server(s) matching "$target"...'));
+        stdout.writeln(
+          TerminalPrinter.bold(
+            'Uninstalling MCP server(s) matching "$target"...',
+          ),
+        );
         final results = await McpManagerHelper.uninstallServers(
           targetQuery: target,
           configuredServers: localServers,
@@ -650,9 +753,13 @@ Commands:
       // ── MCP Inspect: /mcp_inspect [server_name] ──
       if (input.startsWith('/mcp_inspect')) {
         final parts = input.split(RegExp(r'\s+'));
-        final serverQuery = parts.length > 1 ? parts[1].trim().toLowerCase() : null;
+        final serverQuery = parts.length > 1
+            ? parts[1].trim().toLowerCase()
+            : null;
 
-        stdout.writeln(TerminalPrinter.bold('--- MCP Function & Schema Inspector ---'));
+        stdout.writeln(
+          TerminalPrinter.bold('--- MCP Function & Schema Inspector ---'),
+        );
 
         // 1. External MCP Servers
         bool foundAny = false;
@@ -664,27 +771,45 @@ Commands:
             continue;
           }
           foundAny = true;
-          final original = originalServerTools[sName.toLowerCase()] ??
+          final original =
+              originalServerTools[sName.toLowerCase()] ??
               originalServerTools[clientDef.name.toLowerCase()] ??
               clientDef.availableTools;
-          final activeSet = activeFilters[sName.toLowerCase()] ??
+          final activeSet =
+              activeFilters[sName.toLowerCase()] ??
               activeFilters[clientDef.name.toLowerCase()];
           final filterBadge = activeSet != null
-              ? TerminalPrinter.yellow(' [RESTRICTED: ${activeSet.length}/${original.length} tools visible]')
+              ? TerminalPrinter.yellow(
+                  ' [RESTRICTED: ${activeSet.length}/${original.length} tools visible]',
+                )
               : TerminalPrinter.green(' [ALL ${original.length} tools active]');
 
-          stdout.writeln('\n${TerminalPrinter.bold("● External Server:")} ${TerminalPrinter.cyan(sName)}$filterBadge');
+          stdout.writeln(
+            '\n${TerminalPrinter.bold("● External Server:")} ${TerminalPrinter.cyan(sName)}$filterBadge',
+          );
           final isLocal = clientDef.client is LocalMCPClient;
-          stdout.writeln('  Transport: ${isLocal ? "stdio (${clientDef.url})" : "remote (${clientDef.url})"}');
+          stdout.writeln(
+            '  Transport: ${isLocal ? "stdio (${clientDef.url})" : "remote (${clientDef.url})"}',
+          );
 
           for (final tool in original) {
-            final isEnabled = activeSet == null || activeSet.contains(tool.name);
-            final statusIcon = isEnabled ? TerminalPrinter.green('✔') : TerminalPrinter.red('✖ (hidden)');
-            stdout.writeln('  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description ?? "(no description)"}');
-            if (tool.inputSchema != null && (tool.inputSchema as Map).isNotEmpty) {
+            final isEnabled =
+                activeSet == null || activeSet.contains(tool.name);
+            final statusIcon = isEnabled
+                ? TerminalPrinter.green('✔')
+                : TerminalPrinter.red('✖ (hidden)');
+            stdout.writeln(
+              '  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description ?? "(no description)"}',
+            );
+            if (tool.inputSchema != null &&
+                (tool.inputSchema as Map).isNotEmpty) {
               final schemaStr = jsonEncode(tool.inputSchema);
-              final preview = schemaStr.length > 120 ? '${schemaStr.substring(0, 117)}...' : schemaStr;
-              stdout.writeln('      ${TerminalPrinter.dim("Schema: $preview")}');
+              final preview = schemaStr.length > 120
+                  ? '${schemaStr.substring(0, 117)}...'
+                  : schemaStr;
+              stdout.writeln(
+                '      ${TerminalPrinter.dim("Schema: $preview")}',
+              );
             }
           }
         }
@@ -699,55 +824,89 @@ Commands:
 
         for (final entry in builtinGroups.entries) {
           final bName = entry.key;
-          if (serverQuery != null && !bName.toLowerCase().contains(serverQuery)) {
+          if (serverQuery != null &&
+              !bName.toLowerCase().contains(serverQuery)) {
             continue;
           }
           foundAny = true;
           final bTools = entry.value;
           final activeSet = activeFilters[bName.toLowerCase()];
           final filterBadge = activeSet != null
-              ? TerminalPrinter.yellow(' [RESTRICTED: ${activeSet.length}/${bTools.length} tools visible]')
+              ? TerminalPrinter.yellow(
+                  ' [RESTRICTED: ${activeSet.length}/${bTools.length} tools visible]',
+                )
               : TerminalPrinter.green(' [ALL ${bTools.length} tools active]');
 
-          stdout.writeln('\n${TerminalPrinter.bold("● Built-in Server:")} ${TerminalPrinter.cyan(bName)}$filterBadge');
+          stdout.writeln(
+            '\n${TerminalPrinter.bold("● Built-in Server:")} ${TerminalPrinter.cyan(bName)}$filterBadge',
+          );
           stdout.writeln('  Integration: Native TealKit Tool');
 
           for (final tool in bTools) {
-            final isEnabled = activeSet == null || activeSet.contains(tool.name);
-            final statusIcon = isEnabled ? TerminalPrinter.green('✔') : TerminalPrinter.red('✖ (hidden)');
-            stdout.writeln('  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description}');
+            final isEnabled =
+                activeSet == null || activeSet.contains(tool.name);
+            final statusIcon = isEnabled
+                ? TerminalPrinter.green('✔')
+                : TerminalPrinter.red('✖ (hidden)');
+            stdout.writeln(
+              '  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description}',
+            );
             final schemaStr = jsonEncode(tool.inputSchema);
-            final preview = schemaStr.length > 120 ? '${schemaStr.substring(0, 117)}...' : schemaStr;
+            final preview = schemaStr.length > 120
+                ? '${schemaStr.substring(0, 117)}...'
+                : schemaStr;
             stdout.writeln('      ${TerminalPrinter.dim("Schema: $preview")}');
           }
         }
 
         if (!foundAny) {
-          stdout.writeln('No MCP server or built-in service found matching "$serverQuery".');
-          stdout.writeln(TerminalPrinter.dim('Available: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}'));
+          stdout.writeln(
+            'No MCP server or built-in service found matching "$serverQuery".',
+          );
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Available: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}',
+            ),
+          );
         }
 
         stdout.writeln('----------------------------------------');
-        stdout.writeln(TerminalPrinter.dim('Tip: Use /mcp_enable_fnc <server> <tool1,tool2> to restrict visible functions.'));
-        stdout.writeln(TerminalPrinter.dim('     Use /mcp_reset_fnc [server] to restore all functions.'));
+        stdout.writeln(
+          TerminalPrinter.dim(
+            'Tip: Use /mcp_enable_fnc <server> <tool1,tool2> to restrict visible functions.',
+          ),
+        );
+        stdout.writeln(
+          TerminalPrinter.dim(
+            '     Use /mcp_reset_fnc [server] to restore all functions.',
+          ),
+        );
         stdout.writeln('');
         continue;
       }
 
       // ── MCP Enable Function: /mcp_enable_fnc <server> <tool1,tool2,...> ──
-      if (input.startsWith('/mcp_enable_fnc') || input.startsWith('/mcp_enable')) {
+      if (input.startsWith('/mcp_enable_fnc') ||
+          input.startsWith('/mcp_enable')) {
         final parts = input.split(RegExp(r'\s+'));
         if (parts.length < 3) {
-          stdout.writeln('Usage: /mcp_enable_fnc <server_name> <func1,func2,...>');
+          stdout.writeln(
+            'Usage: /mcp_enable_fnc <server_name> <func1,func2,...>',
+          );
           stdout.writeln('Example: /mcp_enable_fnc fetch fetch');
-          stdout.writeln('Example: /mcp_enable_fnc toolbox calculate,get_current_time');
+          stdout.writeln(
+            'Example: /mcp_enable_fnc toolbox calculate,get_current_time',
+          );
           stdout.writeln('');
           continue;
         }
 
         final serverName = parts[1].trim().toLowerCase();
         final rawFuncs = parts.sublist(2).join(',').split(',');
-        final allowedTools = rawFuncs.map((f) => f.trim()).where((f) => f.isNotEmpty).toSet();
+        final allowedTools = rawFuncs
+            .map((f) => f.trim())
+            .where((f) => f.isNotEmpty)
+            .toSet();
 
         bool applied = false;
 
@@ -755,17 +914,37 @@ Commands:
         for (final clientDef in mcpManager.clients) {
           final label = clientDef.label.toLowerCase();
           final idName = clientDef.name.toLowerCase();
-          if (label == serverName || label.contains(serverName) || idName == serverName || idName.contains(serverName)) {
-            final orig = originalServerTools[label] ?? originalServerTools[idName] ?? clientDef.availableTools;
-            final filtered = orig.where((t) => allowedTools.contains(t.name)).toList();
+          if (label == serverName ||
+              label.contains(serverName) ||
+              idName == serverName ||
+              idName.contains(serverName)) {
+            final orig =
+                originalServerTools[label] ??
+                originalServerTools[idName] ??
+                clientDef.availableTools;
+            final filtered = orig
+                .where((t) => allowedTools.contains(t.name))
+                .toList();
             if (filtered.isEmpty) {
-              stdout.writeln(TerminalPrinter.yellow('Warning: None of [${allowedTools.join(", ")}] match tools in server "${clientDef.label}".'));
-              stdout.writeln(TerminalPrinter.dim('Available in ${clientDef.label}: ${orig.map((t) => t.name).join(", ")}'));
+              stdout.writeln(
+                TerminalPrinter.yellow(
+                  'Warning: None of [${allowedTools.join(", ")}] match tools in server "${clientDef.label}".',
+                ),
+              );
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  'Available in ${clientDef.label}: ${orig.map((t) => t.name).join(", ")}',
+                ),
+              );
             } else {
               clientDef.cachedTools = filtered;
               activeFilters[label] = allowedTools;
               activeFilters[idName] = allowedTools;
-              stdout.writeln(TerminalPrinter.green('✔ Server "${clientDef.label}" restricted to [${filtered.map((t) => t.name).join(", ")}] until /bye or reset.'));
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Server "${clientDef.label}" restricted to [${filtered.map((t) => t.name).join(", ")}] until /bye or reset.',
+                ),
+              );
               applied = true;
             }
           }
@@ -781,34 +960,59 @@ Commands:
 
         for (final entry in builtinGroups.entries) {
           final bName = entry.key;
-          if (bName.toLowerCase() == serverName || bName.toLowerCase().contains(serverName)) {
+          if (bName.toLowerCase() == serverName ||
+              bName.toLowerCase().contains(serverName)) {
             final orig = entry.value;
-            final matched = orig.where((t) => allowedTools.contains(t.name)).toList();
+            final matched = orig
+                .where((t) => allowedTools.contains(t.name))
+                .toList();
             if (matched.isEmpty) {
-              stdout.writeln(TerminalPrinter.yellow('Warning: None of [${allowedTools.join(", ")}] match tools in built-in "$bName".'));
-              stdout.writeln(TerminalPrinter.dim('Available in $bName: ${orig.map((t) => t.name).join(", ")}'));
+              stdout.writeln(
+                TerminalPrinter.yellow(
+                  'Warning: None of [${allowedTools.join(", ")}] match tools in built-in "$bName".',
+                ),
+              );
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  'Available in $bName: ${orig.map((t) => t.name).join(", ")}',
+                ),
+              );
             } else {
               activeFilters[bName.toLowerCase()] = allowedTools;
               // Recompute dartTools
               dartTools.clear();
-              dartTools.addAll(CodingTools.createAll(workingDirectory: workspaceDir));
+              dartTools.addAll(
+                CodingTools.createAll(workingDirectory: workspaceDir),
+              );
               for (final bEntry in builtinGroups.entries) {
                 final bFilter = activeFilters[bEntry.key.toLowerCase()];
                 if (bFilter != null) {
-                  dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+                  dartTools.addAll(
+                    bEntry.value.where((t) => bFilter.contains(t.name)),
+                  );
                 } else {
                   dartTools.addAll(bEntry.value);
                 }
               }
-              stdout.writeln(TerminalPrinter.green('✔ Built-in "$bName" restricted to [${matched.map((t) => t.name).join(", ")}] until /bye or reset.'));
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Built-in "$bName" restricted to [${matched.map((t) => t.name).join(", ")}] until /bye or reset.',
+                ),
+              );
               applied = true;
             }
           }
         }
 
         if (!applied) {
-          stdout.writeln(TerminalPrinter.red('Error: Server "$serverName" not found.'));
-          stdout.writeln(TerminalPrinter.dim('Available servers: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}'));
+          stdout.writeln(
+            TerminalPrinter.red('Error: Server "$serverName" not found.'),
+          );
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Available servers: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}',
+            ),
+          );
         } else {
           mcpTools = mcpManager.availableTools;
         }
@@ -817,9 +1021,12 @@ Commands:
       }
 
       // ── MCP Reset Functions: /mcp_reset_fnc [server] ──
-      if (input.startsWith('/mcp_reset_fnc') || input.startsWith('/mcp_reset')) {
+      if (input.startsWith('/mcp_reset_fnc') ||
+          input.startsWith('/mcp_reset')) {
         final parts = input.split(RegExp(r'\s+'));
-        final serverQuery = parts.length > 1 ? parts[1].trim().toLowerCase() : null;
+        final serverQuery = parts.length > 1
+            ? parts[1].trim().toLowerCase()
+            : null;
 
         final builtinGroups = <String, List<McpLocalTool>>{
           'web_search': [BuiltinMcpServers.createWebSearchTool()],
@@ -831,7 +1038,8 @@ Commands:
         if (serverQuery == null || serverQuery == 'all') {
           // Reset all external
           for (final clientDef in mcpManager.clients) {
-            final orig = originalServerTools[clientDef.label.toLowerCase()] ??
+            final orig =
+                originalServerTools[clientDef.label.toLowerCase()] ??
                 originalServerTools[clientDef.name.toLowerCase()];
             if (orig != null) {
               clientDef.cachedTools = List<MCPTool>.from(orig);
@@ -844,46 +1052,71 @@ Commands:
           dartTools.addAll(allDartTools);
 
           mcpTools = mcpManager.availableTools;
-          stdout.writeln(TerminalPrinter.green('✔ All MCP tool filters reset. All tools restored to active visibility.'));
+          stdout.writeln(
+            TerminalPrinter.green(
+              '✔ All MCP tool filters reset. All tools restored to active visibility.',
+            ),
+          );
         } else {
           bool resetFound = false;
           // Reset specific external
           for (final clientDef in mcpManager.clients) {
             final label = clientDef.label.toLowerCase();
             final idName = clientDef.name.toLowerCase();
-            if (label == serverQuery || label.contains(serverQuery) || idName == serverQuery || idName.contains(serverQuery)) {
-              final orig = originalServerTools[label] ?? originalServerTools[idName];
+            if (label == serverQuery ||
+                label.contains(serverQuery) ||
+                idName == serverQuery ||
+                idName.contains(serverQuery)) {
+              final orig =
+                  originalServerTools[label] ?? originalServerTools[idName];
               if (orig != null) {
                 clientDef.cachedTools = List<MCPTool>.from(orig);
               }
               activeFilters.remove(label);
               activeFilters.remove(idName);
-              stdout.writeln(TerminalPrinter.green('✔ Server "${clientDef.label}" filters reset. All ${orig?.length ?? 0} tools restored.'));
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Server "${clientDef.label}" filters reset. All ${orig?.length ?? 0} tools restored.',
+                ),
+              );
               resetFound = true;
             }
           }
 
           // Reset specific built-in
           for (final entry in builtinGroups.entries) {
-            if (entry.key.toLowerCase() == serverQuery || entry.key.toLowerCase().contains(serverQuery)) {
+            if (entry.key.toLowerCase() == serverQuery ||
+                entry.key.toLowerCase().contains(serverQuery)) {
               activeFilters.remove(entry.key.toLowerCase());
               dartTools.clear();
-              dartTools.addAll(CodingTools.createAll(workingDirectory: workspaceDir));
+              dartTools.addAll(
+                CodingTools.createAll(workingDirectory: workspaceDir),
+              );
               for (final bEntry in builtinGroups.entries) {
                 final bFilter = activeFilters[bEntry.key.toLowerCase()];
                 if (bFilter != null) {
-                  dartTools.addAll(bEntry.value.where((t) => bFilter.contains(t.name)));
+                  dartTools.addAll(
+                    bEntry.value.where((t) => bFilter.contains(t.name)),
+                  );
                 } else {
                   dartTools.addAll(bEntry.value);
                 }
               }
-              stdout.writeln(TerminalPrinter.green('✔ Built-in "${entry.key}" filters reset. All ${entry.value.length} tools restored.'));
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Built-in "${entry.key}" filters reset. All ${entry.value.length} tools restored.',
+                ),
+              );
               resetFound = true;
             }
           }
 
           if (!resetFound) {
-            stdout.writeln(TerminalPrinter.red('Error: Server "$serverQuery" not found to reset.'));
+            stdout.writeln(
+              TerminalPrinter.red(
+                'Error: Server "$serverQuery" not found to reset.',
+              ),
+            );
           } else {
             mcpTools = mcpManager.availableTools;
           }
@@ -901,7 +1134,11 @@ Commands:
         } else if (autoSavePath != null) {
           targetPath = autoSavePath;
         } else {
-          final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+          final timestamp = DateTime.now()
+              .toIso8601String()
+              .replaceAll(':', '-')
+              .split('.')
+              .first;
           targetPath = 'coding-session-$timestamp.json';
         }
 
@@ -917,7 +1154,10 @@ Commands:
             llmModel: activeLlmConfig.model,
             messages: history,
           );
-          final savedFile = await SessionManager.saveSession(session, targetPath);
+          final savedFile = await SessionManager.saveSession(
+            session,
+            targetPath,
+          );
           autoSavePath = savedFile.path;
           stdout.writeln(
             TerminalPrinter.green(
@@ -963,28 +1203,52 @@ Commands:
       if (input == '/clear-session' || input == '/clear') {
         history.clear();
         usageTracker.reset();
-        stdout.writeln(TerminalPrinter.dim('Conversation history and token/cost statistics cleared.'));
+        stdout.writeln(
+          TerminalPrinter.dim(
+            'Conversation history and token/cost statistics cleared.',
+          ),
+        );
         stdout.writeln('');
         continue;
       }
 
-      if (input == '/estimated_costs' || input == '/costs' || input == '/cost' || input == '/tokens' || input == '/usage') {
-        stdout.writeln(await usageTracker.formatReportAsync(activeLlmConfig, modelDisplayName: activeLlmName));
+      if (input == '/estimated_costs' ||
+          input == '/costs' ||
+          input == '/cost' ||
+          input == '/tokens' ||
+          input == '/usage') {
+        stdout.writeln(
+          await usageTracker.formatReportAsync(
+            activeLlmConfig,
+            modelDisplayName: activeLlmName,
+          ),
+        );
         stdout.writeln('');
         continue;
       }
 
       if (input == '/session') {
         final rates = await TokenUsageTracker.getRatesAsync(activeLlmConfig);
-        final estCost = usageTracker.calculateEstimatedCost(activeLlmConfig, rates: rates);
-        final costStr = estCost != null ? 'est. \$${estCost.toStringAsFixed(6)}' : 'cost N/A';
+        final estCost = usageTracker.calculateEstimatedCost(
+          activeLlmConfig,
+          rates: rates,
+        );
+        final costStr = estCost != null
+            ? 'est. \$${estCost.toStringAsFixed(6)}'
+            : 'cost N/A';
 
         stdout.writeln(TerminalPrinter.bold('--- Session Information ---'));
         stdout.writeln('  Mode             : ${currentMode.displayName}');
-        stdout.writeln('  Active LLM       : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})');
+        stdout.writeln(
+          '  Active LLM       : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
+        );
         stdout.writeln('  History Messages : ${history.length}');
-        stdout.writeln('  Tokens Tracked   : ${usageTracker.totalTokens} ($costStr)');
-        stdout.writeln('  Auto-Save File   : ${autoSavePath ?? "(not set, use /save-session <path>)"}');
+        stdout.writeln(
+          '  Tokens Tracked   : ${usageTracker.totalTokens} ($costStr)',
+        );
+        stdout.writeln(
+          '  Auto-Save File   : ${autoSavePath ?? "(not set, use /save-session <path>)"}',
+        );
         stdout.writeln('  Workspace        : $workspaceDir');
         stdout.writeln('---------------------------');
         stdout.writeln('');
@@ -1105,8 +1369,9 @@ Commands:
         userInstructions: userInstructions,
       );
 
-      final cliMaxToolIterations =
-          int.tryParse(argResults?['max-tool-iterations'] as String? ?? '');
+      final cliMaxToolIterations = int.tryParse(
+        argResults?['max-tool-iterations'] as String? ?? '',
+      );
 
       final agent = Agent(
         key: 'code_agent',
@@ -1169,7 +1434,10 @@ Commands:
                 history.addAll(messages);
               }
             case AgentUsageEvent(:final promptTokens, :final completionTokens):
-              usageTracker.recordUsage(prompt: promptTokens, completion: completionTokens);
+              usageTracker.recordUsage(
+                prompt: promptTokens,
+                completion: completionTokens,
+              );
             case AgentTextChunkEvent():
               spinner.clear();
               break;
@@ -1270,7 +1538,9 @@ Commands:
             stderr.writeln(TerminalPrinter.dim('\nStacktrace:\n$stack'));
           } else {
             stderr.writeln(
-              TerminalPrinter.dim('   (Run with --verbose for complete debug logs)'),
+              TerminalPrinter.dim(
+                '   (Run with --verbose for complete debug logs)',
+              ),
             );
           }
         } finally {

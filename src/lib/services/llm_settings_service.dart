@@ -141,52 +141,7 @@ const Duration _openRouterModelsTtl = Duration(minutes: 30);
 DateTime? _openRouterModelsFetchedAt;
 List<dynamic>? _openRouterModelsCache;
 
-const Map<String, Map<String, ModelTokenPrice>> _modelPricingByProvider = {
-  'gemini': {
-    'gemini-2.5-flash': ModelTokenPrice(
-      inputPer1MUsd: 0.15,
-      outputPer1MUsd: 0.60,
-      contextWindow: 1048576,
-    ),
-    'gemini-2.5-pro': ModelTokenPrice(
-      inputPer1MUsd: 1.25,
-      outputPer1MUsd: 5.00,
-      contextWindow: 2097152,
-    ),
-  },
-  'mistral': {
-    'mistral-large-latest': ModelTokenPrice(
-      inputPer1MUsd: 0.50,
-      outputPer1MUsd: 1.50,
-      contextWindow: 128000,
-    ),
-    'mistral-large': ModelTokenPrice(
-      inputPer1MUsd: 0.50,
-      outputPer1MUsd: 1.50,
-      contextWindow: 128000,
-    ),
-    'mistral-medium-latest': ModelTokenPrice(
-      inputPer1MUsd: 0.40,
-      outputPer1MUsd: 2.00,
-      contextWindow: 32768,
-    ),
-    'mistral-medium': ModelTokenPrice(
-      inputPer1MUsd: 0.40,
-      outputPer1MUsd: 2.00,
-      contextWindow: 32768,
-    ),
-    'mistral-small-latest': ModelTokenPrice(
-      inputPer1MUsd: 0.10,
-      outputPer1MUsd: 0.30,
-      contextWindow: 32768,
-    ),
-    'mistral-small': ModelTokenPrice(
-      inputPer1MUsd: 0.10,
-      outputPer1MUsd: 0.30,
-      contextWindow: 32768,
-    ),
-  },
-};
+const Map<String, Map<String, ModelTokenPrice>> _modelPricingByProvider = {};
 
 String _normalizeModelName(String model) => model.trim().toLowerCase();
 

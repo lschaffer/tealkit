@@ -563,12 +563,18 @@ llms:
         apiKey: 'key',
       );
 
-      final cost = tracker.calculateEstimatedCost(deepseekConfig);
+      final explicitRates = (
+        inputPerM: 0.14,
+        outputPerM: 0.28,
+        contextWindow: 131072,
+        rateDescription: r'DeepSeek @ $0.14 / $0.28 per 1M',
+      );
+      final cost = tracker.calculateEstimatedCost(deepseekConfig, rates: explicitRates);
       // (15000/1M * 0.14) + (3000/1M * 0.28) = 0.0021 + 0.00084 = 0.00294
       expect(cost, isNotNull);
       expect(cost!, closeTo(0.00294, 0.00001));
 
-      final report = tracker.formatReport(deepseekConfig);
+      final report = tracker.formatReport(deepseekConfig, rates: explicitRates);
       expect(report, contains('Token Usage & Estimated Cost'));
       expect(report, contains('DeepSeek-V4.1-Flash'));
       expect(report, contains('18,000'));
@@ -589,12 +595,19 @@ llms:
         model: 'Qwen/Qwen2.5-72B-Instruct',
         apiKey: 'key',
       );
-      final qwenCost = tracker.calculateEstimatedCost(qwenConfig);
+      final qwenRates = (
+        inputPerM: 0.35,
+        outputPerM: 0.40,
+        contextWindow: 131072,
+        rateDescription: r'Qwen 2.5 72B @ $0.35 / $0.40 per 1M',
+      );
+      final qwenCost = tracker.calculateEstimatedCost(qwenConfig, rates: qwenRates);
       expect(qwenCost, isNotNull);
       // 1M * 0.35 + 1M * 0.40 = 0.75
       expect(qwenCost!, closeTo(0.75, 0.001));
-      final qwenReport = tracker.formatReport(qwenConfig, modelDisplayName: 'MyQwen');
+      final qwenReport = tracker.formatReport(qwenConfig, modelDisplayName: 'MyQwen', rates: qwenRates);
       expect(qwenReport, contains('Active LLM       : MyQwen (${qwenConfig.provider.displayName} / Qwen/Qwen2.5-72B-Instruct)'));
+      expect(qwenReport, contains('Context Window   : 131k ctx'));
       expect(qwenReport, contains(r'$0.750000'));
 
       // 2. Local Ollama model (free)
@@ -620,7 +633,7 @@ llms:
       expect(unlistedCost, isNull);
       final unlistedReport = tracker.formatReport(unlistedConfig);
       expect(unlistedReport, contains('Active LLM       : ${unlistedConfig.provider.displayName} / custom-internal-exp-model-v99 (${unlistedConfig.provider.displayName} / custom-internal-exp-model-v99)'));
-      expect(unlistedReport, contains('Not available'));
+      expect(unlistedReport, contains('None (no price available)'));
     });
   });
 }
