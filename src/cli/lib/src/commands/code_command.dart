@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -80,8 +81,9 @@ class CodeCommand extends Command {
     argParser.addOption(
       'max-tool-iterations',
       abbr: 't',
+      defaultsTo: '400',
       help:
-          'Maximum tool calls per step before synthesizing final response (defaults to 100)',
+          'Maximum tool calls per step before synthesizing final response (defaults to 400)',
     );
     argParser.addFlag(
       'verbose',
@@ -279,7 +281,35 @@ Commands:
     );
     stdout.writeln('');
 
-    while (true) {
+    McpAgentEngine? activeEngine;
+    var isTurnActive = false;
+
+    // Attach SIGINT handler: cancels current active agent turn on Ctrl+C without exiting REPL
+    StreamSubscription<ProcessSignal>? sigintSub;
+    try {
+      sigintSub = ProcessSignal.sigint.watch().listen((signal) {
+        if (isTurnActive && activeEngine != null) {
+          stdout.writeln('');
+          stdout.writeln(
+            TerminalPrinter.yellow(
+              '\n[Ctrl+C] Cancelling current turn... please wait for loop to halt.',
+            ),
+          );
+          activeEngine?.cancel('code_agent');
+        } else {
+          stdout.writeln(
+            TerminalPrinter.dim(
+              '\n[Ctrl+C] Type /bye or /exit to quit the coding agent.',
+            ),
+          );
+        }
+      });
+    } catch (_) {
+      // In non-interactive or unsupported platforms, continue normally
+    }
+
+    try {
+      while (true) {
       final promptPrefix = switch (currentMode) {
         CodingMode.architect => '[architect] > ',
         CodingMode.code => '[code] > ',
@@ -1388,6 +1418,8 @@ Commands:
 
       final engine = McpAgentEngine();
       engine.setAgents([agent]);
+      activeEngine = engine;
+      isTurnActive = true;
 
       bool turnSuccess = false;
       String lastAssistantResponse = '';
@@ -1549,6 +1581,8 @@ Commands:
           await subscription.cancel();
         }
       } finally {
+        isTurnActive = false;
+        activeEngine = null;
         await engine.dispose();
       }
 
@@ -1593,6 +1627,11 @@ Commands:
         }
       }
     }
+  } finally {
+    try {
+      await sigintSub?.cancel();
+    } catch (_) {}
+  }
 
     try {
       await mcpManager.disconnectAll();

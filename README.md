@@ -27,6 +27,9 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 > 📺 **Interactive Video Promo Panel**: Explore all latest demo videos and watch interactive previews directly on [tealkit.dev](https://tealkit.dev).
 
+* **Tealkit CLI Coding Agent in Visual Studio — Modernize .NET WinForms (Part 1)**
+  https://youtu.be/9-V3Goqh1v4
+
 * **How to Install TealKit Linux (.deb) on Ubuntu Desktop — Quick Setup Guide**
   https://youtu.be/mGOyhgthQxI
 

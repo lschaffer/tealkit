@@ -271,8 +271,8 @@ tealkit code --load-session ./coding-session.json
 # Automatically save session upon exit
 tealkit code --save-session ./coding-session.md
 
-# Configure tool iteration exploration limit (defaults to 100)
-tealkit code --max-tool-iterations 150
+# Configure tool iteration exploration limit (defaults to 400)
+tealkit code --max-tool-iterations 400
 
 # Load custom external MCP servers configuration
 tealkit code --tools mcp.yaml

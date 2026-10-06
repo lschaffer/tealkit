@@ -53,8 +53,9 @@ class ChatCommand extends Command {
     argParser.addOption(
       'max-tool-iterations',
       abbr: 't',
+      defaultsTo: '400',
       help:
-          'Maximum tool calls per step before synthesizing final response (defaults to 100)',
+          'Maximum tool calls per step before synthesizing final response (defaults to 400)',
     );
     argParser.addFlag(
       'verbose',
