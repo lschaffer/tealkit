@@ -9,6 +9,10 @@ import 'package:path/path.dart' as p;
 import '../config/llm_config_manager.dart';
 import '../config/permission_settings.dart';
 import '../engine/builtin_mcp_servers.dart';
+import '../engine/cli_attachment_helper.dart';
+import '../engine/cli_clipboard_helper.dart';
+import '../engine/embedded/cli_embedded_llm_adapter.dart';
+import '../engine/embedded/cli_embedded_model_manager.dart';
 import '../engine/mcp_manager_helper.dart';
 import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
@@ -121,6 +125,12 @@ Commands:
   /tasks                     Display current tasks.md if present
   /instructions              Show or reload tealkit_agent.md / custom instructions
   /tools                     List active native coding and external MCP tools
+  /attach-file <path>        Attach a file (image, PDF, code, doc) to the next prompt
+  /attach <path>             Alias for /attach-file
+  /attach-clipboard          Attach image or text from system clipboard to the next prompt
+  /paste, /clipboard         Alias for /attach-clipboard
+  /attachments               List currently staged attachments
+  /attach clear              Clear all staged attachments
   /bye, /exit                Exit session
   /help, /?                  Show this help menu
 ''';
@@ -163,12 +173,69 @@ Commands:
 
     // Find friendly active LLM name if possible
     final allProfiles = LlmConfigManager.loadAllProfiles(configPath: llmPath);
+    NamedLlmProfile? activeProfile;
     for (final p in allProfiles) {
       if (p.config.model == activeLlmConfig.model &&
           p.config.provider == activeLlmConfig.provider) {
         activeLlmName = p.name;
+        activeProfile = p;
         break;
       }
+    }
+
+    Future<void> ensureEmbeddedModelLoaded(NamedLlmProfile profile) async {
+      if (profile.config.provider != LlmProvider.embedded) return;
+      final filename = profile.config.model;
+      final manager = CliEmbeddedModelManager.instance;
+      final isDownloaded = await manager.isModelDownloaded(filename);
+
+      if (!isDownloaded) {
+        stdout.writeln(
+          TerminalPrinter.yellow(
+            '⬇ Embedded model "$filename" not found locally in ~/.tealkit/models/.',
+          ),
+        );
+        stdout.writeln(
+          TerminalPrinter.dim(
+            '  Downloading from HuggingFace (${profile.repo ?? "direct URL"})...',
+          ),
+        );
+        final spinner = TerminalProgress('Downloading model...');
+        spinner.start();
+        try {
+          await manager.ensureModelDownloaded(
+            modelFilename: filename,
+            repo: profile.repo,
+            directUrl: profile.config.baseUrl.isNotEmpty ? profile.config.baseUrl : null,
+            onProgress: (p, status) {
+              final pct = (p * 100).toStringAsFixed(1);
+              spinner.start('Downloading model: $status ($pct%)');
+            },
+          );
+          spinner.stop();
+          stdout.writeln(TerminalPrinter.green('✔ Download complete: $filename'));
+        } catch (e) {
+          spinner.stop();
+          stderr.writeln(TerminalPrinter.red('❌ Failed to download model: $e'));
+          rethrow;
+        }
+      }
+
+      final file = await manager.getModelFile(filename);
+      stdout.writeln(TerminalPrinter.dim('  Initializing llamadart engine with: ${file.path}...'));
+      await CliEmbeddedLlmAdapter.instance.initialize(
+        file.path,
+        gpuLayers: profile.gpuLayers ?? 0,
+        contextSize: profile.contextSize ?? 4096,
+      );
+      CliEmbeddedLlmAdapter.instance.registerWithMcpCore();
+      stdout.writeln(TerminalPrinter.green('✔ Embedded model ready for inference.'));
+    }
+
+    if (activeProfile != null && activeProfile.config.provider == LlmProvider.embedded) {
+      try {
+        await ensureEmbeddedModelLoaded(activeProfile);
+      } catch (_) {}
     }
 
     final defaultWorkspaceDir = Directory.current.path;
@@ -295,7 +362,7 @@ Commands:
               '\n[Ctrl+C] Cancelling current turn... please wait for loop to halt.',
             ),
           );
-          activeEngine?.cancel('code_agent');
+          activeEngine.cancel('code_agent');
         } else {
           stdout.writeln(
             TerminalPrinter.dim(
@@ -308,12 +375,17 @@ Commands:
       // In non-interactive or unsupported platforms, continue normally
     }
 
+    final pendingAttachments = <CliAttachment>[];
+
     try {
       while (true) {
+      final attachBadge = pendingAttachments.isNotEmpty
+          ? ' (${pendingAttachments.length} att)'
+          : '';
       final promptPrefix = switch (currentMode) {
-        CodingMode.architect => '[architect] > ',
-        CodingMode.code => '[code] > ',
-        CodingMode.ask => '[ask] > ',
+        CodingMode.architect => '[architect$attachBadge] > ',
+        CodingMode.code => '[code$attachBadge] > ',
+        CodingMode.ask => '[ask$attachBadge] > ',
       };
 
       stdout.write(TerminalPrinter.cyan(promptPrefix));
@@ -327,6 +399,95 @@ Commands:
 
       if (input == '/help' || input == '/?') {
         stdout.writeln(_helpText);
+        continue;
+      }
+
+      // ── Attachment Commands ──
+      if (input.startsWith('/attach-file') ||
+          (input.startsWith('/attach') && !input.startsWith('/attach-clipboard') && !input.startsWith('/attachments'))) {
+        final parts = input.split(RegExp(r'\s+'));
+        if (parts.length < 2) {
+          stdout.writeln('Usage: /attach-file <file_path> or /attach clear');
+          stdout.writeln('');
+          continue;
+        }
+
+        final arg = parts.sublist(1).join(' ').trim();
+        if (arg == 'clear' || arg == 'reset') {
+          pendingAttachments.clear();
+          stdout.writeln(TerminalPrinter.green('✔ Cleared all staged attachments.'));
+          stdout.writeln('');
+          continue;
+        }
+
+        try {
+          final att = await CliAttachmentHelper.fromFile(arg, workspaceDir: workspaceDir);
+          pendingAttachments.add(att);
+          stdout.writeln(
+            TerminalPrinter.green('✔ Attached: ${att.name} (${att.mimeType}, ${att.sizeLabel})'),
+          );
+          if (att.isImage) {
+            stdout.writeln(TerminalPrinter.dim('  (Image will be sent as multi-modal visual context)'));
+          } else {
+            stdout.writeln(TerminalPrinter.dim('  (Text/document content will be injected into prompt)'));
+          }
+        } catch (e) {
+          stderr.writeln(TerminalPrinter.red('Error attaching file: $e'));
+        }
+        stdout.writeln('');
+        continue;
+      }
+
+      if (input == '/attach-clipboard' || input == '/paste' || input == '/clipboard') {
+        try {
+          stdout.writeln(TerminalPrinter.dim('Checking system clipboard...'));
+          final clipData = await CliClipboardHelper.getClipboardContent();
+          if (clipData == null) {
+            stdout.writeln(TerminalPrinter.yellow('Clipboard is empty or format unsupported.'));
+          } else if (clipData.isImage && clipData.imageBytes != null) {
+            final att = CliAttachmentHelper.fromBytes(
+              bytes: clipData.imageBytes!,
+              name: p.basename(clipData.imagePath ?? 'clipboard_image.png'),
+              path: clipData.imagePath ?? 'clipboard_image.png',
+              mimeType: clipData.mimeType,
+            );
+            pendingAttachments.add(att);
+            stdout.writeln(
+              TerminalPrinter.green('✔ Attached image from clipboard: ${att.name} (${att.sizeLabel})'),
+            );
+          } else if (clipData.text != null && clipData.text!.isNotEmpty) {
+            final bytes = utf8.encode(clipData.text!);
+            final att = CliAttachmentHelper.fromBytes(
+              bytes: bytes,
+              name: 'clipboard_text.txt',
+              path: 'clipboard_text.txt',
+              mimeType: 'text/plain',
+              textContent: clipData.text,
+            );
+            pendingAttachments.add(att);
+            stdout.writeln(
+              TerminalPrinter.green('✔ Attached text from clipboard (${clipData.text!.length} chars)'),
+            );
+          }
+        } catch (e) {
+          stderr.writeln(TerminalPrinter.red('Error accessing clipboard: $e'));
+        }
+        stdout.writeln('');
+        continue;
+      }
+
+      if (input == '/attachments') {
+        if (pendingAttachments.isEmpty) {
+          stdout.writeln('No staged attachments. Use /attach-file <path> or /attach-clipboard to attach.');
+        } else {
+          stdout.writeln(TerminalPrinter.bold('--- Staged Attachments (${pendingAttachments.length}) ---'));
+          for (int i = 0; i < pendingAttachments.length; i++) {
+            final att = pendingAttachments[i];
+            stdout.writeln('  [${i + 1}] ${att.name} (${att.mimeType}, ${att.sizeLabel})');
+          }
+          stdout.writeln(TerminalPrinter.dim('Attachments will be included with your next prompt. Use "/attach clear" to remove.'));
+        }
+        stdout.writeln('');
         continue;
       }
 
@@ -446,11 +607,16 @@ Commands:
           );
           activeLlmConfig = newConfig;
           activeLlmName = target;
+          NamedLlmProfile? matchingProfile;
           for (final p in profiles) {
             if (p.name.toLowerCase() == target.toLowerCase()) {
               activeLlmName = p.name;
+              matchingProfile = p;
               break;
             }
+          }
+          if (matchingProfile != null && matchingProfile.config.provider == LlmProvider.embedded) {
+            await ensureEmbeddedModelLoaded(matchingProfile);
           }
           stdout.writeln(
             TerminalPrinter.green(
@@ -1392,6 +1558,28 @@ Commands:
         continue;
       }
 
+      // ── Process Staged Attachments ──
+      final effectivePromptBuffer = StringBuffer();
+      final messageAttachments = <MessageAttachment>[];
+
+      if (pendingAttachments.isNotEmpty) {
+        effectivePromptBuffer.writeln('User Attachments:');
+        for (final att in pendingAttachments) {
+          if (att.isImage) {
+            effectivePromptBuffer.writeln('- [Image Attachment: ${att.name}] (${att.mimeType}, ${att.sizeLabel})');
+            messageAttachments.add(att.toMessageAttachment());
+          } else {
+            effectivePromptBuffer.writeln('\n[Attached File: ${att.name}]');
+            effectivePromptBuffer.writeln('--- CONTENT START ---');
+            effectivePromptBuffer.writeln(att.extractedText ?? '[Binary/unreadable file content: ${att.sizeLabel}]');
+            effectivePromptBuffer.writeln('--- CONTENT END ---\n');
+          }
+        }
+        effectivePromptBuffer.writeln('\nTask Prompt:');
+      }
+      effectivePromptBuffer.write(input);
+      final effectivePromptText = effectivePromptBuffer.toString();
+
       // Build effective system prompt tailored for mode and instructions
       final systemPrompt = _buildSystemPrompt(
         mode: currentMode,
@@ -1403,16 +1591,31 @@ Commands:
         argResults?['max-tool-iterations'] as String? ?? '',
       );
 
+      final initialTurnMessages = <ChatMessage>[...history];
+      if (messageAttachments.isNotEmpty) {
+        initialTurnMessages.add(
+          ChatMessage(
+            id: 'turn_att_${DateTime.now().millisecondsSinceEpoch}',
+            content: effectivePromptText,
+            role: ChatRole.user,
+            timestamp: DateTime.now(),
+            attachments: messageAttachments,
+          ),
+        );
+      }
+
       final agent = Agent(
         key: 'code_agent',
         name: 'Coding Assistant',
         llmConfig: activeLlmConfig,
         systemPrompt: systemPrompt,
-        prompts: [SubPromptStep(text: input)],
+        prompts: messageAttachments.isNotEmpty
+            ? [const SubPromptStep(text: '')]
+            : [SubPromptStep(text: effectivePromptText)],
         dartTools: dartTools,
         localServers: localServers.where((s) => s.isLocal).toList(),
         remoteServers: localServers.where((s) => !s.isLocal).toList(),
-        initialMessages: history,
+        initialMessages: initialTurnMessages,
         maxToolIterations: cliMaxToolIterations,
       );
 
@@ -1607,6 +1810,8 @@ Commands:
             );
           }
         }
+
+        pendingAttachments.clear();
 
         // Auto-save session if path is configured
         if (autoSavePath != null) {

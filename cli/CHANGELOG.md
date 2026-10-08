@@ -2,6 +2,22 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.2.0
+
+- **Embedded GGUF Model Support (`llamadart`) & Auto-Download**:
+  - Integrated local offline LLM execution using `llamadart` GGUF engine.
+  - Added support for `provider: "embedded"` in `llm.yaml` with custom parameters (`repo`, `model`, `gpu_layers`, `context_size`).
+  - Added automatic download with interactive progress reporting from HuggingFace to `~/.tealkit/models/` when model files are not found locally.
+  - Dynamic switching to embedded models via `/llm <profile_name>`.
+- **Prompt Attachments & Clipboard Integration**:
+  - `/attach <filepath>` or `/attach-file <filepath>`: Attaches local documents (PDF, TXT, MD, JSON, YAML, code files) or image files to the prompt.
+  - `/paste` or `/attach-clipboard`: Cross-platform clipboard extractor (PowerShell on Windows, `pngpaste`/`pbpaste` on macOS, `wl-paste`/`xclip` on Linux) supporting copied images (base64) or formatted text.
+  - `/attachments`: Lists all currently queued attachments for the next prompt.
+  - `/attach clear`: Clears the pending attachments queue.
+  - Multi-modal support extended across OpenAI (`imageUrl`), Claude (`image.base64`), Gemini (`Part.bytes`), and `llamadart`.
+- **Native Assets Build Support**:
+  - Updated build pipeline to use `dart build cli` to package native C/C++ libraries alongside the `tealkit.exe` binary.
+
 ## 1.1.4
 
 - **Dynamic Workspace Management (`/workspace`)**:

@@ -37,15 +37,17 @@ dart run bin/tealkit.dart --help
 ```
 
 ### 3. Compile Native Standalone Executable
-You can compile the CLI into a standalone native binary for instant startup:
+Because TealKit includes embedded local LLM support (`llamadart`) with native C/C++ libraries and build hooks, compile the CLI bundle with `dart build cli`:
 ```bash
-# Windows
-dart compile exe bin/tealkit.dart -o tealkit.exe
+# Build standalone bundle (executable + native libraries)
+dart build cli -o build/cli
 
-# Linux / macOS
-dart compile exe bin/tealkit.dart -o tealkit
-chmod +x tealkit
+# Output binary and dynamic libraries are generated in:
+# Windows: build/cli/bundle/bin/tealkit.exe  (and libraries in build/cli/bundle/lib/)
+# Linux / macOS: build/cli/bundle/bin/tealkit (and libraries in build/cli/bundle/lib/)
 ```
+To distribute or run in a target folder (e.g. `tealkit_cli/`), copy both the `tealkit` executable and the accompanying `lib/` directory into the same location.
+
 
 ---
 

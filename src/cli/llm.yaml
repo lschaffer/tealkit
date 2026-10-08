@@ -41,3 +41,10 @@ llms:
     provider: "claude"
     model: "claude-3-5-sonnet-20241022"
     api_key: "${ANTHROPIC_API_KEY}"
+
+  - name: "qwen-coder"
+    provider: "embedded"
+    repo: "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"
+    model: "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+    context_size: 4096
+    gpu_layers: 0

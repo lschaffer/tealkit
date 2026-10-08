@@ -10,11 +10,19 @@ class NamedLlmProfile {
   final String name;
   final LlmConfig config;
   final bool isDefault;
+  final String? repo;
+  final String? mmproj;
+  final int? gpuLayers;
+  final int? contextSize;
 
   const NamedLlmProfile({
     required this.name,
     required this.config,
     this.isDefault = false,
+    this.repo,
+    this.mmproj,
+    this.gpuLayers,
+    this.contextSize,
   });
 
   @override
@@ -89,7 +97,7 @@ class LlmConfigManager {
           provider: provider,
           model: model,
           apiKey: (item['api_key'] as String?) ?? (item['apiKey'] as String?) ?? '',
-          baseUrl: (item['base_url'] as String?) ?? (item['baseUrl'] as String?) ?? '',
+          baseUrl: (item['base_url'] as String?) ?? (item['baseUrl'] as String?) ?? (item['url'] as String?) ?? '',
           temperature: (item['temperature'] as num?)?.toDouble() ?? globalTemp,
           maxTokens: itemMaxTokens,
           maxToolIterations: itemMaxToolIterations,
@@ -100,7 +108,7 @@ class LlmConfigManager {
           useStreaming: (item['use_streaming'] as bool?) ?? globalUseStreaming,
           thinking: (item['thinking'] as bool?) ?? globalThinking,
           useNativeToolCall: (item['use_native_tool_call'] as bool?) ?? globalUseNativeToolCall,
-          isSlm: (item['is_slm'] as bool?) ?? (provider == LlmProvider.ollama),
+          isSlm: (item['is_slm'] as bool?) ?? (provider == LlmProvider.ollama || provider == LlmProvider.embedded),
         );
 
         profiles.add(
@@ -108,6 +116,10 @@ class LlmConfigManager {
             name: name,
             config: config,
             isDefault: i == 0,
+            repo: (item['repo'] as String?)?.trim(),
+            mmproj: (item['mmproj'] as String?)?.trim(),
+            gpuLayers: (item['gpu_layers'] as int?) ?? (item['gpuLayers'] as int?),
+            contextSize: (item['context_size'] as int?) ?? (item['contextSize'] as int?),
           ),
         );
       }
@@ -210,6 +222,7 @@ class LlmConfigManager {
       'claude' || 'anthropic' => LlmProvider.claude,
       'gemini' || 'google' => LlmProvider.gemini,
       'ollama' => LlmProvider.ollama,
+      'embedded' || 'llamadart' || 'local' => LlmProvider.embedded,
       'openai_compatible' || 'openaicompatible' || 'deepseek' || 'deepinfra' =>
         LlmProvider.openaiCompatible,
       'mistral' => LlmProvider.mistral,
