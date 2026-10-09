@@ -195,15 +195,37 @@ class SessionManager {
     void flushMessage() {
       final text = msgBuffer.toString().trim();
       if (text.isNotEmpty) {
+        MessageType type = currentRole == ChatRole.tool
+            ? MessageType.toolResponse
+            : MessageType.text;
+        String? tName = currentToolName;
+        Map<String, dynamic>? tArgs;
+
+        if (currentRole == ChatRole.assistant && text.startsWith('Calling tool: ')) {
+          final toolMatch = RegExp(r'Calling tool:\s*([^\s]+)\s+with args:\s*(.*)', dotAll: true).firstMatch(text);
+          if (toolMatch != null) {
+            type = MessageType.toolCall;
+            tName = toolMatch.group(1);
+            final argsRaw = toolMatch.group(2)?.trim();
+            if (argsRaw != null && argsRaw.isNotEmpty) {
+              try {
+                final decoded = jsonDecode(argsRaw);
+                if (decoded is Map<String, dynamic>) {
+                  tArgs = decoded;
+                }
+              } catch (_) {}
+            }
+          }
+        }
+
         messages.add(
           ChatMessage(
             id: '${DateTime.now().millisecondsSinceEpoch}_${messages.length}',
             content: text,
             role: currentRole,
-            toolName: currentToolName,
-            type: currentRole == ChatRole.tool
-                ? MessageType.toolResponse
-                : MessageType.text,
+            toolName: tName,
+            toolArguments: tArgs,
+            type: type,
             timestamp: currentTs,
           ),
         );

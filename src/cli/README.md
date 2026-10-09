@@ -1,6 +1,11 @@
 # 🛠️ TealKit CLI (`tealkit_cli`)
 
-A native Dart command-line tool for **TealKit** that unifies remote server management, automated configuration discovery, task execution, and **direct local/headless execution of AgentSkills (`SKILL.md`)** powered by [`dart_mcp_core`](https://pub.dev/packages/dart_mcp_core).
+[![Download Windows x64](https://img.shields.io/badge/Download-Windows%20x64%20Setup%20(.zip)-teal?style=for-the-badge&logo=windows)](https://tealkit.dev/download/tealkit_cli_setup.zip)
+
+> 📥 **Quick Download:** [**`tealkit_cli_setup.zip` (Windows x64 Standalone)**](https://tealkit.dev/download/tealkit_cli_setup.zip)  
+> *Pre-packaged standalone bundle (~55MB) containing `tealkit.exe`, native runtime dynamic libraries (including embedded GGUF inference), default configuration templates, and starter skills.*
+
+A native Dart command-line tool for **TealKit** that unifies remote server management, automated configuration discovery, task execution, **direct local/headless execution of AgentSkills (`SKILL.md`)**, and an **autonomous AI Coding Agent** (Claude Code / Roo Code style with Architect, Code, and Ask modes, native filesystem/terminal execution tools, automatic missing MCP server installation, and embedded GGUF model support) powered by [`dart_mcp_core`](https://pub.dev/packages/dart_mcp_core).
 
 ---
 
@@ -240,7 +245,8 @@ tealkit chat --skill skills/device_audit.md
 - `/mcp_enable_fnc <srv> <f1,f2>` — Temporarily restrict/whitelist visible tools for an MCP server (in-memory until exit or reset)
 - `/mcp_reset_fnc [server]` — Restore all tools and reset function filters for a server (or `all`)
 - `/save-session <file.json|.md>` — Save current conversation transcript and turn history
-- `/load-session <file.json|.md>` — Restore and resume a previous conversation session
+- `/load-session <file.json|.md>` — Restore and view previous conversation session as entered, resuming seamlessly without re-invoking the LLM
+- `/compact [on|off]` — Toggle compact mode (on by default; hides file read contents and shows filenames only)
 - `/estimated_costs` or `/costs` — View token usage summary and estimated session costs
 - `/session` — Display active model, turn count, and token metrics
 - `/tools` — View connected native and MCP tools
@@ -326,7 +332,8 @@ The CLI provides built-in tools that do not require external subprocesses:
 - `/mcp_enable_fnc <server_name> <f1,f2,...>` — Restrict LLM tool visibility for a specific server (e.g. `/mcp_enable_fnc fetch fetch` or `/mcp_enable_fnc toolbox calculate,get_current_time`). Temporary in memory until session exit (`/bye`) or reset.
 - `/mcp_reset_fnc [server_name]` — Clear function restrictions and restore all tools for an MCP server (or `all`).
 - `/save-session <path.json|.md>` — Export current conversation history and task state.
-- `/load-session <path.json|.md>` — Import previous conversation and continue work seamlessly.
+- `/load-session <path.json|.md>` — Import previous conversation, display all turns as entered, and continue work seamlessly without calling the LLM.
+- `/compact [on|off]` — Toggle compact tool output (enabled by default; hides file read contents and shows filenames only, as in other agentic coding tools).
 - `/estimated_costs` or `/costs` — View prompt, completion, total token usage and estimated USD costs.
 - `/session` — Display active model, turn count, and token usage summary.
 - `/permissions` — Inspect current tool approval requirements (read, write, execute, network).

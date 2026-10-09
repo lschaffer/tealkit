@@ -67,12 +67,19 @@ class ChatCommand extends Command {
       negatable: false,
       help: 'Print verbose logs',
     );
+    argParser.addFlag(
+      'compact',
+      defaultsTo: true,
+      help: 'Compact display mode (hide file read contents, show only filename)',
+    );
   }
 
   static const _helpText = '''
 Commands:
   /llm                       List all configured LLM profiles and show active
   /llm <name> or /llm:<name> Switch active LLM profile (e.g. /llm:ollama, /llm mistral)
+  /compact [on|off]          Toggle compact mode (hide file read contents, show only filenames)
+  /install <name|all_mcp>    Install / load MCP server package & connect to session
   /uninstall <name|all_mcp>  Uninstall MCP server package from filesystem & disable in mcp.yaml
   /mcp_inspect [server_name] Inspect functions & schemas of enabled MCP servers
   /mcp_enable_fnc <srv> <f1,f2> Whitelist specific tools for an MCP server (temporary until exit/reset)
@@ -104,6 +111,7 @@ Commands:
     String? autoSavePath = argResults?['save-session'] as String?;
     final loadSessionPath = argResults?['load-session'] as String?;
     final verbose = argResults?['verbose'] as bool? ?? false;
+    var compactMode = argResults?['compact'] as bool? ?? true;
 
     final runner = SkillRunner(
       llmConfigPath: llmPath,
@@ -236,9 +244,19 @@ Commands:
     TerminalPrinter.printBanner(sessionTitle, [
       'LLM Profile : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
       'MCP Servers : ${localServers.length} configured',
+      'Compact Mode: ${compactMode ? "ON" : "OFF"}',
       if (autoSavePath != null) 'Session File: $autoSavePath',
       'Commands    : Type /help for slash commands, /exit to quit',
     ]);
+
+    if (conversation.isNotEmpty) {
+      TerminalPrinter.renderSessionHistory(
+        conversation,
+        mode: 'chat',
+        compact: compactMode,
+      );
+      stdout.writeln('');
+    }
 
     var mcpManager = await runner.connectMcpServers(localServers);
 
@@ -493,6 +511,44 @@ Commands:
             stdout.writeln(
               TerminalPrinter.green(
                 '✔ MCP server uninstalled. Remaining MCP tools: ${tools.length} (${tools.map((t) => t.name).join(", ")})',
+              ),
+            );
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/install')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 2) {
+            stdout.writeln('Usage: /install <server_name|server_id|all_mcp>');
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Configured MCP servers: ${localServers.map((s) => s.name).join(", ")}',
+              ),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          final target = parts.sublist(1).join(' ').trim();
+          stdout.writeln(
+            TerminalPrinter.bold(
+              'Installing / loading MCP server(s) matching "$target"...',
+            ),
+          );
+          final results = await McpManagerHelper.installServers(
+            targetQuery: target,
+            configuredServers: localServers,
+            mcpManager: mcpManager,
+            verbose: verbose,
+          );
+
+          if (results.any((r) => r.success)) {
+            final tools = mcpManager.availableTools;
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ MCP server ready. Active MCP tools: ${tools.length} (${tools.map((t) => t.name).join(", ")})',
               ),
             );
           }
@@ -933,8 +989,55 @@ Commands:
                 '✔ Restored session from "$targetPath" (${conversation.length} messages loaded).',
               ),
             );
+            stdout.writeln('');
+            TerminalPrinter.renderSessionHistory(
+              conversation,
+              mode: 'chat',
+              compact: compactMode,
+            );
           } catch (e) {
             stderr.writeln(TerminalPrinter.red('Error loading session: $e'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/compact')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length > 1) {
+            final arg = parts[1].toLowerCase();
+            if (arg == 'on' || arg == 'true' || arg == '1' || arg == 'enable') {
+              compactMode = true;
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Compact mode enabled (file contents hidden when reading, showing filename only).',
+                ),
+              );
+            } else if (arg == 'off' || arg == 'false' || arg == '0' || arg == 'disable') {
+              compactMode = false;
+              stdout.writeln(
+                TerminalPrinter.yellow(
+                  '✔ Compact mode disabled (file read contents will be displayed).',
+                ),
+              );
+            } else if (arg == 'status') {
+              stdout.writeln(
+                'Compact mode is currently: ${compactMode ? TerminalPrinter.green("ON") : TerminalPrinter.yellow("OFF")}',
+              );
+            } else {
+              stdout.writeln('Usage: /compact on | off');
+            }
+          } else {
+            compactMode = !compactMode;
+            stdout.writeln(
+              compactMode
+                  ? TerminalPrinter.green(
+                      '✔ Compact mode enabled (file contents hidden when reading, showing filename only).',
+                    )
+                  : TerminalPrinter.yellow(
+                      '✔ Compact mode disabled (file read contents will be displayed).',
+                    ),
+            );
           }
           stdout.writeln('');
           continue;
@@ -982,6 +1085,7 @@ Commands:
             '  Active LLM       : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
           );
           stdout.writeln('  History Messages : ${conversation.length}');
+          stdout.writeln('  Compact Mode     : ${compactMode ? "ON" : "OFF"}');
           stdout.writeln(
             '  Tokens Tracked   : ${usageTracker.totalTokens} ($costStr)',
           );
@@ -1116,6 +1220,7 @@ Commands:
                   toolName: toolName,
                   argumentsJson: jsonEncode(parameters),
                   result: result,
+                  compact: compactMode,
                 );
                 spinner.start('Thinking...');
               case AgentAssistantResultEvent(:final response):

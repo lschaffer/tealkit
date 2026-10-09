@@ -2,8 +2,26 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.2.1
+
+- **Startup Missing MCP Server Auto-Installation & Auto-Repair**:
+  - Automatically detects missing local MCP servers at CLI startup by inspecting tool availability (e.g. `uv tool list`).
+  - Automatically runs package installation (`uv tool install --force` with Python compatibility flags or `npm install -g`) before connecting, matching the behavior of the TealKit App / Server.
+  - Implements automatic retry and repair on connection failure: if an active local MCP server fails to connect on startup, the CLI automatically runs re-installation and retries connection before reporting an error.
+  - Added compatibility normalization for `mcp-server-fetch` to inject `--with "pydantic<2.10" --with "mcp<1.3.0"` on Python 3.13 / uvx, preventing `ImportError: cannot import name 'McpError'` and Pydantic crashes.
+- **On-Demand MCP Server Installation (`/install`)**:
+  - Added interactive `/install <name|all_mcp>` command to `code` and `chat` commands.
+  - Installs the underlying package, enables it in `mcp.yaml`, connects the MCP client, and immediately registers available tools with `MultiMCPManager` for interactive use without restarting the session.
+
 ## 1.2.0
 
+- **Compact Tool Call Mode (`/compact on | off`)**:
+  - Added new `/compact [on|off]` command (enabled by default) and `--compact` CLI option.
+  - When enabled, file-reading operations (`fs_read_file`, `ssh_read_file`, `read_file`) suppress verbose file contents in the terminal output, displaying only the target file path and line counts (similar to Claude Code and Roo Code).
+  - Preserves error reporting when file reads fail, while allowing users to disable compact mode with `/compact off` to view the full file content stream.
+- **Session Transcript Replay (`/load-session`)**:
+  - Restoring a session via `/load-session <path>` or startup `--load-session <path>` now prints the conversation history as originally entered (user prompts, tool cards respecting compact mode, and assistant responses).
+  - Replays and formats all turns locally without re-transmitting requests to the LLM or consuming tokens.
 - **Embedded GGUF Model Support (`llamadart`) & Auto-Download**:
   - Integrated local offline LLM execution using `llamadart` GGUF engine.
   - Added support for `provider: "embedded"` in `llm.yaml` with custom parameters (`repo`, `model`, `gpu_layers`, `context_size`).

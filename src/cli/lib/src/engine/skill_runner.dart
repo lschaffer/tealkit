@@ -10,6 +10,7 @@ import '../config/global_config.dart';
 import '../config/llm_config_manager.dart';
 import '../formatters/terminal_printer.dart';
 import '../formatters/terminal_spinner.dart';
+import 'mcp_manager_helper.dart';
 
 /// Headless skill and prompt execution engine powered by `dart_mcp_core`.
 class SkillRunner {
@@ -108,6 +109,18 @@ class SkillRunner {
             }
           }
 
+          // Normalize uvx fetch commands to ensure pydantic<2.10 and mcp<1.3.0 are used
+          final isFetchPkg = pkg == 'mcp-server-fetch' || pkg.contains('fetch') || name.contains('fetch');
+          if (customCmd != null &&
+              customCmd.startsWith('uvx') &&
+              (isFetchPkg || customCmd.contains('fetch')) &&
+              !customCmd.contains('--with')) {
+            customCmd = customCmd.replaceFirst(
+              'uvx ',
+              'uvx --with "pydantic<2.10" --with "mcp<1.3.0" ',
+            );
+          }
+
           // If customLaunchCommand is not provided, generate a sensible default
           if (customCmd == null || customCmd.trim().isEmpty) {
             if (installMethod == 'npx') {
@@ -115,7 +128,8 @@ class SkillRunner {
               final extra = pkg.contains('server-filesystem') ? ' .' : '';
               customCmd = '$npxExe -y $pkg$extra';
             } else if (installMethod == 'uvx') {
-              customCmd = 'uvx $pkg';
+              final withFlags = isFetchPkg ? '--with "pydantic<2.10" --with "mcp<1.3.0" ' : '';
+              customCmd = 'uvx $withFlags$pkg';
             }
           }
         }
@@ -157,10 +171,41 @@ class SkillRunner {
 
     stdout.writeln(TerminalPrinter.bold('Connecting to ${activeServers.length} configured MCP server(s)...'));
 
+    Set<String>? cachedUvTools;
+    try {
+      cachedUvTools = await McpManagerHelper.getInstalledUvTools();
+    } catch (_) {}
+
     for (int i = 0; i < activeServers.length; i++) {
       final server = activeServers[i];
       final typeLabel = server.isLocal ? 'stdio' : 'remote';
       final label = '[${i + 1}/${activeServers.length}] ${server.name} ($typeLabel)';
+
+      // Auto-install missing local MCP server at startup
+      if (server.isLocal) {
+        final isInstalled = await McpManagerHelper.isServerInstalled(
+          server,
+          cachedUvTools: cachedUvTools,
+        );
+        if (!isInstalled) {
+          stdout.write('  → $label: missing! Auto-installing... ');
+          final installRes = await McpManagerHelper.installServer(
+            server,
+            onProgress: (msg) {
+              if (verbose) stderr.writeln('\n      [AutoInstall:${server.name}] $msg');
+            },
+          );
+          if (installRes.success) {
+            stdout.writeln(TerminalPrinter.green('✔ installed'));
+            try {
+              cachedUvTools = await McpManagerHelper.getInstalledUvTools();
+            } catch (_) {}
+          } else {
+            stdout.writeln(TerminalPrinter.yellow('✘ install warning: ${installRes.message}'));
+          }
+        }
+      }
+
       stdout.write('  → $label: connecting... ');
 
       try {
@@ -218,10 +263,41 @@ class SkillRunner {
           stdout.writeln(TerminalPrinter.yellow('✔ connected (0 tools reported)'));
         }
       } catch (e) {
-        stdout.writeln(TerminalPrinter.red('✘ failed'));
-        stdout.writeln(TerminalPrinter.yellow('      $e'));
-        if (!verbose) {
-          stdout.writeln(TerminalPrinter.dim('      (Run with --verbose to view full subprocess logs)'));
+        // Auto-install / repair fallback on failure
+        bool recovered = false;
+        if (server.isLocal) {
+          try {
+            stdout.write('\n      Connection failed. Attempting auto-install/repair for ${server.name}... ');
+            final repairRes = await McpManagerHelper.installServer(server);
+            if (repairRes.success) {
+              final retryClient = LocalMCPClient(
+                server,
+                logCallback: (msg, {bool isError = false}) {
+                  if (verbose) {
+                    stderr.writeln('\n      [LocalMCP:${server.name}] $msg');
+                  }
+                },
+              );
+              await retryClient.connect().timeout(const Duration(seconds: 25));
+              final retryDef = MCPClientDef(
+                name: server.id,
+                client: retryClient,
+                displayName: server.name,
+              );
+              mcpManager.registerClient(retryDef);
+              final count = retryClient.availableTools.length;
+              stdout.writeln(TerminalPrinter.green('✔ auto-installed & connected ($count tool${count > 1 ? "s" : ""})'));
+              recovered = true;
+            }
+          } catch (_) {}
+        }
+
+        if (!recovered) {
+          stdout.writeln(TerminalPrinter.red('✘ failed'));
+          stdout.writeln(TerminalPrinter.yellow('      $e'));
+          if (!verbose) {
+            stdout.writeln(TerminalPrinter.dim('      (Run with --verbose to view full subprocess logs)'));
+          }
         }
       }
     }

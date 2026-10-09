@@ -1,7 +1,8 @@
 import 'dart:io';
 
 import 'package:dart_mcp_core/dart_mcp_core.dart';
-import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, ChatRole;
+import 'package:tealkit_api/tealkit_api.dart'
+    hide ChatMessage, ChatRole, MessageType;
 import 'package:tealkit_cli/tealkit_cli.dart';
 import 'package:test/test.dart';
 
@@ -544,6 +545,69 @@ llms:
       );
       expect(resultsAll.length, 2);
     });
+
+    test('isServerInstalled accurately detects missing and installed servers', () async {
+      const serverFetch = McpServerConfig(
+        id: 'fetch',
+        name: 'mcp-server-fetch',
+        url: '',
+        isLocal: true,
+        localType: 'python',
+        localInstallMethod: 'uvx',
+        localPackage: 'mcp-server-fetch',
+      );
+      const serverGit = McpServerConfig(
+        id: 'git',
+        name: 'mcp-server-git',
+        url: '',
+        isLocal: true,
+        localType: 'python',
+        localInstallMethod: 'uvx',
+        localPackage: 'mcp-server-git',
+      );
+
+      final cachedTools = {'mcp-server-git'};
+
+      expect(
+        await McpManagerHelper.isServerInstalled(serverFetch, cachedUvTools: cachedTools),
+        isFalse,
+      );
+      expect(
+        await McpManagerHelper.isServerInstalled(serverGit, cachedUvTools: cachedTools),
+        isTrue,
+      );
+    });
+
+    test('SkillRunner normalizes fetch uvx launch commands with compatibility flags', () {
+      final tempMcp = File('temp_mcp_test.yaml');
+      tempMcp.writeAsStringSync('''
+servers:
+  - id: "fetch_custom"
+    name: "mcp-server-fetch"
+    enabled: true
+    is_local: true
+    local_type: "python"
+    local_package: "mcp-server-fetch"
+    custom_launch_command: "uvx mcp-server-fetch"
+  - id: "fetch_default"
+    name: "mcp-server-fetch"
+    enabled: true
+    is_local: true
+    local_type: "python"
+    local_package: "mcp-server-fetch"
+''');
+      try {
+        final parsedRunner = SkillRunner(toolsConfigPath: 'temp_mcp_test.yaml');
+        final configs = parsedRunner.loadMcpServers();
+        expect(configs.length, 2);
+        expect(configs[0].customLaunchCommand, contains('--with "pydantic<2.10"'));
+        expect(configs[0].customLaunchCommand, contains('--with "mcp<1.3.0"'));
+        expect(configs[1].customLaunchCommand, contains('--with "pydantic<2.10"'));
+        expect(configs[1].customLaunchCommand, contains('--with "mcp<1.3.0"'));
+      } finally {
+        if (tempMcp.existsSync()) tempMcp.deleteSync();
+      }
+    });
   });
 
   group('TokenUsageTracker', () {
@@ -634,6 +698,123 @@ llms:
       final unlistedReport = tracker.formatReport(unlistedConfig);
       expect(unlistedReport, contains('Active LLM       : ${unlistedConfig.provider.displayName} / custom-internal-exp-model-v99 (${unlistedConfig.provider.displayName} / custom-internal-exp-model-v99)'));
       expect(unlistedReport, contains('None (no price available)'));
+    });
+  });
+
+  group('Compact Mode & Session Transcript Rendering', () {
+    test('isReadFileTool correctly identifies read file tools', () {
+      expect(TerminalPrinter.isReadFileTool('fs_read_file'), isTrue);
+      expect(TerminalPrinter.isReadFileTool('read_file'), isTrue);
+      expect(TerminalPrinter.isReadFileTool('ssh_read_file'), isTrue);
+      expect(TerminalPrinter.isReadFileTool('filesystem:read_file'), isTrue);
+      expect(TerminalPrinter.isReadFileTool('FS_READ_FILE'), isTrue);
+
+      expect(TerminalPrinter.isReadFileTool('fs_write_file'), isFalse);
+      expect(TerminalPrinter.isReadFileTool('fs_find'), isFalse);
+      expect(TerminalPrinter.isReadFileTool('terminal_exec'), isFalse);
+      expect(TerminalPrinter.isReadFileTool('web_search'), isFalse);
+    });
+
+    test('extractFilePath extracts path from tool arguments', () {
+      expect(TerminalPrinter.extractFilePath('{"path":"lib/src/foo.dart"}'), 'lib/src/foo.dart');
+      expect(TerminalPrinter.extractFilePath('{"file":"bar.txt"}'), 'bar.txt');
+      expect(TerminalPrinter.extractFilePath('{"filePath":"baz.dart"}'), 'baz.dart');
+      expect(TerminalPrinter.extractFilePath('{"targetPath":"qux.md"}'), 'qux.md');
+      expect(TerminalPrinter.extractFilePath('{"filename":"test.json"}'), 'test.json');
+      expect(TerminalPrinter.extractFilePath('not valid json'), isNull);
+      expect(TerminalPrinter.extractFilePath('{}'), isNull);
+    });
+
+    test('renderSessionHistory renders user, assistant, and tool calls without external calls', () {
+      final messages = [
+        ChatMessage(
+          id: '1',
+          content: 'Read pubspec.yaml',
+          role: ChatRole.user,
+          timestamp: DateTime.now(),
+        ),
+        ChatMessage(
+          id: '2',
+          content: 'Calling tool: fs_read_file with args: {"path":"pubspec.yaml"}',
+          role: ChatRole.assistant,
+          type: MessageType.toolCall,
+          toolName: 'fs_read_file',
+          toolArguments: {'path': 'pubspec.yaml'},
+          timestamp: DateTime.now(),
+        ),
+        ChatMessage(
+          id: '3',
+          content: 'name: tealkit_cli\nversion: 1.1.1\n',
+          role: ChatRole.tool,
+          type: MessageType.toolResponse,
+          toolName: 'fs_read_file',
+          timestamp: DateTime.now(),
+        ),
+        ChatMessage(
+          id: '4',
+          content: 'The package name is tealkit_cli version 1.1.1.',
+          role: ChatRole.assistant,
+          timestamp: DateTime.now(),
+        ),
+      ];
+
+      // Verify renderSessionHistory executes without throwing
+      expect(() => TerminalPrinter.renderSessionHistory(messages, mode: 'code', compact: true), returnsNormally);
+      expect(() => TerminalPrinter.renderSessionHistory(messages, mode: 'code', compact: false), returnsNormally);
+    });
+
+    test('printToolCall with compact: true suppresses file content and shows filename', () {
+      expect(
+        () => TerminalPrinter.printToolCall(
+          toolName: 'fs_read_file',
+          argumentsJson: '{"path":"lib/src/commands/code_command.dart"}',
+          result: 'line 1\nline 2\nline 3\nline 4\nline 5',
+          compact: true,
+        ),
+        returnsNormally,
+      );
+
+      expect(
+        () => TerminalPrinter.printToolCall(
+          toolName: 'fs_read_file',
+          argumentsJson: '{"path":"lib/src/commands/code_command.dart"}',
+          result: 'line 1\nline 2\nline 3',
+          compact: false,
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('Markdown session import roundtrips tool calls and arguments', () {
+      final md = '''---
+title: "Tool Session"
+mode: "code"
+---
+
+### 👤 User
+Check pubspec
+
+### 🤖 Assistant
+Calling tool: fs_read_file with args: {"path": "pubspec.yaml"}
+
+### ⚙️ Tool Result (fs_read_file)
+1 | name: tealkit_cli
+2 | version: 1.1.1
+
+### 🤖 Assistant
+pubspec is verified.
+''';
+
+      final session = SessionManager.importMarkdown(md);
+      expect(session.messages.length, 4);
+      expect(session.messages[0].role, ChatRole.user);
+      expect(session.messages[1].role, ChatRole.assistant);
+      expect(session.messages[1].type, MessageType.toolCall);
+      expect(session.messages[1].toolName, 'fs_read_file');
+      expect(session.messages[1].toolArguments?['path'], 'pubspec.yaml');
+      expect(session.messages[2].role, ChatRole.tool);
+      expect(session.messages[3].role, ChatRole.assistant);
+      expect(session.messages[3].content, contains('pubspec is verified.'));
     });
   });
 }

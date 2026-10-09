@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:dart_mcp_core/dart_mcp_core.dart';
 
 /// Terminal styling, box drawing, and formatted tables for CLI output.
 class TerminalPrinter {
@@ -110,24 +113,162 @@ class TerminalPrinter {
     return lines;
   }
 
+  /// Detects whether [toolName] represents a file-reading tool.
+  static bool isReadFileTool(String toolName) {
+    final lower = toolName.toLowerCase();
+    return lower == 'fs_read_file' ||
+        lower == 'read_file' ||
+        lower == 'ssh_read_file' ||
+        lower.endsWith('_read_file') ||
+        lower.endsWith(':read_file') ||
+        lower == 'readfile';
+  }
+
+  /// Extracts a target file path from JSON-encoded tool call arguments if present.
+  static String? extractFilePath(String argumentsJson) {
+    try {
+      final decoded = jsonDecode(argumentsJson);
+      if (decoded is Map) {
+        return (decoded['path'] ??
+                decoded['file'] ??
+                decoded['filePath'] ??
+                decoded['targetPath'] ??
+                decoded['filename'] ??
+                decoded['uri'])
+            ?.toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Print a formatted tool call card (matches mcp_cli_example).
+  /// When [compact] is true and tool is a file-reading tool, file content is hidden,
+  /// displaying only the target file path and line count.
   static void printToolCall({
     required String toolName,
     required String argumentsJson,
     required String result,
+    bool compact = false,
   }) {
+    final isRead = isReadFileTool(toolName);
+    var filePath = isRead ? extractFilePath(argumentsJson) : null;
+
     stdout.writeln(yellow('┌─ TOOL CALL ──────────────────────────────────────────────'));
     stdout.writeln('${yellow("│")} ${bold("Tool   :")} ${cyan(toolName)}');
-    stdout.writeln('${yellow("│")} ${bold("Args   :")} $argumentsJson');
-    stdout.writeln(yellow('├─ RESULT ─────────────────────────────────────────────────'));
-    final lines = result.split('\n');
-    for (final line in lines.take(20)) {
-      stdout.writeln('${yellow("│")} $line');
+    if (compact && isRead && filePath != null) {
+      stdout.writeln('${yellow("│")} ${bold("File   :")} $filePath');
+    } else {
+      stdout.writeln('${yellow("│")} ${bold("Args   :")} $argumentsJson');
     }
-    if (lines.length > 20) {
-      stdout.writeln('${yellow("│")} ${dim("... (${lines.length} lines total)")}');
+    stdout.writeln(yellow('├─ RESULT ─────────────────────────────────────────────────'));
+
+    if (compact && isRead) {
+      final trimmedResult = result.trim();
+      final isError = trimmedResult.toLowerCase().startsWith('error') ||
+          trimmedResult.toLowerCase().startsWith('failed') ||
+          trimmedResult.toLowerCase().startsWith('exception') ||
+          trimmedResult.contains('not found');
+
+      if (isError) {
+        stdout.writeln('${yellow("│")} ${red(trimmedResult)}');
+      } else {
+        int? lineCount;
+        int? byteCount;
+        try {
+          final resJson = jsonDecode(result);
+          if (resJson is Map) {
+            filePath ??= resJson['path']?.toString();
+            if (resJson.containsKey('bytes')) {
+              byteCount = resJson['bytes'] as int?;
+            }
+            if (resJson.containsKey('content') && resJson['content'] is String) {
+              lineCount = (resJson['content'] as String).split('\n').length;
+            }
+          }
+        } catch (_) {}
+
+        lineCount ??= result.split('\n').length;
+        final fileDisplay = filePath != null ? cyan(filePath) : 'file';
+        final countInfo = byteCount != null
+            ? '$lineCount lines, $byteCount bytes'
+            : '$lineCount lines';
+        stdout.writeln('${yellow("│")} Read $fileDisplay ($countInfo)');
+      }
+    } else {
+      final lines = result.split('\n');
+      for (final line in lines.take(20)) {
+        stdout.writeln('${yellow("│")} $line');
+      }
+      if (lines.length > 20) {
+        stdout.writeln('${yellow("│")} ${dim("... (${lines.length} lines total)")}');
+      }
     }
     stdout.writeln(yellow('└──────────────────────────────────────────────────────────'));
+  }
+
+  /// Render a list of [ChatMessage] as if they were entered in the live REPL.
+  /// Replays conversation without making any LLM or external calls.
+  static void renderSessionHistory(
+    List<ChatMessage> messages, {
+    String mode = 'code',
+    bool compact = true,
+  }) {
+    if (messages.isEmpty) return;
+
+    int i = 0;
+    while (i < messages.length) {
+      final msg = messages[i];
+
+      if (msg.role == ChatRole.user) {
+        final prefix = '[$mode] > ';
+        stdout.write(cyan(prefix));
+        stdout.writeln(msg.content);
+        i++;
+      } else if (msg.role == ChatRole.assistant &&
+          msg.type == MessageType.toolCall) {
+        // Paired tool call + tool response
+        String resultText = '';
+        if (i + 1 < messages.length && messages[i + 1].role == ChatRole.tool) {
+          final next = messages[i + 1];
+          resultText = next.toolResult != null
+              ? next.toolResult!.content.map((c) => c.text ?? '').join('\n')
+              : next.content;
+          i++; // Consume tool response
+        }
+        printToolCall(
+          toolName: msg.toolName ?? 'tool',
+          argumentsJson: jsonEncode(msg.toolArguments ?? {}),
+          result: resultText,
+          compact: compact,
+        );
+        i++;
+      } else if (msg.role == ChatRole.tool) {
+        // Standalone tool result (e.g. from markdown session import)
+        final resultText = msg.toolResult != null
+            ? msg.toolResult!.content.map((c) => c.text ?? '').join('\n')
+            : msg.content;
+        printToolCall(
+          toolName: msg.toolName ?? 'tool',
+          argumentsJson: msg.toolArguments != null
+              ? jsonEncode(msg.toolArguments)
+              : '{}',
+          result: resultText,
+          compact: compact,
+        );
+        i++;
+      } else if (msg.role == ChatRole.assistant) {
+        final content = msg.content.trim();
+        if (content.isNotEmpty) {
+          stdout.writeln('');
+          stdout.writeln(content);
+          stdout.writeln('');
+        }
+        i++;
+      } else {
+        // Skip system or unrecognized message types
+        i++;
+      }
+    }
   }
 
   /// Print a table of data with headers.
