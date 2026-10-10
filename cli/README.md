@@ -53,6 +53,60 @@ dart build cli -o build/cli
 ```
 To distribute or run in a target folder (e.g. `tealkit_cli/`), copy both the `tealkit` executable and the accompanying `lib/` directory into the same location.
 
+### 4. Compiling on macOS Apple Silicon (ARM64 / Mac Mini M4 / macOS Sequoia)
+
+Follow these steps to build natively on Apple Silicon with hardware Metal GPU acceleration:
+
+#### Prerequisites
+1. **Xcode Command Line Tools**:
+   ```bash
+   xcode-select --install
+   ```
+2. **Native Dart SDK (ARM64)** (>= 3.8.0):
+   ```bash
+   brew tap dart-lang/dart
+   brew install dart
+   dart --version  # Verify (macos_arm64)
+   ```
+
+#### Build Steps
+1. **Navigate to the CLI directory**:
+   ```bash
+   cd cli
+   ```
+2. **Dependencies & Overrides**:
+   If cloning cleanly without local monorepo sibling folders, remove `pubspec_overrides.yaml` so dependencies are pulled from pub.dev:
+   ```bash
+   rm -f pubspec_overrides.yaml
+   dart pub get
+   ```
+3. **Compile Native ARM64 Bundle with Metal Acceleration**:
+   TealKit relies on [`llamadart`](https://pub.dev/packages/llamadart) native asset hooks to download and link Apple Silicon Metal dynamic libraries (`libLiteRtMetalAccelerator.dylib`, etc.) for GPU acceleration:
+   ```bash
+   dart build cli -o build/cli
+   ```
+   - **ARM64 Native Binary**: `build/cli/bundle/bin/tealkit`
+   - **Native Metal Libraries**: `build/cli/bundle/lib/*.dylib`
+
+4. **Verify & Execute**:
+   ```bash
+   chmod +x build/cli/bundle/bin/tealkit
+   ./build/cli/bundle/bin/tealkit --help
+   ```
+
+5. **Standalone Setup & PATH (Optional)**:
+   ```bash
+   mkdir -p ~/tealkit_cli
+   cp build/cli/bundle/bin/tealkit ~/tealkit_cli/
+   cp -r build/cli/bundle/lib ~/tealkit_cli/
+   cp -r skills ~/tealkit_cli/
+   cp -r *.yaml ~/tealkit_cli/
+   echo 'export PATH="$HOME/tealkit_cli:$PATH"' >> ~/.zshrc
+   source ~/.zshrc
+
+   # Launch AI Coding Agent
+   tealkit code
+   ```
 
 ---
 
