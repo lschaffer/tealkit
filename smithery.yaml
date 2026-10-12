@@ -1,0 +1,30 @@
+# Smithery.ai MCP Server Configuration
+# https://smithery.ai/docs/config
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      tealkitPath:
+        type: string
+        title: "TealKit Executable Path"
+        description: "Path to the tealkit binary or 'tealkit' if available in PATH"
+        default: "tealkit"
+  commandFunction: |-
+    (config) => ({
+      command: config.tealkitPath || 'tealkit',
+      args: ['mcp-serve']
+    })
+
+description: "TealKit Model Context Protocol (MCP) Server — Expose local DuckDB RAG vector queries, offline on-device SLM processing (llamadart / LiteRt), and automated AgentSkill workflows directly to Claude Desktop, Cursor, and Roo Code."
+repository: "https://github.com/lschaffer/tealkit"
+homepage: "https://tealkit.dev"
+tags:
+  - agent
+  - rag
+  - duckdb
+  - llamadart
+  - offline-ai
+  - workflow-runner
+  - mcp-server

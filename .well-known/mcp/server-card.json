@@ -1,0 +1,139 @@
+{
+  "serverInfo": {
+    "name": "tealkit",
+    "version": "1.3.0"
+  },
+  "authentication": {
+    "required": false
+  },
+  "tools": [
+    {
+      "name": "tealkit_rag_query",
+      "description": "Execute semantic / vector RAG search against local DuckDB collections.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "Target DuckDB collection or table name",
+            "default": "default"
+          },
+          "query": {
+            "type": "string",
+            "description": "Natural language question or search query"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of matched chunks to return",
+            "default": 5
+          }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "tealkit_run_workflow",
+      "description": "Execute a pre-defined multi-step .tealkit agent workflow file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_file": {
+            "type": "string",
+            "description": "Path to the .tealkit workflow YAML file"
+          },
+          "input": {
+            "type": "string",
+            "description": "Primary prompt, objective, or input payload"
+          }
+        },
+        "required": ["workflow_file"]
+      }
+    },
+    {
+      "name": "tealkit_run_skill",
+      "description": "Execute a specific local or remote AgentSkill action.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "skill_name": {
+            "type": "string",
+            "description": "Identifier of the registered skill"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Key-value input arguments passed directly to the skill action"
+          }
+        },
+        "required": ["skill_name"]
+      }
+    },
+    {
+      "name": "tealkit_slm_process",
+      "description": "Run an offline inference prompt on an on-device Small Language Model (llamadart / GGUF / LiteRT).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Identifier or alias of the local SLM model (e.g. 'qwen-0.5b', 'phi-3-mini')",
+            "default": "default"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The prompt or instruction to send to the local model"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "Maximum generated output tokens",
+            "default": 512
+          }
+        },
+        "required": ["prompt"]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "tealkit://workflows",
+      "name": "Local Workflows",
+      "mimeType": "application/json",
+      "description": "List of available .tealkit workflow definitions"
+    },
+    {
+      "uri": "tealkit://skills",
+      "name": "Installed Skills",
+      "mimeType": "application/json",
+      "description": "Catalog of active agent skills"
+    },
+    {
+      "uri": "tealkit://rag/collections",
+      "name": "RAG Collections",
+      "mimeType": "application/json",
+      "description": "List of indexed DuckDB vector collections"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "tealkit_code_review",
+      "description": "TealKit structured code review and security analysis prompt",
+      "arguments": [
+        {
+          "name": "code",
+          "description": "The source code snippet or file content to review",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "tealkit_rag_search",
+      "description": "Interactive question-answering template using TealKit local DuckDB RAG",
+      "arguments": [
+        {
+          "name": "question",
+          "description": "The question to investigate",
+          "required": true
+        }
+      ]
+    }
+  ]
+}
