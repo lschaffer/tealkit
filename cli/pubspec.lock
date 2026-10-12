@@ -119,7 +119,7 @@ packages:
       path: "../../mcp_playground/dart_mcp_core"
       relative: true
     source: path
-    version: "1.1.3"
+    version: "1.1.4"
   dartssh2:
     dependency: "direct main"
     description:
@@ -132,10 +132,10 @@ packages:
     dependency: transitive
     description:
       name: dinja
-      sha256: "34d4e569ceb3d900ab061f16cae947223968cc63d2484a8a4710d5ecfa4ae3a2"
+      sha256: "8bb2dfdb481901a0b360fec4a8ffd108d11c5441577f4ebd9309d3b667a1d0a6"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "1.3.0"
   ffi:
     dependency: transitive
     description:
@@ -236,10 +236,10 @@ packages:
     dependency: "direct main"
     description:
       name: llamadart
-      sha256: e590146680202fed7471a9e5b42338a790911c2b35cb9ac7877c254e7e6b9f88
+      sha256: "0571325a1c9241d4ab624e124fe7b73ccc7847d97892833b56484b136ca53f5c"
       url: "https://pub.dev"
     source: hosted
-    version: "0.8.24"
+    version: "0.11.1"
   logging:
     dependency: transitive
     description:
@@ -292,10 +292,10 @@ packages:
     dependency: transitive
     description:
       name: openai_dart
-      sha256: "29f757e44cc2f969c4d4955f7be596ff77aee230dde35297bde192848b43a2b9"
+      sha256: "40bbca48b592f6a0671501caf6082577a6afc7cc72a0af910580f0054609205a"
       url: "https://pub.dev"
     source: hosted
-    version: "10.0.0"
+    version: "11.0.1"
   package_config:
     dependency: transitive
     description:

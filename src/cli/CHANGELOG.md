@@ -2,6 +2,27 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.3.0
+
+- **TealKit MCP Server (`tealkit mcp-serve` / `tealkit mcp serve`)**:
+  - Exposes TealKit as a full Model Context Protocol (MCP) JSON-RPC 2.0 stdio server.
+  - Allows external frontier AI clients (Claude Desktop, Cursor, Roo Code / Cline, VS Code Copilot) to directly invoke TealKit tools, local DuckDB RAG vector queries, offline SLM models, and multi-step AgentSkill workflows.
+  - Dynamically inspects registered workflows and turns each into a sanitized MCP tool (`wf_<name>`) with typed JSON Schema specifications.
+  - Provides core MCP primitives:
+    - **Tools**: `tealkit_rag_query`, `tealkit_run_workflow`, `tealkit_run_skill`, `tealkit_slm_process`, and dynamic workflow tools.
+    - **Resources**: `tealkit://workflows`, `tealkit://models`, `tealkit://skills`, `tealkit://rag/collections`.
+    - **Prompts**: `tealkit_code_review`, `tealkit_rag_search`.
+- **Dual Transport Layers (Local Stdio & Remote HTTP/SSE)**:
+  - Supports standard local desktop stdio communication (`tealkit mcp-serve`).
+  - Supports remote HTTP / Server-Sent Events (SSE) daemon mode (`tealkit mcp serve --sse --port 8081`) with CORS, session routing (`GET /sse`, `POST /message?sessionId=...`), Bearer token authentication (`--api-key`), and TLS/HTTPS (`--cert`, `--key`) for 24/7 cloud, home lab, and team deployments.
+- **Client Configuration Installer (`tealkit mcp install-claude` & `tealkit mcp config`)**:
+  - Automatic cross-platform discovery and safe merging into `claude_desktop_config.json` on Windows, macOS, and Linux without disturbing other configured servers.
+  - Generates ready-to-copy configuration snippets for Cursor and Roo Code.
+- **AI Agent Package Upgrades**:
+  - Upgraded `openai_dart` from `^10.0.0` to `^11.0.1`.
+- **Public MCP Registry Support**:
+  - Added root `smithery.yaml` for 1-click installation via Smithery.ai and listing on Glama.ai / awesome-mcp-servers.
+
 ## 1.2.1
 
 - **Startup Missing MCP Server Auto-Installation & Auto-Repair**:

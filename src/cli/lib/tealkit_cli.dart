@@ -3,6 +3,7 @@ import 'package:args/command_runner.dart';
 import 'src/commands/auto_discover_command.dart';
 import 'src/commands/chat_command.dart';
 import 'src/commands/code_command.dart';
+import 'src/commands/mcp_command.dart';
 import 'src/commands/prompt_command.dart';
 import 'src/commands/server_command.dart';
 import 'src/commands/skill_command.dart';
@@ -12,6 +13,7 @@ export 'src/commands/agent_command.dart';
 export 'src/commands/auto_discover_command.dart';
 export 'src/commands/chat_command.dart';
 export 'src/commands/code_command.dart';
+export 'src/commands/mcp_command.dart';
 export 'src/commands/prompt_command.dart';
 export 'src/commands/server_command.dart';
 export 'src/commands/skill_command.dart';
@@ -26,6 +28,10 @@ export 'src/engine/session_manager.dart';
 export 'src/engine/skill_runner.dart';
 export 'src/engine/token_usage_tracker.dart';
 export 'src/formatters/terminal_printer.dart';
+export 'src/mcp/mcp_config_installer.dart';
+export 'src/mcp/mcp_sse_server.dart';
+export 'src/mcp/mcp_stdio_server.dart';
+export 'src/mcp/workflow_schema_generator.dart';
 
 /// Constructs the primary [CommandRunner] for TealKit CLI.
 CommandRunner<void> buildTealKitCommandRunner() {
@@ -42,6 +48,8 @@ CommandRunner<void> buildTealKitCommandRunner() {
   runner.addCommand(PromptCommand());
   runner.addCommand(ChatCommand());
   runner.addCommand(CodeCommand());
+  runner.addCommand(McpCommand());
+  runner.addCommand(DirectMcpServeCommand());
 
   return runner;
 }

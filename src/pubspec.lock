@@ -1295,10 +1295,10 @@ packages:
     dependency: "direct main"
     description:
       name: openai_dart
-      sha256: "29f757e44cc2f969c4d4955f7be596ff77aee230dde35297bde192848b43a2b9"
+      sha256: "40bbca48b592f6a0671501caf6082577a6afc7cc72a0af910580f0054609205a"
       url: "https://pub.dev"
     source: hosted
-    version: "10.0.0"
+    version: "11.0.1"
   package_config:
     dependency: transitive
     description:

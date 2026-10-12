@@ -21,6 +21,7 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
 | 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, dynamic model switching (`/llm`), session saving/resuming (`.json`/`.md`), MCP uninstallation (`/uninstall`), token cost estimation (`/estimated_costs`), and slash commands. |
 | 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, and Ask modes, 10 native tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`), session persistence, token cost tracking, `tasks.md` checklists, and `tealkit_agent.md` workspace rules. |
+| 🔌 **MCP Server (`tealkit mcp-serve`)** | Expose TealKit as a Model Context Protocol (MCP) JSON-RPC 2.0 stdio server to Claude Desktop, Cursor, and Roo Code. Exposes local DuckDB RAG, offline SLM processing (`llamadart`), and dynamic workflows as callable tools. |
 
 ---
 
@@ -413,6 +414,90 @@ Approve execution? [y/n/always/deny-all] >
 
 ---
 
+### 9. Exposing TealKit as an MCP Server (`tealkit mcp-serve`)
+
+Transform TealKit into a centralized local or remote **Model Context Protocol (MCP)** server. Any MCP-compatible AI interface—such as **Claude Desktop**, **Cursor**, **Roo Code / Cline**, **VS Code Copilot**, **LibreChat**, or **OpenWebUI**—can directly execute your local DuckDB RAG queries, invoke on-device SLM models (`llamadart`), and run automated AgentSkill workflows.
+
+#### 💡 What is this and why is it useful?
+
+Traditionally, TealKit operates as an independent terminal agent or desktop app. By acting as an **MCP Server**, TealKit acts as a backend AI capability provider for other tools you already use every day:
+
+| Use Case | How it Works | Real-World Benefit |
+|---|---|---|
+| 🔍 **Zero-Cloud RAG Search** | Cursor or Claude Desktop calls `tealkit_rag_query` to search your private local DuckDB database. | You query gigabytes of private internal code and documents without uploading them to external vector cloud providers. |
+| 🔒 **Local Offline SLM Processing** | Frontier models (Claude 3.5 Sonnet / GPT-4o) offload sensitive text to `tealkit_slm_process`. | PII, sensitive customer data, or internal secrets are scrubbed or summarized completely offline on your local GPU/NPU via `llamadart`. |
+| ⚡ **1-Click AgentSkill Execution** | External clients execute `tealkit_run_skill` or dynamic workflow tools (`wf_<name>`). | Multi-step deployment, code migration, or data processing pipelines run deterministically with zero manual prompt re-typing. |
+| 🌐 **24/7 Shared Team Capability** | Run TealKit on a home lab, Mac Mini, or VPS with `--sse`. | Entire engineering teams can connect their local IDEs to a single centralized server with shared workflows and knowledge bases. |
+
+---
+
+#### 🛠️ Available MCP Primitives
+
+- **Tools**:
+  - `tealkit_rag_query`: Query local DuckDB vector store and indexed files without sending sensitive documents to the cloud.
+  - `tealkit_run_workflow`: Execute configured TealKit pipelines or tasks by name or ID.
+  - `tealkit_run_skill`: Directly run an AgentSkill (`SKILL.md`) workflow with custom parameters.
+  - `tealkit_slm_process`: Offload private tasks (PII redaction, offline summarization) to on-device models via `llamadart` / `LiteRt`.
+  - Dynamic tools (`wf_<name>`): Every workflow in your workspace is automatically mapped to an individual MCP tool with typed JSON Schema arguments.
+- **Resources**:
+  - `tealkit://workflows`: List of active workflows and variable schemas.
+  - `tealkit://models`: Status of configured LLMs and loaded local SLM models.
+  - `tealkit://skills`: Discovered `SKILL.md` bundles.
+  - `tealkit://rag/collections`: Active DuckDB document collections.
+- **Prompts**:
+  - `tealkit_code_review`: Predefined architectural review template.
+  - `tealkit_rag_search`: Semantic search and synthesis template.
+
+---
+
+#### 🚀 Dual Transport Modes
+
+TealKit supports two transport layers:
+
+##### 1. Local Desktop Stdio Mode (Default)
+Best for single-machine use with Claude Desktop, Cursor, or Roo Code:
+```bash
+# Automatically configure Claude Desktop:
+tealkit mcp install-claude
+
+# View ready-to-copy JSON configs for Cursor and Roo Code:
+tealkit mcp config
+
+# Start stdio server directly:
+tealkit mcp-serve
+# or
+tealkit mcp serve
+```
+
+##### 2. Remote HTTP / Server-Sent Events (SSE) Mode
+Best for team servers, Docker containers, home labs, or cloud VPS deployments (`tealkit.dev`):
+```bash
+# Start HTTP SSE server on port 8081:
+tealkit mcp serve --sse --port 8081
+
+# Start with API key authentication:
+tealkit mcp serve --sse --port 8081 --api-key "my-secure-token"
+
+# Start with HTTPS (SSL/TLS certificate and key):
+tealkit mcp serve --sse --port 8443 --cert cert.pem --key key.pem --api-key "my-token"
+```
+
+Configure your remote client in `claude_desktop_config.json`, Cursor, or LibreChat:
+```json
+{
+  "mcpServers": {
+    "tealkit-cloud": {
+      "url": "https://tealkit.dev/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer my-secure-token"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## 📋 Command Reference
 
 ```text
@@ -446,4 +531,9 @@ Available commands:
     run           Run prompt with optional --system prompt or piped stdin.
   chat            Start an interactive multi-turn terminal agent session.
   code            Launch interactive coding agent REPL (Claude Code / Roo Code style).
+  mcp             Model Context Protocol (MCP) server management and client configuration.
+    serve         Start the TealKit MCP stdio server.
+    install-claude Register TealKit MCP server inside Claude Desktop.
+    config        Print copy-pasteable MCP configuration snippets.
+  mcp-serve       Direct shortcut to start the MCP stdio server.
 ```
