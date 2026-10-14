@@ -2331,6 +2331,8 @@ Future<Response> _handleGetLlmSettings(Request request) async {
     'max_tool_output_size2': llm.maxToolOutputSize2,
     'token_warning_threshold2': llm.tokenWarningThreshold2,
     'is_multi_modal2': llm.isMultiModal2,
+    'profiles': llm.profiles,
+    'selected_profile_id': llm.selectedProfileId,
   });
 }
 
@@ -2347,6 +2349,12 @@ Future<Response> _handlePutLlmSettings(Request request) async {
 
   try {
     final llm = ServerLlmSettingsService.instance;
+    if (body.containsKey('profiles') && body['profiles'] is List) {
+      await llm.setProfiles(body['profiles'] as List);
+    }
+    if (body.containsKey('selected_profile_id')) {
+      await llm.setSelectedProfileId(body['selected_profile_id'] as String);
+    }
     if (body.containsKey('provider')) {
       await llm.setProvider(provider!);
     }

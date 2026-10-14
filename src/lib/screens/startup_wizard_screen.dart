@@ -281,22 +281,29 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
         backgroundColor: isModern ? Colors.transparent : null,
         elevation: 0,
         title: Text(title),
-        leading:
-            (isModern &&
-                MediaQuery.sizeOf(context).width > 1200 &&
-                !(ModalRoute.of(context)?.canPop ?? false))
-            ? Consumer(
-                builder: (context, ref, _) {
-                  final isOpen = ref.watch(sidebarOpenProvider);
-                  return IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () {
-                      ref.read(sidebarOpenProvider.notifier).state = !isOpen;
-                    },
-                  );
-                },
-              )
-            : null,
+        leading: Builder(
+          builder: (ctx) {
+            if (Navigator.of(ctx).canPop()) {
+              return IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(ctx).pop(),
+              );
+            }
+            return Consumer(
+              builder: (context, ref, _) {
+                final isOpen = ref.watch(sidebarOpenProvider);
+                return IconButton(
+                  icon: const Icon(Icons.menu),
+                  tooltip: 'Toggle Menu',
+                  onPressed: () {
+                    ref.read(sidebarOpenProvider.notifier).state = !isOpen;
+                  },
+                );
+              },
+            );
+          },
+        ),
         actions: [
           Consumer(
             builder: (context, ref, _) {
@@ -350,6 +357,10 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
                 );
               },
             ),
+
+            // ── AI Data Sharing Consent (Root Level) ──
+            _AiDataSharingConsentCard(prefs: prefs),
+            const SizedBox(height: 16),
 
             // ── 1. LLM (required) ──
             _StepCard(
@@ -472,6 +483,102 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
       return ParticleBackground(child: mainContent);
     }
     return mainContent;
+  }
+}
+
+class _AiDataSharingConsentCard extends StatelessWidget {
+  final AppPreferencesService prefs;
+
+  const _AiDataSharingConsentCard({required this.prefs});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final consent = prefs.aiDataSharingConsent;
+    final uiStyle = AppPreferencesService.instance.uiStyle;
+    final isModern = uiStyle == 'modern' || uiStyle == 'custom';
+
+    final cardBg = isModern
+        ? (isDark
+            ? Colors.black.withValues(alpha: 0.25)
+            : Colors.white.withValues(alpha: 0.65))
+        : (isDark ? AppTheme.cardDark : AppTheme.cardLight);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: consent
+              ? AppTheme.primaryBlue.withValues(alpha: 0.4)
+              : AppTheme.warning.withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (consent ? AppTheme.primaryBlue : AppTheme.warning)
+                      .withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  consent ? Icons.verified_user : Icons.privacy_tip_outlined,
+                  color: consent ? AppTheme.primaryBlue : AppTheme.warning,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI Data Sharing Consent',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      consent
+                          ? 'Remote AI data transmission enabled'
+                          : 'Action required for cloud AI providers',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: consent ? AppTheme.success : AppTheme.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: consent,
+                activeThumbColor: AppTheme.primaryBlue,
+                onChanged: (v) => prefs.setAiDataSharingConsent(v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'When enabled, prompts, attachments, and tool outputs may be sent to your configured AI provider '
+            '(OpenAI, Google, Anthropic, Mistral, or custom remote endpoints). Required for remote AI usage. '
+            'You can disable this at any time.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isDark ? cs.onSurface.withValues(alpha: 0.7) : cs.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

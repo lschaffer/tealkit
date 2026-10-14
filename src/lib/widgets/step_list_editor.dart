@@ -1,11 +1,13 @@
-// ignore_for_file: use_build_context_synchronously
-
+import 'dart:io';
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart' hide Step;
 
 import '../config/app_theme.dart';
+import '../models/mcp_models.dart';
 import '../models/step_types.dart';
 import '../services/app_preferences_service.dart';
+import '../services/desktop_clipboard_service.dart';
 
 export '../models/step_types.dart' show Step, parseWorkflowSteps, serializeWorkflowSteps, stepSepRegex;
 
@@ -83,6 +85,7 @@ class StepListEditor extends StatefulWidget {
     this.onToolSelectionChanged,
     this.leading,
     this.trailing,
+    this.onAttachmentsPasted,
   });
 
   final TextEditingController controller;
@@ -105,6 +108,9 @@ class StepListEditor extends StatefulWidget {
 
   final Widget? leading;
   final Widget? trailing;
+
+  /// Called when an image or file is pasted from clipboard into a step's textfield
+  final ValueChanged<List<MessageAttachment>>? onAttachmentsPasted;
 
   @override
   State<StepListEditor> createState() => _SubPromptListEditorState();
@@ -256,6 +262,90 @@ class _SubPromptListEditorState extends State<StepListEditor> {
     });
   }
 
+  Widget _buildStepTextField(
+    BuildContext context,
+    SubPromptEntry entry,
+    int index,
+    InputDecoration decoration,
+  ) {
+    final theme = Theme.of(context);
+    final textField = TextField(
+      controller: entry.controller,
+      minLines: widget.minLines,
+      maxLines: widget.maxLines,
+      style: TextStyle(
+        color: theme.brightness == Brightness.dark ? Colors.white : Colors.black87,
+        fontSize: 14,
+      ),
+      decoration: decoration,
+    );
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
+            _handlePaste(entry.controller),
+        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () =>
+            _handlePaste(entry.controller),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          PasteTextIntent: CallbackAction<PasteTextIntent>(
+            onInvoke: (intent) {
+              _handlePaste(entry.controller);
+              return null;
+            },
+          ),
+        },
+        child: textField,
+      ),
+    );
+  }
+
+  Future<void> _handlePaste(TextEditingController controller) async {
+    final clipData = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = clipData?.text;
+
+    if (text != null && text.isNotEmpty) {
+      // Check if text is a single-line path to an existing local file
+      final trimmed = text.trim().replaceAll('"', '');
+      if (trimmed.length < 500 &&
+          (trimmed.startsWith('/') ||
+              (trimmed.length > 2 && trimmed[1] == ':'))) {
+        final f = File(trimmed);
+        if (f.existsSync() && widget.onAttachmentsPasted != null) {
+          final att = await DesktopClipboardService.createAttachmentFromFile(trimmed);
+          if (att != null) {
+            widget.onAttachmentsPasted!([att]);
+            return;
+          }
+        }
+      }
+
+      // Normal text paste
+      final sel = controller.selection;
+      if (!sel.isValid || sel.start < 0) {
+        controller.text = controller.text + text;
+        controller.selection = TextSelection.collapsed(offset: controller.text.length);
+      } else {
+        final old = controller.text;
+        final newText = old.replaceRange(sel.start, sel.end, text);
+        controller.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: sel.start + text.length),
+        );
+      }
+      return;
+    }
+
+    // If no text or empty on clipboard, check desktop clipboard for images/files
+    if (widget.onAttachmentsPasted != null && DesktopClipboardService.isDesktop) {
+      final attachments = await DesktopClipboardService.getClipboardAttachments();
+      if (attachments.isNotEmpty) {
+        widget.onAttachmentsPasted!(attachments);
+      }
+    }
+  }
+
   // ---- Build ----
 
   @override
@@ -319,15 +409,11 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                               const SizedBox(width: 4),
                             ],
                             Expanded(
-                              child: TextField(
-                                controller: entry.controller,
-                                minLines: widget.minLines,
-                                maxLines: widget.maxLines,
-                                style: TextStyle(
-                                  color: theme.brightness == Brightness.dark ? Colors.white : Colors.black87,
-                                  fontSize: 14,
-                                ),
-                                decoration: InputDecoration(
+                              child: _buildStepTextField(
+                                context,
+                                entry,
+                                index,
+                                InputDecoration(
                                   hintText: index == 0
                                       ? (widget.hintText ?? 'Message AI Playground...')
                                       : 'Continue...  use \${tool_result} to inject prior step output',
@@ -395,15 +481,11 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                           const SizedBox(width: 4),
                         ],
                         Expanded(
-                          child: TextField(
-                            controller: entry.controller,
-                            minLines: widget.minLines,
-                            maxLines: widget.maxLines,
-                            style: TextStyle(
-                              color: theme.brightness == Brightness.dark ? Colors.white : Colors.black87,
-                              fontSize: 14,
-                            ),
-                            decoration: InputDecoration(
+                          child: _buildStepTextField(
+                            context,
+                            entry,
+                            index,
+                            InputDecoration(
                               hintText: index == 0
                                   ? (widget.hintText ?? 'Message AI Playground...')
                                   : 'Continue...  use \${tool_result} to inject prior step output',
@@ -486,11 +568,11 @@ class _SubPromptListEditorState extends State<StepListEditor> {
               ),
             ),
           if (isMobile) ...[
-            TextField(
-              controller: entry.controller,
-              minLines: widget.minLines,
-              maxLines: widget.maxLines,
-              decoration: InputDecoration(
+            _buildStepTextField(
+              context,
+              entry,
+              index,
+              InputDecoration(
                 hintText: index == 0
                     ? (widget.hintText ?? 'Enter your prompt...')
                     : 'Continue...  use \${tool_result} to inject prior step output',
@@ -576,11 +658,11 @@ class _SubPromptListEditorState extends State<StepListEditor> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: entry.controller,
-                    minLines: widget.minLines,
-                    maxLines: widget.maxLines,
-                    decoration: InputDecoration(
+                  child: _buildStepTextField(
+                    context,
+                    entry,
+                    index,
+                    InputDecoration(
                       hintText: index == 0
                           ? (widget.hintText ?? 'Enter your prompt...')
                           : 'Continue...  use \${tool_result} to inject prior step output',

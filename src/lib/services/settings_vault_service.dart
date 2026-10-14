@@ -155,6 +155,8 @@ class SettingsVaultService {
           'temperature': llm.temperature2,
           'maxTokens': llm.maxTokens2,
         },
+        'profiles': llm.profiles.map((p) => p.toJson()).toList(),
+        'selectedProfileId': llm.selectedProfileId,
       },
       'dataSources': {
         'emailProvider': ds.emailProvider.configKey,
@@ -271,6 +273,21 @@ class SettingsVaultService {
           temperature: (llm2Data['temperature'] as num?)?.toDouble() ?? 0.2,
           maxTokens: (llm2Data['maxTokens'] as int?) ?? 16384,
         );
+      }
+
+      // Profiles
+      if (llmData['profiles'] is List && (llmData['profiles'] as List).isNotEmpty) {
+        final profilesList = (llmData['profiles'] as List)
+            .whereType<Map<String, dynamic>>()
+            .map((m) => NamedLlmProfile.fromJson(m))
+            .toList();
+        if (profilesList.isNotEmpty) {
+          await llm.saveAllProfiles(profilesList);
+          final selId = llmData['selectedProfileId'] as String?;
+          if (selId != null && selId.isNotEmpty) {
+            await llm.selectProfile(selId);
+          }
+        }
       }
     }
 
@@ -533,6 +550,8 @@ class SettingsVaultService {
         'temperature': remote['temperature2'] ?? 0.2,
         'maxTokens': remote['max_tokens2'] ?? 0,
       },
+      'profiles': remote['profiles'] ?? const [],
+      'selectedProfileId': remote['selected_profile_id'] ?? '',
     };
   }
 
@@ -658,6 +677,13 @@ class SettingsVaultService {
         if (b2 != null && b2.isNotEmpty) llmPayload['base_url2'] = b2;
         if (llm2Data['temperature'] != null) llmPayload['temperature2'] = llm2Data['temperature'];
         if (llm2Data['maxTokens'] != null) llmPayload['max_tokens2'] = llm2Data['maxTokens'];
+      }
+
+      if (llmData['profiles'] != null && llmData['profiles'] is List) {
+        llmPayload['profiles'] = llmData['profiles'];
+      }
+      if (llmData['selectedProfileId'] != null) {
+        llmPayload['selected_profile_id'] = llmData['selectedProfileId'];
       }
 
       if (llmPayload.isNotEmpty) {

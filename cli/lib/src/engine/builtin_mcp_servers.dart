@@ -14,11 +14,12 @@ import '../config/env_loader.dart';
 import '../config/global_config.dart';
 
 MCPToolResult _toolResultError(String message) => MCPToolResult(
-      isError: true,
-      content: [MCPContent(type: 'text', text: message)],
-    );
+  isError: true,
+  content: [MCPContent(type: 'text', text: message)],
+);
 
-MCPToolResult _toolResultJson(Object data, {bool isError = false}) => MCPToolResult(
+MCPToolResult _toolResultJson(Object data, {bool isError = false}) =>
+    MCPToolResult(
       isError: isError,
       content: [MCPContent(type: 'text', text: jsonEncode(data))],
     );
@@ -30,7 +31,9 @@ MCPToolResult _toolResultJson(Object data, {bool isError = false}) => MCPToolRes
 /// 4. `ssh` (`execute_command`, `list_directory`, `read_file`, `upload_file`, `download_file`, `make_directory`, `remove_directory`, configured via `ssh.yaml`)
 class BuiltinMcpServers {
   // ── Web Search ───────────────────────────────────────────────
-  static McpLocalTool createWebSearchTool({String configPath = 'web_search.yaml'}) {
+  static McpLocalTool createWebSearchTool({
+    String configPath = 'web_search.yaml',
+  }) {
     return _WebSearchTool(configPath: configPath);
   }
 
@@ -53,6 +56,7 @@ class BuiltinMcpServers {
   // ── SSH Tools ────────────────────────────────────────────────
   static _SshManager? _sharedSshManager;
 
+  // ignore: library_private_types_in_public_api
   static _SshManager getSharedSshManager({String configPath = 'ssh.yaml'}) {
     return _sharedSshManager ??= _SshManager(configPath: configPath);
   }
@@ -90,7 +94,9 @@ class BuiltinMcpServers {
   }
 
   /// Disconnects the active session SSH client and reverts to preconfigured ssh.yaml.
-  static Future<void> disconnectSshSession({String configPath = 'ssh.yaml'}) async {
+  static Future<void> disconnectSshSession({
+    String configPath = 'ssh.yaml',
+  }) async {
     final manager = getSharedSshManager(configPath: configPath);
     await manager.disconnectOverride();
   }
@@ -133,24 +139,25 @@ class _WebSearchTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'query': {
-            'type': 'string',
-            'description': 'Search query string to look up.',
-          },
-          'maxResults': {
-            'type': 'integer',
-            'description': 'Maximum number of results to return (default 5, max 20).',
-          },
-          'provider': {
-            'type': 'string',
-            'enum': ['auto', 'serpapi', 'serper', 'duckduckgo'],
-            'description': 'Optional search provider override.',
-          },
-        },
-        'required': ['query'],
-      };
+    'type': 'object',
+    'properties': {
+      'query': {
+        'type': 'string',
+        'description': 'Search query string to look up.',
+      },
+      'maxResults': {
+        'type': 'integer',
+        'description':
+            'Maximum number of results to return (default 5, max 20).',
+      },
+      'provider': {
+        'type': 'string',
+        'enum': ['auto', 'serpapi', 'serper', 'duckduckgo'],
+        'description': 'Optional search provider override.',
+      },
+    },
+    'required': ['query'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -160,7 +167,9 @@ class _WebSearchTool extends McpLocalTool {
     }
 
     final maxResults = ((arguments['maxResults'] as int?) ?? 5).clamp(1, 20);
-    final reqProvider = (arguments['provider'] as String?)?.trim().toLowerCase();
+    final reqProvider = (arguments['provider'] as String?)
+        ?.trim()
+        .toLowerCase();
 
     // Read web_search.yaml config if present
     String provider = reqProvider ?? 'auto';
@@ -191,12 +200,17 @@ class _WebSearchTool extends McpLocalTool {
       } catch (_) {}
     }
 
-    final effectiveMaxResults = arguments['maxResults'] != null ? maxResults : configuredMaxResults;
+    final effectiveMaxResults = arguments['maxResults'] != null
+        ? maxResults
+        : configuredMaxResults;
 
     // Environment variable fallback if not set or left empty
     if (apiKey.isEmpty) {
-      final dotEnv = EnvLoader.loadDotEnv(file.existsSync() ? file.parent : null);
-      apiKey = dotEnv['SERPAPI_API_KEY'] ??
+      final dotEnv = EnvLoader.loadDotEnv(
+        file.existsSync() ? file.parent : null,
+      );
+      apiKey =
+          dotEnv['SERPAPI_API_KEY'] ??
           dotEnv['SERP_API_KEY'] ??
           dotEnv['SERPER_API_KEY'] ??
           dotEnv['WEB_SEARCH_API_KEY'] ??
@@ -215,23 +229,28 @@ class _WebSearchTool extends McpLocalTool {
         );
       }
       try {
-        final uri = Uri.parse('https://serpapi.com/search').replace(queryParameters: {
-          'engine': 'google',
-          'q': query,
-          'num': '$effectiveMaxResults',
-          'api_key': apiKey,
-        });
+        final uri = Uri.parse('https://serpapi.com/search').replace(
+          queryParameters: {
+            'engine': 'google',
+            'q': query,
+            'num': '$effectiveMaxResults',
+            'api_key': apiKey,
+          },
+        );
         final resp = await http.get(uri).timeout(const Duration(seconds: 15));
         if (resp.statusCode == 200) {
-          final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final data =
+              jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           final raw = (data['organic_results'] as List<dynamic>? ?? const [])
               .whereType<Map<String, dynamic>>()
               .take(effectiveMaxResults)
-              .map((item) => {
-                    'title': item['title']?.toString() ?? '',
-                    'url': item['link']?.toString() ?? '',
-                    'snippet': item['snippet']?.toString() ?? '',
-                  })
+              .map(
+                (item) => {
+                  'title': item['title']?.toString() ?? '',
+                  'url': item['link']?.toString() ?? '',
+                  'snippet': item['snippet']?.toString() ?? '',
+                },
+              )
               .toList();
           return _toolResultJson({
             'provider': 'serpapi',
@@ -244,7 +263,8 @@ class _WebSearchTool extends McpLocalTool {
         // Handle error responses from SerpApi
         String errMsg = 'HTTP ${resp.statusCode}';
         try {
-          final errBody = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final errBody =
+              jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           if (errBody['error'] != null) {
             errMsg = errBody['error'].toString();
           }
@@ -253,7 +273,9 @@ class _WebSearchTool extends McpLocalTool {
         }
 
         if (explicitProviderConfigured || provider == 'serpapi') {
-          return _toolResultError('SerpApi error ($errMsg). Please check your API key in .env / web_search.yaml.');
+          return _toolResultError(
+            'SerpApi error ($errMsg). Please check your API key in .env / web_search.yaml.',
+          );
         }
       } catch (e) {
         if (explicitProviderConfigured || provider == 'serpapi') {
@@ -271,21 +293,29 @@ class _WebSearchTool extends McpLocalTool {
       }
       try {
         final uri = Uri.parse('https://google.serper.dev/search');
-        final resp = await http.post(
-          uri,
-          headers: {'Content-Type': 'application/json', 'X-API-KEY': apiKey},
-          body: jsonEncode({'q': query, 'num': effectiveMaxResults}),
-        ).timeout(const Duration(seconds: 15));
+        final resp = await http
+            .post(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': apiKey,
+              },
+              body: jsonEncode({'q': query, 'num': effectiveMaxResults}),
+            )
+            .timeout(const Duration(seconds: 15));
         if (resp.statusCode == 200) {
-          final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final data =
+              jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           final raw = (data['organic'] as List<dynamic>? ?? const [])
               .whereType<Map<String, dynamic>>()
               .take(effectiveMaxResults)
-              .map((item) => {
-                    'title': item['title']?.toString() ?? '',
-                    'url': item['link']?.toString() ?? '',
-                    'snippet': item['snippet']?.toString() ?? '',
-                  })
+              .map(
+                (item) => {
+                  'title': item['title']?.toString() ?? '',
+                  'url': item['link']?.toString() ?? '',
+                  'snippet': item['snippet']?.toString() ?? '',
+                },
+              )
               .toList();
           return _toolResultJson({
             'provider': 'serper',
@@ -297,39 +327,53 @@ class _WebSearchTool extends McpLocalTool {
 
         String errMsg = 'HTTP ${resp.statusCode}';
         try {
-          final errBody = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final errBody =
+              jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
           if (errBody['message'] != null) {
             errMsg = errBody['message'].toString();
           }
         } catch (_) {}
 
-        return _toolResultError('Serper error ($errMsg). Please check your API key in .env / web_search.yaml.');
+        return _toolResultError(
+          'Serper error ($errMsg). Please check your API key in .env / web_search.yaml.',
+        );
       } catch (e) {
         return _toolResultError('Serper request failed: $e');
       }
     }
 
     // ── 3. DuckDuckGo (Only if explicitly requested or auto with no provider configured) ──
-    if (explicitProviderConfigured && provider != 'duckduckgo' && provider != 'auto') {
-      return _toolResultError('Configured search provider "$provider" failed or key is invalid.');
+    if (explicitProviderConfigured &&
+        provider != 'duckduckgo' &&
+        provider != 'auto') {
+      return _toolResultError(
+        'Configured search provider "$provider" failed or key is invalid.',
+      );
     }
 
     try {
-      final uri = Uri.parse('https://api.duckduckgo.com/').replace(queryParameters: {
-        'q': query,
-        'format': 'json',
-        'no_html': '1',
-        'no_redirect': '1',
-      });
+      final uri = Uri.parse('https://api.duckduckgo.com/').replace(
+        queryParameters: {
+          'q': query,
+          'format': 'json',
+          'no_html': '1',
+          'no_redirect': '1',
+        },
+      );
       final resp = await http.get(uri).timeout(const Duration(seconds: 15));
       if (resp.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+        final data =
+            jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
         final results = <Map<String, dynamic>>[];
         final heading = (data['Heading'] ?? '').toString();
         final abstract = (data['AbstractText'] ?? '').toString();
         final abstractUrl = (data['AbstractURL'] ?? '').toString();
         if (heading.isNotEmpty || abstract.isNotEmpty) {
-          results.add({'title': heading, 'url': abstractUrl, 'snippet': abstract});
+          results.add({
+            'title': heading,
+            'url': abstractUrl,
+            'snippet': abstract,
+          });
         }
 
         final related = data['RelatedTopics'] as List<dynamic>? ?? const [];
@@ -359,7 +403,9 @@ class _WebSearchTool extends McpLocalTool {
       return _toolResultError('Web search failed: $e');
     }
 
-    return _toolResultError('No search provider succeeded for query: "$query".');
+    return _toolResultError(
+      'No search provider succeeded for query: "$query".',
+    );
   }
 }
 
@@ -380,19 +426,20 @@ class _MermaidTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'md': {
-            'type': 'string',
-            'description': 'Mermaid diagram markdown source code (e.g. "graph TD\\n  A-->B").',
-          },
-          'fileName': {
-            'type': 'string',
-            'description': 'Optional output filename (default: "diagram.png").',
-          },
-        },
-        'required': ['md'],
-      };
+    'type': 'object',
+    'properties': {
+      'md': {
+        'type': 'string',
+        'description':
+            'Mermaid diagram markdown source code (e.g. "graph TD\\n  A-->B").',
+      },
+      'fileName': {
+        'type': 'string',
+        'description': 'Optional output filename (default: "diagram.png").',
+      },
+    },
+    'required': ['md'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -407,20 +454,28 @@ class _MermaidTool extends McpLocalTool {
     }
 
     try {
-      final resp = await http.post(
-        Uri.parse('https://kroki.io/mermaid/png'),
-        headers: {'Content-Type': 'text/plain; charset=utf-8', 'Accept': 'image/png'},
-        body: md,
-      ).timeout(const Duration(seconds: 25));
+      final resp = await http
+          .post(
+            Uri.parse('https://kroki.io/mermaid/png'),
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Accept': 'image/png',
+            },
+            body: md,
+          )
+          .timeout(const Duration(seconds: 25));
 
-      final isPng = resp.bodyBytes.length > 4 &&
+      final isPng =
+          resp.bodyBytes.length > 4 &&
           resp.bodyBytes[0] == 0x89 &&
           resp.bodyBytes[1] == 0x50 &&
           resp.bodyBytes[2] == 0x4E &&
           resp.bodyBytes[3] == 0x47;
 
       if ((resp.statusCode < 200 || resp.statusCode >= 300) && !isPng) {
-        return _toolResultError('Mermaid render error (${resp.statusCode}): ${utf8.decode(resp.bodyBytes, allowMalformed: true)}');
+        return _toolResultError(
+          'Mermaid render error (${resp.statusCode}): ${utf8.decode(resp.bodyBytes, allowMalformed: true)}',
+        );
       }
 
       final outDir = Directory.current.path;
@@ -457,15 +512,15 @@ class _GetCurrentTimeTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'timezone': {
-            'type': 'string',
-            'enum': ['local', 'utc'],
-            'description': 'Timezone mode: "local" (default) or "utc".',
-          },
-        },
-      };
+    'type': 'object',
+    'properties': {
+      'timezone': {
+        'type': 'string',
+        'enum': ['local', 'utc'],
+        'description': 'Timezone mode: "local" (default) or "utc".',
+      },
+    },
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -488,7 +543,8 @@ class _GetTimezoneInfoTool extends McpLocalTool {
   String get name => 'get_timezone_info';
 
   @override
-  String get description => 'Get detailed timezone information for local time and UTC.';
+  String get description =>
+      'Get detailed timezone information for local time and UTC.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.read;
@@ -522,15 +578,16 @@ class _CalculateTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'expression': {
-            'type': 'string',
-            'description': 'Mathematical expression string, e.g. "(12.5 * 4) + 10".',
-          },
-        },
-        'required': ['expression'],
-      };
+    'type': 'object',
+    'properties': {
+      'expression': {
+        'type': 'string',
+        'description':
+            'Mathematical expression string, e.g. "(12.5 * 4) + 10".',
+      },
+    },
+    'required': ['expression'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -573,7 +630,8 @@ class _CalculateTool extends McpLocalTool {
 
   static double _parseMulDiv(String s, List<int> pos) {
     var left = _parseUnary(s, pos);
-    while (pos[0] < s.length && (s[pos[0]] == '*' || s[pos[0]] == '/' || s[pos[0]] == '%')) {
+    while (pos[0] < s.length &&
+        (s[pos[0]] == '*' || s[pos[0]] == '/' || s[pos[0]] == '%')) {
       final op = s[pos[0]++];
       final right = _parseUnary(s, pos);
       if (op == '*') left = left * right;
@@ -603,7 +661,9 @@ class _CalculateTool extends McpLocalTool {
     while (pos[0] < s.length && (RegExp(r'[\d\.]').hasMatch(s[pos[0]]))) {
       pos[0]++;
     }
-    if (start == pos[0]) throw ArgumentError('Expected number at position ${pos[0]}');
+    if (start == pos[0]) {
+      throw ArgumentError('Expected number at position ${pos[0]}');
+    }
     return double.parse(s.substring(start, pos[0]));
   }
 }
@@ -613,23 +673,24 @@ class _SumNumbersTool extends McpLocalTool {
   String get name => 'sum_numbers';
 
   @override
-  String get description => 'Calculate sum, average, min, and max for an array of numbers.';
+  String get description =>
+      'Calculate sum, average, min, and max for an array of numbers.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.read;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'numbers': {
-            'type': 'array',
-            'items': {'type': 'number'},
-            'description': 'Array of numbers to sum.',
-          },
-        },
-        'required': ['numbers'],
-      };
+    'type': 'object',
+    'properties': {
+      'numbers': {
+        'type': 'array',
+        'items': {'type': 'number'},
+        'description': 'Array of numbers to sum.',
+      },
+    },
+    'required': ['numbers'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -658,22 +719,23 @@ class _GeocodeCityTool extends McpLocalTool {
   String get name => 'geocode_city';
 
   @override
-  String get description => 'Resolve city name to coordinates, country, and timezone metadata.';
+  String get description =>
+      'Resolve city name to coordinates, country, and timezone metadata.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.network;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'city': {
-            'type': 'string',
-            'description': 'City name to look up, e.g. "Berlin", "San Francisco".',
-          },
-        },
-        'required': ['city'],
-      };
+    'type': 'object',
+    'properties': {
+      'city': {
+        'type': 'string',
+        'description': 'City name to look up, e.g. "Berlin", "San Francisco".',
+      },
+    },
+    'required': ['city'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -689,20 +751,23 @@ class _GeocodeCityTool extends McpLocalTool {
       final resp = await http.get(uri).timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body) as Map<String, dynamic>;
-        final results = (body['results'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+        final results = (body['results'] as List<dynamic>? ?? const [])
+            .cast<Map<String, dynamic>>();
         return _toolResultJson({
           'query': city,
           'count': results.length,
           'results': results
-              .map((r) => {
-                    'name': r['name'],
-                    'country': r['country'],
-                    'admin1': r['admin1'],
-                    'latitude': r['latitude'],
-                    'longitude': r['longitude'],
-                    'timezone': r['timezone'],
-                    'population': r['population'],
-                  })
+              .map(
+                (r) => {
+                  'name': r['name'],
+                  'country': r['country'],
+                  'admin1': r['admin1'],
+                  'latitude': r['latitude'],
+                  'longitude': r['longitude'],
+                  'timezone': r['timezone'],
+                  'population': r['population'],
+                },
+              )
               .toList(),
         });
       }
@@ -765,7 +830,10 @@ class _SshManager {
           port = (yaml['port'] as int?) ?? 22;
           username = (yaml['username'] as String?)?.trim() ?? '';
           password = (yaml['password'] as String?)?.trim() ?? '';
-          privateKey = (yaml['private_key'] as String? ?? yaml['privateKey'] as String?)?.trim() ?? '';
+          privateKey =
+              (yaml['private_key'] as String? ?? yaml['privateKey'] as String?)
+                  ?.trim() ??
+              '';
         }
       } catch (_) {}
     }
@@ -837,10 +905,15 @@ class _SshManager {
     final privateKey = config['privateKey'] as String? ?? '';
 
     if (host.isEmpty || username.isEmpty) {
-      throw StateError('SSH is not configured. Please connect with "/ssh connect user:pwd@host" or configure "$configPath".');
+      throw StateError(
+        'SSH is not configured. Please connect with "/ssh connect user:pwd@host" or configure "$configPath".',
+      );
     }
 
-    final socket = await SSHSocket.connect(host, port).timeout(const Duration(seconds: 15));
+    final socket = await SSHSocket.connect(
+      host,
+      port,
+    ).timeout(const Duration(seconds: 15));
     _client = SSHClient(
       socket,
       username: username,
@@ -867,22 +940,23 @@ class _SshListDirectoryTool extends McpLocalTool {
   String get name => 'ssh_list_directory';
 
   @override
-  String get description => 'List files and directories on remote host via SSH/SFTP.';
+  String get description =>
+      'List files and directories on remote host via SSH/SFTP.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.read;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'path': {
-            'type': 'string',
-            'description': 'Remote directory path (e.g. "/var/log" or ".").',
-          },
-        },
-        'required': ['path'],
-      };
+    'type': 'object',
+    'properties': {
+      'path': {
+        'type': 'string',
+        'description': 'Remote directory path (e.g. "/var/log" or ".").',
+      },
+    },
+    'required': ['path'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -892,13 +966,19 @@ class _SshListDirectoryTool extends McpLocalTool {
       final entries = await sftp.listdir(path);
       final items = entries
           .where((e) => e.filename != '.' && e.filename != '..')
-          .map((e) => {
-                'name': e.filename,
-                'isDirectory': e.attr.isDirectory,
-                'size': e.attr.size ?? 0,
-              })
+          .map(
+            (e) => {
+              'name': e.filename,
+              'isDirectory': e.attr.isDirectory,
+              'size': e.attr.size ?? 0,
+            },
+          )
           .toList();
-      return _toolResultJson({'path': path, 'count': items.length, 'entries': items});
+      return _toolResultJson({
+        'path': path,
+        'count': items.length,
+        'entries': items,
+      });
     } catch (e) {
       return _toolResultError('SSH list directory failed: $e');
     }
@@ -913,20 +993,27 @@ class _SshReadFileTool extends McpLocalTool {
   String get name => 'ssh_read_file';
 
   @override
-  String get description => 'Read remote file text content on remote host via SSH/SFTP.';
+  String get description =>
+      'Read remote file text content on remote host via SSH/SFTP.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.read;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'path': {'type': 'string', 'description': 'Full remote file path to read.'},
-          'maxBytes': {'type': 'integer', 'description': 'Maximum bytes to read (default 65536).'},
-        },
-        'required': ['path'],
-      };
+    'type': 'object',
+    'properties': {
+      'path': {
+        'type': 'string',
+        'description': 'Full remote file path to read.',
+      },
+      'maxBytes': {
+        'type': 'integer',
+        'description': 'Maximum bytes to read (default 65536).',
+      },
+    },
+    'required': ['path'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -956,20 +1043,27 @@ class _SshUploadFileTool extends McpLocalTool {
   String get name => 'ssh_upload_file';
 
   @override
-  String get description => 'Write/upload text content to remote file on remote host via SSH/SFTP.';
+  String get description =>
+      'Write/upload text content to remote file on remote host via SSH/SFTP.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.write;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'path': {'type': 'string', 'description': 'Remote destination file path.'},
-          'content': {'type': 'string', 'description': 'UTF-8 text content to write.'},
-        },
-        'required': ['path', 'content'],
-      };
+    'type': 'object',
+    'properties': {
+      'path': {
+        'type': 'string',
+        'description': 'Remote destination file path.',
+      },
+      'content': {
+        'type': 'string',
+        'description': 'UTF-8 text content to write.',
+      },
+    },
+    'required': ['path', 'content'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -980,11 +1074,18 @@ class _SshUploadFileTool extends McpLocalTool {
       final bytes = Uint8List.fromList(utf8.encode(content));
       final file = await sftp.open(
         path,
-        mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate,
+        mode:
+            SftpFileOpenMode.create |
+            SftpFileOpenMode.write |
+            SftpFileOpenMode.truncate,
       );
       await file.writeBytes(bytes);
       await file.close();
-      return _toolResultJson({'success': true, 'path': path, 'bytes': bytes.length});
+      return _toolResultJson({
+        'success': true,
+        'path': path,
+        'bytes': bytes.length,
+      });
     } catch (e) {
       return _toolResultError('SSH upload failed: $e');
     }
@@ -999,19 +1100,20 @@ class _SshDownloadFileTool extends McpLocalTool {
   String get name => 'ssh_download_file';
 
   @override
-  String get description => 'Download a remote file from SSH host as base64 content.';
+  String get description =>
+      'Download a remote file from SSH host as base64 content.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.read;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'path': {'type': 'string', 'description': 'Remote file path.'},
-        },
-        'required': ['path'],
-      };
+    'type': 'object',
+    'properties': {
+      'path': {'type': 'string', 'description': 'Remote file path.'},
+    },
+    'required': ['path'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -1048,12 +1150,12 @@ class _SshMakeDirectoryTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'path': {'type': 'string', 'description': 'Remote directory path.'},
-        },
-        'required': ['path'],
-      };
+    'type': 'object',
+    'properties': {
+      'path': {'type': 'string', 'description': 'Remote directory path.'},
+    },
+    'required': ['path'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -1062,7 +1164,11 @@ class _SshMakeDirectoryTool extends McpLocalTool {
       final client = await manager.getClient();
       final res = await client.runWithResult('mkdir -p "$path"');
       final exitCode = res.exitCode ?? 0;
-      return _toolResultJson({'success': exitCode == 0, 'path': path, 'exitCode': exitCode});
+      return _toolResultJson({
+        'success': exitCode == 0,
+        'path': path,
+        'exitCode': exitCode,
+      });
     } catch (e) {
       return _toolResultError('SSH make directory failed: $e');
     }
@@ -1077,19 +1183,20 @@ class _SshRemoveDirectoryTool extends McpLocalTool {
   String get name => 'ssh_remove_directory';
 
   @override
-  String get description => 'Remove an empty directory on the remote host via SSH.';
+  String get description =>
+      'Remove an empty directory on the remote host via SSH.';
 
   @override
   ToolRiskLevel get riskLevel => ToolRiskLevel.write;
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'path': {'type': 'string', 'description': 'Remote directory path.'},
-        },
-        'required': ['path'],
-      };
+    'type': 'object',
+    'properties': {
+      'path': {'type': 'string', 'description': 'Remote directory path.'},
+    },
+    'required': ['path'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -1098,7 +1205,11 @@ class _SshRemoveDirectoryTool extends McpLocalTool {
       final client = await manager.getClient();
       final res = await client.runWithResult('rmdir "$path"');
       final exitCode = res.exitCode ?? 0;
-      return _toolResultJson({'success': exitCode == 0, 'path': path, 'exitCode': exitCode});
+      return _toolResultJson({
+        'success': exitCode == 0,
+        'path': path,
+        'exitCode': exitCode,
+      });
     } catch (e) {
       return _toolResultError('SSH remove directory failed: $e');
     }
@@ -1120,13 +1231,19 @@ class _SshExecuteCommandTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'command': {'type': 'string', 'description': 'Shell command string to execute.'},
-          'timeoutSeconds': {'type': 'integer', 'description': 'Timeout in seconds (default 30).'},
-        },
-        'required': ['command'],
-      };
+    'type': 'object',
+    'properties': {
+      'command': {
+        'type': 'string',
+        'description': 'Shell command string to execute.',
+      },
+      'timeoutSeconds': {
+        'type': 'integer',
+        'description': 'Timeout in seconds (default 30).',
+      },
+    },
+    'required': ['command'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {

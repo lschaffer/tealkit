@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:tealkit_api/tealkit_api.dart';
 
 /// Represents an executable TealKit workflow exposed to MCP clients.
@@ -100,7 +99,8 @@ class WorkflowSchemaGenerator {
     if (properties.isEmpty) {
       properties['input'] = {
         'type': 'string',
-        'description': 'Input prompt, arguments, or context payload for this workflow',
+        'description':
+            'Input prompt, arguments, or context payload for this workflow',
       };
     }
 

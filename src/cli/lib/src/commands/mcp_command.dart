@@ -74,10 +74,7 @@ class McpServeCommand extends Command {
         'cert',
         help: 'Path to SSL/TLS certificate chain file for HTTPS.',
       )
-      ..addOption(
-        'key',
-        help: 'Path to SSL/TLS private key file for HTTPS.',
-      )
+      ..addOption('key', help: 'Path to SSL/TLS private key file for HTTPS.')
       ..addFlag(
         'verbose',
         abbr: 'v',
@@ -118,10 +115,15 @@ class McpServeCommand extends Command {
         privateKeyPath: keyPath,
         verbose: verbose,
       );
-      final server = await sseServer.start();
-      stdout.writeln(TerminalPrinter.green(
-          '✔ TealKit MCP Server running over SSE at ${certPath != null ? "https" : "http"}://$host:$port/sse'));
-      stdout.writeln(TerminalPrinter.dim('  Health check: http://$host:$port/health'));
+      await sseServer.start();
+      stdout.writeln(
+        TerminalPrinter.green(
+          '✔ TealKit MCP Server running over SSE at ${certPath != null ? "https" : "http"}://$host:$port/sse',
+        ),
+      );
+      stdout.writeln(
+        TerminalPrinter.dim('  Health check: http://$host:$port/health'),
+      );
       stdout.writeln(TerminalPrinter.dim('  Press Ctrl+C to terminate.'));
 
       // Keep server alive until interrupt
@@ -151,18 +153,15 @@ class McpServeCommand extends Command {
           apiKey: active.apiKey.isNotEmpty ? active.apiKey : null,
         );
         final remoteTasks = await client.getAllTasks().timeout(
-              const Duration(seconds: 4),
-              onTimeout: () => <WorkflowTask>[],
-            );
+          const Duration(seconds: 4),
+          onTimeout: () => <WorkflowTask>[],
+        );
         for (final t in remoteTasks) {
           workflows.add(
-            TealKitWorkflow.fromTask(
-              t,
-              (args) async {
-                final runRes = await client.runTask(t.id);
-                return 'Remote workflow "${t.name}" queued. Execution Run ID: $runRes';
-              },
-            ),
+            TealKitWorkflow.fromTask(t, (args) async {
+              final runRes = await client.runTask(t.id);
+              return 'Remote workflow "${t.name}" queued. Execution Run ID: $runRes';
+            }),
           );
         }
       }
@@ -172,10 +171,9 @@ class McpServeCommand extends Command {
     try {
       final skillsDir = Directory('skills');
       if (skillsDir.existsSync()) {
-        final mdFiles = skillsDir
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.endsWith('.md'));
+        final mdFiles = skillsDir.listSync().whereType<File>().where(
+          (f) => f.path.endsWith('.md'),
+        );
         for (final f in mdFiles) {
           final fileName = f.uri.pathSegments.last.replaceAll('.md', '');
           workflows.add(
@@ -186,7 +184,8 @@ class McpServeCommand extends Command {
               variables: [
                 WorkflowVariable(
                   key: 'input',
-                  description: 'Input arguments or prompt context for $fileName',
+                  description:
+                      'Input arguments or prompt context for $fileName',
                   type: 'string',
                   required: false,
                 ),
@@ -207,7 +206,8 @@ class McpServeCommand extends Command {
         TealKitWorkflow(
           id: 'wf_sample_analysis',
           name: 'analyze_project',
-          description: 'Performs a comprehensive automated code and architecture inspection.',
+          description:
+              'Performs a comprehensive automated code and architecture inspection.',
           variables: [
             WorkflowVariable(
               key: 'scope',
@@ -256,22 +256,34 @@ class McpInstallClaudeCommand extends Command {
   @override
   void run() {
     final customPath = argResults?['config-path'] as String?;
-    final result = McpConfigInstaller.installToClaudeDesktop(configPath: customPath);
+    final result = McpConfigInstaller.installToClaudeDesktop(
+      configPath: customPath,
+    );
 
     if (result.success) {
       stdout.writeln(TerminalPrinter.green('✔ ${result.message}'));
-      stdout.writeln(TerminalPrinter.dim('  Config file: ${result.configPath}'));
+      stdout.writeln(
+        TerminalPrinter.dim('  Config file: ${result.configPath}'),
+      );
       stdout.writeln('');
       stdout.writeln('Registered configuration:');
-      stdout.writeln(const JsonEncoder.withIndent('  ').convert({
-        'mcpServers': {
-          'tealkit': result.serverDefinition,
-        }
-      }));
+      stdout.writeln(
+        const JsonEncoder.withIndent('  ').convert({
+          'mcpServers': {'tealkit': result.serverDefinition},
+        }),
+      );
       stdout.writeln('');
-      stdout.writeln(TerminalPrinter.bold('Restart Claude Desktop to start using TealKit tools.'));
+      stdout.writeln(
+        TerminalPrinter.bold(
+          'Restart Claude Desktop to start using TealKit tools.',
+        ),
+      );
     } else {
-      stderr.writeln(TerminalPrinter.red('✘ Failed to install Claude Desktop configuration:'));
+      stderr.writeln(
+        TerminalPrinter.red(
+          '✘ Failed to install Claude Desktop configuration:',
+        ),
+      );
       stderr.writeln('  ${result.message}');
     }
   }
@@ -287,35 +299,57 @@ class McpConfigCommand extends Command {
 
   @override
   void run() {
-    stdout.writeln(TerminalPrinter.bold('─── 1. Local Stdio Configuration (Claude Desktop: claude_desktop_config.json) ───'));
-    stdout.writeln(const JsonEncoder.withIndent('  ').convert({
-      'mcpServers': {
-        'tealkit': McpConfigInstaller.generateServerConfig(),
-      }
-    }));
+    stdout.writeln(
+      TerminalPrinter.bold(
+        '─── 1. Local Stdio Configuration (Claude Desktop: claude_desktop_config.json) ───',
+      ),
+    );
+    stdout.writeln(
+      const JsonEncoder.withIndent('  ').convert({
+        'mcpServers': {'tealkit': McpConfigInstaller.generateServerConfig()},
+      }),
+    );
     stdout.writeln('');
 
-    stdout.writeln(TerminalPrinter.bold('─── 2. Remote SSE / HTTPS Configuration (Claude, Cursor, LibreChat, OpenWebUI) ───'));
-    stdout.writeln(const JsonEncoder.withIndent('  ').convert({
-      'mcpServers': {
-        'tealkit-remote': {
-          'url': 'http://localhost:8081/sse',
-          'headers': {
-            'Authorization': 'Bearer YOUR_OPTIONAL_API_KEY'
-          }
-        }
-      }
-    }));
+    stdout.writeln(
+      TerminalPrinter.bold(
+        '─── 2. Remote SSE / HTTPS Configuration (Claude, Cursor, LibreChat, OpenWebUI) ───',
+      ),
+    );
+    stdout.writeln(
+      const JsonEncoder.withIndent('  ').convert({
+        'mcpServers': {
+          'tealkit-remote': {
+            'url': 'http://localhost:8081/sse',
+            'headers': {'Authorization': 'Bearer YOUR_OPTIONAL_API_KEY'},
+          },
+        },
+      }),
+    );
     stdout.writeln('');
 
-    stdout.writeln(TerminalPrinter.bold('─── 3. Cursor MCP Configuration (Settings -> Features -> MCP) ───'));
+    stdout.writeln(
+      TerminalPrinter.bold(
+        '─── 3. Cursor MCP Configuration (Settings -> Features -> MCP) ───',
+      ),
+    );
     stdout.writeln('Name   : TealKit');
     stdout.writeln('Type   : command');
-    stdout.writeln('Command: ${McpConfigInstaller.resolveExecutableCommand()} mcp-serve');
+    stdout.writeln(
+      'Command: ${McpConfigInstaller.resolveExecutableCommand()} mcp-serve',
+    );
     stdout.writeln('');
 
-    stdout.writeln(TerminalPrinter.bold('─── 4. Roo Code / Cline (cline_mcp_settings.json) ───'));
-    stdout.writeln(const JsonEncoder.withIndent('  ').convert(McpConfigInstaller.generateRooCodeConfig()));
+    stdout.writeln(
+      TerminalPrinter.bold(
+        '─── 4. Roo Code / Cline (cline_mcp_settings.json) ───',
+      ),
+    );
+    stdout.writeln(
+      const JsonEncoder.withIndent(
+        '  ',
+      ).convert(McpConfigInstaller.generateRooCodeConfig()),
+    );
     stdout.writeln('');
   }
 }

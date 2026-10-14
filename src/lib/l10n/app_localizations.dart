@@ -100,7 +100,7 @@ abstract class L {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'TealKit'**
+  /// **'TealKit AI'**
   String get appTitle;
 
   /// No description provided for @appSubtitle.
@@ -124,13 +124,13 @@ abstract class L {
   /// No description provided for @playground.
   ///
   /// In en, this message translates to:
-  /// **'Playground'**
+  /// **'Assistant'**
   String get playground;
 
   /// No description provided for @playgroundHint.
   ///
   /// In en, this message translates to:
-  /// **'Try out prompts, tools and system instructions here before scheduling a workflow.'**
+  /// **'Chat with AI, try out prompts, tools, and coding agents before scheduling a workflow.'**
   String get playgroundHint;
 
   /// No description provided for @tasks.
@@ -154,7 +154,7 @@ abstract class L {
   /// No description provided for @configureLlmFirst.
   ///
   /// In en, this message translates to:
-  /// **'Configure an LLM provider to unlock Playground and Workflows.'**
+  /// **'Configure an LLM provider to unlock Assistant and Workflows.'**
   String get configureLlmFirst;
 
   /// No description provided for @systemPrompt.

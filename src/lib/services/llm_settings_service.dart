@@ -8,6 +8,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_logger.dart';
+import '../models/named_llm_profile.dart';
+export '../models/named_llm_profile.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // LLM Provider enum — matches TaskLlmConfig provider strings
@@ -608,6 +610,26 @@ class LlmSettingsService extends ChangeNotifier {
   static const _kUseNativeToolCall2 = 'llm2_use_native_tool_call';
   static const _kUseSafeToolCall2 = 'llm2_use_safe_tool_call';
 
+  // ── Profiles (Collection) ─────────────────────────
+  static const _kProfiles = 'llm_profiles';
+  static const _kSelectedProfileId = 'llm_selected_profile_id';
+
+  List<NamedLlmProfile> _profiles = [];
+  String _selectedProfileId = 'llm1';
+
+  List<NamedLlmProfile> get profiles => List.unmodifiable(_profiles);
+  String get selectedProfileId => _selectedProfileId;
+
+  NamedLlmProfile? get selectedProfile {
+    if (_profiles.isEmpty) return null;
+    final found = _profiles.where((p) => p.id == _selectedProfileId).firstOrNull;
+    return found ?? _profiles.first;
+  }
+
+  NamedLlmProfile? getProfile(String id) {
+    return _profiles.where((p) => p.id == id).firstOrNull;
+  }
+
   // ── State ─────────────────────────────────────────
   LlmProvider _provider = LlmProvider.none;
   String _model = '';
@@ -913,8 +935,252 @@ class LlmSettingsService extends ChangeNotifier {
         (remote['repeat_penalty2'] as num?)?.toDouble() ?? _repeatPenalty2;
     _seed2 = (remote['seed2'] as int?) ?? _seed2;
 
+    if (remote['profiles'] != null && remote['profiles'] is List) {
+      final list = remote['profiles'] as List;
+      _profiles = list
+          .whereType<Map<String, dynamic>>()
+          .map((m) => NamedLlmProfile.fromJson(m))
+          .toList();
+      if (remote['selected_profile_id'] != null && (remote['selected_profile_id'] as String).isNotEmpty) {
+        _selectedProfileId = remote['selected_profile_id'] as String;
+      }
+      if (_profiles.isNotEmpty) {
+        final active = _profiles.where((p) => p.id == _selectedProfileId).firstOrNull ?? _profiles.first;
+        _selectedProfileId = active.id;
+        _syncFromProfile(active);
+      }
+    } else {
+      _profiles = [
+        NamedLlmProfile(
+          id: 'llm1',
+          name: 'LLM 1',
+          provider: _provider,
+          model: _model,
+          apiKey: _apiKey,
+          baseUrl: _baseUrl,
+          temperature: _temperature,
+          maxTokens: _maxTokens,
+          maxToolOutputSize: _maxToolOutputSize,
+          tokenWarningThreshold: _tokenWarningThreshold,
+          isSlm: _isSlm,
+          isMultiModal: _isMultiModal,
+          thinking: _thinking,
+          useNativeToolCall: _useNativeToolCall,
+          useSafeToolCall: _useSafeToolCall,
+          topK: _topK,
+          topP: _topP,
+          repeatPenalty: _repeatPenalty,
+          seed: _seed,
+        ),
+        if (_provider2 != LlmProvider.none && _model2.isNotEmpty)
+          NamedLlmProfile(
+            id: 'llm2',
+            name: 'LLM 2',
+            provider: _provider2,
+            model: _model2,
+            apiKey: _apiKey2,
+            baseUrl: _baseUrl2,
+            temperature: _temperature2,
+            maxTokens: _maxTokens2,
+            maxToolOutputSize: _maxToolOutputSize2,
+            tokenWarningThreshold: _tokenWarningThreshold2,
+            isSlm: _isSlm2,
+            isMultiModal: _isMultiModal2,
+            thinking: _thinking2,
+            useNativeToolCall: _useNativeToolCall2,
+            useSafeToolCall: _useSafeToolCall2,
+            topK: _topK2,
+            topP: _topP2,
+            repeatPenalty: _repeatPenalty2,
+            seed: _seed2,
+          ),
+      ];
+    }
+
     _loaded = true;
     notifyListeners();
+  }
+
+  void _syncFromProfile(NamedLlmProfile profile) {
+    _provider = profile.provider;
+    _model = profile.model;
+    _apiKey = profile.apiKey;
+    _baseUrl = profile.baseUrl;
+    _temperature = profile.temperature;
+    _maxTokens = profile.maxTokens;
+    _maxToolOutputSize = profile.maxToolOutputSize;
+    _tokenWarningThreshold = profile.tokenWarningThreshold;
+    _isSlm = profile.isSlm;
+    _isMultiModal = profile.isMultiModal;
+    _thinking = profile.thinking;
+    _useNativeToolCall = profile.useNativeToolCall;
+    _useSafeToolCall = profile.useSafeToolCall;
+    _topK = profile.topK;
+    _topP = profile.topP;
+    _repeatPenalty = profile.repeatPenalty;
+    _seed = profile.seed;
+    if (profile.provider != LlmProvider.none) {
+      _modelsByProvider[profile.provider.configKey] = profile.model;
+      _apiKeysByProvider[profile.provider.configKey] = profile.apiKey;
+      _baseUrlsByProvider[profile.provider.configKey] = profile.baseUrl;
+    }
+  }
+
+  Future<void> selectProfile(String id) async {
+    final target = getProfile(id);
+    if (target != null) {
+      _selectedProfileId = id;
+      _syncFromProfile(target);
+      await _persistProfiles();
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveProfile(NamedLlmProfile profile) async {
+    final idx = _profiles.indexWhere((p) => p.id == profile.id);
+    if (idx >= 0) {
+      _profiles[idx] = profile;
+    } else {
+      _profiles.add(profile);
+    }
+    if (_selectedProfileId == profile.id || _profiles.length == 1) {
+      _selectedProfileId = profile.id;
+      _syncFromProfile(profile);
+    }
+    await _persistProfiles();
+    notifyListeners();
+  }
+
+  Future<NamedLlmProfile> cloneProfile(String id, {String? newName}) async {
+    final original = getProfile(id);
+    if (original == null) {
+      throw ArgumentError('Profile with ID $id not found');
+    }
+    final cloned = original.clone(newName: newName);
+    _profiles.add(cloned);
+    await _persistProfiles();
+    notifyListeners();
+    return cloned;
+  }
+
+  Future<void> deleteProfile(String id) async {
+    if (_profiles.length <= 1) {
+      throw StateError('Cannot delete the last remaining LLM profile');
+    }
+    _profiles.removeWhere((p) => p.id == id);
+    if (_selectedProfileId == id) {
+      _selectedProfileId = _profiles.first.id;
+      _syncFromProfile(_profiles.first);
+    }
+    await _persistProfiles();
+    notifyListeners();
+  }
+
+  Future<void> saveAllProfiles(List<NamedLlmProfile> profiles) async {
+    _profiles = List.from(profiles);
+    if (_profiles.isNotEmpty) {
+      final active = getProfile(_selectedProfileId) ?? _profiles.first;
+      _selectedProfileId = active.id;
+      _syncFromProfile(active);
+    }
+    await _persistProfiles();
+    notifyListeners();
+  }
+
+  Future<void> _persistProfiles() async {
+    final jsonRaw = jsonEncode(_profiles.map((p) => p.toJson()).toList());
+    if (!_keyringUnavailable) {
+      try {
+        await _storage.write(key: _kProfiles, value: jsonRaw);
+        await _storage.write(key: _kSelectedProfileId, value: _selectedProfileId);
+      } catch (e) {
+        log.warning('[LLM Settings] Failed to write profiles to secure storage: $e');
+      }
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kShadowPrefix + _kProfiles, jsonRaw);
+      await prefs.setString(_kShadowPrefix + _kSelectedProfileId, _selectedProfileId);
+    } catch (_) {}
+  }
+
+  Future<void> _loadProfilesFromStorage() async {
+    try {
+      String? jsonRaw;
+      if (!_keyringUnavailable) {
+        jsonRaw = await _storage.read(key: _kProfiles);
+      }
+      if (jsonRaw == null || jsonRaw.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        jsonRaw = prefs.getString(_kShadowPrefix + _kProfiles);
+      }
+
+      if (jsonRaw != null && jsonRaw.isNotEmpty) {
+        final decoded = jsonDecode(jsonRaw);
+        if (decoded is List) {
+          _profiles = decoded
+              .whereType<Map<String, dynamic>>()
+              .map((m) => NamedLlmProfile.fromJson(m))
+              .toList();
+        }
+      }
+    } catch (e) {
+      log.warning('[LLM Settings] Failed to parse profiles: $e');
+    }
+
+    if (_profiles.isEmpty) {
+      _profiles = [
+        NamedLlmProfile(
+          id: 'llm1',
+          name: 'LLM 1',
+          provider: _provider,
+          model: _model,
+          apiKey: _apiKey,
+          baseUrl: _baseUrl,
+          temperature: _temperature,
+          maxTokens: _maxTokens,
+          maxToolOutputSize: _maxToolOutputSize,
+          tokenWarningThreshold: _tokenWarningThreshold,
+          isSlm: _isSlm,
+          isMultiModal: _isMultiModal,
+          thinking: _thinking,
+          useNativeToolCall: _useNativeToolCall,
+          useSafeToolCall: _useSafeToolCall,
+          topK: _topK,
+          topP: _topP,
+          repeatPenalty: _repeatPenalty,
+          seed: _seed,
+        ),
+        if (_provider2 != LlmProvider.none &&
+            (_model2.isNotEmpty || _apiKey2.isNotEmpty || _baseUrl2.isNotEmpty))
+          NamedLlmProfile(
+            id: 'llm2',
+            name: 'LLM 2',
+            provider: _provider2,
+            model: _model2,
+            apiKey: _apiKey2,
+            baseUrl: _baseUrl2,
+            temperature: _temperature2,
+            maxTokens: _maxTokens2,
+            maxToolOutputSize: _maxToolOutputSize2,
+            tokenWarningThreshold: _tokenWarningThreshold2,
+            isSlm: _isSlm2,
+            isMultiModal: _isMultiModal2,
+            thinking: _thinking2,
+            useNativeToolCall: _useNativeToolCall2,
+            useSafeToolCall: _useSafeToolCall2,
+            topK: _topK2,
+            topP: _topP2,
+            repeatPenalty: _repeatPenalty2,
+            seed: _seed2,
+          ),
+      ];
+      await _persistProfiles();
+    }
+
+    if (_selectedProfileId.isEmpty || !_profiles.any((p) => p.id == _selectedProfileId)) {
+      _selectedProfileId = _profiles.first.id;
+    }
   }
 
   // ── Load from secure storage ──────────────────
@@ -1067,6 +1333,7 @@ class LlmSettingsService extends ChangeNotifier {
         await _writeShadowPrefs();
       }
 
+      await _loadProfilesFromStorage();
       _loaded = true;
       log.info(
         '[LLM Settings] Loaded – provider=${_provider.configKey}, model=$_model (shadow=${_provider != LlmProvider.none})',
@@ -1087,6 +1354,7 @@ class LlmSettingsService extends ChangeNotifier {
           log.warning('[LLM Settings] Shadow fallback also failed: $e2');
         }
       }
+      await _loadProfilesFromStorage();
       _loaded = true;
       notifyListeners();
     }
@@ -1277,6 +1545,7 @@ class LlmSettingsService extends ChangeNotifier {
     } catch (e) {
       log.warning('[LLM Settings] Shadow read failed (non-fatal): $e');
     }
+    await _loadProfilesFromStorage();
   }
 
   /// Loads only LLM2 settings from the SharedPreferences shadow copy.
@@ -1549,6 +1818,30 @@ class LlmSettingsService extends ChangeNotifier {
       log.info(
         '[LLM Settings] Saved – provider=${provider.configKey}, model=$_model',
       );
+      if (_profiles.isNotEmpty) {
+        final activeIdx = _profiles.indexWhere((p) => p.id == _selectedProfileId);
+        final targetIdx = activeIdx >= 0 ? activeIdx : 0;
+        _profiles[targetIdx] = _profiles[targetIdx].copyWith(
+          provider: provider,
+          model: model,
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          maxToolOutputSize: maxToolOutputSize,
+          tokenWarningThreshold: tokenWarningThreshold,
+          isSlm: isSlm,
+          isMultiModal: isMultiModal,
+          topK: topK,
+          topP: topP,
+          repeatPenalty: repeatPenalty,
+          seed: seed,
+          thinking: thinking,
+          useNativeToolCall: useNativeToolCall,
+          useSafeToolCall: useSafeToolCall,
+        );
+        await _persistProfiles();
+      }
       // Keep SharedPreferences shadow in sync for background isolate fallback.
       // Must be awaited so the shadow is guaranteed to be written before save()
       // returns — preventing a race where a background isolate fires before the
@@ -1671,6 +1964,51 @@ class LlmSettingsService extends ChangeNotifier {
         value: _useSafeToolCall2.toString(),
       );
       await _writeShadowPrefs();
+      final llm2Idx = _profiles.indexWhere((p) => p.id == 'llm2');
+      if (llm2Idx >= 0) {
+        _profiles[llm2Idx] = _profiles[llm2Idx].copyWith(
+          provider: provider,
+          model: model,
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          maxToolOutputSize: maxToolOutputSize,
+          tokenWarningThreshold: tokenWarningThreshold,
+          isSlm: isSlm,
+          isMultiModal: isMultiModal,
+          topK: topK,
+          topP: topP,
+          repeatPenalty: repeatPenalty,
+          seed: seed,
+          thinking: thinking,
+          useNativeToolCall: useNativeToolCall,
+          useSafeToolCall: useSafeToolCall,
+        );
+      } else if (provider != LlmProvider.none) {
+        _profiles.add(NamedLlmProfile(
+          id: 'llm2',
+          name: 'LLM 2',
+          provider: provider,
+          model: model,
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          maxToolOutputSize: maxToolOutputSize,
+          tokenWarningThreshold: tokenWarningThreshold,
+          isSlm: isSlm,
+          isMultiModal: isMultiModal,
+          topK: topK,
+          topP: topP,
+          repeatPenalty: repeatPenalty,
+          seed: seed,
+          thinking: thinking,
+          useNativeToolCall: useNativeToolCall,
+          useSafeToolCall: useSafeToolCall,
+        ));
+      }
+      await _persistProfiles();
       log.info(
         '[LLM Settings] Saved LLM2 – provider=${provider.configKey}, model=$_model2',
       );

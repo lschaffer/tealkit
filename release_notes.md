@@ -2,6 +2,36 @@
 
 This file tracks release changes by version.
 
+## v2.0.1+154 - TealKit AI Rebranding, Multi-LLM Profiles, Desktop Coding Mode & Unlimited Limits
+
+### Major Features & Enhancements
+- **TealKit AI Ecosystem Rebranding & Terminology Shift**:
+  - Rebranded the platform identity from **TealKit** to **TealKit AI** across application manifests, window titles (Windows, macOS, Linux, Android, iOS), and documentation.
+  - Renamed **Playground** to **Assistant** across all navigation, sidebar buttons, hub cards, dialogs, and localization files (`en`, `de`).
+  - Elevated **AI Data Sharing Consent** to root Settings for enhanced transparency before remote LLM provider interactions.
+- **Dynamic Multi-LLM Profile Management & Dual-Tab Settings**:
+  - Re-architected LLM configuration into two focused tabs: **LLMs** (custom provider profiles) and **Embedded** (on-device GGUF / HuggingFace model manager).
+  - Users can create, edit, clone (duplicate provider configurations with different models or parameters), and delete multiple named LLM profiles.
+  - Seamless legacy migration automatically synthesizes existing configurations into "LLM 1" and "LLM 2" profiles.
+  - Backed by persistent backend storage (DuckDB / SQLite) with full profile synchronization in encrypted vault backups (`.tkv`) and restore workflows.
+- **Desktop Assistant Coding Agent Mode**:
+  - Integrated a dedicated **Coding Agent Mode** for desktop platforms (Windows, macOS, Linux) within the Assistant interface.
+  - Supports quick mode switching via top bar controls and inline prompt commands:
+    - `/plan` (Architect mode for analysis and implementation planning)
+    - `/code` (Autonomous development and code modification)
+    - `/ask` (Conversational exploration and Q&A)
+  - Interactive workspace directory picker with persistent directory memory.
+  - Powered by pure-Dart native coding tools (`fs_find`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `terminal_exec`) via `dart_mcp_core`.
+- **Unlimited Execution Limits (0) & Stepper Controls**:
+  - Turn and tool call iteration controls updated to compact, intuitive stepper (+/-) controls replacing horizontal sliders.
+  - Setting limits to `0` configures **unlimited** turns and tool iterations for deep codebase investigation and long-running autonomous tasks.
+- **Desktop Ctrl+V Clipboard Paste for Multimedia Prompts**:
+  - Introduced desktop keyboard shortcut (`Ctrl+V` / `Cmd+V`) in the Assistant prompt input to instantly paste clipboard images and documents into prompt attachments alongside existing file picker buttons.
+- **Robust Multi-Encoding File Support**:
+  - Upgraded file reader tools in `dart_mcp_core` (`fs_read_file`, `fs_replace_text`) with automatic fallback encoding detection (Latin-1 / UTF-8) to reliably read non-UTF-8 source files in embedded firmware projects without decoding errors.
+- **UI & Dropdown Overflow Protections**:
+  - Added `selectedItemBuilder` and `isExpanded` attributes across dropdowns in Assistant and Workflow Editor to prevent layout overflows on mobile and constrained desktop windows.
+
 ## v1.7.3+149 - Multi-Day Weekly Cron Scheduler, Google Drive SAF Layout & Website Crawl Subpaths
 
 ### Bug Fixes & Improvements

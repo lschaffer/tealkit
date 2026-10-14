@@ -96,6 +96,15 @@ abstract class ServerDatabaseAdapter {
   Future<List<Map<String, dynamic>>> getAllPlaygroundSessions();
   Future<void> deletePlaygroundSession(String id);
 
+  // ── LLM Profiles ───────────────────────────────────────────
+
+  Future<void> saveLlmProfiles(
+    List<Map<String, dynamic>> profiles, {
+    String? selectedProfileId,
+  });
+  Future<List<Map<String, dynamic>>> getLlmProfiles();
+  Future<String?> getSelectedLlmProfileId();
+
   // ── Raw Access ─────────────────────────────────────────────
 
   Future<void> execute(String sql);
@@ -120,6 +129,15 @@ class _UninitializedAdapter implements ServerDatabaseAdapter {
   Future<void> init() async {}
   @override
   Future<void> close() async {}
+  @override
+  Future<void> saveLlmProfiles(
+    List<Map<String, dynamic>> profiles, {
+    String? selectedProfileId,
+  }) async {}
+  @override
+  Future<List<Map<String, dynamic>>> getLlmProfiles() async => const [];
+  @override
+  Future<String?> getSelectedLlmProfileId() async => null;
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }

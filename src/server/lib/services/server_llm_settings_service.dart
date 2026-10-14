@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/server_config_service.dart';
+import '../database/server_database_adapter.dart';
 import '../utils/server_logger.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -580,6 +581,30 @@ class ServerLlmSettingsService {
   final Map<String, String> _baseUrlsByProvider = {};
   final Map<String, String> _modelsByProvider = {};
 
+  static const _kProfiles = 'llm_profiles';
+  static const _kSelectedProfileId = 'selected_profile_id';
+  List<Map<String, dynamic>> _profiles = [];
+  String _selectedProfileId = '';
+
+  List<Map<String, dynamic>> get profiles => _profiles;
+  String get selectedProfileId => _selectedProfileId;
+
+  Future<void> setProfiles(List<dynamic> list) async {
+    _profiles = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    await ServerConfigService().setString(_kProfiles, jsonEncode(_profiles));
+    try {
+      await serverDb.saveLlmProfiles(_profiles, selectedProfileId: _selectedProfileId);
+    } catch (_) {}
+  }
+
+  Future<void> setSelectedProfileId(String id) async {
+    _selectedProfileId = id;
+    await ServerConfigService().setString(_kSelectedProfileId, id);
+    try {
+      await serverDb.saveLlmProfiles(_profiles, selectedProfileId: _selectedProfileId);
+    } catch (_) {}
+  }
+
   // ── Getters ───────────────────────────────────────
   LlmProvider get provider => _provider;
   String get model => _model;
@@ -725,8 +750,88 @@ class ServerLlmSettingsService {
     _thinking2 = cfg.getBool(_kThinking2) ?? false;
     _useNativeToolCall2 = cfg.getBool(_kUseNativeToolCall2) ?? true;
 
+    try {
+      final dbProfiles = await serverDb.getLlmProfiles();
+      if (dbProfiles.isNotEmpty) {
+        _profiles = dbProfiles;
+        final dbSel = await serverDb.getSelectedLlmProfileId();
+        if (dbSel != null && dbSel.isNotEmpty) {
+          _selectedProfileId = dbSel;
+        }
+      }
+    } catch (_) {}
+
+    if (_profiles.isEmpty) {
+      final profilesRaw = cfg.getString(_kProfiles);
+      if (profilesRaw != null && profilesRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(profilesRaw);
+          if (decoded is List) {
+            _profiles = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          }
+        } catch (_) {}
+      }
+      _selectedProfileId = cfg.getString(_kSelectedProfileId) ?? '';
+    }
+
+    if (_profiles.isEmpty) {
+      _profiles.add({
+        'id': 'llm1',
+        'name': 'LLM 1',
+        'provider': _provider.configKey,
+        'model': _model,
+        'api_key': _apiKey,
+        'base_url': _baseUrl,
+        'temperature': _temperature,
+        'max_tokens': _maxTokens,
+        'max_tool_output_size': _maxToolOutputSize,
+        'token_warning_threshold': _tokenWarningThreshold,
+        'is_slm': _isSlm,
+        'is_multi_modal': _isMultiModal,
+        'thinking': _thinking,
+        'use_native_tool_call': _useNativeToolCall,
+        'use_safe_tool_call': _useSafeToolCall,
+        'top_k': _topK,
+        'top_p': _topP,
+        'repeat_penalty': _repeatPenalty,
+        'seed': _seed,
+      });
+
+      final hasLlm2 = _provider2 != LlmProvider.none &&
+          (_model2.isNotEmpty || _apiKey2.isNotEmpty || _baseUrl2.isNotEmpty);
+      if (hasLlm2) {
+        _profiles.add({
+          'id': 'llm2',
+          'name': 'LLM 2',
+          'provider': _provider2.configKey,
+          'model': _model2,
+          'api_key': _apiKey2,
+          'base_url': _baseUrl2,
+          'temperature': _temperature2,
+          'max_tokens': _maxTokens2,
+          'max_tool_output_size': _maxToolOutputSize2,
+          'token_warning_threshold': _tokenWarningThreshold2,
+          'is_slm': _isSlm2,
+          'is_multi_modal': _isMultiModal2,
+          'thinking': _thinking2,
+          'use_native_tool_call': _useNativeToolCall2,
+          'use_safe_tool_call': _useSafeToolCall2,
+          'top_k': _topK2,
+          'top_p': _topP2,
+          'repeat_penalty': _repeatPenalty2,
+          'seed': _seed2,
+        });
+      }
+      _selectedProfileId = 'llm1';
+      await ServerConfigService().setString(_kProfiles, jsonEncode(_profiles));
+      await ServerConfigService().setString(_kSelectedProfileId, _selectedProfileId);
+      try {
+        await serverDb.saveLlmProfiles(_profiles, selectedProfileId: _selectedProfileId);
+      } catch (_) {}
+    }
+
     log.info(
-      '[LLM Settings] Loaded – provider=${_provider.configKey}, model=$_model',
+      '[LLM Settings] Loaded – provider=${_provider.configKey}, model=$_model, profiles=${_profiles.length}',
     );
   }
 

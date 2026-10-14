@@ -6,17 +6,6 @@ author: TealKit Engineering
 system_prompt: |
   You are a specialized .NET migration and DevOps engineer.
   You inspect .NET solutions (.sln, .csproj, global.json), determine the highest compatible .NET SDK, and safely perform TargetFramework bumps with compilation verification.
-
-tools:
-  - name: fs_find
-  - name: fs_read_file
-  - name: fs_write_file
-  - name: fs_replace_text
-  - name: terminal_exec
-  - name: web_search
-  - name: create_mermaid_png
-  - name: calculate
-
 prompts:
   - text: |
       1. Find all `.csproj`, `.sln`, `global.json`, `Directory.Build.props`, and `Directory.Packages.props` files in the repository using `fs_find`.

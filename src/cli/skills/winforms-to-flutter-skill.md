@@ -15,19 +15,6 @@ system_prompt: |
   4. Desktop Environments: Initialize both Windows (windows/runner/main.cpp) and Linux (linux/my_application.cc) desktop shells.
   5. Web Search: Use the built-in `web_search` tool to look up current Flutter/Dart package versions, Riverpod syntax, and desktop platform channels.
   6. Diagrams: Use `create_mermaid_png` to diagram UI routing, Riverpod dependency graphs, and WinForms-to-Flutter widget mappings.
-
-tools:
-  - name: fs_find
-  - name: fs_list_dir
-  - name: fs_read_file
-  - name: fs_write_file
-  - name: fs_replace_text
-  - name: terminal_exec
-  - name: web_search
-  - name: create_mermaid_png
-  - name: calculate
-  - name: get_current_time
-
 prompts:
   - text: |
       Inspect the legacy .NET/C# WinForms project in:

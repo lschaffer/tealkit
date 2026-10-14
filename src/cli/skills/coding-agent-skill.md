@@ -17,21 +17,6 @@ system_prompt: |
      - Use `create_mermaid_png` to generate visual architecture diagrams.
      - Use toolbox tools (`calculate`, `sum_numbers`, `get_current_time`, `get_timezone_info`) for precise calculations and timestamps.
      - Use SSH tools (`ssh_execute_command`, `ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`) for remote server deployment and inspection.
-
-tools:
-  - name: fs_find
-  - name: fs_read_file
-  - name: fs_write_file
-  - name: fs_replace_text
-  - name: terminal_exec
-  - name: web_search
-  - name: create_mermaid_png
-  - name: calculate
-  - name: get_current_time
-  - name: ssh_execute_command
-  - name: ssh_list_directory
-  - name: ssh_read_file
-
 prompts:
   - text: |
       Inspect the project repository in the current workspace.

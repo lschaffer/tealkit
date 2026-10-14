@@ -163,8 +163,7 @@ class ChatService extends ChangeNotifier with ServiceLogging {
   int _currentRetryCount = 0;
   // Tool iteration counter to prevent infinite loops
   int _toolIterationCount = 0;
-  static const int _maxToolIterations =
-      10; // Maximum 10 tool iterations per user request
+  int maxToolIterations = 10; // Configurable maximum tool iterations per user request
   bool _forceNoToolCallsNextTurn = false;
   String? _forcedNoToolHintNextTurn;
 
@@ -4340,10 +4339,10 @@ RULES (follow strictly):
     // Increment iteration counter
     _toolIterationCount++;
 
-    // Check iteration limit to prevent infinite loops
-    if (_toolIterationCount > _maxToolIterations) {
+    // Check iteration limit to prevent infinite loops (0 = unlimited)
+    if (maxToolIterations > 0 && _toolIterationCount > maxToolIterations) {
       talker.error(
-        'âš ï¸ Max tool iterations ($_maxToolIterations) reached - stopping agentic loop',
+        'âš ï¸ Max tool iterations ($maxToolIterations) reached - stopping agentic loop',
       );
       _processingType = ProcessingType.none;
       _toolIterationCount = 0; // Reset for next user message
@@ -4365,7 +4364,7 @@ RULES (follow strictly):
     notifyListeners();
 
     talker.info(
-      'Starting tool call handling for ${response.toolCalls.length} tools (iteration $_toolIterationCount/$_maxToolIterations)',
+      'Starting tool call handling for ${response.toolCalls.length} tools (iteration $_toolIterationCount/${maxToolIterations > 0 ? maxToolIterations : 'unlimited'})',
     );
 
     // Check if LLM response text contains invalid tool_code format
@@ -5137,7 +5136,7 @@ CRITICAL RULES:
     // AGENTIC LOOP: Continue with LLM processing, tools still enabled
     // The system prompt contains autonomous chaining rules, no need for additional reminders
     talker.info(
-      'ðŸ”„ Tool execution complete, continuing agentic loop (iteration $_toolIterationCount/$_maxToolIterations)',
+      'Tool execution complete, continuing agentic loop (iteration $_toolIterationCount/${maxToolIterations > 0 ? maxToolIterations : 'unlimited'})',
     );
     talker.info('   Tool results collected: ${toolResults.length}');
     talker.info('   hasToolError check: $hasToolError');
@@ -5148,10 +5147,10 @@ CRITICAL RULES:
       );
     }
 
-    // CRITICAL: Check iteration limit BEFORE continuing to prevent infinite loops
-    if (_toolIterationCount >= _maxToolIterations) {
+    // CRITICAL: Check iteration limit BEFORE continuing to prevent infinite loops (0 = unlimited)
+    if (maxToolIterations > 0 && _toolIterationCount >= maxToolIterations) {
       talker.error(
-        'âš ï¸ Max tool iterations ($_maxToolIterations) reached BEFORE next LLM call - stopping agentic loop',
+        'âš ï¸ Max tool iterations ($maxToolIterations) reached BEFORE next LLM call - stopping agentic loop',
       );
       _processingType = ProcessingType.none;
       _toolIterationCount = 0; // Reset for next user message
@@ -5161,7 +5160,7 @@ CRITICAL RULES:
         id: _uuid.v4(),
         content:
             'âš ï¸ **Maximum Tool Iteration Limit Reached**\n\n'
-            'The AI attempted too many tool calls in a row (limit: $_maxToolIterations iterations).\n\n'
+            'The AI attempted too many tool calls in a row (limit: $maxToolIterations iterations).\n\n'
             'This usually happens when:\n'
             '- The request is too complex and needs to be broken down\n'
             '- The AI is stuck in a loop calling the same tools repeatedly\n'
@@ -5200,7 +5199,7 @@ CRITICAL RULES:
 
     // CRITICAL: Ensure we continue the agentic loop
     talker.info(
-      'ðŸ”„ CONTINUING TO NEXT LLM CALL - Tool iteration $_toolIterationCount/$_maxToolIterations',
+      'CONTINUING TO NEXT LLM CALL - Tool iteration $_toolIterationCount/${maxToolIterations > 0 ? maxToolIterations : 'unlimited'}',
     );
 
     try {

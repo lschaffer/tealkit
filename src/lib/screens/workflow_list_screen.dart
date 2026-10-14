@@ -421,19 +421,29 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
         backgroundColor: isModern ? Colors.transparent : null,
         elevation: 0,
         title: Text(l.taskScheduler),
-        leading: (isModern && MediaQuery.sizeOf(context).width > 1200)
-            ? Consumer(
-                builder: (context, ref, _) {
-                  final isOpen = ref.watch(sidebarOpenProvider);
-                  return IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () {
-                      ref.read(sidebarOpenProvider.notifier).state = !isOpen;
-                    },
-                  );
-                },
-              )
-            : null,
+        leading: Builder(
+          builder: (ctx) {
+            if (Navigator.of(ctx).canPop()) {
+              return IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(ctx).pop(),
+              );
+            }
+            return Consumer(
+              builder: (context, ref, _) {
+                final isOpen = ref.watch(sidebarOpenProvider);
+                return IconButton(
+                  icon: const Icon(Icons.menu),
+                  tooltip: 'Toggle Menu',
+                  onPressed: () {
+                    ref.read(sidebarOpenProvider.notifier).state = !isOpen;
+                  },
+                );
+              },
+            );
+          },
+        ),
         actions: [
           if (isModern && MediaQuery.sizeOf(context).width >= 1000) ...[
             const GlobalAgentStatsWidget(),

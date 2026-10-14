@@ -9,7 +9,7 @@ class LEn extends L {
   LEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'TealKit';
+  String get appTitle => 'TealKit AI';
 
   @override
   String get appSubtitle => 'Your personal AI assistant';
@@ -21,11 +21,11 @@ class LEn extends L {
   String get viewLogs => 'View Logs';
 
   @override
-  String get playground => 'Playground';
+  String get playground => 'Assistant';
 
   @override
   String get playgroundHint =>
-      'Try out prompts, tools and system instructions here before scheduling a workflow.';
+      'Chat with AI, try out prompts, tools, and coding agents before scheduling a workflow.';
 
   @override
   String get tasks => 'Workflows';
@@ -38,7 +38,7 @@ class LEn extends L {
 
   @override
   String get configureLlmFirst =>
-      'Configure an LLM provider to unlock Playground and Workflows.';
+      'Configure an LLM provider to unlock Assistant and Workflows.';
 
   @override
   String get systemPrompt => 'System Prompt';

@@ -200,6 +200,18 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
         created_at  TEXT DEFAULT (datetime('now'))
       )
     ''');
+
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS llm_profiles (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        is_selected INTEGER DEFAULT 0,
+        data        TEXT NOT NULL,
+        sort_order  INTEGER DEFAULT 0,
+        created_at  TEXT DEFAULT (datetime('now')),
+        updated_at  TEXT DEFAULT (datetime('now'))
+      )
+    ''');
   }
 
   // ── Tasks CRUD ─────────────────────────────────────────────
@@ -822,6 +834,60 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
   @override
   Future<void> deletePlaygroundSession(String id) async {
     _requireDb.execute('DELETE FROM playground_sessions WHERE id = ?', [id]);
+  }
+
+  // ── LLM Profiles ───────────────────────────────────────────
+
+  @override
+  Future<void> saveLlmProfiles(
+    List<Map<String, dynamic>> profiles, {
+    String? selectedProfileId,
+  }) async {
+    final db = _requireDb;
+    db.execute('DELETE FROM llm_profiles');
+    final stmt = db.prepare('''
+      INSERT INTO llm_profiles (id, name, is_selected, data, sort_order)
+      VALUES (?, ?, ?, ?, ?)
+    ''');
+    for (var i = 0; i < profiles.length; i++) {
+      final p = profiles[i];
+      final id = (p['id'] as String?) ?? 'profile_$i';
+      final name = (p['name'] as String?) ?? 'LLM ${i + 1}';
+      final isSelected = id == selectedProfileId ? 1 : 0;
+      stmt.execute([id, name, isSelected, jsonEncode(p), i]);
+    }
+    stmt.dispose();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getLlmProfiles() async {
+    final db = _requireDb;
+    final result = db.select(
+      'SELECT data FROM llm_profiles ORDER BY sort_order ASC, created_at ASC',
+    );
+    return result
+        .map((row) {
+          try {
+            final raw = row['data'] as String?;
+            if (raw == null || raw.isEmpty) return null;
+            return jsonDecode(raw) as Map<String, dynamic>;
+          } catch (e) {
+            log.warning('[SQLite] Failed to decode llm profile: $e');
+            return null;
+          }
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  @override
+  Future<String?> getSelectedLlmProfileId() async {
+    final db = _requireDb;
+    final result = db.select(
+      'SELECT id FROM llm_profiles WHERE is_selected = 1 LIMIT 1',
+    );
+    if (result.isEmpty) return null;
+    return result.first['id'] as String?;
   }
 
   // ── Raw Access ─────────────────────────────────────────────

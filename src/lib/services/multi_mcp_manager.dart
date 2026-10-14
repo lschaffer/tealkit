@@ -39,7 +39,15 @@ class MCPClientDef {
   List<MCPTool> get availableTools {
     try {
       talker.debug('MCPClientDef($name): Accessing client.availableTools...');
-      final tools = client.availableTools;
+      dynamic tools;
+      try {
+        tools = client.availableTools;
+      } on NoSuchMethodError {
+        // Fallback: client might be an InternalMcpServer with `tools` property
+        try {
+          tools = (client as dynamic).tools;
+        } catch (_) {}
+      } catch (_) {}
 
       // For web: serialize to JSON and back to avoid type issues
       if (tools is List) {

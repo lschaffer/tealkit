@@ -665,7 +665,7 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp>
             final isServerMode =
                 ref.watch(serverModeProvider).value?.isRemote ?? false;
             return MaterialApp(
-              title: 'TealKit',
+              title: 'TealKit AI',
               debugShowCheckedModeBanner: false,
               theme: isServerMode
                   ? AppTheme.serverLightTheme
@@ -772,7 +772,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         content: const Text(
-          'Welcome to TealKit! To begin using the playground and running autonomous agents, '
+          'Welcome to TealKit AI! To begin using the assistant and running autonomous agents, '
           'you need to configure an AI model provider (such as OpenAI, Anthropic, Gemini, or local models).\n\n'
           'You will now be redirected to Settings to set this up.',
         ),
@@ -788,8 +788,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     if (mounted) {
-      final screenWidth = MediaQuery.sizeOf(context).width;
-      if (screenWidth > 1200) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      final isDesktopPlatform =
+          !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+      if (screenWidth > 1200 || (isDesktopPlatform && screenWidth >= 800)) {
         setState(() {
           _selectedScreenIndex =
               2; // Redirect to Settings screen in desktop view
@@ -940,8 +942,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context, _) {
         final llmReady = llmSettings.isConfigured;
         final screenWidth = MediaQuery.sizeOf(context).width;
+        final isDesktopPlatform =
+            !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+        final useDesktopLayout =
+            screenWidth > 1200 || (isDesktopPlatform && screenWidth >= 800);
 
-        if (screenWidth > 1200) {
+        if (useDesktopLayout) {
           final sidebarOpen = ref.watch(sidebarOpenProvider);
           final sidebarSticky = ref.watch(sidebarStickyProvider);
           final activeIndex = llmReady ? _selectedScreenIndex : 2;

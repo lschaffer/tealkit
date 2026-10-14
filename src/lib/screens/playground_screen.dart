@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_theme.dart';
+import '../mcp/internal_mcp_client_adapter.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../mcp/servers/document_mcp_server.dart';
 import '../mcp/servers/py_bridge_mcp_server.dart';
@@ -44,6 +45,9 @@ import '../utils/storage_permission.dart';
 import '../widgets/mcp_discover_sheet.dart';
 import '../widgets/multimedia_input_widget.dart';
 import '../widgets/multimedia_message_widget.dart';
+import '../mcp/servers/coding_tools_mcp_server.dart';
+import '../services/multi_mcp_manager.dart';
+import '../utils/logger.dart';
 
 import '../widgets/example_picker_dialog.dart';
 import '../widgets/sftp_explorer_dialog.dart';
@@ -212,8 +216,20 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   /// Allows reading current text for saving, and writing it for pre-filling.
   final TextEditingController _chatInputController = TextEditingController();
 
-  // LLM selector: 1 = primary (LLM1), 2 = coding (LLM2), 3 = custom override
+  // LLM selector
   int _selectedLlm = 1;
+  String _selectedProfileId = '';
+
+  // Desktop Coding Agent Mode
+  bool _codingAgentMode = false;
+  String _codingWorkspaceDir = '';
+  String _codingAgentSubMode = '/code'; // '/code', '/plan', '/ask'
+  int _codingTurnLimit = 25;
+  int _codingMaxToolCalls = 30;
+
+  bool get _isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
   double _chatFraction = 0.6;
   bool _logsAscending = false;
   DateTime? _logsClearedAt;
@@ -1993,6 +2009,33 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         extraParams: extraParams,
       );
     }
+    if (!_overrideLlm && _selectedProfileId.isNotEmpty) {
+      final s = ref.read(llmSettingsProvider);
+      final profile = s.getProfile(_selectedProfileId);
+      if (profile != null) {
+        return TaskLlmConfig(
+          provider: profile.provider.configKey,
+          model: profile.model,
+          apiKey: profile.apiKey.isNotEmpty ? profile.apiKey : null,
+          baseUrl: profile.baseUrl.isNotEmpty ? profile.baseUrl : null,
+          temperature: profile.temperature,
+          maxTokens: profile.maxTokens,
+          extraParams: {
+            'is_slm': profile.isSlm,
+            'is_multi_modal': profile.isMultiModal,
+            'thinking': profile.thinking,
+            'use_native_tool_call': profile.useNativeToolCall,
+            'use_safe_tool_call': profile.useSafeToolCall,
+            if (profile.topK != null) 'top_k': profile.topK,
+            if (profile.topP != null) 'top_p': profile.topP,
+            if (profile.repeatPenalty != null) 'repeat_penalty': profile.repeatPenalty,
+            if (profile.seed != null) 'seed': profile.seed,
+            'max_tool_output_size': profile.maxToolOutputSize,
+            'token_warning_threshold': profile.tokenWarningThreshold,
+          },
+        );
+      }
+    }
     if (_selectedLlm == 2) {
       return const TaskLlmConfig(provider: 'llm2', model: '');
     }
@@ -2004,13 +2047,46 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   Future<void> _startChat() async {
     if (!mounted) return;
 
-    final systemPrompt = _combinedSystemPrompt.trim();
+    var systemPrompt = _combinedSystemPrompt.trim();
     final initialPrompt = _initialPromptCtrl.text.trim();
+
+    if (_codingAgentMode && _isDesktop) {
+      final ws = _codingWorkspaceDir.isNotEmpty
+          ? _codingWorkspaceDir
+          : Directory.current.path;
+      String codingPrefix = '';
+      if (_codingAgentSubMode == '/plan') {
+        codingPrefix =
+            'MODE: ARCHITECT / PLAN (/plan)\n'
+            'You are an expert Software Architect operating on workspace: $ws.\n'
+            '• Analyze the workspace thoroughly using fs_find, fs_list_dir, and fs_read_file before proposing architectural steps.\n'
+            '• Inspect dependencies and project conventions.\n'
+            '• Do NOT modify or delete files in planning mode.\n'
+            '• Output a clear, phased implementation plan with risk assessments.\n\n';
+      } else if (_codingAgentSubMode == '/code') {
+        final toolsLimit = _codingMaxToolCalls <= 0 ? 'unlimited' : '$_codingMaxToolCalls';
+        final turnLimit = _codingTurnLimit <= 0 ? 'unlimited' : '$_codingTurnLimit';
+        codingPrefix =
+            'MODE: CODING AGENT (/code)\n'
+            'You are an autonomous Senior Software Engineer operating on workspace: $ws.\n'
+            '• Read and understand relevant files before modifying.\n'
+            '• Make targeted, minimal edits using fs_replace_text, fs_write_file, or fs_create_dir.\n'
+            '• Use terminal_exec to verify builds, run tests, or check status.\n'
+            '• Max tool iterations allowed: $toolsLimit. Turn limit: $turnLimit.\n\n';
+      } else if (_codingAgentSubMode == '/ask') {
+        codingPrefix =
+            'MODE: CODEBASE Q&A (/ask)\n'
+            'You are a Codebase Assistant for workspace: $ws.\n'
+            '• Answer questions using fs_find, fs_list_dir, and fs_read_file.\n'
+            '• Do NOT modify or execute destructive commands.\n\n';
+      }
+      systemPrompt = '$codingPrefix$systemPrompt'.trim();
+    }
 
     // Build a temporary WorkflowTask for the active task provider
     final task = WorkflowTask(
       id: const Uuid().v4(),
-      name: 'Playground',
+      name: 'Assistant',
       systemPrompt: systemPrompt.isEmpty ? null : systemPrompt,
       prompt: initialPrompt.isEmpty ? 'Hello' : initialPrompt,
       executionPlan: const ExecutionPlan(cronExpression: ''),
@@ -2028,6 +2104,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   initParams: _mcpInitParams[type] ?? {},
                 );
               }),
+              if (_codingAgentMode && _isDesktop)
+                InternalMcpEntry(
+                  id: const Uuid().v4(),
+                  mcpType: 'coding_tools',
+                  label: 'Coding Tools',
+                  enabled: true,
+                  initParams: {
+                    'workspace': _codingWorkspaceDir.isNotEmpty
+                        ? _codingWorkspaceDir
+                        : Directory.current.path,
+                  },
+                ),
               if (!_pgToolboxEnabled)
                 InternalMcpEntry(
                   id: const Uuid().v4(),
@@ -2758,6 +2846,10 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _errorSubscription?.cancel();
     _subscribedChatService = chatService;
 
+    if (_codingAgentMode && _isDesktop) {
+      chatService.maxToolIterations = _codingMaxToolCalls;
+    }
+
     _messagesSubscription = chatService.messagesStream.listen((msgs) {
       if (mounted) {
         setState(
@@ -2779,7 +2871,108 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   void _onSendMessage(ChatMessage message, ChatService chatService) async {
     final ready = await _ensureDocumentIndexReadyBeforeSend();
     if (!ready || !mounted) return;
+
+    final rawText = message.content.trim();
+    final lower = rawText.toLowerCase();
+
+    String? matchedMode;
+    String remainingText = rawText;
+
+    if (lower == '/code' || lower.startsWith('/code ') || lower.startsWith('/code\n')) {
+      matchedMode = '/code';
+      remainingText = rawText.length > 5 ? rawText.substring(5).trim() : '';
+    } else if (lower == '/plan' || lower.startsWith('/plan ') || lower.startsWith('/plan\n')) {
+      matchedMode = '/plan';
+      remainingText = rawText.length > 5 ? rawText.substring(5).trim() : '';
+    } else if (lower == '/ask' || lower.startsWith('/ask ') || lower.startsWith('/ask\n')) {
+      matchedMode = '/ask';
+      remainingText = rawText.length > 4 ? rawText.substring(4).trim() : '';
+    }
+
+    if (matchedMode != null) {
+      setState(() {
+        _codingAgentMode = true;
+        _codingAgentSubMode = matchedMode!;
+        if (_codingWorkspaceDir.isEmpty) {
+          _codingWorkspaceDir = Directory.current.path;
+        }
+      });
+      await _ensureCodingToolsConnected(chatService);
+      chatService.maxToolIterations = _codingMaxToolCalls;
+
+      // If user entered ONLY the mode command without additional text or attachments
+      if (remainingText.isEmpty && (message.attachments == null || message.attachments!.isEmpty)) {
+        final modeLabel = matchedMode == '/code'
+            ? 'Engineer (/code)'
+            : (matchedMode == '/plan' ? 'Architect (/plan)' : 'Explain (/ask)');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 18),
+                  const SizedBox(width: 8),
+                  Text('Switched to Coding Mode: $modeLabel'),
+                ],
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return; // Don't send empty prompt
+      }
+
+      if (remainingText.isNotEmpty) {
+        message = ChatMessage(
+          id: message.id,
+          content: remainingText,
+          role: message.role,
+          timestamp: message.timestamp,
+          attachments: message.attachments,
+        );
+      }
+    } else if (_codingAgentMode) {
+      await _ensureCodingToolsConnected(chatService);
+      chatService.maxToolIterations = _codingMaxToolCalls;
+    }
+
     chatService.sendChatMessage(message);
+  }
+
+  Future<void> _ensureCodingToolsConnected(ChatService chatService) async {
+    if (chatService.mcpClient is! MultiMCPManager) return;
+
+    final multi = chatService.mcpClient as MultiMCPManager;
+    final hasCodingTools = multi.clients.any(
+      (c) =>
+          c.name == 'coding_tools' ||
+          c.name == 'internal_coding_tools' ||
+          c.client is CodingToolsMcpServer ||
+          (c.client is InternalMcpClientAdapter &&
+              (c.client as InternalMcpClientAdapter).server
+                  is CodingToolsMcpServer),
+    );
+
+    if (!hasCodingTools) {
+      try {
+        final server = CodingToolsMcpServer();
+        final ws = _codingWorkspaceDir.isNotEmpty
+            ? _codingWorkspaceDir
+            : Directory.current.path;
+        await server.initialize({'workspace': ws});
+        final adapter = InternalMcpClientAdapter(server);
+        final def = MCPClientDef(
+          name: 'coding_tools',
+          displayName: 'Coding Tools',
+          client: adapter,
+        );
+        multi.registerClient(def);
+        await def.connect();
+      } catch (e) {
+        talker.warning('Could not dynamically register coding_tools MCP: $e');
+      }
+    }
   }
 
   Future<bool> _ensureDocumentIndexReadyBeforeSend() async {
@@ -5166,6 +5359,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         Builder(
           builder: (context) {
             final llmSettings = ref.watch(llmSettingsProvider);
+            final profiles = llmSettings.profiles;
+
+            if (_selectedProfileId.isEmpty && profiles.isNotEmpty) {
+              _selectedProfileId = llmSettings.selectedProfile?.id ?? profiles.first.id;
+            }
+
+            final dropdownValue = _overrideLlm
+                ? '__custom__'
+                : (profiles.any((p) => p.id == _selectedProfileId)
+                    ? _selectedProfileId
+                    : (profiles.isNotEmpty ? profiles.first.id : '__custom__'));
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -5176,43 +5381,66 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Segmented: LLM1 / LLM2 / Custom
-                SegmentedButton<int>(
-                  segments: [
-                    ButtonSegment(
-                      value: 1,
-                      label: Text('LLM 1  (${llmSettings.model})'),
-                      icon: const Icon(Icons.auto_awesome, size: 16),
-                    ),
-                    if (llmSettings.isConfigured2)
-                      ButtonSegment(
-                        value: 2,
-                        label: Text('LLM 2  (${llmSettings.model2})'),
-                        icon: const Icon(Icons.code, size: 16),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('llm_profile_$dropdownValue'),
+                  initialValue: dropdownValue,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Select LLM Profile',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.psychology_outlined),
+                    isDense: true,
+                  ),
+                  selectedItemBuilder: (context) {
+                    return [
+                      ...profiles.map((p) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          )),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Custom Override (Tune inline)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
-                    const ButtonSegment(
-                      value: 3,
-                      label: Text('Custom'),
-                      icon: Icon(Icons.tune, size: 16),
+                    ];
+                  },
+                  items: [
+                    ...profiles.map((p) => DropdownMenuItem<String>(
+                          value: p.id,
+                          child: Text(
+                            '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        )),
+                    const DropdownMenuItem<String>(
+                      value: '__custom__',
+                      child: Text(
+                        'Custom Override (Tune inline)',
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                   ],
-                  selected: {_overrideLlm ? 3 : _selectedLlm},
-                  onSelectionChanged: (s) {
-                    final v = s.first;
+                  onChanged: (val) {
+                    if (val == null) return;
                     setState(() {
-                      if (v == 3) {
+                      if (val == '__custom__') {
                         _overrideLlm = true;
                       } else {
                         _overrideLlm = false;
-                        _selectedLlm = v;
+                        _selectedProfileId = val;
                       }
                     });
                     _updateSkillsSection();
                   },
-                  style: SegmentedButton.styleFrom(
-                    selectedBackgroundColor: AppTheme.primaryBlue,
-                    selectedForegroundColor: Colors.white,
-                  ),
                 ),
                 // ── Custom LLM panel (mirrors task editor) ──
                 if (_overrideLlm) ..._buildCustomLlmPanel(llmSettings),
@@ -5221,6 +5449,156 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             );
           },
         ),
+
+        // ── Desktop Coding Agent Mode ──
+        if (_isDesktop) ...[
+          Card(
+            color: _codingAgentMode
+                ? AppTheme.primaryBlue.withValues(alpha: 0.08)
+                : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: _codingAgentMode
+                    ? AppTheme.primaryBlue.withValues(alpha: 0.4)
+                    : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                width: 1.2,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _codingAgentMode,
+                    title: Row(
+                      children: [
+                        Icon(
+                          Icons.terminal,
+                          size: 20,
+                          color: _codingAgentMode ? AppTheme.primaryBlue : theme.colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Coding Agent Mode',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    subtitle: const Text(
+                      'Enables workspace file search, read/write/edit tools, and terminal execution.',
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _codingAgentMode = val ?? false;
+                        if (_codingAgentMode && _codingWorkspaceDir.isEmpty) {
+                          _codingWorkspaceDir = Directory.current.path;
+                        }
+                      });
+                    },
+                  ),
+                  if (_codingAgentMode) ...[
+                    const Divider(height: 16),
+                    Text(
+                      'Workspace Directory',
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            readOnly: true,
+                            controller: TextEditingController(
+                              text: _codingWorkspaceDir.isEmpty
+                                  ? Directory.current.path
+                                  : _codingWorkspaceDir,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'Workspace directory...',
+                              prefixIcon: Icon(Icons.folder_open, size: 20),
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.tonalIcon(
+                          icon: const Icon(Icons.folder_outlined, size: 18),
+                          label: const Text('Browse'),
+                          onPressed: () async {
+                            final dir = await FilePicker.getDirectoryPath();
+                            if (dir != null && dir.isNotEmpty) {
+                              setState(() {
+                                _codingWorkspaceDir = dir;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Coding Mode',
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: '/code',
+                          label: Text('/code (Engineer)'),
+                          icon: Icon(Icons.code, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: '/plan',
+                          label: Text('/plan (Architect)'),
+                          icon: Icon(Icons.architecture, size: 16),
+                        ),
+                        ButtonSegment(
+                          value: '/ask',
+                          label: Text('/ask (Explain)'),
+                          icon: Icon(Icons.help_outline, size: 16),
+                        ),
+                      ],
+                      selected: {_codingAgentSubMode},
+                      onSelectionChanged: (s) {
+                        setState(() {
+                          _codingAgentSubMode = s.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildLimitControl(
+                            context: context,
+                            label: 'Turn Limit',
+                            value: _codingTurnLimit,
+                            onChanged: (v) => setState(() => _codingTurnLimit = v),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildLimitControl(
+                            context: context,
+                            label: 'Max Tool Calls',
+                            value: _codingMaxToolCalls,
+                            onChanged: (v) => setState(() => _codingMaxToolCalls = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // Active skill chip
         if (_activeSkill != null)
@@ -5319,6 +5697,403 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLimitControl({
+    required BuildContext context,
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    final isUnlimited = value <= 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isUnlimited
+              ? AppTheme.primaryBlue.withValues(alpha: 0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              if (isUnlimited)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Unlimited',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              IconButton.filledTonal(
+                icon: const Icon(Icons.remove, size: 16),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: 'Decrease limit (0 = Unlimited)',
+                onPressed: () {
+                  if (value <= 0) return;
+                  final next = value <= 5 ? 0 : (value <= 10 ? 5 : value - 5);
+                  onChanged(next);
+                },
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () async {
+                    final ctrl = TextEditingController(text: value.toString());
+                    final result = await showDialog<int>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(label),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: ctrl,
+                              autofocus: true,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Limit (0 = Unlimited)',
+                                hintText: '0 for unlimited',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                ActionChip(
+                                  label: const Text('0 (Unlimited)'),
+                                  onPressed: () => Navigator.pop(ctx, 0),
+                                ),
+                                ActionChip(
+                                  label: const Text('10'),
+                                  onPressed: () => Navigator.pop(ctx, 10),
+                                ),
+                                ActionChip(
+                                  label: const Text('25'),
+                                  onPressed: () => Navigator.pop(ctx, 25),
+                                ),
+                                ActionChip(
+                                  label: const Text('50'),
+                                  onPressed: () => Navigator.pop(ctx, 50),
+                                ),
+                                ActionChip(
+                                  label: const Text('100'),
+                                  onPressed: () => Navigator.pop(ctx, 100),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              final val = int.tryParse(ctrl.text.trim()) ?? 0;
+                              Navigator.pop(ctx, val < 0 ? 0 : val);
+                            },
+                            child: const Text('Apply'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (result != null) onChanged(result);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      isUnlimited ? '0 (Unlimited)' : '$value',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isUnlimited
+                            ? AppTheme.primaryBlue
+                            : theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                icon: const Icon(Icons.add, size: 16),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: 'Increase limit',
+                onPressed: () {
+                  final next = value == 0 ? 10 : value + 5;
+                  onChanged(next);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCodingModeBar(ChatService chatService) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (!_codingAgentMode) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.02)
+              : Colors.black.withValues(alpha: 0.02),
+          border: Border(
+            top: BorderSide(
+              color: theme.dividerColor.withValues(alpha: 0.3),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                setState(() {
+                  _codingAgentMode = true;
+                  if (_codingWorkspaceDir.isEmpty) {
+                    _codingWorkspaceDir = Directory.current.path;
+                  }
+                });
+                _ensureCodingToolsConnected(chatService);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.terminal_outlined,
+                      size: 14,
+                      color: theme.colorScheme.outline,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Coding Mode',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.outline,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Off',
+                        style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Tip: type /code, /plan, or /ask in prompt',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.outline.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final wsParts = _codingWorkspaceDir
+        .split(Platform.pathSeparator)
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final wsName = wsParts.isNotEmpty ? wsParts.last : 'workspace';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBlue.withValues(alpha: isDark ? 0.08 : 0.05),
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () {
+              setState(() {
+                _codingAgentMode = false;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.terminal, size: 14, color: AppTheme.primaryBlue),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Coding',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.close,
+                    size: 12,
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SegmentedButton<String>(
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            segments: const [
+              ButtonSegment(
+                value: '/code',
+                label: Text('/code', style: TextStyle(fontSize: 11)),
+                icon: Icon(Icons.code, size: 13),
+                tooltip: 'Engineer: full edits & terminal execution',
+              ),
+              ButtonSegment(
+                value: '/plan',
+                label: Text('/plan', style: TextStyle(fontSize: 11)),
+                icon: Icon(Icons.architecture, size: 13),
+                tooltip: 'Architect: analyze and plan without writing files',
+              ),
+              ButtonSegment(
+                value: '/ask',
+                label: Text('/ask', style: TextStyle(fontSize: 11)),
+                icon: Icon(Icons.help_outline, size: 13),
+                tooltip: 'Explain: codebase Q&A without destructive commands',
+              ),
+            ],
+            selected: {_codingAgentSubMode},
+            onSelectionChanged: (s) {
+              setState(() {
+                _codingAgentSubMode = s.first;
+              });
+              _ensureCodingToolsConnected(chatService);
+            },
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () async {
+              final dir = await FilePicker.getDirectoryPath();
+              if (dir != null && dir.isNotEmpty) {
+                setState(() {
+                  _codingWorkspaceDir = dir;
+                });
+                _ensureCodingToolsConnected(chatService);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.folder_outlined, size: 13),
+                  const SizedBox(width: 4),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      wsName,
+                      style: const TextStyle(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'Turns: ${_codingTurnLimit <= 0 ? '∞' : _codingTurnLimit}  •  Tools: ${_codingMaxToolCalls <= 0 ? '∞' : _codingMaxToolCalls}',
+              style: TextStyle(
+                fontSize: 10,
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -7259,6 +8034,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   },
                 ),
         ),
+
+        // Coding Mode Switcher Toolbar
+        if (_isDesktop) _buildCodingModeBar(chatService),
 
         // Input area
         MultimediaInputWidget(

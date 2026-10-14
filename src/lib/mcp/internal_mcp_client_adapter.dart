@@ -18,6 +18,9 @@ class InternalMcpClientAdapter extends ChangeNotifier {
 
   InternalMcpClientAdapter(this._server);
 
+  /// Access the underlying [InternalMcpServer].
+  InternalMcpServer get server => _server;
+
   bool get isConnected => _isConnected;
 
   List<MCPTool> get availableTools => _tools;

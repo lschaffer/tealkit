@@ -1,5 +1,5 @@
 name: tealkit
-description: "TealKit - AI Agent with MCP tools"
+description: "TealKit AI - AI Agent with MCP tools"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.7.4+153
+version: 2.0.1+154
 
 environment:
   sdk: ^3.10.7
@@ -44,6 +44,7 @@ dependencies:
   provider: ^6.1.1 
   tealkit_api:
     path: ./api
+  dart_mcp_core: ^1.1.4
 
   # HTTP client
   http: ^1.2.2
@@ -212,7 +213,7 @@ flutter_launcher_icons:
 #      scripts/create-dev-cert.ps1) and override via the build script params.
 # ─────────────────────────────────────────────────────────────────────────────
 msix_config:
-  display_name: TealKit
+  display_name: TealKit AI
   publisher_display_name: Laszlo Schäffer
   identity_name: 5082LaszloSchffer.TealKit
   publisher: CN=2719E44F-8DB6-48A9-9FBF-523EE6A7A7AB

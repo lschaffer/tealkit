@@ -17,7 +17,7 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 | 🌐 **Server Management** | Switch between dev/prod server profiles in `server.yaml` and ping health status. |
 | 🔍 **Auto-Discovery** | Pull remote LLM settings, task definitions, MCP registry, and skills down to local YAML / Markdown files. |
 | 🚀 **Remote Workflow Runner** | Trigger asynchronous workflows/agents, poll execution status, stream execution logs, and download generated artifacts. |
-| 🧠 **Direct Skill Execution** | Parse any `SKILL.md` (agentskills.io format), spin up local MCP subprocess tools, and execute prompt sequences end-to-end with live streaming feedback. |
+| 🧠 **Direct Skill Execution** | Parse any `SKILL.md` (agentskills.io format) and execute prompt sequences end-to-end with live streaming feedback. **Native filesystem, terminal, web search, and calculation tools are automatically injected** into every skill turn without requiring boilerplate tool declarations in skill frontmatter. |
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
 | 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, dynamic model switching (`/llm`), session saving/resuming (`.json`/`.md`), MCP uninstallation (`/uninstall`), token cost estimation (`/estimated_costs`), and slash commands. |
 | 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, and Ask modes, 10 native tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`), session persistence, token cost tracking, `tasks.md` checklists, and `tealkit_agent.md` workspace rules. |
@@ -123,9 +123,9 @@ On first startup (or when passing `--reinit`), TealKit checks if the global dire
 - If not found, it prompts: `Create global directory for settings at "~/.tealkit"? [y/N]`
 - When confirmed (`y`), it creates the `.tealkit` directory, copies `.env`, `llm.yaml`, `mcp.yaml`, and all other `*.yaml` files found in the installation/executable directory, and recursively copies the `skills/` directory.
 - You can force reinitializing and re-copying default settings at any time:
-  ```bash
-  tealkit --reinit
-  ```
+   ```bash
+   tealkit --reinit
+   ```
 
 ### `server.yaml` (Server Profiles)
 Manage one or more TealKit server endpoints:
@@ -244,26 +244,36 @@ tealkit workflow download "latest news" report.json
 *(Note: `tealkit agent` and `tealkit task` are fully supported as backward-compatible aliases for `tealkit workflow`.)*
 
 ### 4. Direct Execution of Prompts from an AgentSkill (`SKILL.md`)
-Directly execute prompt workflows defined in `SKILL.md` files without a server, utilizing local LLMs and MCP tools:
+Directly execute prompt workflows defined in `SKILL.md` files without a server, utilizing local LLMs and auto-injected native tools:
 ```bash
 # List all local skills found in ./skills/
 tealkit skill list
 
 # Inspect skill frontmatter, steps, and required tools
-tealkit skill info skills/device_audit.md
+tealkit skill info skills/cpp-engineer-skill.md
 
 # Preview execution without making LLM calls
-tealkit skill run skills/device_audit.md --dry-run
+tealkit skill run skills/cpp-engineer-skill.md --dry-run
 
 # Execute all prompt steps sequentially with live tool streaming
-tealkit skill run skills/device_audit.md
+tealkit skill run skills/cpp-engineer-skill.md
 
 # Execute only step #2
-tealkit skill run skills/device_audit.md --step 2
+tealkit skill run skills/coding-agent-skill.md --step 2
 
 # Pass custom parameters into prompt templates (e.g. ${city})
 tealkit skill run skills/weather_plan.md -p city=Tokyo -p days=3
 ```
+
+#### 🧩 Starter AgentSkills Included
+The CLI includes pre-configured skills in `skills/` ready to run out of the box:
+- **`cpp-engineer-skill.md`**: Legacy & embedded C and C++ engineering (ISO C89/C99/C11, C++98..C++20, Makefiles, CMake, AT command/modem firmware, HAL/RTOS, non-UTF8 safe editing).
+- **`coding-agent-skill.md`**: Full autonomous coding agent with Architect, Code, and Verify steps.
+- **`dotnet-engineer-skill.md`**: Modern .NET C# solution analysis, compilation, and testing.
+- **`dotnet-upgrade-skill.md`**: Upgrades legacy .NET Framework/.NET Core projects to modern .NET 8/9.
+- **`winforms-to-flutter-skill.md`**: Analyzes WinForms forms/event handlers and ports them to modern Flutter widgets and Riverpod state management.
+
+> ⚡ **Zero-Boilerplate Inbuilt Tools**: All native filesystem tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`), workspace terminal execution (`terminal_exec`), web search (`web_search`), diagram generation (`create_mermaid_png`), and arithmetic utilities (`calculate`) are automatically injected into the skill agent context—no manual `tools:` declaration required in your skill files!
 
 ### 5. Ad-Hoc Prompt Execution with Tool Access
 Execute one-off prompts with local LLM and connected MCP tools.

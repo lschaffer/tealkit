@@ -25,6 +25,7 @@ import 'servers/ssh_mcp_server.dart';
 import 'servers/website_search_mcp_server.dart';
 import 'servers/home_assistant_mcp_server.dart';
 import 'servers/github_mcp_bridge_server.dart';
+import 'servers/coding_tools_mcp_server.dart';
 import '../services/github_mcp_library_service.dart';
 
 /// Registry of all available internal MCP servers.
@@ -77,6 +78,11 @@ class InternalMcpRegistry {
     // Windows-only: PowerShell tools bridge
     if (!kIsWeb && Platform.isWindows) {
       register('ps_bridge', () => PsBridgeMcpServer());
+    }
+
+    // Desktop-only: Coding tools from dart_mcp_core (Windows, macOS, Linux)
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      register('coding_tools', () => CodingToolsMcpServer());
     }
 
     log.info('[MCP Registry] Registered ${_factories.length} internal MCP servers: ${_factories.keys.join(', ')}');

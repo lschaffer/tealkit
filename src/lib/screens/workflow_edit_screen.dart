@@ -4752,6 +4752,50 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         contentPadding: EdgeInsets.zero,
       ),
       if (_overrideLlm) ...[
+        if (llmSettings.profiles.isNotEmpty) ...[
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Load from LLM Profile',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.psychology_outlined),
+              isDense: true,
+            ),
+            hint: const Text(
+              'Pick a configured profile...',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+            selectedItemBuilder: (context) {
+              return llmSettings.profiles.map((p) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                );
+              }).toList();
+            },
+            items: llmSettings.profiles.map((p) {
+              return DropdownMenuItem<String>(
+                value: p.id,
+                child: Text(
+                  '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              );
+            }).toList(),
+            onChanged: (id) {
+              if (id == null) return;
+              final p = llmSettings.getProfile(id);
+              if (p != null) _applyProfile(p);
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
         LlmSettingsFormWidget(
           providerKey: _llmProviderCtrl.text.trim(),
           modelController: _llmModelCtrl,
@@ -7324,6 +7368,33 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(l.llmDefaultsApplied),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _applyProfile(NamedLlmProfile profile) {
+    setState(() {
+      _overrideLlm = true;
+      _llmProviderCtrl.text = profile.provider.configKey;
+      _llmModelCtrl.text = profile.model;
+      _llmApiKeyCtrl.text = profile.apiKey;
+      _llmBaseUrlCtrl.text = profile.baseUrl;
+      _temperatureCtrl.text = profile.temperature.toString();
+      _maxTokensCtrl.text = profile.maxTokens.toString();
+      _maxToolOutputSizeCtrl.text = profile.maxToolOutputSize.toString();
+      _tokenWarningThresholdCtrl.text =
+          profile.tokenWarningThreshold.toString();
+      _useNativeToolCall = profile.useNativeToolCall;
+      _useSafeToolCall = profile.useSafeToolCall;
+      _isSlm = profile.isSlm;
+      _isMultiModal = profile.isMultiModal;
+      _thinking = profile.thinking;
+    });
+    _updateSkillsSection();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Applied profile "${profile.name}"'),
         behavior: SnackBarBehavior.floating,
       ),
     );

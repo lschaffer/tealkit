@@ -22,6 +22,7 @@ class LlmSettingsFormWidget extends StatefulWidget {
   final TextEditingController? repeatPenaltyController;
   final TextEditingController? seedController;
   final TextEditingController? maxToolOutputSizeController;
+  final TextEditingController? nameController;
   final TextEditingController? tokenWarningThresholdController;
 
   final bool isSlm;
@@ -55,6 +56,7 @@ class LlmSettingsFormWidget extends StatefulWidget {
 
   const LlmSettingsFormWidget({
     super.key,
+    this.nameController,
     required this.providerKey,
     required this.modelController,
     required this.apiKeyController,
@@ -501,55 +503,21 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
           const SizedBox(height: 16),
         ],
 
-        // ── Consent Card (Global) ────────────────────────────────────
-        if (widget.showConsent) ...[
-          Card(
-            color: AppTheme.warning.withValues(alpha: 0.08),
-            shape: RoundedRectangleBorder(
-              side: BorderSide(color: AppTheme.warning.withValues(alpha: 0.2)),
-              borderRadius: BorderRadius.circular(8),
+
+        if (widget.nameController != null) ...[
+          Text(
+            'Name',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.privacy_tip_outlined,
-                        color: AppTheme.warning,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'AI Data Sharing Consent',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'When enabled, your prompts, attachments, and tool outputs may be sent to the selected AI provider '
-                    '(for example OpenAI, Google, Anthropic, or other remote endpoints) to generate responses.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    value: widget.aiDataSharingConsent,
-                    title: const Text(
-                      'Allow sending my prompts/data to AI providers',
-                    ),
-                    subtitle: const Text(
-                      'Required for remote AI usage. You can disable this any time.',
-                    ),
-                    onChanged: widget.onAiDataSharingConsentChanged,
-                  ),
-                ],
-              ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: widget.nameController,
+            decoration: const InputDecoration(
+              hintText: 'e.g. LLM 1, Fast Assistant, DeepSeek Coder',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.label_outline, size: 20),
             ),
           ),
           const SizedBox(height: 16),
@@ -564,6 +532,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           initialValue: widget.providerKey.isNotEmpty
               ? widget.providerKey
               : (widget.showNoneOption ? '' : null),

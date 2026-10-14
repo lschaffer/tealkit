@@ -351,6 +351,18 @@ class ServerDuckDbAdapter implements ServerDatabaseAdapter {
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS llm_profiles (
+        id          VARCHAR PRIMARY KEY,
+        name        VARCHAR NOT NULL,
+        is_selected BOOLEAN DEFAULT FALSE,
+        data        JSON NOT NULL,
+        sort_order  INTEGER DEFAULT 0,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
   }
 
   // ── Tasks CRUD ─────────────────────────────────────────────
@@ -981,6 +993,56 @@ class ServerDuckDbAdapter implements ServerDatabaseAdapter {
     await conn.execute(
       "DELETE FROM playground_sessions WHERE id = '${_esc(id)}'",
     );
+  }
+
+  // ── LLM Profiles ───────────────────────────────────────────
+
+  @override
+  Future<void> saveLlmProfiles(
+    List<Map<String, dynamic>> profiles, {
+    String? selectedProfileId,
+  }) async {
+    final conn = await _getConn();
+    await conn.execute('DELETE FROM llm_profiles');
+    for (var i = 0; i < profiles.length; i++) {
+      final p = profiles[i];
+      final id = (p['id'] as String?) ?? 'profile_$i';
+      final name = (p['name'] as String?) ?? 'LLM ${i + 1}';
+      final isSelected = id == selectedProfileId;
+      final json = jsonEncode(p);
+      await conn.execute('''
+        INSERT INTO llm_profiles (id, name, is_selected, data, sort_order)
+        VALUES (
+          '${_esc(id)}',
+          '${_esc(name)}',
+          $isSelected,
+          '${_esc(json)}',
+          $i
+        )
+      ''');
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getLlmProfiles() async {
+    final conn = await _getConn();
+    final rows = (await conn.query(
+      'SELECT data FROM llm_profiles ORDER BY sort_order ASC, created_at ASC',
+    )).fetchAll();
+    return rows
+        .map((row) => _decodeJsonMap(row[0]))
+        .where((m) => m.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Future<String?> getSelectedLlmProfileId() async {
+    final conn = await _getConn();
+    final rows = (await conn.query(
+      'SELECT id FROM llm_profiles WHERE is_selected = TRUE LIMIT 1',
+    )).fetchAll();
+    if (rows.isEmpty) return null;
+    return rows.first[0]?.toString();
   }
 
   // ── Raw Access ─────────────────────────────────────────────

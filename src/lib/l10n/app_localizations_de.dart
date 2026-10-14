@@ -9,7 +9,7 @@ class LDe extends L {
   LDe([String locale = 'de']) : super(locale);
 
   @override
-  String get appTitle => 'TealKit';
+  String get appTitle => 'TealKit AI';
 
   @override
   String get appSubtitle => 'Dein persönlicher KI-Assistent';
@@ -21,11 +21,11 @@ class LDe extends L {
   String get viewLogs => 'Protokolle';
 
   @override
-  String get playground => 'Playground';
+  String get playground => 'Assistent';
 
   @override
   String get playgroundHint =>
-      'Probiere Prompts, Tools und Systemanweisungen hier aus, bevor du einen Workflow planst.';
+      'Mit der KI interagieren, Prompts, Tools und Coding-Agents testen, bevor Workflows geplant werden.';
 
   @override
   String get tasks => 'Workflows';
@@ -38,7 +38,7 @@ class LDe extends L {
 
   @override
   String get configureLlmFirst =>
-      'Konfiguriere einen LLM-Anbieter, um Playground und Workflows freizuschalten.';
+      'Konfiguriere einen LLM-Anbieter, um Assistent und Workflows freizuschalten.';
 
   @override
   String get systemPrompt => 'System-Prompt';

@@ -28,20 +28,6 @@ system_prompt: |
   7. DIAGRAMS & REMOTE TESTING:
      - Use `create_mermaid_png` to visualize architecture layers, service dependencies, and class hierarchies.
      - Use SSH tools (`ssh_execute_command`, `ssh_upload_file`, `ssh_list_directory`) if deploying or testing services on remote Linux / Windows staging hosts.
-
-tools:
-  - name: fs_find
-  - name: fs_list_dir
-  - name: fs_read_file
-  - name: fs_write_file
-  - name: fs_replace_text
-  - name: terminal_exec
-  - name: web_search
-  - name: create_mermaid_png
-  - name: calculate
-  - name: ssh_execute_command
-  - name: ssh_list_directory
-
 prompts:
   - text: |
       Inspect the .NET workspace and classify all projects:

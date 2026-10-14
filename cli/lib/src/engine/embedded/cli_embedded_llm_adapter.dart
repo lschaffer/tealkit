@@ -36,9 +36,9 @@ class CliEmbeddedLlmAdapter {
         await _engine!.unloadModel();
       }
       _engine ??= LlamaEngine(_backend);
-      await _engine!.loadModel(
-        modelPath,
-        modelParams: ModelParams(
+      await _engine!.setModel(
+        LlamaModel(ModelSource.path(modelPath)),
+        params: ModelParams(
           contextSize: contextSize,
           gpuLayers: gpuLayers,
         ),

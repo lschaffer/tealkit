@@ -180,6 +180,21 @@ class _MistralPatchClient extends http.BaseClient {
                 final decoded = jsonDecode(jsonStr);
                 if (decoded is Map<String, dynamic>) {
                   bool changed = false;
+                  final usage = decoded['usage'];
+                  if (usage is Map) {
+                    final promptDetails = usage['prompt_tokens_details'];
+                    if (promptDetails is Map) {
+                      final lenBefore = promptDetails.length;
+                      promptDetails.removeWhere((k, v) => v == null || v is! int);
+                      if (promptDetails.length != lenBefore) changed = true;
+                    }
+                    final completionDetails = usage['completion_tokens_details'];
+                    if (completionDetails is Map) {
+                      final lenBefore = completionDetails.length;
+                      completionDetails.removeWhere((k, v) => v == null || v is! int);
+                      if (completionDetails.length != lenBefore) changed = true;
+                    }
+                  }
                   final choices = decoded['choices'];
                   if (choices is List) {
                     for (final choice in choices) {
@@ -256,6 +271,21 @@ class _MistralPatchClient extends http.BaseClient {
       final dynamic decoded = jsonDecode(bodyStr);
       if (decoded is Map<String, dynamic>) {
         bool changed = false;
+        final usage = decoded['usage'];
+        if (usage is Map) {
+          final promptDetails = usage['prompt_tokens_details'];
+          if (promptDetails is Map) {
+            final lenBefore = promptDetails.length;
+            promptDetails.removeWhere((k, v) => v == null || v is! int);
+            if (promptDetails.length != lenBefore) changed = true;
+          }
+          final completionDetails = usage['completion_tokens_details'];
+          if (completionDetails is Map) {
+            final lenBefore = completionDetails.length;
+            completionDetails.removeWhere((k, v) => v == null || v is! int);
+            if (completionDetails.length != lenBefore) changed = true;
+          }
+        }
         final choices = decoded['choices'];
         if (choices is List) {
           for (final choice in choices) {

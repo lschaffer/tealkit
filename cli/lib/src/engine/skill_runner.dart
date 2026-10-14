@@ -10,6 +10,7 @@ import '../config/global_config.dart';
 import '../config/llm_config_manager.dart';
 import '../formatters/terminal_printer.dart';
 import '../formatters/terminal_spinner.dart';
+import 'builtin_mcp_servers.dart';
 import 'mcp_manager_helper.dart';
 
 /// Headless skill and prompt execution engine powered by `dart_mcp_core`.
@@ -454,6 +455,11 @@ class SkillRunner {
     required MultiMCPManager mcpManager,
     List<String>? enabledToolNames,
   }) async {
+    final allDartTools = [
+      ...CodingTools.createAll(),
+      ...BuiltinMcpServers.createAll(),
+    ];
+
     final agent = Agent(
       key: 'cli_runner_agent',
       name: 'CLI Runner Agent',
@@ -465,6 +471,7 @@ class SkillRunner {
           enabledToolNames: enabledToolNames,
         ),
       ],
+      dartTools: allDartTools,
       localServers: [],
     );
 

@@ -58,6 +58,35 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
 
   void _onTextChanged() => setState(() {});
 
+  void _handleAttachmentsPasted(List<MessageAttachment> attachments) {
+    if (attachments.isEmpty) return;
+    setState(() {
+      _attachments.addAll(attachments);
+    });
+    if (mounted) {
+      final isImage = attachments.first.type == AttachmentType.image;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isImage ? Icons.image_outlined : Icons.attach_file,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Attached ${attachments.length > 1 ? "${attachments.length} files" : attachments.first.name} from clipboard',
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -163,6 +192,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                 minLines: 1,
                 maxLines: 6,
                 hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+                onAttachmentsPasted: _handleAttachmentsPasted,
               ),
             ),
           ),
@@ -212,6 +242,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                   minLines: 1,
                   maxLines: 6,
                   hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Message AI Playground...',
+                  onAttachmentsPasted: _handleAttachmentsPasted,
                   leading: isMultiModal ? _buildAttachmentButton() : null,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -272,6 +303,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                       minLines: 1,
                       maxLines: 6,
                       hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+                      onAttachmentsPasted: _handleAttachmentsPasted,
                     ),
                   ),
                 ),
