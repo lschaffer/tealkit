@@ -37,6 +37,7 @@ import '../widgets/schedule_picker_dialog.dart';
 import '../widgets/tool_list_export_sheet.dart';
 import '../widgets/step_list_editor.dart';
 import '../widgets/llm_settings_form_widget.dart';
+import '../widgets/agent_llm_selector_widget.dart';
 import 'js_tool_library_screen.dart';
 import 'local_shell_tool_library_screen.dart';
 import 'py_tool_library_screen.dart';
@@ -115,6 +116,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   late TextEditingController _topPCtrl;
   late TextEditingController _repeatPenaltyCtrl;
   late TextEditingController _seedCtrl;
+  String? _selectedProfileId;
   bool _overrideLlm = false;
   bool _thinking = false;
   bool _useNativeToolCall = true;
@@ -713,19 +715,91 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     _timeoutCtrl = TextEditingController(text: '300');
 
     // LLM
-    _overrideLlm = t?.llmConfig != null;
-    _llmProviderCtrl = TextEditingController(
-      text: t?.llmConfig?.provider ?? '',
-    );
-    _llmModelCtrl = TextEditingController(text: t?.llmConfig?.model ?? '');
-    _llmApiKeyCtrl = TextEditingController(text: t?.llmConfig?.apiKey ?? '');
-    _llmBaseUrlCtrl = TextEditingController(text: t?.llmConfig?.baseUrl ?? '');
-    _temperatureCtrl = TextEditingController(
-      text: '${t?.llmConfig?.temperature ?? 0.2}',
-    );
-    _maxTokensCtrl = TextEditingController(
-      text: '${t?.llmConfig?.maxTokens ?? 0}',
-    );
+    final llmSettings = ref.read(llmSettingsProvider);
+    final initialLlm = t?.llmConfig;
+    String initialProvider = 'gemini';
+    String initialModel = '';
+    String initialApiKey = '';
+    String initialBaseUrl = '';
+    double initialTemp = 0.2;
+    int initialMaxTokens = 0;
+
+    if (initialLlm != null) {
+      final pid = initialLlm.extraParams['profile_id'] as String?;
+      if (pid != null && llmSettings.profiles.any((p) => p.id == pid)) {
+        _selectedProfileId = pid;
+        final p = llmSettings.getProfile(pid)!;
+        initialProvider = p.provider.configKey;
+        initialModel = p.model;
+        initialApiKey = p.apiKey;
+        initialBaseUrl = p.baseUrl;
+        initialTemp = p.temperature;
+        initialMaxTokens = p.maxTokens;
+      } else {
+        final matchedProfile = llmSettings.profiles
+            .where(
+              (p) =>
+                  p.provider.configKey == initialLlm.provider &&
+                  p.model == initialLlm.model,
+            )
+            .firstOrNull;
+        if (matchedProfile != null) {
+          _selectedProfileId = matchedProfile.id;
+          initialProvider = matchedProfile.provider.configKey;
+          initialModel = matchedProfile.model;
+          initialApiKey = matchedProfile.apiKey;
+          initialBaseUrl = matchedProfile.baseUrl;
+          initialTemp = matchedProfile.temperature;
+          initialMaxTokens = matchedProfile.maxTokens;
+        } else {
+          _selectedProfileId = null;
+          initialProvider = initialLlm.provider;
+          final prov = LlmProvider.fromConfigKey(initialLlm.provider);
+          final known = defaultModels[prov] ?? const <String>[];
+          String modelVal = initialLlm.model;
+          if (known.isNotEmpty && !known.contains(modelVal)) {
+            modelVal = known.first;
+          } else if (modelVal.isEmpty) {
+            modelVal = llmSettings.getModelForProvider(prov);
+          }
+          initialModel = modelVal;
+          initialApiKey = initialLlm.apiKey ?? '';
+          initialBaseUrl = initialLlm.baseUrl ?? '';
+          initialTemp = initialLlm.temperature;
+          initialMaxTokens = initialLlm.maxTokens;
+        }
+      }
+    } else {
+      final defProfile = llmSettings.selectedProfile ??
+          (llmSettings.profiles.isNotEmpty
+              ? llmSettings.profiles.first
+              : null);
+      if (defProfile != null) {
+        _selectedProfileId = defProfile.id;
+        initialProvider = defProfile.provider.configKey;
+        initialModel = defProfile.model;
+        initialApiKey = defProfile.apiKey;
+        initialBaseUrl = defProfile.baseUrl;
+        initialTemp = defProfile.temperature;
+        initialMaxTokens = defProfile.maxTokens;
+      } else {
+        _selectedProfileId = null;
+        initialProvider = llmSettings.provider.configKey;
+        initialModel = llmSettings.model;
+        initialApiKey = llmSettings.apiKey;
+        initialBaseUrl = llmSettings.baseUrl;
+        initialTemp = llmSettings.temperature;
+        initialMaxTokens = llmSettings.maxTokens;
+      }
+    }
+
+    _overrideLlm = _selectedProfileId == null;
+    _llmProviderCtrl = TextEditingController(text: initialProvider);
+    _llmModelCtrl = TextEditingController(text: initialModel);
+    _llmApiKeyCtrl = TextEditingController(text: initialApiKey);
+    _llmBaseUrlCtrl = TextEditingController(text: initialBaseUrl);
+    _temperatureCtrl = TextEditingController(text: '$initialTemp');
+    _maxTokensCtrl = TextEditingController(text: '$initialMaxTokens');
     final ep = t?.llmConfig?.extraParams ?? const <String, dynamic>{};
     _maxToolOutputSizeCtrl = TextEditingController(
       text: '${ep['max_tool_output_size'] ?? 2560000}',
@@ -889,10 +963,51 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         ? _combinedSystemPrompt.trim()
         : null;
 
-    TaskLlmConfig? execLlm;
-    if (_overrideLlm) {
+    TaskLlmConfig execLlm;
+    final llmSettings = ref.read(llmSettingsProvider);
+    if (_selectedProfileId != null) {
+      final p = llmSettings.getProfile(_selectedProfileId!);
+      if (p != null) {
+        execLlm = TaskLlmConfig(
+          provider: p.provider.configKey,
+          baseUrl: p.baseUrl.isNotEmpty ? p.baseUrl : null,
+          apiKey: p.apiKey.isNotEmpty ? p.apiKey : null,
+          model: p.model,
+          temperature: p.temperature,
+          maxTokens: p.maxTokens,
+          extraParams: {
+            'profile_id': p.id,
+            'is_slm': p.isSlm,
+            'is_multi_modal': p.isMultiModal,
+            'thinking': p.thinking,
+            'use_native_tool_call': p.useNativeToolCall,
+            'use_safe_tool_call': p.useSafeToolCall,
+            'max_tool_output_size': p.maxToolOutputSize,
+            'token_warning_threshold': p.tokenWarningThreshold,
+            if (p.topK != null) 'top_k': p.topK,
+            if (p.topP != null) 'top_p': p.topP,
+            if (p.repeatPenalty != null) 'repeat_penalty': p.repeatPenalty,
+            if (p.seed != null) 'seed': p.seed,
+          },
+        );
+      } else {
+        execLlm = TaskLlmConfig(
+          provider: _llmProviderCtrl.text.trim(),
+          baseUrl: _llmBaseUrlCtrl.text.isNotEmpty
+              ? _llmBaseUrlCtrl.text.trim()
+              : null,
+          apiKey: _llmApiKeyCtrl.text.isNotEmpty
+              ? _llmApiKeyCtrl.text.trim()
+              : null,
+          model: _llmModelCtrl.text.trim(),
+          temperature: double.tryParse(_temperatureCtrl.text) ?? 0.7,
+          maxTokens: int.tryParse(_maxTokensCtrl.text) ?? 0,
+          extraParams: _buildExtraParams(),
+        );
+      }
+    } else {
       execLlm = TaskLlmConfig(
-        provider: _llmProviderCtrl.text,
+        provider: _llmProviderCtrl.text.trim(),
         baseUrl: _llmBaseUrlCtrl.text.isNotEmpty
             ? _llmBaseUrlCtrl.text.trim()
             : null,
@@ -910,7 +1025,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       systemPrompt: systemPrompt?.trim(),
       prompt: _promptCtrl.text.trim(),
       llmConfig: execLlm,
-      clearLlmConfig: !_overrideLlm,
+      clearLlmConfig: false,
       chatMode: _chatMode,
       stopAfterToolCall: _stopAfterToolCall,
       skillDefId: _activeSkill != null
@@ -950,14 +1065,53 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
     // LLM Config
     final llm = exec.llmConfig;
+    final llmSettings = ref.read(llmSettingsProvider);
     if (llm != null) {
-      _overrideLlm = true;
-      _llmProviderCtrl.text = llm.provider;
-      _llmBaseUrlCtrl.text = llm.baseUrl ?? '';
-      _llmApiKeyCtrl.text = llm.apiKey ?? '';
-      _llmModelCtrl.text = llm.model;
-      _temperatureCtrl.text = llm.temperature.toString();
-      _maxTokensCtrl.text = llm.maxTokens.toString();
+      final pid = llm.extraParams['profile_id'] as String?;
+      if (pid != null && llmSettings.profiles.any((p) => p.id == pid)) {
+        _selectedProfileId = pid;
+        final p = llmSettings.getProfile(pid)!;
+        _llmProviderCtrl.text = p.provider.configKey;
+        _llmModelCtrl.text = p.model;
+        _llmBaseUrlCtrl.text = p.baseUrl;
+        _llmApiKeyCtrl.text = p.apiKey;
+        _temperatureCtrl.text = p.temperature.toString();
+        _maxTokensCtrl.text = p.maxTokens.toString();
+      } else {
+        final matchedProfile = llmSettings.profiles
+            .where(
+              (p) =>
+                  p.provider.configKey == llm.provider &&
+                  p.model == llm.model,
+            )
+            .firstOrNull;
+        if (matchedProfile != null) {
+          _selectedProfileId = matchedProfile.id;
+          _llmProviderCtrl.text = matchedProfile.provider.configKey;
+          _llmModelCtrl.text = matchedProfile.model;
+          _llmBaseUrlCtrl.text = matchedProfile.baseUrl;
+          _llmApiKeyCtrl.text = matchedProfile.apiKey;
+          _temperatureCtrl.text = matchedProfile.temperature.toString();
+          _maxTokensCtrl.text = matchedProfile.maxTokens.toString();
+        } else {
+          _selectedProfileId = null;
+          _llmProviderCtrl.text = llm.provider;
+          _llmBaseUrlCtrl.text = llm.baseUrl ?? '';
+          _llmApiKeyCtrl.text = llm.apiKey ?? '';
+          final prov = LlmProvider.fromConfigKey(llm.provider);
+          final known = defaultModels[prov] ?? const <String>[];
+          String modelVal = llm.model;
+          if (known.isNotEmpty && !known.contains(modelVal)) {
+            modelVal = known.first;
+          } else if (modelVal.isEmpty) {
+            modelVal = llmSettings.getModelForProvider(prov);
+          }
+          _llmModelCtrl.text = modelVal;
+          _temperatureCtrl.text = llm.temperature.toString();
+          _maxTokensCtrl.text = llm.maxTokens.toString();
+        }
+      }
+      _overrideLlm = _selectedProfileId == null;
 
       _topKCtrl.text = llm.extraParams['top_k']?.toString() ?? '';
       _topPCtrl.text = llm.extraParams['top_p']?.toString() ?? '';
@@ -976,13 +1130,28 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       _isSlm = llm.extraParams['is_slm'] as bool? ?? false;
       _isMultiModal = llm.extraParams['is_multi_modal'] as bool? ?? true;
     } else {
-      _overrideLlm = false;
-      _llmProviderCtrl.text = 'gemini';
-      _llmBaseUrlCtrl.text = '';
-      _llmApiKeyCtrl.text = '';
-      _llmModelCtrl.text = '';
-      _temperatureCtrl.text = '0.7';
-      _maxTokensCtrl.text = '0';
+      final defProfile = llmSettings.selectedProfile ??
+          (llmSettings.profiles.isNotEmpty
+              ? llmSettings.profiles.first
+              : null);
+      if (defProfile != null) {
+        _selectedProfileId = defProfile.id;
+        _llmProviderCtrl.text = defProfile.provider.configKey;
+        _llmBaseUrlCtrl.text = defProfile.baseUrl;
+        _llmApiKeyCtrl.text = defProfile.apiKey;
+        _llmModelCtrl.text = defProfile.model;
+        _temperatureCtrl.text = defProfile.temperature.toString();
+        _maxTokensCtrl.text = defProfile.maxTokens.toString();
+      } else {
+        _selectedProfileId = null;
+        _llmProviderCtrl.text = llmSettings.provider.configKey;
+        _llmBaseUrlCtrl.text = llmSettings.baseUrl;
+        _llmApiKeyCtrl.text = llmSettings.apiKey;
+        _llmModelCtrl.text = llmSettings.model;
+        _temperatureCtrl.text = llmSettings.temperature.toString();
+        _maxTokensCtrl.text = llmSettings.maxTokens.toString();
+      }
+      _overrideLlm = _selectedProfileId == null;
       _topKCtrl.text = '';
       _topPCtrl.text = '';
       _repeatPenaltyCtrl.text = '';
@@ -4731,7 +4900,6 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   }
 
   List<Widget> _buildLlmContent() {
-    final l = L.of(context);
     final llmSettings = ref.read(llmSettingsProvider);
     final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
     final serverClient = isServerMode
@@ -4739,64 +4907,43 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         : null;
 
     return [
-      _sectionTitle(l.llmOverride),
-      SwitchListTile(
-        title: Text(l.overrideDefaultLlm),
-        subtitle: Text(l.overrideDefaultLlmSubtitle),
-        value: _overrideLlm,
-        onChanged: (v) {
-          setState(() => _overrideLlm = v);
+      AgentLlmSelectorWidget(
+        llmSettings: llmSettings,
+        selectedProfileId: _selectedProfileId,
+        selectedProviderKey: _llmProviderCtrl.text.isNotEmpty
+            ? _llmProviderCtrl.text.trim()
+            : 'gemini',
+        onProfileSelected: (profileId) {
+          setState(() {
+            _selectedProfileId = profileId;
+            _overrideLlm = profileId == null;
+            if (profileId != null) {
+              final p = llmSettings.getProfile(profileId);
+              if (p != null) {
+                _llmProviderCtrl.text = p.provider.configKey;
+                _llmModelCtrl.text = p.model;
+                _llmBaseUrlCtrl.text = p.baseUrl;
+                _llmApiKeyCtrl.text = p.apiKey;
+                _temperatureCtrl.text = p.temperature.toString();
+                _maxTokensCtrl.text = p.maxTokens.toString();
+              }
+            }
+          });
           _updateSkillsSection();
         },
-        activeTrackColor: AppTheme.primaryBlue,
-        contentPadding: EdgeInsets.zero,
-      ),
-      if (_overrideLlm) ...[
-        if (llmSettings.profiles.isNotEmpty) ...[
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Load from LLM Profile',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.psychology_outlined),
-              isDense: true,
-            ),
-            hint: const Text(
-              'Pick a configured profile...',
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-            selectedItemBuilder: (context) {
-              return llmSettings.profiles.map((p) {
-                return Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                );
-              }).toList();
-            },
-            items: llmSettings.profiles.map((p) {
-              return DropdownMenuItem<String>(
-                value: p.id,
-                child: Text(
-                  '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              );
-            }).toList(),
-            onChanged: (id) {
-              if (id == null) return;
-              final p = llmSettings.getProfile(id);
-              if (p != null) _applyProfile(p);
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-        LlmSettingsFormWidget(
+        onProviderSelected: (providerKey) {
+          setState(() {
+            _selectedProfileId = null;
+            _overrideLlm = true;
+            _llmProviderCtrl.text = providerKey;
+            final defaults =
+                defaultModels[LlmProvider.fromConfigKey(providerKey)] ??
+                    const <String>[];
+            _llmModelCtrl.text = defaults.isNotEmpty ? defaults.first : '';
+          });
+          _updateSkillsSection();
+        },
+        editablePanel: LlmSettingsFormWidget(
           providerKey: _llmProviderCtrl.text.trim(),
           modelController: _llmModelCtrl,
           apiKeyController: _llmApiKeyCtrl,
@@ -4836,7 +4983,9 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
               setState(() => _useNativeToolCall = v),
           onUseSafeToolCallChanged: (v) => setState(() => _useSafeToolCall = v),
         ),
-      ],
+        showEmbeddedOption:
+            !(ref.read(serverModeProvider).value?.isLightMode ?? false),
+      ),
     ];
   }
 

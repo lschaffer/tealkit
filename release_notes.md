@@ -2,6 +2,42 @@
 
 This file tracks release changes by version.
 
+## v2.0.1+155 - Unified Agent LLM Selector, Session Save/Load in Assistant, Desktop Clipboard Images & UI Streamlining
+
+### Major Features & Enhancements
+- **Unified Agent LLM Selector (Assistant, Workflow & Agent Editor)**:
+  - Unified the LLM profile and provider selector into a single reusable component (`AgentLlmSelectorWidget`) across the Assistant, Workflow Editor, and Visual Builder.
+  - Formatted dropdown items into distinct visual sections: configured LLM profiles are prominently highlighted with star icons, theme accent colors, and provider/model badges, clearly delineated from ad-hoc inline providers.
+  - LLM profiles defined in Settings are presented as read-only within agent and workflow editors to protect global configuration, while custom providers allow full inline property configuration.
+  - Removed the obsolete "override default" checkbox across agent configurations.
+  - Integrated automatic model migration and fallback: agents referencing missing or outdated models automatically fall back to the default configured profile both locally and in server execution (`llm_task_resync_service.dart`).
+- **Save & Load Assistant Sessions (JSON Recording & Resuming)**:
+  - Added Session Save and Load options directly into the Assistant top app bar menu (`AssistantSessionService`).
+  - Users can record and export the active conversation trajectory, turns, messages, and tool events to `.json` files, or reload saved sessions to resume interactive discussions, matching the CLI `--save-session` and `--load-session` workflows.
+- **Enhanced Desktop Clipboard Image & Document Paste (`Ctrl+V` / `Cmd+V`)**:
+  - Implemented native Windows DIB (Device-Independent Bitmap) decoding in `desktop_clipboard_service.dart`.
+  - Pasting (`Ctrl+V`) screenshots or copied images in the Assistant prompt input immediately displays thumbnail attachment previews above the prompt input without needing manual file picker dialogs.
+- **UI Streamlining & Animated Background Removal**:
+  - Removed animated backgrounds from inner screens (Assistant, Workflow Editor, Visual Builder, Workflow List), retaining it exclusively on the start/landing screen for enhanced readability and rendering performance.
+
+### Bug Fixes & Stability
+- **Fixed Dropdown Assertion Error in Local and Mobile Modes**:
+  - Resolved Flutter Material UI `DropdownButtonFormField` crash (`selectedItemBuilder must return a list of widgets with the same length as the items list`) by correctly matching placeholder widgets for the divider item.
+  - Added defensive validation to guarantee dropdown values fall back safely to valid configured profiles or providers when switching between server and local modes.
+- **Talker Log Monitor Light Mode Styling & Dev-Mode Production Disabling**:
+  - Fixed invisible buttons, search input, and filter tags in Talker Log Monitor when in light mode by configuring explicit high-contrast foreground text and card colors rather than default white-on-white.
+  - Restricted Talker logging and in-app monitor access strictly to developer/debug mode (`!kReleaseMode`): in production (`kReleaseMode`), Talker history and logging are completely disabled to optimize performance and prevent memory accumulation, and all log viewer buttons are hidden.
+- **Autonomous Coding Agent Multi-Turn Thinking Loop Preservation**:
+  - Resolved premature loop termination in Coding Mode (`/code`, `/plan`, `/ask`) where Tool Preselection was mistakenly evaluating queries and stripping all 16 coding tools down to 0, preventing the agent from continuing investigation turns.
+  - Bypassed tool preselection entirely whenever Coding Mode is active or when an agent is inside an ongoing multi-turn loop (`_toolIterationCount > 0`), ensuring all workspace tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_replace_text`, etc.) are directly available on every turn.
+  - Upgraded `LLMToolSelector` to handle reasoning models (e.g. DeepSeek-V4.1-Flash): increased token budget to 512, stripped `<think>` reasoning blocks, and prevented false zero-tool results when models are truncated inside thinking.
+- **Automatic Host OS Environment Detection & Windows Shell Enforcement**:
+  - Automatically detects the host operating system (`Platform.operatingSystem`, `Platform.isWindows`) across CLI coding mode (`code_command.dart`), CLI skill runner (`skill_runner.dart`), Desktop Assistant coding mode (`playground_screen.dart`), `CodingToolsMcpServer`, and `active_task_provider.dart`.
+  - Injects explicit host OS environment instructions into system prompts to prevent models from generating Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`, or bash pipe filters) when executing on Windows.
+  - Enforces native CLI arguments (e.g. `git log -n 20` or `git status --short` instead of piping to `head`) or pure-Dart file tools (`fs_read_file`, `fs_find`).
+  - Added self-healing recovery hints to `TerminalExecTool` in `dart_mcp_core`: if a command fails on Windows with an unrecognized command or Unix pipe operator, the tool output immediately notifies the model of the Windows host environment and suggests Windows-compatible alternatives.
+  - Updated skills (`cpp-engineer-skill.md`, `coding-agent-skill.md`, `dotnet-engineer-skill.md`, `dotnet-upgrade-skill.md`, `winforms-to-flutter-skill.md`) and `tealkit_agent.md` with cross-platform OS environment safety rules.
+
 ## v2.0.1+154 - TealKit AI Rebranding, Multi-LLM Profiles, Desktop Coding Mode & Unlimited Limits
 
 ### Major Features & Enhancements

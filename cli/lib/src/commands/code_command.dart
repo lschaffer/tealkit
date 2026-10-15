@@ -1976,16 +1976,26 @@ Commands:
     required String userInstructions,
   }) {
     final buffer = StringBuffer();
+    final isWin = Platform.isWindows;
+    final os = Platform.operatingSystem;
+    final osEnv = isWin
+        ? 'HOST ENVIRONMENT: Windows (${Platform.operatingSystemVersion})\n'
+          '- Shell commands run under Windows (cmd.exe / PowerShell).\n'
+          '- NEVER execute Linux/POSIX-specific utilities such as `head`, `tail`, `cat`, `grep`, `ls`, `export`, or bash pipe filters.\n'
+          '- Always use native tool arguments (e.g. `git log -n 20` or `git status --short`) or built-in file tools (`fs_read_file`, `fs_find`).'
+        : 'HOST ENVIRONMENT: $os (${Platform.operatingSystemVersion})\n'
+          '- Shell commands run under POSIX shell (/bin/sh).';
 
     buffer.writeln('''
 You are an expert autonomous software engineer and coding assistant inside the TealKit CLI environment.
 Working Directory: $workspaceDir
+$osEnv
 
 Operating Principles:
 1. EXPLORE FIRST: Discover project files, frameworks, build systems, and versions using `fs_find` and `fs_read_file`.
 2. RESEARCH & WEB SEARCH: When needing documentation, latest library APIs, or troubleshooting errors, use the built-in `web_search` tool (powered by web_search.yaml / DuckDuckGo).
 3. SURGICAL EDITS: When modifying existing files, use `fs_replace_text` with unique context blocks instead of rewriting full files whenever possible. Use `fs_write_file` to create new files.
-4. VERIFY WITH TERMINAL: After code changes, execute build and test commands (e.g. `dotnet build`, `dart test`, `npm test`) using `terminal_exec`.
+4. VERIFY WITH TERMINAL: After code changes, execute build and test commands (e.g. `dotnet build`, `dart test`, `npm test`) using `terminal_exec`. Respect host OS commands!
 5. FORMATTING: Use clean markdown, diff blocks, and concise technical explanations.
 ''');
 

@@ -16,18 +16,21 @@ system_prompt: |
   3. BUILD SYSTEMS & TOOLCHAINS:
      - Inspect and operate Makefiles, CMakeLists.txt, Ninja, Meson, SCons, and embedded IDE project structures (Keil µVision `*.uvprojx`, IAR `*.ewp`, MPLAB `*.mcp`, Visual C++ `*.vcxproj`).
      - Execute builds, cross-compilers (`arm-none-eabi-gcc`, `gcc`, `clang`, `cl.exe`), and unit test runners via `terminal_exec`.
-  4. WORKFLOW & SURGICAL MODIFICATIONS:
+   4. WORKFLOW & SURGICAL MODIFICATIONS:
      - Step 1: Discover directory structures, include trees (`#include`), headers (`*.h`, `*.hpp`), and build configs using `fs_find` and `fs_list_dir`.
      - Step 2: Formulate `tasks.md` in the workspace root detailing analysis, dependencies, and action items.
      - Step 3: Perform surgical modifications with `fs_replace_text` preserving existing code style, indentation, and header guard conventions (`#ifndef _HEADER_H_`).
      - Step 4: Verify syntax and compilation via `terminal_exec` after edits.
      - Step 5: Update `tasks.md` marking completed tasks (`- [x]`).
+   5. CROSS-PLATFORM & OS ENVIRONMENT SAFETY:
+     - Adhere strictly to the host operating system.
+     - On Windows (cmd.exe / PowerShell): DO NOT execute Linux/POSIX-specific utilities (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipe filters. Use native CLI flags (e.g. `git log -n 20` or `git status --short`) or pure-Dart filesystem tools (`fs_read_file`, `fs_find`).
 
 prompts:
   - text: |
       Inspect the C/C++ workspace and map the codebase architecture:
       1. Use `fs_find` to discover all build definitions (`Makefile`, `CMakeLists.txt`, `*.mk`, `*.vcxproj`, `*.uvproj*`), header files (`*.h`, `*.hpp`), and source files (`*.c`, `*.cpp`, `*.cc`).
-      2. Identify the compiler/toolchain configured in the project (GCC, Clang, MSVC, or ARM cross-compiler) using `terminal_exec` if needed (`gcc --version`, `cmake --version`, `make --version`).
+      2. Identify the compiler/toolchain configured in the project (GCC, Clang, MSVC, or ARM cross-compiler) using `terminal_exec` if needed (`gcc --version`, `cmake --version`, `make --version`). Note: On Windows, never use Linux pipe filters like `| head` or `| cat`; use native flags or pure-Dart tools.
       3. Read core entry points (`main.c`, `main.cpp`, hardware init files) with `fs_read_file` to determine modules, drivers, external libraries, and RTOS usage.
       4. Note any non-UTF-8 or legacy character encodings in header files.
     enabledToolNames:

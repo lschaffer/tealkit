@@ -36,6 +36,7 @@ import '../services/workflow_export_service.dart';
 import '../services/skill_def_database_service.dart';
 import '../services/llm_settings_service.dart';
 import '../services/embedded_llm/embedded_model_manager.dart';
+import '../services/assistant_session_service.dart';
 
 import '../models/function_hint.dart';
 import '../services/function_hint_database_service.dart';
@@ -58,7 +59,7 @@ import 'skills_list_screen.dart';
 import '../widgets/embedded_llm/embedded_model_picker_widget.dart';
 import '../widgets/llm_advanced_params_widget.dart';
 import '../widgets/step_list_editor.dart';
-import '../widgets/particle_background.dart';
+import '../widgets/agent_llm_selector_widget.dart';
 import 'external_tools_settings_screen.dart';
 import 'script_library_screen.dart';
 import 'js_tool_library_screen.dart';
@@ -230,6 +231,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
+  bool _showInspector = true;
   double _chatFraction = 0.6;
   bool _logsAscending = false;
   DateTime? _logsClearedAt;
@@ -2054,20 +2056,35 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       final ws = _codingWorkspaceDir.isNotEmpty
           ? _codingWorkspaceDir
           : Directory.current.path;
+      final isWindows = Platform.isWindows;
+      final os = Platform.operatingSystem;
+      final hostOsGuideline = isWindows
+          ? 'HOST ENVIRONMENT: Windows (${Platform.operatingSystemVersion})\n'
+            '• Shell commands executed with terminal_exec run under Windows (CMD / PowerShell).\n'
+            '• NEVER use Linux/POSIX commands like "head", "tail", "cat", "grep", "ls", "export", or bash pipe syntax.\n'
+            '• Prefer native command arguments (e.g. `git log -n 20` instead of `| head`) or use pure-Dart filesystem tools (`fs_read_file`, `fs_find`).\n\n'
+          : 'HOST ENVIRONMENT: $os (${Platform.operatingSystemVersion})\n'
+            '• Shell commands executed with terminal_exec run in a POSIX shell.\n\n';
+
       String codingPrefix = '';
       if (_codingAgentSubMode == '/plan') {
+        final toolsLimit = _codingMaxToolCalls <= 0 ? 'unlimited' : '$_codingMaxToolCalls';
+        final turnLimit = _codingTurnLimit <= 0 ? 'unlimited' : '$_codingTurnLimit';
         codingPrefix =
             'MODE: ARCHITECT / PLAN (/plan)\n'
+            '$hostOsGuideline'
             'You are an expert Software Architect operating on workspace: $ws.\n'
             '• Analyze the workspace thoroughly using fs_find, fs_list_dir, and fs_read_file before proposing architectural steps.\n'
             '• Inspect dependencies and project conventions.\n'
             '• Do NOT modify or delete files in planning mode.\n'
-            '• Output a clear, phased implementation plan with risk assessments.\n\n';
+            '• Output a clear, phased implementation plan with risk assessments.\n'
+            '• Max tool iterations allowed: $toolsLimit. Turn limit: $turnLimit.\n\n';
       } else if (_codingAgentSubMode == '/code') {
         final toolsLimit = _codingMaxToolCalls <= 0 ? 'unlimited' : '$_codingMaxToolCalls';
         final turnLimit = _codingTurnLimit <= 0 ? 'unlimited' : '$_codingTurnLimit';
         codingPrefix =
             'MODE: CODING AGENT (/code)\n'
+            '$hostOsGuideline'
             'You are an autonomous Senior Software Engineer operating on workspace: $ws.\n'
             '• Read and understand relevant files before modifying.\n'
             '• Make targeted, minimal edits using fs_replace_text, fs_write_file, or fs_create_dir.\n'
@@ -2076,6 +2093,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       } else if (_codingAgentSubMode == '/ask') {
         codingPrefix =
             'MODE: CODEBASE Q&A (/ask)\n'
+            '$hostOsGuideline'
             'You are a Codebase Assistant for workspace: $ws.\n'
             '• Answer questions using fs_find, fs_list_dir, and fs_read_file.\n'
             '• Do NOT modify or execute destructive commands.\n\n';
@@ -2208,6 +2226,139 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  // ── Session Recording (Save / Load Session JSON) ──
+
+  Future<void> _saveSession({String? targetPath}) async {
+    if (_messages.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No messages to save in this session.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    final title = _subjectCtrl.text.trim().isNotEmpty
+        ? _subjectCtrl.text.trim()
+        : (_activeLoadedWorkflow?.name ?? 'Assistant Session');
+
+    final session = AssistantSessionData(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      mode: _codingAgentMode ? 'code' : 'assistant',
+      createdAt: _messages.first.timestamp,
+      updatedAt: DateTime.now(),
+      llmProvider: _llmProviderCtrl.text.trim(),
+      llmModel: _llmModelCtrl.text.trim(),
+      messages: List.from(_messages),
+    );
+
+    try {
+      final savedPath = await AssistantSessionService.saveSession(
+        session,
+        targetPath: targetPath,
+      );
+      if (savedPath != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.greenAccent,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Session saved to: $savedPath')),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save session: $e'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadSession({String? sourcePath}) async {
+    try {
+      final session = await AssistantSessionService.loadSession(
+        filePath: sourcePath,
+      );
+      if (session == null || !mounted) return;
+
+      // Update mode if it was a coding session
+      if (session.mode == 'code') {
+        _codingAgentMode = true;
+      }
+      if (session.title.isNotEmpty && session.title != 'TealKit Session') {
+        _subjectCtrl.text = session.title;
+      }
+
+      // If chat is not started yet, ensure chat is initialized and started
+      if (!_chatStarted) {
+        await _startChat();
+      }
+
+      final taskState = ref.read(activeTaskProvider);
+      if (taskState?.chatService != null) {
+        taskState!.chatService!.restoreMessages(session.messages);
+      }
+
+      setState(() {
+        _chatStarted = true;
+        _messages
+          ..clear()
+          ..addAll(session.messages);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.greenAccent,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Loaded session "${session.title}" (${session.messages.length} messages)',
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load session: $e'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   // ── Save Skill / Workflow ──
@@ -2847,7 +2998,10 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _subscribedChatService = chatService;
 
     if (_codingAgentMode && _isDesktop) {
+      chatService.isCodingMode = true;
       chatService.maxToolIterations = _codingMaxToolCalls;
+    } else {
+      chatService.isCodingMode = false;
     }
 
     _messagesSubscription = chatService.messagesStream.listen((msgs) {
@@ -2875,6 +3029,21 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     final rawText = message.content.trim();
     final lower = rawText.toLowerCase();
 
+    // Slash commands: session recording
+    if (lower == '/save-session' ||
+        lower.startsWith('/save-session ') ||
+        lower.startsWith('/save-session\n')) {
+      final path = rawText.length > 13 ? rawText.substring(13).trim() : null;
+      await _saveSession(targetPath: path?.isNotEmpty == true ? path : null);
+      return;
+    } else if (lower == '/load-session' ||
+        lower.startsWith('/load-session ') ||
+        lower.startsWith('/load-session\n')) {
+      final path = rawText.length > 13 ? rawText.substring(13).trim() : null;
+      await _loadSession(sourcePath: path?.isNotEmpty == true ? path : null);
+      return;
+    }
+
     String? matchedMode;
     String remainingText = rawText;
 
@@ -2898,6 +3067,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         }
       });
       await _ensureCodingToolsConnected(chatService);
+      chatService.isCodingMode = true;
       chatService.maxToolIterations = _codingMaxToolCalls;
 
       // If user entered ONLY the mode command without additional text or attachments
@@ -2934,6 +3104,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       }
     } else if (_codingAgentMode) {
       await _ensureCodingToolsConnected(chatService);
+      chatService.isCodingMode = true;
       chatService.maxToolIterations = _codingMaxToolCalls;
     }
 
@@ -2941,6 +3112,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   }
 
   Future<void> _ensureCodingToolsConnected(ChatService chatService) async {
+    chatService.isCodingMode = _codingAgentMode && _isDesktop;
+    chatService.maxToolIterations = _codingMaxToolCalls;
     if (chatService.mcpClient is! MultiMCPManager) return;
 
     final multi = chatService.mcpClient as MultiMCPManager;
@@ -4595,9 +4768,6 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           : _buildSetupView(theme),
     );
 
-    if (isModern) {
-      return ParticleBackground(child: mainContent);
-    }
     return mainContent;
   }
 
@@ -4630,6 +4800,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           ),
           if (_chatStarted) ...[
             (
+              icon: _showInspector ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+              label: _showInspector ? 'Hide Stats' : 'Show Stats',
+              onTap: () => setState(() => _showInspector = !_showInspector),
+              pin: true,
+            ),
+            (
               icon: Icons.restart_alt,
               label: l.resetChat,
               onTap: _resetChat,
@@ -4659,6 +4835,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             icon: Icons.save_outlined,
             label: 'Save Skill / Workflow',
             onTap: _saveSetup,
+            pin: false,
+          ),
+          (
+            icon: Icons.file_download_outlined,
+            label: 'Save Session (JSON)',
+            onTap: () => _saveSession(),
+            pin: false,
+          ),
+          (
+            icon: Icons.file_upload_outlined,
+            label: 'Load Session (JSON)',
+            onTap: () => _loadSession(),
             pin: false,
           ),
           (
@@ -4773,12 +4961,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               },
               pin: false,
             ),
-          (
-            icon: Icons.bug_report_outlined,
-            label: 'Talker Log Monitor',
-            onTap: () => openTalkerScreen(context),
-            pin: false,
-          ),
+          if (!kReleaseMode)
+            (
+              icon: Icons.bug_report_outlined,
+              label: 'Talker Log Monitor',
+              onTap: () => openTalkerScreen(context),
+              pin: false,
+            ),
         ];
 
     if (isWide) {
@@ -5361,89 +5550,45 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             final llmSettings = ref.watch(llmSettingsProvider);
             final profiles = llmSettings.profiles;
 
-            if (_selectedProfileId.isEmpty && profiles.isNotEmpty) {
+            if (_selectedProfileId.isEmpty && !_overrideLlm && profiles.isNotEmpty) {
               _selectedProfileId = llmSettings.selectedProfile?.id ?? profiles.first.id;
             }
-
-            final dropdownValue = _overrideLlm
-                ? '__custom__'
-                : (profiles.any((p) => p.id == _selectedProfileId)
-                    ? _selectedProfileId
-                    : (profiles.isNotEmpty ? profiles.first.id : '__custom__'));
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'LLM',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  key: ValueKey('llm_profile_$dropdownValue'),
-                  initialValue: dropdownValue,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Select LLM Profile',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.psychology_outlined),
-                    isDense: true,
-                  ),
-                  selectedItemBuilder: (context) {
-                    return [
-                      ...profiles.map((p) => Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          )),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Custom Override (Tune inline)',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                    ];
-                  },
-                  items: [
-                    ...profiles.map((p) => DropdownMenuItem<String>(
-                          value: p.id,
-                          child: Text(
-                            '${p.name}  (${p.provider.label} • ${p.model.isNotEmpty ? p.model : "no model"})',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        )),
-                    const DropdownMenuItem<String>(
-                      value: '__custom__',
-                      child: Text(
-                        'Custom Override (Tune inline)',
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val == null) return;
+                AgentLlmSelectorWidget(
+                  llmSettings: llmSettings,
+                  selectedProfileId: _overrideLlm ? null : (_selectedProfileId.isNotEmpty ? _selectedProfileId : null),
+                  selectedProviderKey: _llmProviderCtrl.text.isNotEmpty ? _llmProviderCtrl.text.trim() : 'gemini',
+                  onProfileSelected: (profileId) {
                     setState(() {
-                      if (val == '__custom__') {
-                        _overrideLlm = true;
-                      } else {
+                      if (profileId != null) {
                         _overrideLlm = false;
-                        _selectedProfileId = val;
+                        _selectedProfileId = profileId;
+                      } else {
+                        _overrideLlm = true;
+                        _selectedProfileId = '';
                       }
                     });
                     _updateSkillsSection();
                   },
+                  onProviderSelected: (providerKey) {
+                    setState(() {
+                      _overrideLlm = true;
+                      _selectedProfileId = '';
+                      _llmProviderCtrl.text = providerKey;
+                      final defaults = defaultModels[LlmProvider.fromConfigKey(providerKey)] ?? const <String>[];
+                      _llmModelCtrl.text = defaults.isNotEmpty ? defaults.first : '';
+                    });
+                    _updateSkillsSection();
+                  },
+                  editablePanel: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _buildCustomLlmPanel(llmSettings),
+                  ),
+                  showEmbeddedOption: true,
                 ),
-                // ── Custom LLM panel (mirrors task editor) ──
-                if (_overrideLlm) ..._buildCustomLlmPanel(llmSettings),
                 const SizedBox(height: 12),
               ],
             );
@@ -6089,6 +6234,42 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               style: TextStyle(
                 fontSize: 10,
                 color: theme.colorScheme.outline,
+              ),
+            ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () {
+              setState(() {
+                _showInspector = !_showInspector;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: _showInspector
+                    ? AppTheme.primaryBlue.withValues(alpha: 0.15)
+                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _showInspector ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                    size: 13,
+                    color: _showInspector ? AppTheme.primaryBlue : theme.colorScheme.outline,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Stats',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _showInspector ? AppTheme.primaryBlue : theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -7737,9 +7918,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
 
     final chatService = taskState.chatService!;
-    final uiStyle = AppPreferencesService.instance.uiStyle;
     final isDesktop =
-        uiStyle == 'modern' && MediaQuery.sizeOf(context).width >= 900;
+        _isDesktop || MediaQuery.sizeOf(context).width >= 800;
 
     Widget chatContent = Column(
       children: [
@@ -8046,13 +8226,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           isEnabled: !chatService.isProcessing,
           initialText: _pendingInputText,
           controller: _chatInputController,
+          isCodingMode: _codingAgentMode,
           onToolSelectionChanged: () =>
               _updateSkillsSection(_chatInputController.text),
         ),
       ],
     );
 
-    if (isDesktop) {
+    if (isDesktop && _showInspector) {
       return LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
@@ -8153,6 +8334,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.grey,
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16),
+                  tooltip: 'Hide Sidebar Statistics',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _showInspector = false),
                 ),
               ],
             ),

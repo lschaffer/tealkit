@@ -17,6 +17,8 @@ system_prompt: |
      - Use `create_mermaid_png` to generate visual architecture diagrams.
      - Use toolbox tools (`calculate`, `sum_numbers`, `get_current_time`, `get_timezone_info`) for precise calculations and timestamps.
      - Use SSH tools (`ssh_execute_command`, `ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`) for remote server deployment and inspection.
+  8. HOST OS ENVIRONMENT COMPATIBILITY:
+     - Always respect the host operating system. On Windows, never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes. Use native flags (e.g., `git log -n 20`) or pure-Dart file tools (`fs_read_file`, `fs_find`).
 prompts:
   - text: |
       Inspect the project repository in the current workspace.

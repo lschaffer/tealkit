@@ -86,10 +86,12 @@ class StepListEditor extends StatefulWidget {
     this.leading,
     this.trailing,
     this.onAttachmentsPasted,
+    this.isCodingMode = false,
   });
 
   final TextEditingController controller;
   final bool chatMode;
+  final bool isCodingMode;
 
   /// Tool groups (one per MCP server) currently selected in the global tool
   /// settings. When non-empty, each step shows a per-group checklist button.
@@ -278,6 +280,26 @@ class _SubPromptListEditorState extends State<StepListEditor> {
         fontSize: 14,
       ),
       decoration: decoration,
+      contentInsertionConfiguration: ContentInsertionConfiguration(
+        onContentInserted: (KeyboardInsertedContent data) async {
+          if (data.data != null && widget.onAttachmentsPasted != null) {
+            final mime = data.mimeType;
+            final isImg = mime.startsWith('image/');
+            final ext = mime.split('/').last;
+            final att = MessageAttachment(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              type: isImg ? AttachmentType.image : AttachmentType.file,
+              path: 'clipboard_insert',
+              name: 'pasted_media.$ext',
+              size: data.data!.length,
+              mimeType: mime,
+              bytes: data.data,
+            );
+            widget.onAttachmentsPasted!([att]);
+          }
+        },
+        allowedMimeTypes: const ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+      ),
     );
 
     return CallbackShortcuts(
@@ -302,6 +324,16 @@ class _SubPromptListEditorState extends State<StepListEditor> {
   }
 
   Future<void> _handlePaste(TextEditingController controller) async {
+    // 1. First check desktop clipboard for images/files if on desktop platform
+    if (widget.onAttachmentsPasted != null && DesktopClipboardService.isDesktop) {
+      final attachments = await DesktopClipboardService.getClipboardAttachments();
+      if (attachments.isNotEmpty) {
+        widget.onAttachmentsPasted!(attachments);
+        return;
+      }
+    }
+
+    // 2. Otherwise get plain text
     final clipData = await Clipboard.getData(Clipboard.kTextPlain);
     final text = clipData?.text;
 
@@ -321,27 +353,20 @@ class _SubPromptListEditorState extends State<StepListEditor> {
         }
       }
 
-      // Normal text paste
+      // Normal text paste (handling inverted selection safely)
       final sel = controller.selection;
       if (!sel.isValid || sel.start < 0) {
         controller.text = controller.text + text;
         controller.selection = TextSelection.collapsed(offset: controller.text.length);
       } else {
+        final start = sel.start < sel.end ? sel.start : sel.end;
+        final end = sel.start < sel.end ? sel.end : sel.start;
         final old = controller.text;
-        final newText = old.replaceRange(sel.start, sel.end, text);
+        final newText = old.replaceRange(start, end, text);
         controller.value = TextEditingValue(
           text: newText,
-          selection: TextSelection.collapsed(offset: sel.start + text.length),
+          selection: TextSelection.collapsed(offset: start + text.length),
         );
-      }
-      return;
-    }
-
-    // If no text or empty on clipboard, check desktop clipboard for images/files
-    if (widget.onAttachmentsPasted != null && DesktopClipboardService.isDesktop) {
-      final attachments = await DesktopClipboardService.getClipboardAttachments();
-      if (attachments.isNotEmpty) {
-        widget.onAttachmentsPasted!(attachments);
       }
     }
   }
@@ -446,18 +471,20 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                                 isMobile: isMobile,
                                 onChanged: (names) => _setEnabledTools(index, names),
                               ),
-                            if (!widget.chatMode)
+                            if (!widget.chatMode && !widget.isCodingMode)
                               _StopAfterToolCallBtn(
                                 active: entry.stopAfterToolCall,
                                 onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
                               ),
-                            const SizedBox(width: 8),
-                            _IconBtn(
-                              icon: Icons.add_circle_outline,
-                              color: AppTheme.primaryBlue,
-                              tooltip: 'Add step after this one',
-                              onPressed: () => _addEntryAfter(index),
-                            ),
+                            if (!widget.isCodingMode) ...[
+                              const SizedBox(width: 8),
+                              _IconBtn(
+                                icon: Icons.add_circle_outline,
+                                color: AppTheme.primaryBlue,
+                                tooltip: 'Add step after this one',
+                                onPressed: () => _addEntryAfter(index),
+                              ),
+                            ],
                             if (_entries.length > 1)
                               _IconBtn(
                                 icon: Icons.remove_circle_outline,
@@ -516,17 +543,18 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                                 isMobile: isMobile,
                                 onChanged: (names) => _setEnabledTools(index, names),
                               ),
-                            if (!widget.chatMode)
+                            if (!widget.chatMode && !widget.isCodingMode)
                               _StopAfterToolCallBtn(
                                 active: entry.stopAfterToolCall,
                                 onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
                               ),
-                            _IconBtn(
-                              icon: Icons.add_circle_outline,
-                              color: AppTheme.primaryBlue,
-                              tooltip: 'Add step after this one',
-                              onPressed: () => _addEntryAfter(index),
-                            ),
+                            if (!widget.isCodingMode)
+                              _IconBtn(
+                                icon: Icons.add_circle_outline,
+                                color: AppTheme.primaryBlue,
+                                tooltip: 'Add step after this one',
+                                onPressed: () => _addEntryAfter(index),
+                              ),
                             if (_entries.length > 1)
                               _IconBtn(
                                 icon: Icons.remove_circle_outline,
@@ -632,18 +660,20 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                     isMobile: isMobile,
                     onChanged: (names) => _setEnabledTools(index, names),
                   ),
-                if (!widget.chatMode)
+                if (!widget.chatMode && !widget.isCodingMode)
                   _StopAfterToolCallBtn(
                     active: entry.stopAfterToolCall,
                     onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
                   ),
-                const SizedBox(width: 8),
-                _IconBtn(
-                  icon: Icons.add_circle_outline,
-                  color: AppTheme.primaryBlue,
-                  tooltip: 'Add step after this one',
-                  onPressed: () => _addEntryAfter(index),
-                ),
+                if (!widget.isCodingMode) ...[
+                  const SizedBox(width: 8),
+                  _IconBtn(
+                    icon: Icons.add_circle_outline,
+                    color: AppTheme.primaryBlue,
+                    tooltip: 'Add step after this one',
+                    onPressed: () => _addEntryAfter(index),
+                  ),
+                ],
                 if (_entries.length > 1)
                   _IconBtn(
                     icon: Icons.remove_circle_outline,
@@ -725,18 +755,20 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                           isMobile: isMobile,
                           onChanged: (names) => _setEnabledTools(index, names),
                         ),
-                      if (!widget.chatMode)
+                      if (!widget.chatMode && !widget.isCodingMode)
                         _StopAfterToolCallBtn(
                           active: entry.stopAfterToolCall,
                           onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
                         ),
-                      const SizedBox(height: 4),
-                      _IconBtn(
-                        icon: Icons.add_circle_outline,
-                        color: AppTheme.primaryBlue,
-                        tooltip: 'Add step after this one',
-                        onPressed: () => _addEntryAfter(index),
-                      ),
+                      if (!widget.isCodingMode) ...[
+                        const SizedBox(height: 4),
+                        _IconBtn(
+                          icon: Icons.add_circle_outline,
+                          color: AppTheme.primaryBlue,
+                          tooltip: 'Add step after this one',
+                          onPressed: () => _addEntryAfter(index),
+                        ),
+                      ],
                       if (_entries.length > 1)
                         _IconBtn(
                           icon: Icons.remove_circle_outline,

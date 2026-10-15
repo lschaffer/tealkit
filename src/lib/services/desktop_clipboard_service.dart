@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
@@ -33,7 +34,9 @@ class DesktopClipboardService {
   }
 
   /// Create a [MessageAttachment] from an existing file path on disk.
-  static Future<MessageAttachment?> createAttachmentFromFile(String filePath) async {
+  static Future<MessageAttachment?> createAttachmentFromFile(
+    String filePath,
+  ) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) return null;
@@ -60,58 +63,209 @@ class DesktopClipboardService {
     }
   }
 
-  static Future<List<MessageAttachment>> _getWindowsClipboardAttachments() async {
-    final tempDir = Directory.systemTemp.path;
-    final tempImgPath =
-        '$tempDir\\clip_${DateTime.now().millisecondsSinceEpoch}_${_uuid.v4().substring(0, 8)}.png';
+  static Future<List<MessageAttachment>>
+  _getWindowsClipboardAttachments() async {
+    try {
+      final attachments = <MessageAttachment>[];
+      final imgBytes = _getWindowsClipboardDIB();
+      if (imgBytes != null && imgBytes.isNotEmpty) {
+        final tempDir = Directory.systemTemp.path;
+        final tempImgPath =
+            '$tempDir\\clip_${DateTime.now().millisecondsSinceEpoch}_${_uuid.v4().substring(0, 8)}.bmp';
+        final f = File(tempImgPath);
+        await f.writeAsBytes(imgBytes);
 
-    // Powershell script to check image and file drop list without external dependencies
-    final script = '''
-Add-Type -AssemblyName System.Windows.Forms;
-Add-Type -AssemblyName System.Drawing;
-if ([System.Windows.Forms.Clipboard]::ContainsImage()) {
-    \$img = [System.Windows.Forms.Clipboard]::GetImage();
-    \$img.Save('$tempImgPath', [System.Drawing.Imaging.ImageFormat]::Png);
-    \$img.Dispose();
-    Write-Output "IMAGE:$tempImgPath";
-} elseif ([System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
-    \$files = [System.Windows.Forms.Clipboard]::GetFileDropList();
-    Write-Output ("FILES:" + (\$files -join "|"));
-} else {
-    Write-Output "NONE";
-}
-''';
+        attachments.add(
+          MessageAttachment(
+            id: _uuid.v4(),
+            type: AttachmentType.image,
+            path: tempImgPath,
+            name: 'clipboard_image.png',
+            size: imgBytes.length,
+            mimeType: 'image/bmp',
+            bytes: imgBytes,
+          ),
+        );
+        return attachments;
+      }
 
-    final result = await Process.run(
-      'powershell',
-      ['-NoProfile', '-NonInteractive', '-Command', script],
-      runInShell: true,
-    );
-
-    if (result.exitCode != 0) {
-      return [];
-    }
-
-    final output = (result.stdout as String).trim();
-    final attachments = <MessageAttachment>[];
-
-    for (final line in output.split(RegExp(r'[\r\n]+'))) {
-      final trimmed = line.trim();
-      if (trimmed.startsWith('IMAGE:')) {
-        final path = trimmed.substring(6).trim();
-        final att = await createAttachmentFromFile(path);
-        if (att != null) attachments.add(att);
-      } else if (trimmed.startsWith('FILES:')) {
-        final rawFiles = trimmed.substring(6).trim();
-        final filePaths = rawFiles.split('|').map((s) => s.trim()).where((s) => s.isNotEmpty);
-        for (final p in filePaths) {
+      final files = _getWindowsClipboardFileList();
+      if (files.isNotEmpty) {
+        for (final p in files) {
           final att = await createAttachmentFromFile(p);
           if (att != null) attachments.add(att);
         }
+        if (attachments.isNotEmpty) return attachments;
       }
+    } catch (e) {
+      talker.warning('Windows FFI clipboard read failed: $e');
     }
+    return [];
+  }
 
-    return attachments;
+  static Uint8List? _getWindowsClipboardDIB() {
+    try {
+      final user32 = DynamicLibrary.open('user32.dll');
+      final kernel32 = DynamicLibrary.open('kernel32.dll');
+
+      final isFormatAvailable = user32
+          .lookupFunction<Int32 Function(Uint32), int Function(int)>(
+            'IsClipboardFormatAvailable',
+          );
+      const cfDib = 8;
+      if (isFormatAvailable(cfDib) == 0) return null;
+
+      final openClip = user32
+          .lookupFunction<Int32 Function(IntPtr), int Function(int)>(
+            'OpenClipboard',
+          );
+      final closeClip = user32.lookupFunction<Int32 Function(), int Function()>(
+        'CloseClipboard',
+      );
+      final getClipData = user32
+          .lookupFunction<IntPtr Function(Uint32), int Function(int)>(
+            'GetClipboardData',
+          );
+      final gLock = kernel32
+          .lookupFunction<
+            Pointer<Uint8> Function(IntPtr),
+            Pointer<Uint8> Function(int)
+          >('GlobalLock');
+      final gUnlock = kernel32
+          .lookupFunction<Int32 Function(IntPtr), int Function(int)>(
+            'GlobalUnlock',
+          );
+      final gSize = kernel32
+          .lookupFunction<IntPtr Function(IntPtr), int Function(int)>(
+            'GlobalSize',
+          );
+
+      if (openClip(0) == 0) return null;
+      try {
+        final hMem = getClipData(cfDib);
+        if (hMem == 0) return null;
+        final ptr = gLock(hMem);
+        if (ptr.address == 0) return null;
+        try {
+          final size = gSize(hMem);
+          if (size < 40) return null;
+
+          final dibData = ptr.asTypedList(size);
+          final bd = ByteData.sublistView(dibData);
+          final biSize = bd.getUint32(0, Endian.little);
+          final biBitCount = bd.getUint16(14, Endian.little);
+          final biClrUsed = bd.getUint32(32, Endian.little);
+          final biCompression = bd.getUint32(16, Endian.little);
+
+          int paletteSize = 0;
+          if (biClrUsed != 0) {
+            paletteSize = biClrUsed * 4;
+          } else if (biBitCount <= 8) {
+            paletteSize = (1 << biBitCount) * 4;
+          } else if (biCompression == 3) {
+            paletteSize = 12;
+          }
+
+          final totalHeader = biSize + paletteSize;
+          final totalFileSize = 14 + size;
+
+          final bmp = Uint8List(totalFileSize);
+          final bdata = ByteData.sublistView(bmp);
+          bdata.setUint8(0, 0x42); // 'B'
+          bdata.setUint8(1, 0x4D); // 'M'
+          bdata.setUint32(2, totalFileSize, Endian.little);
+          bdata.setUint16(6, 0, Endian.little);
+          bdata.setUint16(8, 0, Endian.little);
+          bdata.setUint32(10, 14 + totalHeader, Endian.little);
+          bmp.setRange(14, 14 + size, dibData);
+          return bmp;
+        } finally {
+          gUnlock(hMem);
+        }
+      } finally {
+        closeClip();
+      }
+    } catch (e) {
+      talker.warning('Windows DIB extraction error: $e');
+      return null;
+    }
+  }
+
+  static List<String> _getWindowsClipboardFileList() {
+    try {
+      final user32 = DynamicLibrary.open('user32.dll');
+      final kernel32 = DynamicLibrary.open('kernel32.dll');
+      final shell32 = DynamicLibrary.open('shell32.dll');
+
+      final isFormatAvailable = user32
+          .lookupFunction<Int32 Function(Uint32), int Function(int)>(
+            'IsClipboardFormatAvailable',
+          );
+      const cfHdrop = 15;
+      if (isFormatAvailable(cfHdrop) == 0) return [];
+
+      final openClip = user32
+          .lookupFunction<Int32 Function(IntPtr), int Function(int)>(
+            'OpenClipboard',
+          );
+      final closeClip = user32.lookupFunction<Int32 Function(), int Function()>(
+        'CloseClipboard',
+      );
+      final getClipData = user32
+          .lookupFunction<IntPtr Function(Uint32), int Function(int)>(
+            'GetClipboardData',
+          );
+      final dragQueryFileW = shell32
+          .lookupFunction<
+            Uint32 Function(IntPtr, Uint32, Pointer<Uint16>, Uint32),
+            int Function(int, int, Pointer<Uint16>, int)
+          >('DragQueryFileW');
+      final getHeap = kernel32
+          .lookupFunction<IntPtr Function(), int Function()>('GetProcessHeap');
+      final hAlloc = kernel32
+          .lookupFunction<
+            Pointer<Uint16> Function(IntPtr, Uint32, IntPtr),
+            Pointer<Uint16> Function(int, int, int)
+          >('HeapAlloc');
+      final hFree = kernel32
+          .lookupFunction<
+            Int32 Function(IntPtr, Uint32, Pointer<Uint16>),
+            int Function(int, int, Pointer<Uint16>)
+          >('HeapFree');
+
+      if (openClip(0) == 0) return [];
+      try {
+        final hMem = getClipData(cfHdrop);
+        if (hMem == 0) return [];
+        final count = dragQueryFileW(hMem, 0xFFFFFFFF, nullptr, 0);
+        if (count == 0) return [];
+
+        final heap = getHeap();
+        const maxChars = 1024;
+        final buffer = hAlloc(heap, 0x00000008, maxChars * 2);
+        final files = <String>[];
+        try {
+          for (int i = 0; i < count; i++) {
+            final len = dragQueryFileW(hMem, i, buffer, maxChars);
+            if (len > 0) {
+              final chars = <int>[];
+              for (int c = 0; c < len; c++) {
+                chars.add(buffer[c]);
+              }
+              files.add(String.fromCharCodes(chars));
+            }
+          }
+        } finally {
+          hFree(heap, 0, buffer);
+        }
+        return files;
+      } finally {
+        closeClip();
+      }
+    } catch (e) {
+      talker.warning('Windows HDROP extraction error: $e');
+      return [];
+    }
   }
 
   static Future<List<MessageAttachment>> _getMacClipboardAttachments() async {
@@ -119,7 +273,8 @@ if ([System.Windows.Forms.Clipboard]::ContainsImage()) {
     final tempImgPath =
         '$tempDir/clip_${DateTime.now().millisecondsSinceEpoch}_${_uuid.v4().substring(0, 8)}.png';
 
-    final script = '''
+    final script =
+        '''
 try
     set theData to the clipboard as «class PNGf»
     set fp to open for access POSIX file "$tempImgPath" with write permission
@@ -149,15 +304,15 @@ end try
         '$tempDir/clip_${DateTime.now().millisecondsSinceEpoch}_${_uuid.v4().substring(0, 8)}.png';
 
     // Try xclip first, then wl-paste for Wayland
-    var result = await Process.run(
-      'xclip',
-      ['-selection', 'clipboard', '-t', 'image/png', '-o'],
-    );
+    var result = await Process.run('xclip', [
+      '-selection',
+      'clipboard',
+      '-t',
+      'image/png',
+      '-o',
+    ]);
     if (result.exitCode != 0 || (result.stdout as List<int>).isEmpty) {
-      result = await Process.run(
-        'wl-paste',
-        ['--type', 'image/png'],
-      );
+      result = await Process.run('wl-paste', ['--type', 'image/png']);
     }
 
     if (result.exitCode == 0 && result.stdout is List<int>) {

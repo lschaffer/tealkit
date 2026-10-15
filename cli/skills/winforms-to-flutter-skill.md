@@ -15,6 +15,7 @@ system_prompt: |
   4. Desktop Environments: Initialize both Windows (windows/runner/main.cpp) and Linux (linux/my_application.cc) desktop shells.
   5. Web Search: Use the built-in `web_search` tool to look up current Flutter/Dart package versions, Riverpod syntax, and desktop platform channels.
   6. Diagrams: Use `create_mermaid_png` to diagram UI routing, Riverpod dependency graphs, and WinForms-to-Flutter widget mappings.
+  7. Cross-Platform & Host OS Guidelines: Respect host OS conventions. On Windows (cmd.exe / PowerShell), never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes; use native CLI flags or pure-Dart file tools (`fs_read_file`, `fs_find`).
 prompts:
   - text: |
       Inspect the legacy .NET/C# WinForms project in:

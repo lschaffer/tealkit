@@ -1016,6 +1016,26 @@ class ServerLlmRunner {
         orElse: () => usePrimary ? _settings.provider : _settings.provider2,
       );
       model = taskLlmConfig.model;
+      final defaultList = defaultModels[provider] ?? const <String>[];
+      final profileModels = _settings.profiles
+          .map((p) => p['model']?.toString() ?? '')
+          .where((m) => m.isNotEmpty)
+          .toSet();
+      final isModelKnown =
+          (defaultList.isNotEmpty && defaultList.contains(model)) ||
+              profileModels.contains(model) ||
+              model == _settings.model ||
+              model == _settings.model2;
+
+      if (!isModelKnown && (defaultList.isNotEmpty || model.trim().isEmpty)) {
+        final fallback = defaultList.isNotEmpty
+            ? defaultList.first
+            : (usePrimary ? _settings.model : _settings.model2);
+        _liveLog(
+          'Model "$model" not in list for provider "${provider.label}", fallback to default "$fallback"',
+        );
+        model = fallback;
+      }
       final configuredApiKey = taskLlmConfig.apiKey?.trim() ?? '';
       final configuredBaseUrl = taskLlmConfig.baseUrl?.trim() ?? '';
       apiKey = configuredApiKey.isNotEmpty

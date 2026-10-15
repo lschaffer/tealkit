@@ -406,6 +406,7 @@ Future<void> serverBootstrap({
   await ServerDataSourcesService.instance.load();
   await ServerExternalToolsService.instance.load();
   await ServerPreferencesService.instance.load();
+  await _migrateInvalidTaskModels(_db, ServerLlmSettingsService.instance);
   if (_flags.enableEmbeddedModels) {
     await ServerModelDownloadService.instance.init();
   }
@@ -543,6 +544,118 @@ Future<void> _cleanupOutputFiles(String dataDir) async {
     );
   } catch (e, st) {
     log.warning('[Cleanup] Error: $e', e, st);
+  }
+}
+
+Future<void> _migrateInvalidTaskModels(
+  ServerDatabaseAdapter db,
+  ServerLlmSettingsService llm,
+) async {
+  try {
+    final tasks = await db.getAllTasks();
+    final defaultGlobalModel = llm.model.isNotEmpty
+        ? llm.model
+        : (defaultModels[LlmProvider.gemini]?.first ?? 'gemini-2.5-flash');
+    int count = 0;
+
+    final profileModels = llm.profiles
+        .map((p) => p['model']?.toString() ?? '')
+        .where((m) => m.isNotEmpty)
+        .toSet();
+
+    for (final task in tasks) {
+      bool taskChanged = false;
+      var currentTask = task;
+
+      if (currentTask.llmConfig != null) {
+        final cfg = currentTask.llmConfig!;
+        final prov = LlmProvider.fromConfigKey(cfg.provider);
+        final knownModels = defaultModels[prov] ?? const <String>[];
+        final isKnown =
+            (knownModels.isNotEmpty && knownModels.contains(cfg.model)) ||
+                profileModels.contains(cfg.model) ||
+                cfg.model == llm.model ||
+                cfg.model == llm.model2;
+
+        if (!isKnown && (knownModels.isNotEmpty || cfg.model.trim().isEmpty)) {
+          final fallback =
+              knownModels.isNotEmpty ? knownModels.first : defaultGlobalModel;
+          log.info(
+            '[ServerMigration] Migrating task "${task.name}" model "${cfg.model}" -> "$fallback"',
+          );
+          currentTask = currentTask.copyWith(
+            llmConfig: TaskLlmConfig(
+              provider: cfg.provider,
+              model: fallback,
+              apiKey: cfg.apiKey,
+              baseUrl: cfg.baseUrl,
+              temperature: cfg.temperature,
+              maxTokens: cfg.maxTokens,
+              extraParams: cfg.extraParams,
+            ),
+          );
+          taskChanged = true;
+        }
+      }
+
+      final updatedExecutors = <Agent>[];
+      bool executorsChanged = false;
+      for (final exec in currentTask.executors) {
+        if (exec.llmConfig != null) {
+          final cfg = exec.llmConfig!;
+          final prov = LlmProvider.fromConfigKey(cfg.provider);
+          final knownModels = defaultModels[prov] ?? const <String>[];
+          final isKnown =
+              (knownModels.isNotEmpty && knownModels.contains(cfg.model)) ||
+                  profileModels.contains(cfg.model) ||
+                  cfg.model == llm.model ||
+                  cfg.model == llm.model2;
+
+          if (!isKnown &&
+              (knownModels.isNotEmpty || cfg.model.trim().isEmpty)) {
+            final fallback =
+                knownModels.isNotEmpty ? knownModels.first : defaultGlobalModel;
+            log.info(
+              '[ServerMigration] Migrating executor "${exec.name}" in task "${task.name}" model "${cfg.model}" -> "$fallback"',
+            );
+            updatedExecutors.add(
+              exec.copyWith(
+                llmConfig: TaskLlmConfig(
+                  provider: cfg.provider,
+                  model: fallback,
+                  apiKey: cfg.apiKey,
+                  baseUrl: cfg.baseUrl,
+                  temperature: cfg.temperature,
+                  maxTokens: cfg.maxTokens,
+                  extraParams: cfg.extraParams,
+                ),
+              ),
+            );
+            executorsChanged = true;
+            continue;
+          }
+        }
+        updatedExecutors.add(exec);
+      }
+
+      if (executorsChanged) {
+        currentTask = currentTask.copyWith(executors: updatedExecutors);
+        taskChanged = true;
+      }
+
+      if (taskChanged) {
+        await db.saveTask(currentTask);
+        count++;
+      }
+    }
+
+    if (count > 0) {
+      log.info(
+        '[ServerMigration] Migrated $count task(s) with invalid models to default models',
+      );
+    }
+  } catch (e) {
+    log.warning('[ServerMigration] Failed to migrate invalid task models: $e');
   }
 }
 

@@ -460,11 +460,23 @@ class SkillRunner {
       ...BuiltinMcpServers.createAll(),
     ];
 
+    final isWin = Platform.isWindows;
+    final os = Platform.operatingSystem;
+    final osNotice = isWin
+        ? '\n\nHOST ENVIRONMENT: Windows (${Platform.operatingSystemVersion})\n'
+          '• Shell commands executed with terminal_exec run under Windows (cmd.exe / PowerShell).\n'
+          '• NEVER use Linux/POSIX-specific utilities ("head", "tail", "cat", "grep", "ls", "export") or bash pipelines.\n'
+          '• Always use native tool arguments (e.g. `git log -n 20` instead of `| head`) or pure-Dart file tools (`fs_read_file`, `fs_find`).'
+        : '\n\nHOST ENVIRONMENT: $os (${Platform.operatingSystemVersion})\n'
+          '• Shell commands executed with terminal_exec run in a POSIX shell (/bin/sh).';
+
+    final effectiveSystemPrompt = '$systemPrompt$osNotice'.trim();
+
     final agent = Agent(
       key: 'cli_runner_agent',
       name: 'CLI Runner Agent',
       llmConfig: llmConfig,
-      systemPrompt: systemPrompt,
+      systemPrompt: effectiveSystemPrompt,
       prompts: [
         SubPromptStep(
           text: promptText,

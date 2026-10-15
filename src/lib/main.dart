@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n/app_localizations.dart';
-import 'package:talker_flutter/talker_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:workmanager/workmanager.dart';
@@ -49,6 +48,7 @@ import 'screens/function_hints_screen.dart';
 import 'utils/credential_cipher.dart';
 import 'widgets/particle_background.dart';
 import 'providers/sidebar_provider.dart';
+import 'services/llm_task_resync_service.dart';
 
 String _appVersion = '';
 
@@ -249,7 +249,6 @@ class _SchedulerActivityDialogState extends State<_SchedulerActivityDialog> {
 
 void _showAboutDialog(BuildContext context) {
   final l = L.of(context);
-  final theme = Theme.of(context);
   final isDE = Localizations.localeOf(context).languageCode == 'de';
   final guideUrl = isDE
       ? 'https://lschaffer.github.io/tealkit/guide/de/'
@@ -342,17 +341,7 @@ void _showAboutDialog(BuildContext context) {
                 onPressed: () {
                   final nav = Navigator.of(ctx);
                   nav.pop();
-                  nav.push(
-                    MaterialPageRoute(
-                      builder: (_) => TalkerScreen(
-                        talker: talkerInstance,
-                        theme: TalkerScreenTheme(
-                          backgroundColor: theme.scaffoldBackgroundColor,
-                          cardColor: theme.cardColor,
-                        ),
-                      ),
-                    ),
-                  );
+                  openTalkerScreen(ctx);
                 },
                 icon: const Icon(Icons.bug_report_outlined, size: 18),
                 label: Text(l.viewLogs),
@@ -532,6 +521,7 @@ void main() async {
       await appScheduler.cancelAll();
       log.info('Scheduler disabled locally because remote mode is active');
     } else {
+      await LlmTaskResyncService.migrateInvalidModels();
       final tasks = await TaskDatabaseService().getAllTasks();
       await appScheduler.syncAllTasks(tasks);
       log.info(
@@ -968,20 +958,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             rightScreen = const StartupWizardScreen();
           }
 
-          return Scaffold(
-            body: ParticleBackground(
-              animate: true,
-              child: SafeArea(
-                child: Stack(
-                  children: [
-                    // Right content view (takes full width, or pushed right if sticky & open)
-                    Positioned(
-                      left: (sidebarSticky && sidebarOpen) ? 190 : 0,
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: rightScreen,
-                    ),
+          final desktopContent = SafeArea(
+            child: Stack(
+              children: [
+                // Right content view (takes full width, or pushed right if sticky & open)
+                Positioned(
+                  left: (sidebarSticky && sidebarOpen) ? 190 : 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: rightScreen,
+                ),
 
                     // Scrim overlay behind the sidebar (only when NOT sticky)
                     if (!sidebarSticky)
@@ -1227,8 +1214,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+
+          return Scaffold(
+            body: activeIndex == 2
+                ? ParticleBackground(animate: true, child: desktopContent)
+                : desktopContent,
           );
         }
 

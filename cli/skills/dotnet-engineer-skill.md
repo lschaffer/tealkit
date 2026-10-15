@@ -28,6 +28,8 @@ system_prompt: |
   7. DIAGRAMS & REMOTE TESTING:
      - Use `create_mermaid_png` to visualize architecture layers, service dependencies, and class hierarchies.
      - Use SSH tools (`ssh_execute_command`, `ssh_upload_file`, `ssh_list_directory`) if deploying or testing services on remote Linux / Windows staging hosts.
+  8. HOST OS ENVIRONMENT COMPATIBILITY:
+     - Always respect the host operating system. On Windows, never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes. Use native flags (e.g. `git log -n 20`) or pure-Dart file tools (`fs_read_file`, `fs_find`).
 prompts:
   - text: |
       Inspect the .NET workspace and classify all projects:

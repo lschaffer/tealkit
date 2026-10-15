@@ -15,7 +15,7 @@ class LLMToolSelector {
     required List<MCPTool> candidateTools,
     required LLMService llmService,
     String? source,
-    Duration timeout = const Duration(milliseconds: 3500),
+    Duration timeout = const Duration(milliseconds: 6000),
   }) async {
     if (candidateTools.isEmpty) return [];
 
@@ -49,12 +49,12 @@ $toolManifest
 User Prompt:
 ${query.length > 600 ? '${query.substring(0, 597)}...' : query}''';
 
-      // 3. Call LLM with fast timeout
+      // 3. Call LLM with adequate token budget for reasoning models
       final rawResponse = await llmService
           .generateFastCompletion(
             prompt,
             source: targetSource,
-            maxTokens: 120,
+            maxTokens: 512,
             temperature: 0.0,
           )
           .timeout(timeout);
@@ -66,14 +66,28 @@ ${query.length > 600 ? '${query.substring(0, 597)}...' : query}''';
         return candidateTools;
       }
 
+      String contentToParse = rawResponse.trim();
+      // Handle <think>...</think> blocks from reasoning models (e.g. DeepSeek V4.1 Flash, DeepSeek R1)
+      if (contentToParse.contains('</think>')) {
+        contentToParse = contentToParse.substring(contentToParse.indexOf('</think>') + 8).trim();
+      } else if (contentToParse.contains('<think>')) {
+        talker.warning('⚠️ [Stage 2 Tool Selector] Model response cut off while thinking from $targetSource after ${elapsedMs}ms. Falling back to all candidate tools.');
+        return candidateTools;
+      }
+
       // 4. Parse JSON list of tool names from model response
-      final selectedNames = _extractToolNames(rawResponse);
+      final hasExplicitEmptyArray = RegExp(r'\[\s*\]').hasMatch(contentToParse);
+      final selectedNames = _extractToolNames(contentToParse);
       talker.info('🧠 [Stage 2 Tool Selector] Model returned names: $selectedNames (${elapsedMs}ms)');
 
       // If model returned empty array explicitly, user prompt requires NO tools!
       if (selectedNames.isEmpty) {
-        talker.info('📭 [Stage 2 Tool Selector] 0 tools selected - query requires no tools');
-        return [];
+        if (hasExplicitEmptyArray) {
+          talker.info('📭 [Stage 2 Tool Selector] Explicit empty array [] returned - query requires no tools');
+          return [];
+        }
+        talker.warning('⚠️ [Stage 2 Tool Selector] Could not parse valid JSON array from response ($contentToParse). Falling back to all candidate tools.');
+        return candidateTools;
       }
 
       // Map selected names back to actual candidate MCPTool instances

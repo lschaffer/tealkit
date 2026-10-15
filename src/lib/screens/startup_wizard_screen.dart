@@ -328,11 +328,12 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'Talker Log Monitor',
-            onPressed: () => openTalkerScreen(context),
-          ),
+          if (!kReleaseMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'Talker Log Monitor',
+              onPressed: () => openTalkerScreen(context),
+            ),
         ],
       ),
       body: ListenableBuilder(

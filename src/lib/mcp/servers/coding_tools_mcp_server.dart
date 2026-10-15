@@ -43,10 +43,20 @@ class CodingToolsMcpServer extends InternalMcpServer {
       };
 
   @override
-  String get defaultSystemPrompt =>
-      'You are a desktop Coding Agent. You have full access to workspace file management '
-      '(find, read, write, edit, replace) and terminal execution tools. '
-      'Always verify file paths and inspect existing code before making changes.';
+  String get defaultSystemPrompt {
+    final isWin = Platform.isWindows;
+    final os = Platform.operatingSystem;
+    final osNotice = isWin
+        ? 'HOST OS: Windows (${Platform.operatingSystemVersion}). '
+          'Terminal commands executed via terminal_exec run under Windows CMD / PowerShell. '
+          'DO NOT use Linux/POSIX commands (e.g. "head", "tail", "cat", "grep", "ls", "export", or bash pipelines). '
+          'Use native CLI flags (e.g. "git log -n 20") or pure-Dart filesystem tools (fs_read_file, fs_find).'
+        : 'HOST OS: $os (${Platform.operatingSystemVersion}). Terminal commands execute in standard POSIX shell.';
+    return 'You are a desktop Coding Agent. You have full access to workspace file management '
+        '(find, read, write, edit, replace) and terminal execution tools. '
+        'Always verify file paths and inspect existing code before making changes.\n'
+        '$osNotice';
+  }
 
   @override
   Future<void> initialize(Map<String, dynamic> initParams) async {

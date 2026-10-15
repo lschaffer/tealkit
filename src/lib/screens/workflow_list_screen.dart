@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:tealkit/providers/sidebar_provider.dart';
 import 'package:tealkit/widgets/global_agent_stats_widget.dart';
-import 'package:tealkit/widgets/particle_background.dart';
 import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 import '../config/app_theme.dart';
@@ -562,16 +561,17 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'talker_logs',
-                  child: Row(
-                    children: [
-                      Icon(Icons.bug_report_outlined, size: 20),
-                      SizedBox(width: 8),
-                      Text('Talker Log Monitor'),
-                    ],
+                if (!kReleaseMode)
+                  const PopupMenuItem(
+                    value: 'talker_logs',
+                    child: Row(
+                      children: [
+                        Icon(Icons.bug_report_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('Talker Log Monitor'),
+                      ],
+                    ),
                   ),
-                ),
                 const PopupMenuItem(
                   value: 'export_all',
                   child: Row(
@@ -595,11 +595,12 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
               ],
             ),
           ] else ...[
-            IconButton(
-              icon: const Icon(Icons.bug_report_outlined),
-              tooltip: 'Talker Log Monitor',
-              onPressed: () => openTalkerScreen(context),
-            ),
+            if (!kReleaseMode)
+              IconButton(
+                icon: const Icon(Icons.bug_report_outlined),
+                tooltip: 'Talker Log Monitor',
+                onPressed: () => openTalkerScreen(context),
+              ),
             IconButton(
               icon: const Icon(Icons.lightbulb_outline),
               tooltip: l.browseExamplesTooltip,
@@ -778,9 +779,6 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
       ),
     );
 
-    if (isModern) {
-      return ParticleBackground(child: mainContent);
-    }
     return mainContent;
   }
 

@@ -27,6 +27,7 @@ import '../services/llm_settings_service.dart';
 
 import 'workflow_edit_screen.dart';
 import '../widgets/llm_settings_form_widget.dart';
+import '../widgets/agent_llm_selector_widget.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../services/external_tools_settings_service.dart';
 import '../services/github_mcp_library_service.dart';
@@ -2349,6 +2350,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
   SkillWizardResult? _activeSkill;
 
   // LLM Config Controllers
+  String? _selectedProfileId;
   bool _overrideLlm = false;
   late TextEditingController _llmProviderCtrl;
   late TextEditingController _llmBaseUrlCtrl;
@@ -2417,18 +2419,70 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     _loadSystemPrompt(widget.executor.systemPrompt ?? '');
     _promptCtrl = TextEditingController(text: widget.executor.prompt);
 
-    // AI Overrides initialization
+    // AI Overrides / LLM Profile initialization
     final llm = widget.executor.llmConfig;
+    final llmSettings = ref.read(llmSettingsProvider);
+    String initialProvider = 'gemini';
+    String initialModel = '';
+    String initialApiKey = '';
+    String initialBaseUrl = '';
+    double initialTemp = 0.2;
+    int initialMaxTokens = 0;
+
     if (llm != null) {
-      _overrideLlm = true;
-      _llmProviderCtrl = TextEditingController(text: llm.provider);
-      _llmBaseUrlCtrl = TextEditingController(text: llm.baseUrl ?? '');
-      _llmApiKeyCtrl = TextEditingController(text: llm.apiKey ?? '');
-      _llmModelCtrl = TextEditingController(text: llm.model);
+      final pid = llm.extraParams['profile_id'] as String?;
+      if (pid != null && llmSettings.profiles.any((p) => p.id == pid)) {
+        _selectedProfileId = pid;
+        final p = llmSettings.getProfile(pid)!;
+        initialProvider = p.provider.configKey;
+        initialModel = p.model;
+        initialApiKey = p.apiKey;
+        initialBaseUrl = p.baseUrl;
+        initialTemp = p.temperature;
+        initialMaxTokens = p.maxTokens;
+      } else {
+        final matchedProfile = llmSettings.profiles
+            .where(
+              (p) =>
+                  p.provider.configKey == llm.provider &&
+                  p.model == llm.model,
+            )
+            .firstOrNull;
+        if (matchedProfile != null) {
+          _selectedProfileId = matchedProfile.id;
+          initialProvider = matchedProfile.provider.configKey;
+          initialModel = matchedProfile.model;
+          initialApiKey = matchedProfile.apiKey;
+          initialBaseUrl = matchedProfile.baseUrl;
+          initialTemp = matchedProfile.temperature;
+          initialMaxTokens = matchedProfile.maxTokens;
+        } else {
+          _selectedProfileId = null;
+          initialProvider = llm.provider;
+          final prov = LlmProvider.fromConfigKey(llm.provider);
+          final known = defaultModels[prov] ?? const <String>[];
+          String modelVal = llm.model;
+          if (known.isNotEmpty && !known.contains(modelVal)) {
+            modelVal = known.first;
+          } else if (modelVal.isEmpty) {
+            modelVal = llmSettings.getModelForProvider(prov);
+          }
+          initialModel = modelVal;
+          initialApiKey = llm.apiKey ?? '';
+          initialBaseUrl = llm.baseUrl ?? '';
+          initialTemp = llm.temperature;
+          initialMaxTokens = llm.maxTokens;
+        }
+      }
+      _overrideLlm = _selectedProfileId == null;
+      _llmProviderCtrl = TextEditingController(text: initialProvider);
+      _llmBaseUrlCtrl = TextEditingController(text: initialBaseUrl);
+      _llmApiKeyCtrl = TextEditingController(text: initialApiKey);
+      _llmModelCtrl = TextEditingController(text: initialModel);
       _temperatureCtrl = TextEditingController(
-        text: llm.temperature.toString(),
+        text: initialTemp.toString(),
       );
-      _maxTokensCtrl = TextEditingController(text: llm.maxTokens.toString());
+      _maxTokensCtrl = TextEditingController(text: initialMaxTokens.toString());
       _isSlm = llm.extraParams['is_slm'] as bool? ?? false;
       _isMultiModal = llm.extraParams['is_multi_modal'] as bool? ?? true;
       _thinking = llm.extraParams['thinking'] as bool? ?? false;
@@ -2437,13 +2491,34 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       _useSafeToolCall =
           llm.extraParams['use_safe_tool_call'] as bool? ?? false;
     } else {
-      _overrideLlm = false;
-      _llmProviderCtrl = TextEditingController(text: 'gemini');
-      _llmBaseUrlCtrl = TextEditingController();
-      _llmApiKeyCtrl = TextEditingController();
-      _llmModelCtrl = TextEditingController();
-      _temperatureCtrl = TextEditingController(text: '0.2');
-      _maxTokensCtrl = TextEditingController(text: '0');
+      final defProfile = llmSettings.selectedProfile ??
+          (llmSettings.profiles.isNotEmpty
+              ? llmSettings.profiles.first
+              : null);
+      if (defProfile != null) {
+        _selectedProfileId = defProfile.id;
+        initialProvider = defProfile.provider.configKey;
+        initialModel = defProfile.model;
+        initialApiKey = defProfile.apiKey;
+        initialBaseUrl = defProfile.baseUrl;
+        initialTemp = defProfile.temperature;
+        initialMaxTokens = defProfile.maxTokens;
+      } else {
+        _selectedProfileId = null;
+        initialProvider = llmSettings.provider.configKey;
+        initialModel = llmSettings.model;
+        initialApiKey = llmSettings.apiKey;
+        initialBaseUrl = llmSettings.baseUrl;
+        initialTemp = llmSettings.temperature;
+        initialMaxTokens = llmSettings.maxTokens;
+      }
+      _overrideLlm = _selectedProfileId == null;
+      _llmProviderCtrl = TextEditingController(text: initialProvider);
+      _llmBaseUrlCtrl = TextEditingController(text: initialBaseUrl);
+      _llmApiKeyCtrl = TextEditingController(text: initialApiKey);
+      _llmModelCtrl = TextEditingController(text: initialModel);
+      _temperatureCtrl = TextEditingController(text: initialTemp.toString());
+      _maxTokensCtrl = TextEditingController(text: initialMaxTokens.toString());
       _isSlm = false;
       _isMultiModal = true;
       _thinking = false;
@@ -3133,8 +3208,49 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
     }
 
     // Build LLM Config
-    TaskLlmConfig? llmConfig;
-    if (_overrideLlm) {
+    TaskLlmConfig llmConfig;
+    final llmSettings = ref.read(llmSettingsProvider);
+    if (_selectedProfileId != null) {
+      final p = llmSettings.getProfile(_selectedProfileId!);
+      if (p != null) {
+        llmConfig = TaskLlmConfig(
+          provider: p.provider.configKey,
+          baseUrl: p.baseUrl.isNotEmpty ? p.baseUrl : null,
+          apiKey: p.apiKey.isNotEmpty ? p.apiKey : null,
+          model: p.model,
+          temperature: p.temperature,
+          maxTokens: p.maxTokens,
+          extraParams: {
+            'profile_id': p.id,
+            'is_slm': p.isSlm,
+            'is_multi_modal': p.isMultiModal,
+            'thinking': p.thinking,
+            'use_native_tool_call': p.useNativeToolCall,
+            'use_safe_tool_call': p.useSafeToolCall,
+            'max_tool_output_size': p.maxToolOutputSize,
+            'token_warning_threshold': p.tokenWarningThreshold,
+            if (p.topK != null) 'top_k': p.topK,
+            if (p.topP != null) 'top_p': p.topP,
+            if (p.repeatPenalty != null) 'repeat_penalty': p.repeatPenalty,
+            if (p.seed != null) 'seed': p.seed,
+          },
+        );
+      } else {
+        llmConfig = TaskLlmConfig(
+          provider: _llmProviderCtrl.text.trim(),
+          model: _llmModelCtrl.text.trim(),
+          apiKey: _llmApiKeyCtrl.text.trim().isNotEmpty
+              ? _llmApiKeyCtrl.text.trim()
+              : null,
+          baseUrl: _llmBaseUrlCtrl.text.trim().isNotEmpty
+              ? _llmBaseUrlCtrl.text.trim()
+              : null,
+          temperature: double.tryParse(_temperatureCtrl.text) ?? 0.2,
+          maxTokens: int.tryParse(_maxTokensCtrl.text) ?? 0,
+          extraParams: buildExtraParams(),
+        );
+      }
+    } else {
       llmConfig = TaskLlmConfig(
         provider: _llmProviderCtrl.text.trim(),
         model: _llmModelCtrl.text.trim(),
@@ -3310,7 +3426,7 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
       systemPrompt: getCombinedSystemPrompt(),
       prompt: _promptCtrl.text.trim(),
       llmConfig: llmConfig,
-      clearLlmConfig: !_overrideLlm,
+      clearLlmConfig: false,
       executionPlan: isFirstAgent ? null : executionPlan,
       clearExecutionPlan: !isFirstAgent && !_isAgentSchedulingEnabled(),
       internalMcps: savedInternalMcps,
@@ -3864,59 +3980,78 @@ class _AgentEditScreenState extends ConsumerState<AgentEditScreen>
         ? ref.read(serverApiClientProvider)
         : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SwitchListTile(
-          title: const Text('Override LLM settings'),
-          subtitle: const Text(
-            'Enable customized model settings for this agent',
-          ),
-          value: _overrideLlm,
-          onChanged: (val) {
-            setState(() => _overrideLlm = val);
-            _updateSkillsSection();
-          },
-          activeTrackColor: AppTheme.primaryBlue,
-          contentPadding: EdgeInsets.zero,
-        ),
-        if (_overrideLlm) ...[
-          LlmSettingsFormWidget(
-            providerKey: _llmProviderCtrl.text.trim(),
-            modelController: _llmModelCtrl,
-            apiKeyController: _llmApiKeyCtrl,
-            baseUrlController: _llmBaseUrlCtrl,
-            temperatureController: _temperatureCtrl,
-            maxTokensController: _maxTokensCtrl,
-            isSlm: _isSlm,
-            isMultiModal: _isMultiModal,
-            thinking: _thinking,
-            useNativeToolCall: _useNativeToolCall,
-            useSafeToolCall: _useSafeToolCall,
-            enableToolParameterAutoRecovery: true,
-            service: settings,
-            serverClient: serverClient,
-            showLlm2Option: true,
-            showNoneOption: true,
-            showEmbeddedOption: !isLightMode,
-            onProviderChanged: (key) {
-              setState(() {
-                _llmProviderCtrl.text = key;
-              });
-            },
-            onSlmChanged: (v) {
-              setState(() => _isSlm = v);
-              _updateSkillsSection();
-            },
-            onMultiModalChanged: (v) => setState(() => _isMultiModal = v),
-            onThinkingChanged: (v) => setState(() => _thinking = v),
-            onUseNativeToolCallChanged: (v) =>
-                setState(() => _useNativeToolCall = v),
-            onUseSafeToolCallChanged: (v) =>
-                setState(() => _useSafeToolCall = v),
-          ),
-        ],
-      ],
+    return AgentLlmSelectorWidget(
+      llmSettings: settings,
+      selectedProfileId: _selectedProfileId,
+      selectedProviderKey: _llmProviderCtrl.text.isNotEmpty
+          ? _llmProviderCtrl.text.trim()
+          : 'gemini',
+      onProfileSelected: (profileId) {
+        setState(() {
+          _selectedProfileId = profileId;
+          _overrideLlm = profileId == null;
+          if (profileId != null) {
+            final p = settings.getProfile(profileId);
+            if (p != null) {
+              _llmProviderCtrl.text = p.provider.configKey;
+              _llmModelCtrl.text = p.model;
+              _llmBaseUrlCtrl.text = p.baseUrl;
+              _llmApiKeyCtrl.text = p.apiKey;
+              _temperatureCtrl.text = p.temperature.toString();
+              _maxTokensCtrl.text = p.maxTokens.toString();
+            }
+          }
+        });
+        _updateSkillsSection();
+      },
+      onProviderSelected: (providerKey) {
+        setState(() {
+          _selectedProfileId = null;
+          _overrideLlm = true;
+          _llmProviderCtrl.text = providerKey;
+          final defaults =
+              defaultModels[LlmProvider.fromConfigKey(providerKey)] ??
+                  const <String>[];
+          _llmModelCtrl.text = defaults.isNotEmpty ? defaults.first : '';
+        });
+        _updateSkillsSection();
+      },
+      editablePanel: LlmSettingsFormWidget(
+        providerKey: _llmProviderCtrl.text.trim(),
+        modelController: _llmModelCtrl,
+        apiKeyController: _llmApiKeyCtrl,
+        baseUrlController: _llmBaseUrlCtrl,
+        temperatureController: _temperatureCtrl,
+        maxTokensController: _maxTokensCtrl,
+        isSlm: _isSlm,
+        isMultiModal: _isMultiModal,
+        thinking: _thinking,
+        useNativeToolCall: _useNativeToolCall,
+        useSafeToolCall: _useSafeToolCall,
+        enableToolParameterAutoRecovery: true,
+        service: settings,
+        serverClient: serverClient,
+        showLlm2Option: true,
+        showNoneOption: true,
+        showEmbeddedOption: !isLightMode,
+        onProviderChanged: (key) {
+          setState(() {
+            _llmProviderCtrl.text = key;
+          });
+          _updateSkillsSection();
+        },
+        onSlmChanged: (v) {
+          setState(() => _isSlm = v);
+          _updateSkillsSection();
+        },
+        onMultiModalChanged: (v) => setState(() => _isMultiModal = v),
+        onThinkingChanged: (v) => setState(() => _thinking = v),
+        onUseNativeToolCallChanged: (v) =>
+            setState(() => _useNativeToolCall = v),
+        onUseSafeToolCallChanged: (v) =>
+            setState(() => _useSafeToolCall = v),
+      ),
+      showEmbeddedOption: !isLightMode,
     );
   }
 

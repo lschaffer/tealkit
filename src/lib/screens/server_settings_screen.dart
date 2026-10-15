@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -253,11 +254,12 @@ class _ServerSettingsScreenState extends ConsumerState<ServerSettingsScreen> {
       appBar: AppBar(
         title: Text(l10n.serverSettingsTitle),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'Talker Log Monitor',
-            onPressed: () => openTalkerScreen(context),
-          ),
+          if (!kReleaseMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'Talker Log Monitor',
+              onPressed: () => openTalkerScreen(context),
+            ),
         ],
       ),
       body: modeAsync.when(

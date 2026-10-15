@@ -466,6 +466,18 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
                         'Provide xAxis labels, series data, optional title, xAxisTitle, yAxisTitle. '
                         'Use statistics_summary for a 4-panel dashboard.',
             );
+          case 'coding_tools':
+            final isWin = Platform.isWindows;
+            final os = Platform.operatingSystem;
+            final osNotice = isWin
+                ? 'Windows host (${Platform.operatingSystemVersion}): terminal_exec executes via cmd.exe. DO NOT use Linux/POSIX commands ("head", "tail", "cat", "grep", "ls", "export") or bash pipes; use native CLI flags (e.g. "git log -n 20") or pure-Dart filesystem tools (fs_read_file, fs_find).'
+                : '$os host: terminal_exec runs in POSIX shell.';
+            capabilityHints.add(
+              isCompact
+                  ? 'Coding tools: fs_find, fs_read_file, fs_write_file, fs_replace_text, terminal_exec. $osNotice'
+                  : 'Coding tools: use fs_find, fs_list_dir, fs_read_file, fs_write_file, fs_replace_text, and terminal_exec. '
+                    '$osNotice',
+            );
         }
       }
 

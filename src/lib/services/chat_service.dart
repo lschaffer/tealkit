@@ -164,6 +164,7 @@ class ChatService extends ChangeNotifier with ServiceLogging {
   // Tool iteration counter to prevent infinite loops
   int _toolIterationCount = 0;
   int maxToolIterations = 10; // Configurable maximum tool iterations per user request
+  bool isCodingMode = false; // When true, autonomous coding agent mode is active (bypasses tool preselection)
   bool _forceNoToolCallsNextTurn = false;
   String? _forcedNoToolHintNextTurn;
 
@@ -2720,8 +2721,29 @@ RULES (follow strictly):
           }
         } else {
           // All tools are selected.
-          // Build semantic query from original user message + most recent tool call context
-          String semanticQuery = lastUserMessage.content;
+          final hasCodingTools = isCodingMode ||
+              mcpClient.availableTools.any(
+                (t) =>
+                    t.name == 'fs_list_dir' ||
+                    t.name == 'fs_read_file' ||
+                    t.name == 'terminal_exec' ||
+                    t.name == 'fs_find',
+              );
+
+          final bool shouldBypassPreselection = hasCodingTools || _toolIterationCount > 0;
+
+          if (shouldBypassPreselection) {
+            final allTools = mcpClient.availableTools.toList();
+            allTools.sort((a, b) => a.name.compareTo(b.name));
+            toolsToSend = allTools;
+            talker.info(
+              hasCodingTools
+                  ? '💻 [Coding Mode] Bypassing tool preselection — sending all ${toolsToSend.length} tools directly'
+                  : '🔄 [Multi-Turn Loop] Tool iteration $_toolIterationCount active — retaining all ${toolsToSend.length} tools',
+            );
+          } else {
+            // Build semantic query from original user message + most recent tool call context
+            String semanticQuery = lastUserMessage.content;
           if (_toolIterationCount > 0 && _toolIterationCount <= 2) {
             final lastToolMessage = chatMessages.lastWhere(
               (m) =>
@@ -2914,6 +2936,7 @@ RULES (follow strictly):
             }
           }
         }
+      }
       } else {
         toolsToSend = null;
       }

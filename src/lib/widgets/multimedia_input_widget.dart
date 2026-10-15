@@ -41,7 +41,10 @@ class MultimediaInputWidget extends StatefulWidget {
     this.initialText,
     this.controller,
     this.onToolSelectionChanged,
+    this.isCodingMode = false,
   });
+
+  final bool isCodingMode;
 
   @override
   State<MultimediaInputWidget> createState() => _MultimediaInputWidgetState();
@@ -193,6 +196,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                 maxLines: 6,
                 hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
                 onAttachmentsPasted: _handleAttachmentsPasted,
+                isCodingMode: widget.isCodingMode,
               ),
             ),
           ),
@@ -243,6 +247,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                   maxLines: 6,
                   hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Message AI Playground...',
                   onAttachmentsPasted: _handleAttachmentsPasted,
+                  isCodingMode: widget.isCodingMode,
                   leading: isMultiModal ? _buildAttachmentButton() : null,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -304,6 +309,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                       maxLines: 6,
                       hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
                       onAttachmentsPasted: _handleAttachmentsPasted,
+                      isCodingMode: widget.isCodingMode,
                     ),
                   ),
                 ),
