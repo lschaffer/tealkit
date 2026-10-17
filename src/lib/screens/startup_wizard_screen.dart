@@ -1415,6 +1415,105 @@ class _GenericCard extends StatelessWidget {
           ),
           const Divider(height: 24),
 
+          // ── Auto Reduce Image Size ──────────────────────────────────────
+          Row(
+            children: [
+              Icon(Icons.photo_size_select_large, size: 18, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      prefs.locale == 'de'
+                          ? 'Bildgröße automatisch reduzieren'
+                          : 'Auto Reduce Image Size',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      prefs.locale == 'de'
+                          ? 'Verkleinert Bilder vor dem Senden an visuelle LLMs (1280px empfohlen).'
+                          : 'Downscale images before uploading to visual LLMs (1280px recommended).',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: prefs.autoReduceImageSize,
+                onChanged: (val) => prefs.setAutoReduceImageSize(val),
+              ),
+            ],
+          ),
+          if (prefs.autoReduceImageSize) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      prefs.locale == 'de' ? 'Maximale Dimension:' : 'Max Dimension:',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+                    ),
+                  ),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: prefs.maxImageDimension,
+                      isDense: true,
+                      items: [
+                        DropdownMenuItem(
+                          value: 768,
+                          child: Text(
+                            '768px (${prefs.locale == "de" ? "Kompakt" : "Compact"})',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 1024,
+                          child: Text(
+                            '1024px (${prefs.locale == "de" ? "Ausgewogen" : "Balanced"})',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 1280,
+                          child: Text(
+                            '1280px (${prefs.locale == "de" ? "Empfohlen" : "Recommended"})',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 1600,
+                          child: Text(
+                            '1600px (${prefs.locale == "de" ? "Hohe Details" : "High Detail"})',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 2048,
+                          child: Text(
+                            '2048px (${prefs.locale == "de" ? "Maximal" : "Maximum"})',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          prefs.setMaxImageDimension(val);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const Divider(height: 24),
+
           // ── Settings Vault ───────────────────────────────────────────────
           _ActionRow(
             icon: Icons.lock_outlined,

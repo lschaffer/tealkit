@@ -340,10 +340,129 @@ class MultiMCPManager extends ChangeNotifier implements MCPClientInterface {
     await Future.wait(disconnectedClients.map((clientDef) => reconnectServer(clientDef.name)), eagerError: false);
   }
 
+  static final MCPTool mcpListToolsDef = MCPTool(
+    name: 'mcp_list_tools',
+    description:
+        'List all available tools across connected MCP servers and local extensions with their descriptions and parameter summaries. Use this to discover specialized tools when needed without cluttering the initial context.',
+    inputSchema: {
+      'type': 'object',
+      'properties': {
+        'server_name': {
+          'type': 'string',
+          'description': 'Optional filter to list tools from a specific server only.',
+        },
+        'query': {
+          'type': 'string',
+          'description': 'Optional search keyword or capability query to filter tools.',
+        },
+      },
+    },
+  );
+
+  static final MCPTool mcpCallToolDef = MCPTool(
+    name: 'mcp_call_tool',
+    description:
+        'Invoke an MCP or local tool by name using the parameters discovered from mcp_list_tools.',
+    inputSchema: {
+      'type': 'object',
+      'properties': {
+        'tool_name': {
+          'type': 'string',
+          'description': 'The exact name of the tool to invoke.',
+        },
+        'arguments': {
+          'type': 'object',
+          'description': 'Key-value map of arguments to pass to the tool.',
+        },
+      },
+      'required': ['tool_name', 'arguments'],
+    },
+  );
+
   /// Call a tool on the appropriate server (implements MCPClientInterface)
   @override
   Future<MCPToolResult> callTool(String toolName, Map<String, dynamic> arguments) async {
     talker.info('MultiMCPManager: Calling tool $toolName');
+
+    if (toolName == 'mcp_list_tools') {
+      final query = (arguments['query'] as String?)?.toLowerCase().trim();
+      final serverFilter = (arguments['server_name'] as String?)?.toLowerCase().trim();
+      var matching = availableTools
+          .where((t) => t.name != 'mcp_list_tools' && t.name != 'mcp_call_tool')
+          .toList();
+      if (serverFilter != null && serverFilter.isNotEmpty) {
+        final serverMatches = matching.where((t) {
+          final client = _clients.firstWhere(
+            (c) => c.availableTools.any((ct) => ct.name == t.name),
+            orElse: () => _clients.first,
+          );
+          return client.name.toLowerCase().contains(serverFilter) ||
+              (client.displayName ?? '').toLowerCase().contains(serverFilter);
+        }).toList();
+        // Only apply server filter if it matched an actual server; otherwise ignore hallucinated server names
+        if (serverMatches.isNotEmpty) {
+          matching = serverMatches;
+        }
+      }
+      if (query != null && query.isNotEmpty) {
+        final queryWords = query
+            .split(RegExp(r'[\s,_]+'))
+            .where((w) => w.length >= 3)
+            .toList();
+        final queryFiltered = matching.where((t) {
+          final nameLower = t.name.toLowerCase();
+          final descLower = (t.description ?? '').toLowerCase();
+          if (nameLower.contains(query) || descLower.contains(query)) return true;
+          if (queryWords.isNotEmpty) {
+            return queryWords.any((w) => nameLower.contains(w) || descLower.contains(w));
+          }
+          return false;
+        }).toList();
+        if (queryFiltered.isNotEmpty) {
+          matching = queryFiltered;
+        }
+      }
+
+      if (matching.isEmpty) {
+        return MCPToolResult(
+          content: [
+            MCPContent(
+              type: 'text',
+              text:
+                  'No tools matched query "$query". Total available tools: ${availableTools.length} (call without query to list all).',
+            ),
+          ],
+        );
+      }
+
+      final buf = StringBuffer();
+      buf.writeln('Available tools (${matching.length}):\n');
+      for (final t in matching) {
+        // Keep description concise to avoid context blowup in local models
+        String desc = t.description ?? 'No description';
+        final firstSentence = desc.split('. ').first.trim();
+        final cleanDesc = firstSentence.length > 140 ? '${firstSentence.substring(0, 140)}...' : firstSentence;
+        buf.writeln('• ${t.name}: $cleanDesc');
+        final props = t.inputSchema?['properties'];
+        if (props is Map && props.isNotEmpty) {
+          buf.writeln('  Parameters: ${props.keys.join(", ")}');
+        }
+      }
+      return MCPToolResult(
+        content: [
+          MCPContent(type: 'text', text: buf.toString().trim()),
+        ],
+      );
+    }
+
+    if (toolName == 'mcp_call_tool') {
+      final targetTool = arguments['tool_name'] as String? ?? '';
+      final targetArgs = arguments['arguments'] is Map
+          ? Map<String, dynamic>.from(arguments['arguments'] as Map)
+          : <String, dynamic>{};
+      talker.info('⚡ [mcp_call_tool] Delegating dynamic execution to tool: "$targetTool"');
+      return await callTool(targetTool, targetArgs);
+    }
 
     final resolvedName = _resolveToolName(toolName);
     if (resolvedName != toolName) {

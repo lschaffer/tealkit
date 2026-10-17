@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:dart_mcp_core/dart_mcp_core.dart';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 /// Represents an attachment staged in the CLI session.
@@ -48,6 +49,49 @@ class CliAttachment {
 
 /// Helper for loading and preparing file attachments.
 class CliAttachmentHelper {
+  /// Recommended max dimension for visual LLM input (1280px).
+  static const int maxImageDimension = 1280;
+
+  /// Always enabled image shrinking for CLI chat and coding modes.
+  /// Downscales images exceeding [maxDimension] keeping aspect ratio.
+  static ({Uint8List bytes, String mimeType}) shrinkImage(
+    Uint8List originalBytes,
+    String mimeType, {
+    int maxDimension = maxImageDimension,
+  }) {
+    if (originalBytes.isEmpty) {
+      return (bytes: originalBytes, mimeType: mimeType);
+    }
+    try {
+      final decoded = img.decodeImage(originalBytes);
+      if (decoded == null) {
+        return (bytes: originalBytes, mimeType: mimeType);
+      }
+      final width = decoded.width;
+      final height = decoded.height;
+      if (width <= maxDimension && height <= maxDimension) {
+        return (bytes: originalBytes, mimeType: mimeType);
+      }
+
+      img.Image resized;
+      if (width >= height) {
+        resized = img.copyResize(decoded, width: maxDimension);
+      } else {
+        resized = img.copyResize(decoded, height: maxDimension);
+      }
+
+      if (mimeType == 'image/png' && decoded.hasAlpha) {
+        final encoded = img.encodePng(resized);
+        return (bytes: Uint8List.fromList(encoded), mimeType: 'image/png');
+      } else {
+        final encoded = img.encodeJpg(resized, quality: 85);
+        return (bytes: Uint8List.fromList(encoded), mimeType: 'image/jpeg');
+      }
+    } catch (_) {
+      return (bytes: originalBytes, mimeType: mimeType);
+    }
+  }
+
   /// Loads a file from disk and parses text/image attributes.
   static Future<CliAttachment> fromFile(
     String inputPath, {
@@ -71,22 +115,29 @@ class CliAttachmentHelper {
     final bytes = await file.readAsBytes();
     final name = p.basename(resolvedPath);
     final ext = p.extension(resolvedPath).toLowerCase();
-    final mimeType = _detectMimeType(name, ext);
-    final isImage = mimeType.startsWith('image/');
+    final rawMime = _detectMimeType(name, ext);
+    final isImage = rawMime.startsWith('image/');
 
     String? extractedText;
-    if (!isImage) {
+    Uint8List finalBytes = bytes;
+    String finalMimeType = rawMime;
+
+    if (isImage) {
+      final shrunk = shrinkImage(bytes, rawMime);
+      finalBytes = shrunk.bytes;
+      finalMimeType = shrunk.mimeType;
+    } else {
       extractedText = _tryExtractText(bytes, ext);
     }
 
     return CliAttachment(
-      id: 'att_${DateTime.now().millisecondsSinceEpoch}_${bytes.length}',
+      id: 'att_${DateTime.now().millisecondsSinceEpoch}_${finalBytes.length}',
       name: name,
       path: resolvedPath,
-      mimeType: mimeType,
-      sizeBytes: bytes.length,
+      mimeType: finalMimeType,
+      sizeBytes: finalBytes.length,
       isImage: isImage,
-      bytes: bytes,
+      bytes: finalBytes,
       extractedText: extractedText,
     );
   }
@@ -100,14 +151,23 @@ class CliAttachmentHelper {
     String? textContent,
   }) {
     final isImage = mimeType.startsWith('image/');
+    Uint8List finalBytes = bytes;
+    String finalMimeType = mimeType;
+
+    if (isImage) {
+      final shrunk = shrinkImage(bytes, mimeType);
+      finalBytes = shrunk.bytes;
+      finalMimeType = shrunk.mimeType;
+    }
+
     return CliAttachment(
-      id: 'att_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'att_${DateTime.now().millisecondsSinceEpoch}_${finalBytes.length}',
       name: name,
       path: path,
-      mimeType: mimeType,
-      sizeBytes: bytes.length,
+      mimeType: finalMimeType,
+      sizeBytes: finalBytes.length,
       isImage: isImage,
-      bytes: bytes,
+      bytes: finalBytes,
       extractedText: textContent ?? (!isImage ? _tryExtractText(bytes, p.extension(name)) : null),
     );
   }

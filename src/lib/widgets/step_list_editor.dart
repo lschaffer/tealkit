@@ -6,8 +6,9 @@ import 'package:material_ui/material_ui.dart' hide Step;
 import '../config/app_theme.dart';
 import '../models/mcp_models.dart';
 import '../models/step_types.dart';
-import '../services/app_preferences_service.dart';
+//
 import '../services/desktop_clipboard_service.dart';
+import '../utils/image_downscaler.dart';
 
 export '../models/step_types.dart' show Step, parseWorkflowSteps, serializeWorkflowSteps, stepSepRegex;
 
@@ -120,6 +121,7 @@ class StepListEditor extends StatefulWidget {
 
 class _SubPromptListEditorState extends State<StepListEditor> {
   late List<SubPromptEntry> _entries;
+  int _activeTabIndex = 0;
 
   @override
   void initState() {
@@ -221,6 +223,9 @@ class _SubPromptListEditorState extends State<StepListEditor> {
       for (final e in _entries) {
         e.controller.addListener(_onEntryChanged);
       }
+      if (_activeTabIndex >= _entries.length) {
+        _activeTabIndex = _entries.isEmpty ? 0 : _entries.length - 1;
+      }
     });
   }
 
@@ -234,7 +239,9 @@ class _SubPromptListEditorState extends State<StepListEditor> {
         stopAfterToolCall: false,
       );
       e.controller.addListener(_onEntryChanged);
-      _entries.insert(index + 1, e);
+      final insertAt = (index + 1).clamp(0, _entries.length);
+      _entries.insert(insertAt, e);
+      _activeTabIndex = insertAt;
       _onEntryChanged();
     });
   }
@@ -245,6 +252,9 @@ class _SubPromptListEditorState extends State<StepListEditor> {
       _entries[index].controller.removeListener(_onEntryChanged);
       _entries[index].dispose();
       _entries.removeAt(index);
+      if (_activeTabIndex >= _entries.length) {
+        _activeTabIndex = _entries.length - 1;
+      }
       _onEntryChanged();
     });
   }
@@ -285,15 +295,25 @@ class _SubPromptListEditorState extends State<StepListEditor> {
           if (data.data != null && widget.onAttachmentsPasted != null) {
             final mime = data.mimeType;
             final isImg = mime.startsWith('image/');
-            final ext = mime.split('/').last;
+            var finalBytes = data.data!;
+            var finalMime = mime;
+            if (isImg) {
+              final result = await ImageDownscaler.downscaleIfNeeded(
+                bytes: finalBytes,
+                originalMimeType: mime,
+              );
+              finalBytes = result.bytes;
+              finalMime = result.mimeType;
+            }
+            final ext = finalMime.split('/').last;
             final att = MessageAttachment(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
               type: isImg ? AttachmentType.image : AttachmentType.file,
               path: 'clipboard_insert',
               name: 'pasted_media.$ext',
-              size: data.data!.length,
-              mimeType: mime,
-              bytes: data.data,
+              size: finalBytes.length,
+              mimeType: finalMime,
+              bytes: finalBytes,
             );
             widget.onAttachmentsPasted!([att]);
           }
@@ -375,415 +395,258 @@ class _SubPromptListEditorState extends State<StepListEditor> {
 
   @override
   Widget build(BuildContext context) {
+    if (_entries.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final activeIdx = _activeTabIndex.clamp(0, _entries.length - 1);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (int i = 0; i < _entries.length; i++) _buildRow(context, i)],
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildTopTabBarWithActions(context, theme, activeIdx),
+        _buildActiveStep(context, activeIdx),
+      ],
     );
   }
 
-  Widget _buildRow(BuildContext context, int index) {
+  Widget _buildTopTabBarWithActions(
+    BuildContext context,
+    ThemeData theme,
+    int activeIdx,
+  ) {
+    final entry = _entries[activeIdx];
     final isMobile = MediaQuery.of(context).size.width < 600;
-    final entry = _entries[index];
-    final theme = Theme.of(context);
     final hasTools = widget.availableToolGroups.isNotEmpty;
-    final uiStyle = AppPreferencesService.instance.uiStyle;
-    final isModern = uiStyle == 'modern';
-
-    if (isModern) {
-      return Padding(
-        padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (index > 0)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Expanded(child: Divider(color: theme.dividerColor, height: 1)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Step ${index + 1}', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
-                    ),
-                    Expanded(child: Divider(color: theme.dividerColor, height: 1)),
-                  ],
-                ),
-              ),
-            Container(
-              decoration: BoxDecoration(
-                color: theme.brightness == Brightness.dark
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : Colors.black.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(isMobile ? 16 : 28),
-                border: Border.all(
-                  color: theme.brightness == Brightness.dark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.08),
-                  width: 1,
-                ),
-              ),
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 8 : 4),
-              child: isMobile
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            if (index == 0 && widget.leading != null) ...[
-                              widget.leading!,
-                              const SizedBox(width: 4),
-                            ],
-                            Expanded(
-                              child: _buildStepTextField(
-                                context,
-                                entry,
-                                index,
-                                InputDecoration(
-                                  hintText: index == 0
-                                      ? (widget.hintText ?? 'Message AI Playground...')
-                                      : 'Continue...  use \${tool_result} to inject prior step output',
-                                  hintStyle: TextStyle(
-                                    color: theme.brightness == Brightness.dark ? Colors.white38 : Colors.black38,
-                                    fontSize: 14,
-                                  ),
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  focusedErrorBorder: InputBorder.none,
-                                  errorBorder: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 12, thickness: 0.5),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (!widget.chatMode && hasTools)
-                              _ToolsChecklistButton(
-                                entry: entry,
-                                stepIndex: index,
-                                availableToolGroups: widget.availableToolGroups,
-                                isMobile: isMobile,
-                                onChanged: (names) => _setEnabledTools(index, names),
-                              ),
-                            if (!widget.chatMode && !widget.isCodingMode)
-                              _StopAfterToolCallBtn(
-                                active: entry.stopAfterToolCall,
-                                onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
-                              ),
-                            if (!widget.isCodingMode) ...[
-                              const SizedBox(width: 8),
-                              _IconBtn(
-                                icon: Icons.add_circle_outline,
-                                color: AppTheme.primaryBlue,
-                                tooltip: 'Add step after this one',
-                                onPressed: () => _addEntryAfter(index),
-                              ),
-                            ],
-                            if (_entries.length > 1)
-                              _IconBtn(
-                                icon: Icons.remove_circle_outline,
-                                color: theme.colorScheme.error,
-                                tooltip: 'Remove this step',
-                                onPressed: () => _removeEntry(index),
-                              ),
-                            if (index == 0 && widget.trailing != null) ...[
-                              const SizedBox(width: 8),
-                              widget.trailing!,
-                            ],
-                          ],
-                        ),
-                      ],
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (index == 0 && widget.leading != null) ...[
-                          widget.leading!,
-                          const SizedBox(width: 4),
-                        ],
-                        Expanded(
-                          child: _buildStepTextField(
-                            context,
-                            entry,
-                            index,
-                            InputDecoration(
-                              hintText: index == 0
-                                  ? (widget.hintText ?? 'Message AI Playground...')
-                                  : 'Continue...  use \${tool_result} to inject prior step output',
-                              hintStyle: TextStyle(
-                                color: theme.brightness == Brightness.dark ? Colors.white38 : Colors.black38,
-                                fontSize: 14,
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!widget.chatMode && hasTools)
-                              _ToolsChecklistButton(
-                                entry: entry,
-                                stepIndex: index,
-                                availableToolGroups: widget.availableToolGroups,
-                                isMobile: isMobile,
-                                onChanged: (names) => _setEnabledTools(index, names),
-                              ),
-                            if (!widget.chatMode && !widget.isCodingMode)
-                              _StopAfterToolCallBtn(
-                                active: entry.stopAfterToolCall,
-                                onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
-                              ),
-                            if (!widget.isCodingMode)
-                              _IconBtn(
-                                icon: Icons.add_circle_outline,
-                                color: AppTheme.primaryBlue,
-                                tooltip: 'Add step after this one',
-                                onPressed: () => _addEntryAfter(index),
-                              ),
-                            if (_entries.length > 1)
-                              _IconBtn(
-                                icon: Icons.remove_circle_outline,
-                                color: theme.colorScheme.error,
-                                tooltip: 'Remove this step',
-                                onPressed: () => _removeEntry(index),
-                              ),
-                            if (index == 0 && widget.trailing != null) ...[
-                              const SizedBox(width: 8),
-                              widget.trailing!,
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-      );
-    }
 
     return Padding(
-      padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (index > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+          // Horizontally scrollable tabs on the left
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(child: Divider(color: theme.dividerColor, height: 1)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('Step ${index + 1}', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
-                  ),
-                  Expanded(child: Divider(color: theme.dividerColor, height: 1)),
-                ],
-              ),
-            ),
-          if (isMobile) ...[
-            _buildStepTextField(
-              context,
-              entry,
-              index,
-              InputDecoration(
-                hintText: index == 0
-                    ? (widget.hintText ?? 'Enter your prompt...')
-                    : 'Continue...  use \${tool_result} to inject prior step output',
-                hintStyle: TextStyle(
-                  color: isModern
-                      ? (theme.brightness == Brightness.dark ? Colors.white38 : Colors.black38)
-                      : null,
-                ),
-                filled: isModern,
-                fillColor: isModern
-                    ? (theme.brightness == Brightness.dark
-                        ? Colors.white.withValues(alpha: 0.04)
-                        : Colors.black.withValues(alpha: 0.03))
-                    : null,
-                border: isModern
-                    ? OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: theme.brightness == Brightness.dark ? Colors.white12 : Colors.black12,
+                  for (int i = 0; i < _entries.length; i++) ...[
+                    _buildTabHeader(theme, i),
+                    const SizedBox(width: 6),
+                  ],
+                  Tooltip(
+                    message: 'Add step',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => _addEntryAfter(_entries.length - 1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                      )
-                    : const OutlineInputBorder(),
-                enabledBorder: isModern
-                    ? OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: theme.brightness == Brightness.dark ? Colors.white10 : Colors.black12,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                          ),
                         ),
-                      )
-                    : null,
-                focusedBorder: isModern
-                    ? OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: theme.brightness == Brightness.dark
-                              ? const Color(0xFF06B6D4) // Cyan
-                              : const Color(0xFF7C3AED), // Violet
-                          width: 1.5,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.add_rounded,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Step',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                    : null,
-                isDense: true,
-                contentPadding: isModern
-                    ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
-                    : const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (!widget.chatMode && hasTools)
-                  _ToolsChecklistButton(
-                    entry: entry,
-                    stepIndex: index,
-                    availableToolGroups: widget.availableToolGroups,
-                    isMobile: isMobile,
-                    onChanged: (names) => _setEnabledTools(index, names),
-                  ),
-                if (!widget.chatMode && !widget.isCodingMode)
-                  _StopAfterToolCallBtn(
-                    active: entry.stopAfterToolCall,
-                    onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
-                  ),
-                if (!widget.isCodingMode) ...[
-                  const SizedBox(width: 8),
-                  _IconBtn(
-                    icon: Icons.add_circle_outline,
-                    color: AppTheme.primaryBlue,
-                    tooltip: 'Add step after this one',
-                    onPressed: () => _addEntryAfter(index),
-                  ),
-                ],
-                if (_entries.length > 1)
-                  _IconBtn(
-                    icon: Icons.remove_circle_outline,
-                    color: theme.colorScheme.error,
-                    tooltip: 'Remove this step',
-                    onPressed: () => _removeEntry(index),
-                  ),
-              ],
-            ),
-          ] else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildStepTextField(
-                    context,
-                    entry,
-                    index,
-                    InputDecoration(
-                      hintText: index == 0
-                          ? (widget.hintText ?? 'Enter your prompt...')
-                          : 'Continue...  use \${tool_result} to inject prior step output',
-                      hintStyle: TextStyle(
-                        color: isModern
-                            ? (theme.brightness == Brightness.dark ? Colors.white38 : Colors.black38)
-                            : null,
                       ),
-                      filled: isModern,
-                      fillColor: isModern
-                          ? (theme.brightness == Brightness.dark
-                              ? Colors.white.withValues(alpha: 0.04)
-                              : Colors.black.withValues(alpha: 0.03))
-                          : null,
-                      border: isModern
-                          ? OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
-                                color: theme.brightness == Brightness.dark ? Colors.white12 : Colors.black12,
-                              ),
-                            )
-                          : const OutlineInputBorder(),
-                      enabledBorder: isModern
-                          ? OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
-                                color: theme.brightness == Brightness.dark ? Colors.white10 : Colors.black12,
-                              ),
-                            )
-                          : null,
-                      focusedBorder: isModern
-                          ? OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
-                                color: theme.brightness == Brightness.dark
-                                    ? const Color(0xFF06B6D4) // Cyan
-                                    : const Color(0xFF7C3AED), // Violet
-                                width: 1.5,
-                              ),
-                            )
-                          : null,
-                      isDense: true,
-                      contentPadding: isModern
-                          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
-                          : const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Action controls on the right
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!widget.chatMode && hasTools) ...[
+                _ToolsChecklistButton(
+                  entry: entry,
+                  stepIndex: activeIdx,
+                  availableToolGroups: widget.availableToolGroups,
+                  isMobile: isMobile,
+                  onChanged: (names) => _setEnabledTools(activeIdx, names),
+                ),
+                const SizedBox(width: 4),
+              ],
+              if (!widget.chatMode && !widget.isCodingMode) ...[
+                _StopAfterToolCallBtn(
+                  active: entry.stopAfterToolCall,
+                  onToggle: () => _setStopAfterToolCall(
+                    activeIdx,
+                    !entry.stopAfterToolCall,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!widget.chatMode && hasTools)
-                        _ToolsChecklistButton(
-                          entry: entry,
-                          stepIndex: index,
-                          availableToolGroups: widget.availableToolGroups,
-                          isMobile: isMobile,
-                          onChanged: (names) => _setEnabledTools(index, names),
-                        ),
-                      if (!widget.chatMode && !widget.isCodingMode)
-                        _StopAfterToolCallBtn(
-                          active: entry.stopAfterToolCall,
-                          onToggle: () => _setStopAfterToolCall(index, !entry.stopAfterToolCall),
-                        ),
-                      if (!widget.isCodingMode) ...[
-                        const SizedBox(height: 4),
-                        _IconBtn(
-                          icon: Icons.add_circle_outline,
-                          color: AppTheme.primaryBlue,
-                          tooltip: 'Add step after this one',
-                          onPressed: () => _addEntryAfter(index),
-                        ),
-                      ],
-                      if (_entries.length > 1)
-                        _IconBtn(
-                          icon: Icons.remove_circle_outline,
-                          color: theme.colorScheme.error,
-                          tooltip: 'Remove this step',
-                          onPressed: () => _removeEntry(index),
-                        ),
-                    ],
-                  ),
+              ],
+              if (!widget.isCodingMode) ...[
+                _IconBtn(
+                  icon: Icons.add_circle_outline,
+                  color: const Color(0xFF00ACC1),
+                  tooltip: 'Add step after this one',
+                  onPressed: () => _addEntryAfter(activeIdx),
                 ),
               ],
-            ),
-          ],
+              if (_entries.length > 1) ...[
+                const SizedBox(width: 4),
+                _IconBtn(
+                  icon: Icons.remove_circle_outline,
+                  color: theme.colorScheme.error,
+                  tooltip: 'Remove this step',
+                  onPressed: () => _removeEntry(activeIdx),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTabHeader(ThemeData theme, int index) {
+    final isSelected = index == _activeTabIndex;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => setState(() => _activeTabIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.only(
+          left: 10,
+          right: _entries.length > 1 ? 4 : 10,
+          top: 4,
+          bottom: 4,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.dividerColor.withValues(alpha: 0.4),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Step ${index + 1}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (_entries.length > 1) ...[
+              const SizedBox(width: 4),
+              Tooltip(
+                message: 'Delete Step ${index + 1}',
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _removeEntry(index),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2.0),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: isSelected
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveStep(BuildContext context, int index) {
+    final entry = _entries[index];
+    final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    final textField = _buildStepTextField(
+      context,
+      entry,
+      index,
+      InputDecoration(
+        hintText: index == 0
+            ? (widget.hintText ?? 'Message AI Playground...')
+            : r'Continue...  use ${tool_result} to inject prior step output',
+        hintStyle: TextStyle(
+          color: theme.brightness == Brightness.dark ? Colors.white38 : Colors.black38,
+          fontSize: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isMobile ? 16 : 24),
+          borderSide: BorderSide(
+            color: theme.dividerColor.withValues(alpha: 0.5),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isMobile ? 16 : 24),
+          borderSide: BorderSide(
+            color: theme.dividerColor.withValues(alpha: 0.5),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isMobile ? 16 : 24),
+          borderSide: BorderSide(
+            color: theme.colorScheme.primary,
+            width: 1.5,
+          ),
+        ),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 10 : 14,
+          vertical: 10,
+        ),
+      ),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (widget.leading != null) ...[
+          widget.leading!,
+          SizedBox(width: isMobile ? 2 : 4),
+        ],
+        Expanded(child: textField),
+        if (widget.trailing != null) ...[
+          SizedBox(width: isMobile ? 2 : 4),
+          widget.trailing!,
+        ],
+      ],
     );
   }
 }

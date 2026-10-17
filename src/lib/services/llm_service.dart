@@ -17,6 +17,7 @@ import '../config/tool_usage_rules.dart';
 import 'embedded_llm/embedded_llm_adapter.dart';
 import 'embedded_llm/embedded_model_manager.dart';
 import 'llm_settings_service.dart';
+import '../utils/image_downscaler.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mistral response-patch HTTP client
@@ -31,11 +32,13 @@ class _MistralPatchClient extends http.BaseClient {
     this.targetProvider,
     this.targetBaseUrl,
     this.targetApiKey,
+    this.isMistral = false,
   });
   final http.Client _inner;
   final String? targetProvider;
   final String? targetBaseUrl;
   final String? targetApiKey;
+  final bool isMistral;
 
   Map<String, dynamic> _sanitizeMistralChatRequest(
     Map<String, dynamic> payload,
@@ -138,15 +141,20 @@ class _MistralPatchClient extends http.BaseClient {
     }
 
     // Patch outgoing chat/completions requests for strict Mistral ordering.
-    if (request.method.toUpperCase() == 'POST' &&
+    if (isMistral &&
+        request.method.toUpperCase() == 'POST' &&
         request.url.path.contains('chat/completions') &&
         request is http.Request) {
       try {
         final decoded = jsonDecode(request.body);
         if (decoded is Map<String, dynamic>) {
           final patchedPayload = _sanitizeMistralChatRequest(decoded);
+          final cleanHeaders = Map<String, String>.from(request.headers);
+          cleanHeaders.removeWhere(
+            (key, _) => key.toLowerCase() == 'content-length',
+          );
           requestToSend = http.Request(request.method, request.url)
-            ..headers.addAll(request.headers)
+            ..headers.addAll(cleanHeaders)
             ..body = jsonEncode(patchedPayload);
         }
       } catch (_) {
@@ -668,10 +676,6 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   Future<List<ChatMessage>> _preprocessAttachments(
     List<ChatMessage> messages,
   ) async {
-    if (_currentProvider == LLMProvider.gemini) {
-      return messages;
-    }
-
     final List<ChatMessage> processed = [];
     for (final m in messages) {
       if (m.role == ChatRole.user &&
@@ -688,7 +692,21 @@ class LLMService extends ChangeNotifier with ServiceLogging {
             buffer.writeln('--- CONTENT END ---');
           } else if (att.bytes != null &&
               (att.mimeType?.startsWith('image/') ?? false)) {
-            imagesOnly.add(att);
+            final downscaled = await ImageDownscaler.downscaleIfNeeded(
+              bytes: att.bytes!,
+              originalMimeType: att.mimeType ?? 'image/jpeg',
+            );
+            imagesOnly.add(
+              MessageAttachment(
+                id: att.id,
+                name: att.name,
+                path: att.path,
+                type: att.type,
+                mimeType: downscaled.mimeType,
+                size: downscaled.bytes.length,
+                bytes: downscaled.bytes,
+              ),
+            );
           }
         }
         processed.add(
@@ -776,6 +794,18 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       (_toolFilteringLlmSource.isNotEmpty && _toolFilteringLlmSource != 'llm1')
           ? _toolFilteringLlmSource
           : LlmSettingsService.instance.toolFilteringLlmSource;
+
+  String? _toolDeliveryStrategy;
+  String get toolDeliveryStrategy =>
+      _toolDeliveryStrategy ??
+      LlmSettingsService.instance.toolDeliveryStrategy;
+
+  /// Update tool delivery strategy ('auto', 'progressive', 'prefilter', 'direct')
+  void setToolDeliveryStrategy(String value) {
+    _toolDeliveryStrategy = value.toLowerCase().trim();
+    LlmSettingsService.instance.setToolDeliveryStrategy(value);
+    notifyListeners();
+  }
 
   /// Update 2nd stage tool filtering setting
   void setEnable2ndStageToolFiltering(bool value) {
@@ -1572,6 +1602,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         targetProvider: targetProvider,
         targetBaseUrl: targetBaseUrl,
         targetApiKey: targetApiKey,
+        isMistral: urlIsMistral || modelIsMistral,
       );
       _openaiCompatibleClient = openai.OpenAIClient(
         config: openai.OpenAIConfig(
@@ -3393,6 +3424,17 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         finishReason: choice.finishReason?.name ?? 'stop',
       );
     } catch (e) {
+      final errStr = e.toString();
+      if (errStr.contains('Input should be a valid string') ||
+          (errStr.contains('UnprocessableEntity') &&
+              errStr.contains('string')) ||
+          errStr.contains('does not support vision') ||
+          errStr.contains('does not support image')) {
+        throw Exception(
+          'The selected model appears to be text-only and does not support image attachments. '
+          'Please select a vision-capable model (e.g. Qwen-VL, Gemini, GPT-4o) or remove the image.',
+        );
+      }
       throw Exception('OpenAI-compatible provider generation failed: $e');
     }
   }

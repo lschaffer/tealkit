@@ -5,6 +5,7 @@ import 'src/commands/chat_command.dart';
 import 'src/commands/code_command.dart';
 import 'src/commands/mcp_command.dart';
 import 'src/commands/prompt_command.dart';
+import 'src/commands/rag_command.dart';
 import 'src/commands/server_command.dart';
 import 'src/commands/skill_command.dart';
 import 'src/commands/workflow_command.dart';
@@ -15,9 +16,11 @@ export 'src/commands/chat_command.dart';
 export 'src/commands/code_command.dart';
 export 'src/commands/mcp_command.dart';
 export 'src/commands/prompt_command.dart';
+export 'src/commands/rag_command.dart';
 export 'src/commands/server_command.dart';
 export 'src/commands/skill_command.dart';
 export 'src/commands/workflow_command.dart';
+export 'src/config/cli_config.dart';
 export 'src/config/env_loader.dart';
 export 'src/config/global_config.dart';
 export 'src/config/llm_config_manager.dart';
@@ -32,6 +35,9 @@ export 'src/mcp/mcp_config_installer.dart';
 export 'src/mcp/mcp_sse_server.dart';
 export 'src/mcp/mcp_stdio_server.dart';
 export 'src/mcp/workflow_schema_generator.dart';
+export 'src/rag/rag_config.dart';
+export 'src/rag/rag_database.dart';
+export 'src/rag/rag_service.dart';
 
 /// Constructs the primary [CommandRunner] for TealKit CLI.
 CommandRunner<void> buildTealKitCommandRunner() {
@@ -50,6 +56,7 @@ CommandRunner<void> buildTealKitCommandRunner() {
   runner.addCommand(CodeCommand());
   runner.addCommand(McpCommand());
   runner.addCommand(DirectMcpServeCommand());
+  runner.addCommand(RagCommand());
 
   return runner;
 }

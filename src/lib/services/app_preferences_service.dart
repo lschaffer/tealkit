@@ -20,9 +20,16 @@ class AppPreferencesService extends ChangeNotifier {
   static const _kAiDataSharingConsent = 'app_pref_ai_data_sharing_consent';
   static const _kUiStyle = 'app_pref_ui_style'; // 'classic' | 'modern' | 'fluent' | 'custom'
   static const _kCustomThemeColor = 'app_pref_custom_theme_color'; // hex int
+  static const _kAutoReduceImageSize = 'app_pref_auto_reduce_image_size';
+  static const _kMaxImageDimension = 'app_pref_max_image_dimension';
 
   /// Allowed values for the background check interval setting.
   static const List<int> backgroundCheckIntervalOptions = [5, 10, 15];
+
+  /// Recommended dimension presets for LLM visual input.
+  /// 1280px is the optimal balance of resolution, detail, and token/payload cost.
+  static const List<int> maxImageDimensionOptions = [768, 1024, 1280, 1600, 2048];
+  static const int defaultMaxImageDimension = 1280;
 
   ThemeMode _themeMode = ThemeMode.system;
   String _locale = 'de';
@@ -32,6 +39,8 @@ class AppPreferencesService extends ChangeNotifier {
   bool _aiDataSharingConsent = false;
   String _uiStyle = 'modern';
   Color _customThemeColor = const Color(0xFF00838F); // Default teal base
+  bool _autoReduceImageSize = true;
+  int _maxImageDimension = defaultMaxImageDimension;
 
   ThemeMode get themeMode => _themeMode;
   String get locale => _locale;
@@ -40,6 +49,8 @@ class AppPreferencesService extends ChangeNotifier {
   bool get aiDataSharingConsent => _aiDataSharingConsent;
   String get uiStyle => _uiStyle;
   Color get customThemeColor => _customThemeColor;
+  bool get autoReduceImageSize => _autoReduceImageSize;
+  int get maxImageDimension => _maxImageDimension;
 
   /// How often (in minutes) the background heartbeat wakes up to check for due tasks.
   /// Allowed values: 5, 10, 15. Default: 10.
@@ -88,8 +99,11 @@ class AppPreferencesService extends ChangeNotifier {
       if (colorVal != null) {
         _customThemeColor = Color(colorVal);
       }
+      _autoReduceImageSize = prefs.getBool(_kAutoReduceImageSize) ?? true;
+      final dim = prefs.getInt(_kMaxImageDimension) ?? defaultMaxImageDimension;
+      _maxImageDimension = maxImageDimensionOptions.contains(dim) ? dim : defaultMaxImageDimension;
       log.info(
-        '[AppPrefs] Loaded themeMode=$t locale=$_locale outputPath=$_defaultOutputPath retentionDays=$_outputRetentionDays bgInterval=$_backgroundCheckIntervalMinutes aiConsent=$_aiDataSharingConsent uiStyle=$_uiStyle customColor=$_customThemeColor',
+        '[AppPrefs] Loaded themeMode=$t locale=$_locale outputPath=$_defaultOutputPath retentionDays=$_outputRetentionDays bgInterval=$_backgroundCheckIntervalMinutes aiConsent=$_aiDataSharingConsent uiStyle=$_uiStyle customColor=$_customThemeColor autoReduceImage=$_autoReduceImageSize maxDim=$_maxImageDimension',
       );
     } catch (e) {
       log.warning('[AppPrefs] load failed: $e');
@@ -166,6 +180,21 @@ class AppPreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Enables or disables automatic image downscaling for LLM requests.
+  Future<void> setAutoReduceImageSize(bool value) async {
+    _autoReduceImageSize = value;
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Sets the max image dimension (width or height) when auto-reducing image size.
+  Future<void> setMaxImageDimension(int dimension) async {
+    if (!maxImageDimensionOptions.contains(dimension)) return;
+    _maxImageDimension = dimension;
+    await _persist();
+    notifyListeners();
+  }
+
   Future<void> _persist() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -180,6 +209,8 @@ class AppPreferencesService extends ChangeNotifier {
       await prefs.setBool(_kAiDataSharingConsent, _aiDataSharingConsent);
       await prefs.setString(_kUiStyle, _uiStyle);
       await prefs.setInt(_kCustomThemeColor, _customThemeColor.toARGB32());
+      await prefs.setBool(_kAutoReduceImageSize, _autoReduceImageSize);
+      await prefs.setInt(_kMaxImageDimension, _maxImageDimension);
     } catch (e) {
       log.warning('[AppPrefs] persist failed: $e');
     }

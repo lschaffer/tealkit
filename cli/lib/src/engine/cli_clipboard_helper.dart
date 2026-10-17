@@ -50,7 +50,7 @@ class CliClipboardHelper {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final imagePath = '${tempDir.path}/clip_$timestamp.png';
 
-    // PowerShell script checking for image first, then text
+    // PowerShell script checking for image first, then copied image files, then text
     final psScript = '''
 Add-Type -AssemblyName System.Windows.Forms;
 \$img = [System.Windows.Forms.Clipboard]::GetImage();
@@ -58,6 +58,14 @@ if (\$img) {
   \$img.Save('$imagePath', [System.Drawing.Imaging.ImageFormat]::Png);
   Write-Output "CLIP_TYPE:IMAGE:$imagePath";
   Exit 0;
+}
+\$files = [System.Windows.Forms.Clipboard]::GetFileDropList();
+if (\$files -and \$files.Count -gt 0) {
+  \$ext = [System.IO.Path]::GetExtension(\$files[0]).ToLower();
+  if (\$ext -in @('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif')) {
+    Write-Output "CLIP_TYPE:IMAGE:\$(\$files[0])";
+    Exit 0;
+  }
 }
 \$txt = [System.Windows.Forms.Clipboard]::GetText();
 if (\$txt) {

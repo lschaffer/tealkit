@@ -1240,47 +1240,63 @@ class ChatService extends ChangeNotifier with ServiceLogging {
       // natural language values to the correct JSON argument keys.
       // When a sub-prompt step restricts tools, only list those tools to save tokens.
       if (hasTools) {
-        final toolsWithParams = mcpClient.availableTools.where((t) {
-          if (stepEnabledTools != null && !stepEnabledTools.contains(t.name)) {
-            return false;
-          }
-          final props = t.inputSchema?['properties'];
-          return props is Map && (props).isNotEmpty;
-        }).toList();
-        if (toolsWithParams.isNotEmpty) {
+        final strategy = llmService.toolDeliveryStrategy;
+        final totalTools = mcpClient.availableTools.length;
+        final isProgressive = (strategy == 'progressive') ||
+            (strategy == 'auto' && (llmService.isSlm || totalTools > 25));
+
+        if (isProgressive) {
           buffer.writeln('═══════════════════════════════════════════════');
+          buffer.writeln('⚡ PROGRESSIVE TOOL DISCOVERY:');
           buffer.writeln(
-            '🔧 TOOL CALL FORMAT (use this format if tool call is needed):',
-          );
-          buffer.writeln(
-            'tool_call: {"name": "tool_name", "arguments": {"param1": "value1", "param2": 123}}',
-          );
-          buffer.writeln(
-            '⚠️  Always use this JSON format. Do NOT use key=value format.',
+            'Meta-tools mcp_list_tools and mcp_call_tool are available. '
+            'Use mcp_call_tool with {"tool_name": "<name>", "arguments": {...}} to execute any tool.',
           );
           buffer.writeln('═══════════════════════════════════════════════');
           buffer.writeln();
-          buffer.writeln(
-            'TOOL PARAMETERS (use these key names in tool arguments):',
-          );
-          for (final tool in toolsWithParams) {
-            final props = (tool.inputSchema!['properties'] as Map)
-                .cast<String, dynamic>();
-            final required =
-                ((tool.inputSchema!['required'] as List?)?.cast<String>() ?? [])
-                    .toSet();
-            final params = props.entries
-                .map((e) {
-                  final def = (e.value as Map).cast<String, dynamic>();
-                  final type = def['type'] as String? ?? 'string';
-                  final desc = def['description'] as String?;
-                  final opt = required.contains(e.key) ? '' : '?';
-                  return '${e.key}$opt:$type${desc != null ? '($desc)' : ''}';
-                })
-                .join(', ');
-            buffer.writeln('${tool.name}: $params');
+        } else {
+          final toolsWithParams = mcpClient.availableTools.where((t) {
+            if (stepEnabledTools != null && !stepEnabledTools.contains(t.name)) {
+              return false;
+            }
+            final props = t.inputSchema?['properties'];
+            return props is Map && (props).isNotEmpty;
+          }).toList();
+          if (toolsWithParams.isNotEmpty) {
+            buffer.writeln('═══════════════════════════════════════════════');
+            buffer.writeln(
+              '🔧 TOOL CALL FORMAT (use this format if tool call is needed):',
+            );
+            buffer.writeln(
+              'tool_call: {"name": "tool_name", "arguments": {"param1": "value1", "param2": 123}}',
+            );
+            buffer.writeln(
+              '⚠️  Always use this JSON format. Do NOT use key=value format.',
+            );
+            buffer.writeln('═══════════════════════════════════════════════');
+            buffer.writeln();
+            buffer.writeln(
+              'TOOL PARAMETERS (use these key names in tool arguments):',
+            );
+            for (final tool in toolsWithParams) {
+              final props = (tool.inputSchema!['properties'] as Map)
+                  .cast<String, dynamic>();
+              final required =
+                  ((tool.inputSchema!['required'] as List?)?.cast<String>() ?? [])
+                      .toSet();
+              final params = props.entries
+                  .map((e) {
+                    final def = (e.value as Map).cast<String, dynamic>();
+                    final type = def['type'] as String? ?? 'string';
+                    final desc = def['description'] as String?;
+                    final opt = required.contains(e.key) ? '' : '?';
+                    return '${e.key}$opt:$type${desc != null ? '($desc)' : ''}';
+                  })
+                  .join(', ');
+              buffer.writeln('${tool.name}: $params');
+            }
+            buffer.writeln();
           }
-          buffer.writeln();
         }
       }
       if (LlmSettingsService.instance.injectToolCallingRules) {
@@ -1677,10 +1693,22 @@ class ChatService extends ChangeNotifier with ServiceLogging {
 
       // Add a tool message first (hidden from UI unless debug mode is on)
       if (_showToolMessages) {
+        String displayContent =
+            'Called tool: $toolName\nArguments: ${jsonEncode(arguments)}';
+        if (toolName == 'search_documents') {
+          final q = arguments['query']?.toString().trim() ?? '';
+          displayContent = q.isNotEmpty
+              ? 'Search for "$q" in indexed documents\nArguments: ${jsonEncode(arguments)}'
+              : 'Search in indexed documents\nArguments: ${jsonEncode(arguments)}';
+        } else if (toolName == 'search_indexed_websites') {
+          final q = arguments['query']?.toString().trim() ?? '';
+          displayContent = q.isNotEmpty
+              ? 'Search for "$q" in indexed websites\nArguments: ${jsonEncode(arguments)}'
+              : 'Search in indexed websites\nArguments: ${jsonEncode(arguments)}';
+        }
         final toolMessage = ChatMessage(
           id: _uuid.v4(),
-          content:
-              'Called tool: $toolName\nArguments: ${jsonEncode(arguments)}',
+          content: displayContent,
           role: ChatRole.tool,
           timestamp: DateTime.now(),
           toolResult: toolResult,
@@ -2029,6 +2057,13 @@ class ChatService extends ChangeNotifier with ServiceLogging {
           e.toString().contains('network')) {
         errorText =
             'Network connection error. Please check your internet connection and try again.';
+      } else if (e.toString().contains('Input should be a valid string') ||
+          (e.toString().contains('UnprocessableEntity') &&
+              e.toString().contains('string')) ||
+          e.toString().contains('does not support vision') ||
+          e.toString().contains('does not support image')) {
+        errorText =
+            'The selected model appears to be text-only and does not support image attachments. Please select a vision-capable model (e.g. Qwen-VL, Gemini, GPT-4o) or remove the image.';
       } else {
         errorText =
             'AI Error: ${e.toString().replaceAll('Exception:', '').trim()}';
@@ -2143,6 +2178,13 @@ class ChatService extends ChangeNotifier with ServiceLogging {
           e.toString().contains('network')) {
         errorText =
             'Network connection error. Please check your internet connection and try again.';
+      } else if (e.toString().contains('Input should be a valid string') ||
+          (e.toString().contains('UnprocessableEntity') &&
+              e.toString().contains('string')) ||
+          e.toString().contains('does not support vision') ||
+          e.toString().contains('does not support image')) {
+        errorText =
+            'The selected model appears to be text-only and does not support image attachments. Please select a vision-capable model (e.g. Qwen-VL, Gemini, GPT-4o) or remove the image.';
       } else {
         errorText =
             'AI Error: ${e.toString().replaceAll('Exception:', '').trim()}';
@@ -2697,8 +2739,6 @@ RULES (follow strictly):
 
     if (supportsNativeTools) {
       if (mcpClient.availableTools.isNotEmpty) {
-        final totalTools = mcpClient.availableTools.length;
-
         // Sub-prompt per-step tool-mode override:
         // When _subPromptEnabledTools != null, a specific subset (or no tools) was selected.
         // In that case, bypass LLM prefetch / semantic tool filtering and send the selected tools directly.
@@ -2721,27 +2761,47 @@ RULES (follow strictly):
           }
         } else {
           // All tools are selected.
-          final hasCodingTools = isCodingMode ||
-              mcpClient.availableTools.any(
-                (t) =>
-                    t.name == 'fs_list_dir' ||
-                    t.name == 'fs_read_file' ||
-                    t.name == 'terminal_exec' ||
-                    t.name == 'fs_find',
-              );
+          final strategy = llmService.toolDeliveryStrategy;
+          final isSlm = llmService.isSlm;
+          final totalTools = mcpClient.availableTools.length;
 
-          final bool shouldBypassPreselection = hasCodingTools || _toolIterationCount > 0;
+          final bool useProgressive = (strategy == 'progressive') ||
+              (strategy == 'auto' && (isSlm || totalTools > 25));
 
-          if (shouldBypassPreselection) {
-            final allTools = mcpClient.availableTools.toList();
-            allTools.sort((a, b) => a.name.compareTo(b.name));
-            toolsToSend = allTools;
+          if (useProgressive) {
+            toolsToSend = [
+              MultiMCPManager.mcpListToolsDef,
+              MultiMCPManager.mcpCallToolDef,
+            ];
             talker.info(
-              hasCodingTools
-                  ? '💻 [Coding Mode] Bypassing tool preselection — sending all ${toolsToSend.length} tools directly'
-                  : '🔄 [Multi-Turn Loop] Tool iteration $_toolIterationCount active — retaining all ${toolsToSend.length} tools',
+              '⚡ [Progressive Discovery] Active (strategy: $strategy, isSlm: $isSlm, total tools: $totalTools) — sending mcp_list_tools & mcp_call_tool meta-tools',
             );
           } else {
+            final hasCodingTools = isCodingMode ||
+                mcpClient.availableTools.any(
+                  (t) =>
+                      t.name == 'fs_list_dir' ||
+                      t.name == 'fs_read_file' ||
+                      t.name == 'terminal_exec' ||
+                      t.name == 'fs_find',
+                );
+
+            final bool shouldBypassPreselection = strategy == 'direct' ||
+                hasCodingTools ||
+                _toolIterationCount > 0;
+
+            if (shouldBypassPreselection) {
+              final allTools = mcpClient.availableTools.toList();
+              allTools.sort((a, b) => a.name.compareTo(b.name));
+              toolsToSend = allTools;
+              talker.info(
+                strategy == 'direct'
+                    ? '📦 [Direct Schemas] Strategy is direct — sending all ${toolsToSend.length} tools directly'
+                    : hasCodingTools
+                        ? '💻 [Coding Mode] Bypassing tool preselection — sending all ${toolsToSend.length} tools directly'
+                        : '🔄 [Multi-Turn Loop] Tool iteration $_toolIterationCount active — retaining all ${toolsToSend.length} tools',
+              );
+            } else {
             // Build semantic query from original user message + most recent tool call context
             String semanticQuery = lastUserMessage.content;
           if (_toolIterationCount > 0 && _toolIterationCount <= 2) {
@@ -2934,6 +2994,7 @@ RULES (follow strictly):
                 '⏳ Using ${toolsToSend.length} tools (${toolsToSend.map((t) => t.name).join(", ")})',
               );
             }
+          }
           }
         }
       }
@@ -3261,29 +3322,73 @@ RULES (follow strictly):
       return;
     }
 
+    String buildToolCallingStatus(List<LLMToolCall> toolCalls) {
+      if (toolCalls.isEmpty) {
+        return 'Calling tools to retrieve the requested information...';
+      }
+      final docCall = toolCalls.firstWhere(
+        (tc) =>
+            tc.name == 'search_documents' ||
+            tc.name.endsWith('search_documents'),
+        orElse: () => const LLMToolCall(name: '', arguments: {}),
+      );
+      if (docCall.name.isNotEmpty) {
+        final q = docCall.arguments['query']?.toString().trim() ?? '';
+        return q.isNotEmpty
+            ? 'Search for "$q" in indexed documents...'
+            : 'Search in indexed documents...';
+      }
+      final webCall = toolCalls.firstWhere(
+        (tc) =>
+            tc.name == 'search_indexed_websites' ||
+            tc.name.endsWith('search_indexed_websites'),
+        orElse: () => const LLMToolCall(name: '', arguments: {}),
+      );
+      if (webCall.name.isNotEmpty) {
+        final q = webCall.arguments['query']?.toString().trim() ?? '';
+        return q.isNotEmpty
+            ? 'Search for "$q" in indexed websites...'
+            : 'Search in indexed websites...';
+      }
+      if (toolCalls.length == 1) {
+        final single = toolCalls.first;
+        if (single.name == 'get_document_content') {
+          final path = single.arguments['filePath']?.toString().trim() ?? '';
+          final file = path.split(RegExp(r'[\\/]')).last;
+          return file.isNotEmpty
+              ? 'Reading document: $file...'
+              : 'Reading document content...';
+        }
+        return 'Calling tool: ${single.name}...';
+      }
+      return 'Calling tools to retrieve the requested information...';
+    }
+
     // Check if LLM wants to use tools
     if (response.toolCalls.isNotEmpty) {
       talker.info('Processing ${response.toolCalls.length} tool calls');
 
       // CRITICAL: Add the AI's tool-calling response to messages FIRST
-      // This is required for LangChain pattern: user msg â†’ AI tool call â†’ tool result â†’ final response
+      // This is required for LangChain pattern: user msg → AI tool call → tool result → final response
       // Clean the content to remove <think> blocks if enabled
+      final defaultStatus = buildToolCallingStatus(response.toolCalls);
       final cleanedToolCallContent = _cleanAssistantResponse(
         response.content.isNotEmpty
             ? response.content
-            : 'Calling tools to retrieve the requested information...',
+            : defaultStatus,
       );
       final aiToolCallMessage = ChatMessage(
         id: _uuid.v4(),
         content: cleanedToolCallContent.isNotEmpty
             ? cleanedToolCallContent
-            : 'Calling tools to retrieve the requested information...',
+            : defaultStatus,
         role: ChatRole.assistant,
         timestamp: DateTime.now(),
+        actionType: 'tool_calling_placeholder',
       );
       _addMessage(aiToolCallMessage);
       talker.info(
-        ' Added AI tool-calling message to conversation (cleaned: ${response.content.length} â†’ ${cleanedToolCallContent.length} chars)',
+        ' Added AI tool-calling message to conversation (cleaned: ${response.content.length} → ${cleanedToolCallContent.length} chars)',
       );
 
       try {
@@ -3696,6 +3801,7 @@ RULES (follow strictly):
   }
 
   bool _hasToolNamed(String name) {
+    if (name == 'mcp_list_tools' || name == 'mcp_call_tool') return true;
     return mcpClient.availableTools.any((tool) => tool.name == name);
   }
 
@@ -4549,7 +4655,8 @@ CRITICAL RULES:
         _executedToolCallSignatures.add(toolSignature);
 
         // Check if cleaned tool exists
-        final toolExists = mcpClient.availableTools.any(
+        final isMetaProgressive = cleanToolName == 'mcp_list_tools' || cleanToolName == 'mcp_call_tool';
+        final toolExists = isMetaProgressive || mcpClient.availableTools.any(
           (t) => t.name == cleanToolName,
         );
 
@@ -4587,9 +4694,13 @@ CRITICAL RULES:
         }
 
         // VALIDATE PARAMETERS AGAINST SCHEMA
-        final tool = mcpClient.availableTools.firstWhere(
-          (t) => t.name == cleanToolName,
-        );
+        final tool = isMetaProgressive
+            ? (cleanToolName == 'mcp_list_tools'
+                ? MultiMCPManager.mcpListToolsDef
+                : MultiMCPManager.mcpCallToolDef)
+            : mcpClient.availableTools.firstWhere(
+                (t) => t.name == cleanToolName,
+              );
 
         // Remap Python reserved-word aliases (e.g. "from_" → "from", "id_" → "id")
         // before validation so the LLM is not penalised for that naming quirk.
@@ -5034,13 +5145,32 @@ CRITICAL RULES:
         // so that LangChain can correlate tool results with their original calls
         // SKIP tool message for download_file - it has special UI handling with progress widget
         if (cleanToolName != 'download_file') {
+          String displayContent =
+              'Called tool: $cleanToolName\nArguments: ${jsonEncode(toolArguments)}';
+          if (cleanToolName == 'search_documents') {
+            final q = toolArguments['query']?.toString().trim() ?? '';
+            displayContent = q.isNotEmpty
+                ? 'Search for "$q" in indexed documents\nArguments: ${jsonEncode(toolArguments)}'
+                : 'Search in indexed documents\nArguments: ${jsonEncode(toolArguments)}';
+          } else if (cleanToolName == 'search_indexed_websites') {
+            final q = toolArguments['query']?.toString().trim() ?? '';
+            displayContent = q.isNotEmpty
+                ? 'Search for "$q" in indexed websites\nArguments: ${jsonEncode(toolArguments)}'
+                : 'Search in indexed websites\nArguments: ${jsonEncode(toolArguments)}';
+          } else if (cleanToolName == 'get_document_content') {
+            final path = toolArguments['filePath']?.toString().trim() ?? '';
+            final file = path.split(RegExp(r'[\\/]')).last;
+            displayContent = file.isNotEmpty
+                ? 'Reading document: $file\nArguments: ${jsonEncode(toolArguments)}'
+                : 'Reading document content\nArguments: ${jsonEncode(toolArguments)}';
+          }
+
           final toolMessage = ChatMessage(
             id:
                 toolCall.id ??
                 _uuid
                     .v4(), // Use the tool call ID from LLM response, fallback to UUID
-            content:
-                'Called tool: $cleanToolName\nArguments: ${jsonEncode(toolArguments)}',
+            content: displayContent,
             role: ChatRole.tool,
             timestamp: DateTime.now(),
             toolResult:
@@ -5127,9 +5257,9 @@ CRITICAL RULES:
       final placeholderIdx = _messages.lastIndexWhere(
         (m) =>
             (m.role == ChatRole.assistant || m.role == ChatRole.system) &&
-            m.content.contains(
-              'Calling tools to retrieve the requested information...',
-            ),
+            (m.actionType == 'tool_calling_placeholder' ||
+             m.content.contains('Calling tools to retrieve the requested information...') ||
+             m.content.contains('in indexed documents')),
       );
       final errorContent = '❌ **Tool execution failed**\n\n$errorDetails';
       if (placeholderIdx != -1) {

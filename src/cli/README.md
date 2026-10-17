@@ -20,7 +20,10 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 | 🧠 **Direct Skill Execution** | Parse any `SKILL.md` (agentskills.io format) and execute prompt sequences end-to-end with live streaming feedback. **Native filesystem, terminal, web search, and calculation tools are automatically injected** into every skill turn without requiring boilerplate tool declarations in skill frontmatter. |
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
 | 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, dynamic model switching (`/llm`), session saving/resuming (`.json`/`.md`), MCP uninstallation (`/uninstall`), token cost estimation (`/estimated_costs`), and slash commands. |
-| 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, and Ask modes, 10 native tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`), session persistence, token cost tracking, `tasks.md` checklists, and `tealkit_agent.md` workspace rules. |
+| 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, Ask, and RAG modes, 10 native tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`), session persistence, token cost tracking, `tasks.md` checklists, and `tealkit_agent.md` workspace rules. |
+| 📚 **Local RAG & Web Crawler (`tealkit rag`)** | Hybrid SQLite FTS5 (BM25) + Nomic Embed Text v1.5 vector search (RRF), pure Dart website crawler with `max_pages`, and clickable file links (`file:///...`) with line number citations. |
+| ⚡ **Progressive Tool Discovery** | Slashes prompt token consumption from 10,000+ tokens to ~250 tokens across large MCP server collections via on-demand meta-tools (`mcp_list_tools`, `mcp_call_tool`). |
+| ⌨️ **Multiline Input & Submit Keys** | Raw terminal input with configurable submit keys (`ctrl-enter`, `double-enter`, `enter`), continuation prompt (`... `), Backspace editing, and instant clipboard paste (`Ctrl+V`). |
 | 🔌 **MCP Server (`tealkit mcp-serve`)** | Expose TealKit as a Model Context Protocol (MCP) JSON-RPC 2.0 stdio server to Claude Desktop, Cursor, and Roo Code. Exposes local DuckDB RAG, offline SLM processing (`llamadart`), and dynamic workflows as callable tools. |
 
 ---
@@ -312,6 +315,11 @@ tealkit chat --skill skills/device_audit.md
 - `/save-session <file.json|.md>` — Save current conversation transcript and turn history
 - `/load-session <file.json|.md>` — Restore and view previous conversation session as entered, resuming seamlessly without re-invoking the LLM
 - `/compact [on|off]` — Toggle compact mode (on by default; hides file read contents and shows filenames only)
+- `/progressive [auto|on|off]` — Configure progressive tool discovery (`mcp_list_tools`, `mcp_call_tool`) to save prompt tokens
+- `/multiline [on|off]` — Toggle multi-line prompt entry mode (Enter = newline, Ctrl-Enter = submit)
+- `/paste` or `/paste text` / `/paste image` — Paste system clipboard text or image directly into the prompt
+- `/rag [on|off|status]` — Toggle local RAG retrieval or inspect RAG database stats
+- `/rag search <query>` — Search indexed local documents and crawled web pages
 - `/estimated_costs` or `/costs` — View token usage summary and estimated session costs
 - `/session` — Display active model, turn count, and token metrics
 - `/tools` — View connected native and MCP tools
@@ -399,6 +407,11 @@ The CLI provides built-in tools that do not require external subprocesses:
 - `/save-session <path.json|.md>` — Export current conversation history and task state.
 - `/load-session <path.json|.md>` — Import previous conversation, display all turns as entered, and continue work seamlessly without calling the LLM.
 - `/compact [on|off]` — Toggle compact tool output (enabled by default; hides file read contents and shows filenames only, as in other agentic coding tools).
+- `/progressive [auto|on|off]` — Toggle or check progressive tool discovery (`mcp_list_tools` & `mcp_call_tool`) mode.
+- `/multiline [on|off]` — Toggle multi-line prompt entry (Enter = newline, Ctrl-Enter = submit).
+- `/paste` or `/paste text` / `/paste image` — Paste system clipboard text or image directly into the prompt.
+- `/rag [on|off|status]` — Toggle local RAG context injection or inspect knowledge base stats.
+- `/rag search <query>` — Perform instant hybrid search across indexed documentation and web pages.
 - `/estimated_costs` or `/costs` — View prompt, completion, total token usage and estimated USD costs.
 - `/session` — Display active model, turn count, and token usage summary.
 - `/permissions` — Inspect current tool approval requirements (read, write, execute, network).
@@ -508,6 +521,135 @@ Configure your remote client in `claude_desktop_config.json`, Cursor, or LibreCh
 
 ---
 
+### 10. Local RAG & Hybrid Knowledge Search (`tealkit rag`)
+
+TealKit CLI includes an autonomous, zero-cloud **Local Retrieval-Augmented Generation (RAG)** engine designed for offline document searching and automated prompt context grounding.
+
+#### ⚡ Hybrid Retrieval Architecture
+Combines the precision of exact keyword matching with semantic vector similarity:
+- **SQLite FTS5 (BM25)**: Instant keyword and symbol indexing with Porter stemming and Unicode tokenization.
+- **Embedded Local Vector Search**: On-device embedding with **Nomic Embed Text v1.5** (`nomic-embed-text-v1.5.Q4_K_M.gguf`, ~80MB) generating 768-dimensional embeddings. Automatically uses GPU layers (`gpuLayers: 99`) via Vulkan/Metal with seamless fallback to multi-core CPU.
+- **Reciprocal Rank Fusion (RRF)**: Fuses BM25 and vector scores to produce superior rankings for acronyms, register codes, technical IDs, and natural language concepts.
+
+#### 🕷️ Inbuilt Pure Dart Web Crawler (`max_pages`)
+Replaces external web-fetching tools with an autonomous, zero-dependency crawler:
+- **Breadth-First Search (BFS)** crawling restricted to configured domains and subpaths.
+- **Configurable `max_pages`**: Sets maximum pages to index per website (default: `50`).
+- **Resource Filtering**: Automatically skips binaries, images, scripts, stylesheets, and noise paths (`login`, `cookie`, `tag`, `search`).
+- **Clean Extraction**: Strips HTML boilerplate and extracts clean readable text and page titles.
+
+#### 🔗 Clickable File Links & Line Number Citations
+- **Exact Line Tracking**: Chunks record original starting and ending line numbers (`line_start`, `line_end`).
+- **Terminal Click Support**: Results display clickable `file:///...` links and terminal paths (`path:line`), allowing **Ctrl+Click** in VS Code or Windows Terminal to jump directly to the matched line.
+- **LLM Grounding**: When RAG is active in `/rag`, `/code`, or `chat`, retrieved chunks are automatically injected with explicit instructions for the model to cite sources with line numbers and file links.
+
+#### 🛠️ Commands & Usage
+```bash
+# Rebuild or incrementally update local index (overriding max-pages if desired)
+tealkit rag reindex
+tealkit rag reindex --max-pages 100
+
+# View RAG database statistics, indexed chunks, and active mode
+tealkit rag status
+
+# Search across indexed documents and web sources
+tealkit rag search "BMS charge level"
+```
+
+Inside interactive chat (`tealkit chat`) or coding agent (`tealkit code`):
+- `/rag on` / `/rag off`: Toggle context retrieval into prompt turns.
+- `/rag status`: Inspect database stats.
+- `/rag search <query>`: Run direct search and print matches.
+- `/reindex [max_pages]`: Rebuild index on the fly.
+- `/rag`: Switch to Knowledge & RAG assistant mode.
+
+#### ⚙️ Configuration (`config.yaml`)
+```yaml
+rag:
+  enabled: true
+  database_path: "rag_index.db"
+  sources:
+    folders:
+      - "./docs"
+    web:
+      - "https://docs.flutter.dev"
+    max_pages: 50
+  file_extensions:
+    - ".txt"
+    - ".md"
+    - ".docx"
+    - ".pdf"
+    - ".csv"
+    - ".json"
+  chunking:
+    chunk_size: 600
+    chunk_overlap: 100
+  embedding:
+    provider: "embedded"
+    model: "nomic-embed-text-v1.5.Q4_K_M.gguf"
+  search:
+    mode: "hybrid" # hybrid, fts, or semantic
+    max_chunks: 5
+    min_score: 0.25
+```
+
+---
+
+### 11. Progressive MCP Tool Discovery (Token Optimization)
+
+In standard MCP setups, connecting 5–10 external servers (e.g. Git, FileSystem, Database, Slack, Weather) forces the application to inject **50+ full tool schemas** into the LLM system prompt upfront. This consumes **5,000–15,000 prompt tokens on every interaction** before any conversation turn even begins.
+
+TealKit CLI integrates **Progressive MCP Tool Discovery** powered by `dart_mcp_core: ^1.2.0`:
+- **Context Footprint Drops to ~250 Tokens**: Replaces dozens of verbose tool schemas with just two lightweight meta-tools:
+  - `mcp_list_tools`: Discovers and queries available tools on connected MCP servers on-demand with optional search query filters (e.g., `query: "git"` or `query: "weather"`).
+  - `mcp_call_tool`: Invokes any discovered tool by name with its respective argument map.
+- **Operating Modes (`progressive_tools`)**:
+  - `auto` (default): Automatically activates progressive mode if total registered tools exceed **25**, or whenever using an embedded/SLM model (`provider: "embedded"` or `provider: "ollama"`).
+  - `on`: Forces progressive discovery for all tools, providing maximum context savings.
+  - `off`: Sends all tool schemas upfront in the system prompt.
+
+#### Configuration (`config.yaml`)
+```yaml
+progressive_tools: "auto" # "auto" | "on" | "off"
+```
+
+In the interactive REPL:
+```bash
+/progressive auto   # Automatic activation based on tool count and model tier
+/progressive on     # Always use mcp_list_tools and mcp_call_tool
+/progressive off    # Direct full schema injection
+```
+
+---
+
+### 12. Multiline Input & Submission Modes
+
+TealKit CLI features an advanced raw terminal reader (`cli_prompt_reader.dart`) that allows typing natural, multiline prompts, pasted code snippets, and Markdown blocks without accidental premature submissions.
+
+#### Submission Key Modes (`submit_key`)
+Configured in `config.yaml` or toggled at runtime:
+- **`ctrl-enter` (Default)**:
+  - Pressing <kbd>Enter</kbd> moves down to a new line with a dim `... ` continuation indicator.
+  - Submitting is triggered by pressing <kbd>Ctrl+Enter</kbd>, <kbd>Ctrl+D</kbd> (EOT), or <kbd>Ctrl+Z</kbd> (SUB).
+- **`double-enter`**:
+  - Pressing <kbd>Enter</kbd> inserts a newline.
+  - Pressing <kbd>Enter</kbd> twice consecutively on an empty line immediately submits the prompt.
+- **`enter`**:
+  - Single-line mode: pressing <kbd>Enter</kbd> submits immediately.
+  - Multiline entry is supported by ending a line with a backslash (`\`) or using triple-quotes (`"""..."""`).
+
+#### In-Terminal Clipboard Paste (`Ctrl+V` & `/paste`)
+- **Direct Keyboard Shortcut**: Pressing <kbd>Ctrl+V</kbd> in raw terminal mode reads the system clipboard cross-platform:
+  - **Text & Code**: Inlines the copied text directly at the cursor position.
+  - **Images & Screenshots**: Automatically saves the image to a temporary file, adds it to the staged prompt attachments queue, and renders a `[Pasted Image: clipboard_....png]` tag in the terminal.
+- **Slash Commands**:
+  - `/paste` or `/paste text`: Inserts clipboard text directly into the prompt.
+  - `/paste image`: Extracts screenshot images from the clipboard and queues them as multimodal attachments.
+  - `/attachments`: Lists all queued files and images for the upcoming prompt turn.
+  - `/attach clear`: Clears pending attachments.
+
+---
+
 ## 📋 Command Reference
 
 ```text
@@ -541,6 +683,10 @@ Available commands:
     run           Run prompt with optional --system prompt or piped stdin.
   chat            Start an interactive multi-turn terminal agent session.
   code            Launch interactive coding agent REPL (Claude Code / Roo Code style).
+  rag             Manage local RAG indexing (PDF, DOCX, text, web) and execute semantic/FTS queries.
+    reindex       Rebuild or incrementally update the local RAG SQLite index (-p/--max-pages).
+    status        Show RAG database stats and storage location.
+    search        Perform a test search across indexed documents and web pages.
   mcp             Model Context Protocol (MCP) server management and client configuration.
     serve         Start the TealKit MCP stdio server.
     install-claude Register TealKit MCP server inside Claude Desktop.

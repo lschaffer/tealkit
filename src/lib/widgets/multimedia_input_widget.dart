@@ -10,6 +10,7 @@ import '../services/multi_mcp_manager.dart';
 import '../services/llm_service.dart';
 import '../utils/logger.dart';
 import '../services/app_preferences_service.dart';
+import '../utils/image_downscaler.dart';
 import 'step_list_editor.dart';
 
 class MultimediaInputWidget extends StatefulWidget {
@@ -153,7 +154,13 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (_attachments.isNotEmpty) _buildAttachmentPreview(),
-                Padding(padding: const EdgeInsets.all(8.0), child: isMobile ? _buildMobileLayout() : _buildDesktopLayout()),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 3.0 : 8.0,
+                    vertical: isMobile ? 4.0 : 8.0,
+                  ),
+                  child: isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
+                ),
               ],
             ),
           ),
@@ -164,7 +171,11 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
 
   Widget _buildMobileLayout() {
     final enabled = widget.isEnabled && widget.statusMessage == null;
+    final llm = widget.chatService.llmService;
+    final isMultiModal = llm.isConfigured ? llm.isMultiModal : true;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.statusMessage != null)
           Padding(
@@ -197,12 +208,25 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
                 hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
                 onAttachmentsPasted: _handleAttachmentsPasted,
                 isCodingMode: widget.isCodingMode,
+                leading: isMultiModal ? _buildAttachmentButton(isMobile: true) : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.chatService.isProcessing)
+                      IconButton(
+                        icon: const Icon(Icons.stop_circle),
+                        iconSize: 20,
+                        tooltip: 'Stop processing',
+                        onPressed: () => widget.chatService.stopProcessing(),
+                        color: Colors.red,
+                      ),
+                    _buildSendButton(),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        _buildMobileToolbar(),
       ],
     );
   }
@@ -282,76 +306,47 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
               style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w500, fontSize: 13),
             ),
           ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (isMultiModal) _buildAttachmentButton(),
-            const SizedBox(width: 4),
-            Expanded(
-              child: IgnorePointer(
-                ignoring: !enabled,
-                child: Opacity(
-                  opacity: enabled ? 1.0 : 0.5,
-                  child: ListenableBuilder(
-                    listenable: widget.chatService.mcpClient,
-                    builder: (context, _) => StepListEditor(
-                      controller: _textController,
-                      chatMode: false,
-                      availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
-                          ? (widget.chatService.mcpClient as MultiMCPManager).clients
-                                .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
-                                .toList()
-                          : widget.chatService.mcpClient.availableTools.isNotEmpty
-                          ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
-                          : [],
-                      onToolSelectionChanged: widget.onToolSelectionChanged,
-                      minLines: 1,
-                      maxLines: 6,
-                      hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
-                      onAttachmentsPasted: _handleAttachmentsPasted,
-                      isCodingMode: widget.isCodingMode,
-                    ),
-                  ),
+        IgnorePointer(
+          ignoring: !enabled,
+          child: Opacity(
+            opacity: enabled ? 1.0 : 0.5,
+            child: ListenableBuilder(
+              listenable: widget.chatService.mcpClient,
+              builder: (context, _) => StepListEditor(
+                controller: _textController,
+                chatMode: false,
+                availableToolGroups: (widget.chatService.mcpClient is MultiMCPManager)
+                    ? (widget.chatService.mcpClient as MultiMCPManager).clients
+                          .map((c) => ToolGroup(name: c.label, toolNames: c.availableTools.map((t) => t.name).toList()))
+                          .toList()
+                    : widget.chatService.mcpClient.availableTools.isNotEmpty
+                    ? [ToolGroup(name: 'Tools', toolNames: widget.chatService.mcpClient.availableTools.map((t) => t.name).toList())]
+                    : [],
+                onToolSelectionChanged: widget.onToolSelectionChanged,
+                minLines: 1,
+                maxLines: 6,
+                hintText: _attachments.isNotEmpty ? 'Add a caption...' : 'Type a message...',
+                onAttachmentsPasted: _handleAttachmentsPasted,
+                isCodingMode: widget.isCodingMode,
+                leading: isMultiModal ? _buildAttachmentButton() : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.chatService.isProcessing)
+                      IconButton(
+                        icon: const Icon(Icons.stop_circle),
+                        iconSize: 20,
+                        tooltip: 'Stop processing',
+                        onPressed: () => widget.chatService.stopProcessing(),
+                        color: Colors.red,
+                      ),
+                    _buildSendButton(),
+                  ],
                 ),
               ),
             ),
-            if (widget.chatService.isProcessing)
-              IconButton(
-                icon: const Icon(Icons.stop_circle),
-                iconSize: 20,
-                tooltip: 'Stop processing',
-                onPressed: () => widget.chatService.stopProcessing(),
-                color: Colors.red,
-              ),
-            const SizedBox(width: 8),
-            _buildSendButton(),
-          ],
+          ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildMobileToolbar() {
-    final llm = widget.chatService.llmService;
-    final isMultiModal = llm.isConfigured ? llm.isMultiModal : true;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            if (isMultiModal) _buildAttachmentButton(),
-            if (widget.chatService.isProcessing)
-              IconButton(
-                icon: const Icon(Icons.stop_circle),
-                iconSize: 24,
-                tooltip: 'Stop processing',
-                onPressed: () => widget.chatService.stopProcessing(),
-                color: Colors.red,
-              ),
-          ],
-        ),
-        _buildSendButton(),
       ],
     );
   }
@@ -484,32 +479,53 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
     );
   }
 
-  Widget _buildAttachmentButton() {
+  Widget _buildAttachmentButton({bool isMobile = false}) {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
+    final iconColor = widget.isEnabled
+        ? (isModern ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.primary)
+        : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
+
+    final items = <PopupMenuEntry<String>>[
+      const PopupMenuItem(
+        value: 'camera',
+        child: Row(children: [Icon(Icons.camera_alt), SizedBox(width: 12), Text('Take Photo')]),
+      ),
+      const PopupMenuItem(
+        value: 'gallery',
+        child: Row(children: [Icon(Icons.photo_library), SizedBox(width: 12), Text('Choose Photo')]),
+      ),
+      const PopupMenuItem(
+        value: 'file',
+        child: Row(children: [Icon(Icons.insert_drive_file), SizedBox(width: 12), Text('Choose File')]),
+      ),
+    ];
+
+    if (isMobile) {
+      return PopupMenuButton<String>(
+        tooltip: 'Attach media or file',
+        enabled: widget.isEnabled,
+        onSelected: _handleAttachmentAction,
+        itemBuilder: (context) => items,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 6.0),
+          child: Icon(
+            Icons.attach_file,
+            size: 22,
+            color: iconColor,
+          ),
+        ),
+      );
+    }
+
     return PopupMenuButton<String>(
       icon: Icon(
         Icons.attach_file,
-        color: widget.isEnabled
-            ? (isModern ? const Color(0xFF94A3B8) : Theme.of(context).colorScheme.primary)
-            : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        color: iconColor,
       ),
       enabled: widget.isEnabled,
       onSelected: _handleAttachmentAction,
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'camera',
-          child: Row(children: [Icon(Icons.camera_alt), SizedBox(width: 12), Text('Take Photo')]),
-        ),
-        const PopupMenuItem(
-          value: 'gallery',
-          child: Row(children: [Icon(Icons.photo_library), SizedBox(width: 12), Text('Choose Photo')]),
-        ),
-        const PopupMenuItem(
-          value: 'file',
-          child: Row(children: [Icon(Icons.insert_drive_file), SizedBox(width: 12), Text('Choose File')]),
-        ),
-      ],
+      itemBuilder: (context) => items,
     );
   }
 
@@ -595,14 +611,28 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
   }
 
   Future<void> _takePhoto() async {
-    final XFile? photo = await _imagePicker.pickImage(source: ImageSource.camera, maxWidth: 1920, maxHeight: 1080, imageQuality: 85);
+    final prefs = AppPreferencesService.instance;
+    final maxDim = prefs.autoReduceImageSize ? prefs.maxImageDimension.toDouble() : null;
+    final XFile? photo = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: maxDim,
+      maxHeight: maxDim,
+      imageQuality: prefs.autoReduceImageSize ? 85 : null,
+    );
     if (photo != null) {
       await _addImageAttachmentFromXFile(photo);
     }
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery, maxWidth: 1920, maxHeight: 1080, imageQuality: 85);
+    final prefs = AppPreferencesService.instance;
+    final maxDim = prefs.autoReduceImageSize ? prefs.maxImageDimension.toDouble() : null;
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: maxDim,
+      maxHeight: maxDim,
+      imageQuality: prefs.autoReduceImageSize ? 85 : null,
+    );
     if (image != null) {
       await _addImageAttachmentFromXFile(image);
     }
@@ -610,11 +640,18 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
 
   Future<void> _addImageAttachmentFromXFile(XFile xFile) async {
     try {
-      final Uint8List bytes = await xFile.readAsBytes();
+      final Uint8List rawBytes = await xFile.readAsBytes();
       final String path = xFile.path;
       final String name = xFile.name;
+      final String rawMime = lookupMimeType(name) ?? xFile.mimeType ?? 'image/jpeg';
+
+      final downscaled = await ImageDownscaler.downscaleIfNeeded(
+        bytes: rawBytes,
+        originalMimeType: rawMime,
+      );
+      final Uint8List bytes = downscaled.bytes;
+      final String mimeType = downscaled.mimeType;
       final int size = bytes.length;
-      final String? mimeType = lookupMimeType(name) ?? xFile.mimeType;
 
       setState(() {
         _attachments.add(
@@ -731,6 +768,20 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
         return;
       }
 
+      var effectiveBytes = fileBytes;
+      var effectiveMime = mimeType;
+      var effectiveSize = file.size;
+
+      if (type == AttachmentType.image && effectiveBytes != null) {
+        final downscaled = await ImageDownscaler.downscaleIfNeeded(
+          bytes: effectiveBytes,
+          originalMimeType: effectiveMime ?? 'image/jpeg',
+        );
+        effectiveBytes = downscaled.bytes;
+        effectiveMime = downscaled.mimeType;
+        effectiveSize = effectiveBytes.length;
+      }
+
       setState(() {
         _attachments.add(
           MessageAttachment(
@@ -738,12 +789,12 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
             type: type,
             path: filePath ?? file.name,
             name: file.name,
-            size: file.size,
-            mimeType: mimeType,
-            bytes: fileBytes,
+            size: effectiveSize,
+            mimeType: effectiveMime,
+            bytes: effectiveBytes,
           ),
         );
-        talker.info('File attached: ${file.name} (${file.size} bytes, $mimeType)');
+        talker.info('File attached: ${file.name} ($effectiveSize bytes, $effectiveMime)');
       });
 
       if (mounted) {

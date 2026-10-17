@@ -2,6 +2,45 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.0
+
+- **Progressive MCP Tool Discovery (`dart_mcp_core: ^1.2.0`)**:
+  - Dynamically registers `McpListToolsTool` (`mcp_list_tools`) and `McpCallToolTool` (`mcp_call_tool`) to discover, filter, and invoke tools on connected MCP servers on-demand.
+  - Slashes LLM system prompt context consumption from 5,000–15,000+ tokens down to ~250 tokens when connecting multiple large MCP servers (Git, FileSystem, Database, Slack, Weather, etc.).
+  - Configurable via `progressive_tools: 'auto' | 'on' | 'off'` in `config.yaml` or CLI arguments (`--progressive <mode>`). In `auto` mode, activates automatically when total tools exceed 25 or when running compact local SLMs / embedded models.
+  - Added interactive `/progressive [auto|on|off]` command in both `tealkit chat` and `tealkit code` REPLs.
+- **Terminal Multiline Input & Configurable Submit Keys (`submit_key`)**:
+  - High-performance raw terminal reader in `cli_prompt_reader.dart` supporting multiple submission key configurations:
+    - `ctrl-enter` (default): Enter moves to a new line with dim `... ` continuation prompt; `Ctrl+Enter`, `Ctrl+D` (EOT), or `Ctrl+Z` (SUB) submits.
+    - `double-enter`: Enter inserts newlines; pressing Enter twice consecutively on an empty line submits.
+    - `enter`: Classic single-line Enter submission with `\` continuation and `"""` triple-quote blocks.
+  - Added interactive `/multiline [on|off]` command and `/paste` clipboard detection.
+  - Seamless in-terminal `Ctrl+V` clipboard paste support for multiline code blocks, Markdown text, and instant screenshot image attachment.
+- **Local RAG Subsystem & Hybrid Retrieval Engine**:
+  - Inbuilt local document and web knowledge base powered by SQLite FTS5 (BM25 keyword search) and embedded local GGUF vectors (`nomic-embed-text-v1.5.Q4_K_M.gguf`).
+  - Implements **Reciprocal Rank Fusion (RRF)** to dynamically fuse keyword and vector rankings for high precision on technical codes, acronyms, and semantic concepts.
+  - Multi-threaded embedding with automatic GPU offloading (`gpuLayers: 99`) and safe fallback to multi-core CPU.
+  - Supports documents (`.pdf`, `.docx`, `.txt`, `.md`, `.csv`, `.json`).
+- **Inbuilt Pure Dart Web Crawler (`max_pages`)**:
+  - Replaces external web fetch MCP servers with an autonomous, pure-Dart web crawler.
+  - Breadth-first crawl traversal respecting domain and subpath boundaries (e.g., seeding `/docs` restricts crawling to `/docs`).
+  - Configurable `max_pages` parameter per website (default: 50).
+  - Skips non-HTML resources, template placeholders, utility/auth noise paths, and extracts clean article text and page titles.
+- **Clickable File Links & Precise Line Number Tracking**:
+  - Chunks now calculate and store original file starting and ending line numbers (`line_start`, `line_end`).
+  - Search results display clickable `file:///` URIs and terminal-friendly `path:line` format for instant **Ctrl+Click** navigation in VS Code and Windows Terminal.
+  - Enhanced LLM context injection in `buildPromptContext`: passes precise file links, chunk/line references, and explicit citation instructions to the assistant.
+- **CLI & Interactive Commands**:
+  - `tealkit rag reindex [-p|--max-pages <N>]`: Rebuilds or incrementally updates local RAG index.
+  - `tealkit rag status`: Inspects indexed documents, total chunks, vector embeddings, and storage size.
+  - `tealkit rag search <query>`: Executes instant hybrid search across indexed files and web pages.
+  - Interactive chat & coding agent commands: `/rag [on|off|status]`, `/rag search <query>`, and `/reindex [max_pages]`.
+  - Added `/rag` (Knowledge / RAG) submode in both CLI coding agent and TealKit Desktop Assistant.
+- **Automatic Multimodal Image Downscaling & Memory Optimization**:
+  - Integrated `ImageOptimizer` to automatically downscale attached images (e.g., high-resolution camera captures) to 768px bounds using native hardware decoders, protecting local SLM context memory and GPU VRAM.
+- **Core Dependency Synchronization**:
+  - Upgraded to `dart_mcp_core: ^1.2.0` with structured agent planning (`WriteTodosTool`, `PlanState`), context auto-compression (`ContextCompressor`), and agent lifecycle interceptors (`AgentHook`).
+
 ## 1.3.0
 
 - **TealKit MCP Server (`tealkit mcp-serve` / `tealkit mcp serve`)**:

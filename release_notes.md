@@ -2,6 +2,37 @@
 
 This file tracks release changes by version.
 
+## v2.0.2+157 - Progressive MCP Tool Selection, CLI Multiline Input & Submit Keys, Local RAG Knowledge Engine & Image Optimization
+
+### Major Features & Enhancements
+- **Progressive MCP Tool Discovery & Dynamic Tool Selection (`dart_mcp_core: ^1.2.0`)**:
+  - In standard MCP configurations, connecting multiple large MCP servers (Git, FileSystem, Database, Slack, Weather, etc.) injects dozens of verbose tool schemas into the LLM system prompt upfront, consuming **5,000–15,000 prompt tokens on every turn**.
+  - Integrated Progressive Tool Discovery via `dart_mcp_core: ^1.2.0`: replaces upfront schema flooding with two lightweight meta-tools:
+    - `mcp_list_tools`: Discovers and queries available tools across connected MCP servers on-demand with optional query filtering (e.g. `query: "git"` or `query: "weather"`).
+    - `mcp_call_tool`: Invokes any discovered tool by name with arguments.
+  - Slashes context window footprint to **~250 tokens total**, preventing context exhaustion on compact SLMs (e.g. Gemma 2 2B, Qwen 2.5 3B/7B, Ministral 3B) and saving extensive API token costs.
+  - Seamlessly supported across `MultiMCPManager`, `PlaygroundController`, `McpAgentEngine`, Desktop Assistant, and TealKit CLI (`/progressive [auto|on|off]`).
+- **CLI Multiline Prompt Input & Configurable Submit Keys (`submit_key`)**:
+  - Developed a high-performance raw terminal mode in `cli_prompt_reader.dart` supporting multiple submission key configurations:
+    - `ctrl-enter` (Default): Pressing <kbd>Enter</kbd> moves to a new line with a dim continuation prompt (`... `), while <kbd>Ctrl+Enter</kbd>, <kbd>Ctrl+D</kbd>, or <kbd>Ctrl+Z</kbd> submits the prompt.
+    - `double-enter`: Pressing <kbd>Enter</kbd> inserts a newline; pressing <kbd>Enter</kbd> twice on an empty line submits.
+    - `enter`: Classic single-line mode with backslash line continuations (`\`) and triple-quote blocks (`"""`).
+  - Added interactive `/multiline [on|off]` toggle and `/submit-key` configuration in `~/.tealkit/config.yaml`.
+  - Supports instant in-terminal <kbd>Ctrl+V</kbd> and `/paste` clipboard detection for multiline code blocks, Markdown documents, and direct screenshot image attachments.
+- **Local RAG Subsystem & Built-in Pure Dart Web Crawler (`tealkit rag`)**:
+  - Added a zero-cloud, fully offline Local Retrieval-Augmented Generation (RAG) engine to TealKit CLI and Assistant (`/rag` mode).
+  - Powered by **SQLite FTS5** for instant BM25 keyword matching and embedded **Nomic Embed Text v1.5 GGUF** vectors (`nomic-embed-text-v1.5.Q4_K_M.gguf`, ~80MB) with automatic GPU acceleration (`gpuLayers: 99`) via Vulkan/Metal and CPU fallback.
+  - Dynamically combines keyword and vector relevance using **Reciprocal Rank Fusion (RRF)**.
+  - Autonomous pure-Dart web crawler supporting `max_pages` limits, domain boundaries, and HTML boilerplate filtering.
+  - Records exact file line start/end numbers (`line_start`, `line_end`) with clickable `file:///` links and `path:line` format for instant **Ctrl+Click** navigation in VS Code and Windows Terminal.
+  - Added CLI management suite: `tealkit rag reindex [-p|--max-pages]`, `tealkit rag status`, `tealkit rag search <query>`, and in-session `/rag` commands.
+- **Multimodal Image Optimization & Memory Safety (`ImageOptimizer`)**:
+  - Integrated `ImageOptimizer.shrinkToOptimalSize` using Flutter native hardware decoders to automatically downscale high-resolution photos and camera shots (e.g. 200MP phone photos) to 768px bounds.
+  - Eliminates out-of-memory errors and mobile NPU crashes when passing images to local SLMs, on-device vision models, or cloud multimodal providers.
+- **Core Dependency Synchronization (`dart_mcp_core: ^1.2.0`)**:
+  - Upgraded dependencies across all packages and examples to `dart_mcp_core: ^1.2.0`.
+  - Brings structured agent planning (`WriteTodosTool`, `PlanState`, `PlanStep`), context auto-compression (`ContextCompressor`), and agent lifecycle interceptors (`AgentHook`).
+
 ## v2.0.1+155 - Unified Agent LLM Selector, Session Save/Load in Assistant, Desktop Clipboard Images & UI Streamlining
 
 ### Major Features & Enhancements

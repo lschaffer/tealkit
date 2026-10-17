@@ -27,7 +27,24 @@ class CliEmbeddedModelManager {
   }
 
   /// Resolves the local file path for a model filename.
+  /// Checks local project ./models, executable's ../models or ./models, then ~/.tealkit/models.
   Future<File> getModelFile(String filename) async {
+    // 1. Current working directory ./models/
+    final localFile = File('models/$filename');
+    if (localFile.existsSync()) return localFile;
+
+    // 2. Next to executable or executable's models folder
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final exeModelFile = File('$exeDir/models/$filename');
+    if (exeModelFile.existsSync()) return exeModelFile;
+
+    final exeParentModelFile = File('$exeDir/../models/$filename');
+    if (exeParentModelFile.existsSync()) return exeParentModelFile;
+
+    final directExeFile = File('$exeDir/$filename');
+    if (directExeFile.existsSync()) return directExeFile;
+
+    // 3. User home ~/.tealkit/models/
     final dir = await getModelsDirectory();
     return File('${dir.path}/$filename');
   }

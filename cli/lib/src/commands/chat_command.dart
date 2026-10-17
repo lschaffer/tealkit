@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dart_mcp_core/dart_mcp_core.dart';
 
+import '../config/cli_config.dart';
 import '../config/llm_config_manager.dart';
 import '../engine/builtin_mcp_servers.dart';
 import '../engine/cli_attachment_helper.dart';
 import '../engine/cli_clipboard_helper.dart';
+import '../engine/cli_prompt_reader.dart';
 import '../engine/embedded/cli_embedded_llm_adapter.dart';
 import '../engine/embedded/cli_embedded_model_manager.dart';
 import '../engine/mcp_manager_helper.dart';
@@ -16,6 +18,7 @@ import '../engine/skill_runner.dart';
 import '../engine/token_usage_tracker.dart';
 import '../formatters/terminal_printer.dart';
 import '../formatters/terminal_spinner.dart';
+import '../rag/rag_service.dart';
 
 /// `tealkit chat [--skill <path>]`
 class ChatCommand extends Command {
@@ -72,6 +75,11 @@ class ChatCommand extends Command {
       defaultsTo: true,
       help: 'Compact display mode (hide file read contents, show only filename)',
     );
+    argParser.addOption(
+      'progressive-tools',
+      allowed: ['auto', 'on', 'off'],
+      help: 'Progressive MCP tool discovery mode (auto, on, off). Auto enables when tool count > 25 or SLM.',
+    );
   }
 
   static const _helpText = '''
@@ -79,6 +87,7 @@ Commands:
   /llm                       List all configured LLM profiles and show active
   /llm <name> or /llm:<name> Switch active LLM profile (e.g. /llm:ollama, /llm mistral)
   /compact [on|off]          Toggle compact mode (hide file read contents, show only filenames)
+  /progressive [auto|on|off] Toggle progressive on-demand MCP tool discovery (mcp_list_tools, mcp_call_tool)
   /install <name|all_mcp>    Install / load MCP server package & connect to session
   /uninstall <name|all_mcp>  Uninstall MCP server package from filesystem & disable in mcp.yaml
   /mcp_inspect [server_name] Inspect functions & schemas of enabled MCP servers
@@ -90,10 +99,14 @@ Commands:
   /estimated_costs, /costs   Display accumulated token usage and estimated API cost
   /session                   Display current session statistics and configuration
   /tools                     List available MCP and built-in tools
+  /reindex                   Rebuild or update local RAG SQLite index (PDF, DOCX, text, web)
+  /rag [on|off|status]       Toggle local RAG or inspect database statistics
+  /rag search <query>        Semantic & keyword vector search against indexed documents
+  /multiline [on|off]        Toggle multi-line prompt mode (Enter = newline, Ctrl-Enter = submit)
   /attach-file <path>        Attach a file (image, PDF, code, doc) to the next prompt
   /attach <path>             Alias for /attach-file
   /attach-clipboard          Attach image or text from system clipboard to the next prompt
-  /paste, /clipboard         Alias for /attach-clipboard
+  /paste, /clipboard         Alias for /attach-clipboard (or /paste image, or inline /paste in prompt)
   /attachments               List currently staged attachments
   /attach clear              Clear all staged attachments
   /system                    Display current system prompt
@@ -241,10 +254,17 @@ Commands:
       }
     }
 
+    final cliConfig = CliConfig.load();
+    final progressiveArg = argResults?['progressive-tools'] as String?;
+    if (progressiveArg != null && progressiveArg.isNotEmpty) {
+      cliConfig.progressiveTools = progressiveArg;
+    }
+
     TerminalPrinter.printBanner(sessionTitle, [
       'LLM Profile : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
       'MCP Servers : ${localServers.length} configured',
       'Compact Mode: ${compactMode ? "ON" : "OFF"}',
+      'Progressive : ${cliConfig.progressiveTools.toUpperCase()}',
       if (autoSavePath != null) 'Session File: $autoSavePath',
       'Commands    : Type /help for slash commands, /exit to quit',
     ]);
@@ -283,8 +303,14 @@ Commands:
         final attachBadge = pendingAttachments.isNotEmpty
             ? ' (${pendingAttachments.length} att)'
             : '';
-        stdout.write(TerminalPrinter.cyan('chat$attachBadge > '));
-        final rawInput = stdin.readLineSync();
+        final promptPrefix = 'chat$attachBadge > ';
+
+        final rawInput = await CliPromptReader.readPrompt(
+          promptPrefix: promptPrefix,
+          config: cliConfig,
+          stagedAttachments: pendingAttachments,
+          workspaceDir: defaultWorkspaceDir,
+        );
         if (rawInput == null) break;
 
         final input = rawInput.trim();
@@ -293,6 +319,75 @@ Commands:
         if (input == '/bye' || input == '/exit') break;
         if (input == '/help' || input == '/?') {
           stdout.writeln(_helpText);
+          continue;
+        }
+
+        if (input == '/multiline' || input.startsWith('/multiline ')) {
+          final arg = input.replaceFirst('/multiline', '').trim().toLowerCase();
+          if (arg == 'on' || arg == 'true' || arg == '1') {
+            cliConfig.multilinePrompt = true;
+            cliConfig.save();
+            stdout.writeln(TerminalPrinter.green('✔ Multi-line prompt enabled (Enter = newline, Ctrl-Enter = submit).'));
+          } else if (arg == 'off' || arg == 'false' || arg == '0') {
+            cliConfig.multilinePrompt = false;
+            cliConfig.save();
+            stdout.writeln(TerminalPrinter.yellow('✔ Multi-line prompt disabled (Enter = submit).'));
+          } else {
+            cliConfig.multilinePrompt = !cliConfig.multilinePrompt;
+            cliConfig.save();
+            final status = cliConfig.multilinePrompt
+                ? 'enabled (Enter = newline, Ctrl-Enter = submit)'
+                : 'disabled (Enter = submit)';
+            stdout.writeln(TerminalPrinter.cyan('Multi-line prompt is now $status.'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/progressive' || input.startsWith('/progressive ')) {
+          final arg = input.replaceFirst('/progressive', '').trim().toLowerCase();
+          final totalToolCount = dartTools.length + mcpManager.availableTools.length;
+          if (arg == 'on' || arg == 'true' || arg == '1' || arg == 'enable') {
+            cliConfig.progressiveTools = 'on';
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Progressive tool discovery forced ON (exposing mcp_list_tools and mcp_call_tool).',
+              ),
+            );
+          } else if (arg == 'off' || arg == 'false' || arg == '0' || arg == 'disable') {
+            cliConfig.progressiveTools = 'off';
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.yellow(
+                '✔ Progressive tool discovery OFF (all $totalToolCount tool schemas sent directly).',
+              ),
+            );
+          } else if (arg == 'auto') {
+            cliConfig.progressiveTools = 'auto';
+            cliConfig.save();
+            final active = cliConfig.isProgressiveToolsActive(
+              totalTools: totalToolCount,
+              provider: activeLlmConfig.provider,
+            );
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Progressive tool discovery set to AUTO (currently ${active ? "ACTIVE ($totalToolCount tools > 25 or SLM)" : "INACTIVE ($totalToolCount tools <= 25)"}).',
+              ),
+            );
+          } else {
+            final active = cliConfig.isProgressiveToolsActive(
+              totalTools: totalToolCount,
+              provider: activeLlmConfig.provider,
+            );
+            stdout.writeln(
+              'Progressive tools mode: ${TerminalPrinter.bold(cliConfig.progressiveTools.toUpperCase())} '
+              '(active: ${active ? TerminalPrinter.green("YES") : TerminalPrinter.yellow("NO")}, '
+              'total tools: $totalToolCount)',
+            );
+            stdout.writeln('Usage: /progressive [auto|on|off]');
+          }
+          stdout.writeln('');
           continue;
         }
 
@@ -332,7 +427,8 @@ Commands:
           continue;
         }
 
-        if (input == '/attach-clipboard' || input == '/paste' || input == '/clipboard') {
+        if (input == '/attach-clipboard' || input == '/paste' || input == '/clipboard' || input == '/paste image' || input == '/paste-image') {
+          final forceImage = input == '/paste image' || input == '/paste-image';
           try {
             stdout.writeln(TerminalPrinter.dim('Checking system clipboard...'));
             final clipData = await CliClipboardHelper.getClipboardContent();
@@ -349,7 +445,7 @@ Commands:
               stdout.writeln(
                 TerminalPrinter.green('✔ Attached image from clipboard: ${att.name} (${att.sizeLabel})'),
               );
-            } else if (clipData.text != null && clipData.text!.isNotEmpty) {
+            } else if (!forceImage && clipData.text != null && clipData.text!.isNotEmpty) {
               final bytes = utf8.encode(clipData.text!);
               final att = CliAttachmentHelper.fromBytes(
                 bytes: bytes,
@@ -362,6 +458,8 @@ Commands:
               stdout.writeln(
                 TerminalPrinter.green('✔ Attached text from clipboard (${clipData.text!.length} chars)'),
               );
+            } else if (forceImage) {
+              stdout.writeln(TerminalPrinter.yellow('No image found on system clipboard.'));
             }
           } catch (e) {
             stderr.writeln(TerminalPrinter.red('Error accessing clipboard: $e'));
@@ -1140,6 +1238,106 @@ Commands:
           continue;
         }
 
+        // ── RAG Management: /reindex, /rag [status|on|off], /rag search <query> ──
+        if (input == '/reindex') {
+          stdout.writeln(TerminalPrinter.bold('─── TealKit Local RAG Indexer ───'));
+          stdout.writeln('Database: ${cliConfig.rag.databasePath}');
+          stdout.writeln('Folders:  ${cliConfig.rag.folderSources.join(", ")}');
+          if (cliConfig.rag.webSources.isNotEmpty) {
+            stdout.writeln('Web URLs: ${cliConfig.rag.webSources.join(", ")}');
+          }
+          final spinner = TerminalProgress('Scanning and indexing sources...');
+          spinner.start();
+          final ragService = RagService(cliConfig.rag);
+          try {
+            final res = await ragService.reindex(
+              onProgress: (current, total, status) {
+                spinner.start('[$current/$total] $status');
+              },
+            );
+            spinner.stop();
+            stdout.writeln(TerminalPrinter.green('✔ Indexing completed in ${res['duration_seconds']}s'));
+            stdout.writeln('  Evaluated: ${res['evaluated']} | Updated: ${res['updated']} | Unchanged: ${res['skipped']} | Chunks: ${res['new_chunks']}');
+            final stats = res['stats'] as Map<String, dynamic>;
+            stdout.writeln('  Total docs: ${stats['document_count']} | Total chunks: ${stats['chunk_count']} | Size: ${stats['file_size_mb']} MB');
+          } catch (e) {
+            spinner.stop();
+            stderr.writeln(TerminalPrinter.red('❌ Indexing failed: $e'));
+          } finally {
+            ragService.dispose();
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/rag')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final sub = parts.length > 1 ? parts[1].toLowerCase() : 'status';
+
+          if (sub == 'on' || sub == 'enable' || sub == '1') {
+            cliConfig.rag.enabled = true;
+            cliConfig.save();
+            stdout.writeln(TerminalPrinter.green('✔ Local RAG context injection ENABLED.'));
+          } else if (sub == 'off' || sub == 'disable' || sub == '0') {
+            cliConfig.rag.enabled = false;
+            cliConfig.save();
+            stdout.writeln(TerminalPrinter.yellow('✔ Local RAG context injection DISABLED.'));
+          } else if (sub == 'search' && parts.length > 2) {
+            final query = parts.sublist(2).join(' ').trim();
+            final ragService = RagService(cliConfig.rag);
+            try {
+              stdout.writeln(TerminalPrinter.dim('Searching RAG database for: "$query"...'));
+              final results = await ragService.search(query, limit: 5);
+              if (results.isEmpty) {
+                stdout.writeln(TerminalPrinter.yellow('No matching chunks found in RAG index.'));
+              } else {
+                stdout.writeln(TerminalPrinter.bold('Found ${results.length} matching chunk(s):'));
+                for (int i = 0; i < results.length; i++) {
+                  final r = results[i];
+                  final scoreStr = (r.score * 100).toStringAsFixed(1);
+                  final method = r.matchType.toUpperCase();
+                  final title = r.documentTitle ?? r.documentUri;
+                  stdout.writeln(TerminalPrinter.cyan('[${i + 1}] $title ($method, $scoreStr%, ${r.locationLabel})'));
+                  stdout.writeln('    File: ${TerminalPrinter.bold(r.terminalLocation)}');
+                  stdout.writeln('    Link: ${TerminalPrinter.underline(r.clickableLink)}');
+                  final snippet = r.content.length > 200 ? '${r.content.substring(0, 200)}...' : r.content;
+                  stdout.writeln(TerminalPrinter.dim('    ${snippet.replaceAll("\n", " ")}'));
+                }
+              }
+            } catch (e) {
+              stderr.writeln(TerminalPrinter.red('Search error: $e'));
+            } finally {
+              ragService.dispose();
+            }
+          } else {
+            // Status
+            final ragService = RagService(cliConfig.rag);
+            try {
+              ragService.init();
+              final stats = ragService.database.getStats();
+              stdout.writeln(TerminalPrinter.bold('─── Local RAG Status ───'));
+              stdout.writeln('Status:       ${cliConfig.rag.enabled ? TerminalPrinter.green("Enabled") : TerminalPrinter.yellow("Disabled")}');
+              stdout.writeln('Database:     ${stats['database_path']}');
+              stdout.writeln('DB Size:      ${stats['file_size_mb']} MB');
+              stdout.writeln('Documents:    ${stats['document_count']}');
+              stdout.writeln('Total Chunks: ${stats['chunk_count']} (Vectors: ${stats['vector_count']})');
+              stdout.writeln('Search Mode:  ${cliConfig.rag.searchMode}');
+              stdout.writeln('Embedder:     ${cliConfig.rag.embeddingProvider} (${cliConfig.rag.embeddingModel})');
+              stdout.writeln('Folder Srcs:  ${cliConfig.rag.folderSources.join(", ")}');
+              if (cliConfig.rag.webSources.isNotEmpty) {
+                stdout.writeln('Web Srcs:     ${cliConfig.rag.webSources.join(", ")}');
+              }
+              stdout.writeln(TerminalPrinter.dim('Tip: Use "/rag on" / "/rag off" to toggle, "/reindex" to update index, "/rag search <query>" to test.'));
+            } catch (e) {
+              stderr.writeln(TerminalPrinter.red('Error reading RAG status: $e'));
+            } finally {
+              ragService.dispose();
+            }
+          }
+          stdout.writeln('');
+          continue;
+        }
+
         // ── Process Staged Attachments ──
         final effectivePromptBuffer = StringBuffer();
         final messageAttachments = <MessageAttachment>[];
@@ -1159,6 +1357,26 @@ Commands:
           }
           effectivePromptBuffer.writeln('\nMessage:');
         }
+
+        // RAG context injection
+        if (cliConfig.rag.enabled) {
+          final ragService = RagService(cliConfig.rag);
+          try {
+            final ragContext = await ragService.buildPromptContext(input);
+            if (ragContext != null && ragContext.isNotEmpty) {
+              stdout.writeln(TerminalPrinter.dim('⚡ RAG: Retrieved context from indexed documents'));
+              effectivePromptBuffer.writeln(ragContext);
+              effectivePromptBuffer.writeln('');
+            }
+          } catch (e) {
+            if (verbose) {
+              stderr.writeln(TerminalPrinter.dim('[RAG retrieval warning: $e]'));
+            }
+          } finally {
+            ragService.dispose();
+          }
+        }
+
         effectivePromptBuffer.write(input);
         final effectivePromptText = effectivePromptBuffer.toString();
 
@@ -1179,11 +1397,22 @@ Commands:
           );
         }
 
+        final currentTotalTools = dartTools.length + mcpManager.availableTools.length;
+        final isProgressiveActive = cliConfig.isProgressiveToolsActive(
+          totalTools: currentTotalTools,
+          provider: activeLlmConfig.provider,
+        );
+
         final agent = Agent(
           key: 'chat_agent',
           name: 'Chat Agent',
           llmConfig: activeLlmConfig,
           systemPrompt: systemPrompt,
+          enablePlanning: cliConfig.enablePlanning,
+          progressiveMcpDiscovery: isProgressiveActive,
+          contextCompressor: ContextCompressor(
+            tokenThreshold: cliConfig.contextCompressionThreshold,
+          ),
           prompts: messageAttachments.isNotEmpty
               ? [const SubPromptStep(text: '')]
               : [SubPromptStep(text: effectivePromptText)],
@@ -1249,6 +1478,30 @@ Commands:
                   prompt: promptTokens,
                   completion: completionTokens,
                 );
+              case AgentPlanEvent(:final plan):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.bold('\n📋 Plan / Todo Progress:'));
+                for (final step in plan.steps) {
+                  final statusSymbol = switch (step.status) {
+                    PlanStepStatus.completed => TerminalPrinter.green('✔ [done]'),
+                    PlanStepStatus.inProgress => TerminalPrinter.yellow('⏳ [in_progress]'),
+                    PlanStepStatus.cancelled => TerminalPrinter.dim('🚫 [cancelled]'),
+                    PlanStepStatus.pending => TerminalPrinter.dim('◽ [pending]'),
+                  };
+                  stdout.writeln('  $statusSymbol ${step.description}');
+                }
+                stdout.writeln('');
+                spinner.start('Thinking...');
+              case AgentContextCompressedEvent(
+                :final originalTokens,
+                :final compressedTokens,
+                :final compressedTurnCount,
+              ):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.cyan(
+                  '⚡ [Context Compressed] $originalTokens -> $compressedTokens tokens ($compressedTurnCount turns compressed)',
+                ));
+                spinner.start('Thinking...');
               case AgentTextChunkEvent():
                 spinner.clear();
                 break;

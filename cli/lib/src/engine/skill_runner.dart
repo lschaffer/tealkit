@@ -528,6 +528,10 @@ class SkillRunner {
             break;
           case AgentUsageEvent():
             break;
+          case AgentPlanEvent():
+            break;
+          case AgentContextCompressedEvent():
+            break;
           case AgentTextChunkEvent():
             spinner.clear();
             break;

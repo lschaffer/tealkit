@@ -6885,6 +6885,26 @@ class _ToolCallHeaderState extends State<_ToolCallHeader> {
   }
 
   String get _singleLineContent {
+    final firstLine = widget.content.split('\n').first.trim();
+    if (firstLine.contains('search_documents')) {
+      final qMatch = RegExp(r'"query"\s*:\s*"([^"]+)"').firstMatch(widget.content);
+      final q = qMatch?.group(1) ?? '';
+      return q.isNotEmpty
+          ? 'Search for "$q" in indexed documents'
+          : 'Search in indexed documents';
+    }
+    if (firstLine.contains('search_indexed_websites')) {
+      final qMatch = RegExp(r'"query"\s*:\s*"([^"]+)"').firstMatch(widget.content);
+      final q = qMatch?.group(1) ?? '';
+      return q.isNotEmpty
+          ? 'Search for "$q" in indexed websites'
+          : 'Search in indexed websites';
+    }
+    if (firstLine.startsWith('Search for ') ||
+        firstLine.startsWith('Search in ') ||
+        firstLine.startsWith('Reading document')) {
+      return firstLine;
+    }
     // Replace all newlines (both actual \n and escaped \\n) with spaces for single-line display
     return widget.content
         .replaceAll('\\n', ' ') // Handle escaped newlines

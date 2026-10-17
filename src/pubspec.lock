@@ -259,10 +259,10 @@ packages:
     dependency: "direct main"
     description:
       name: dart_mcp_core
-      sha256: "0122af3e9d08da853c5753cb9ff435c3d383c35ad9449d4ec3acda89d378f865"
+      sha256: d817cdabd653ec8c7394554a62c5d02d6a1de61057ab15655528fa6d29ccb041
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.4"
+    version: "1.2.0"
   dartssh2:
     dependency: "direct main"
     description:

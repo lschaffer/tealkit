@@ -9,6 +9,7 @@ import '../services/llm_settings_service.dart';
 import '../services/llm_task_resync_service.dart';
 import '../services/server_api_client.dart';
 import 'embedded_llm/embedded_model_picker_widget.dart';
+import '../services/embedded_llm/embedded_llm_adapter.dart';
 import 'llm_settings_form_widget.dart';
 
 /// Full-screen dialog for configuring default LLM settings.
@@ -88,6 +89,8 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   bool _injectToolCallingRules = true;
   bool _enable2ndStageToolFiltering = true;
   String _toolFilteringLlmSource = 'llm1';
+  String _toolDeliveryStrategy = 'auto';
+  bool _isGlobalSettingsExpanded = false;
 
   // ── Embedded tab state ────────────────────────────
   String _embeddedModelFile = '';
@@ -130,6 +133,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
       _injectToolCallingRules = widget.service.injectToolCallingRules;
       _enable2ndStageToolFiltering = widget.service.enable2ndStageToolFiltering;
       _toolFilteringLlmSource = widget.service.toolFilteringLlmSource;
+      _toolDeliveryStrategy = widget.service.toolDeliveryStrategy;
       _loading = false;
     });
   }
@@ -337,6 +341,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         'inject_tool_calling_rules': _injectToolCallingRules,
         'enable_2nd_stage_tool_filtering': _enable2ndStageToolFiltering,
         'tool_filtering_llm_source': _toolFilteringLlmSource,
+        'tool_delivery_strategy': _toolDeliveryStrategy,
         'max_tool_output_size': active?.maxToolOutputSize ?? 2560000,
         'token_warning_threshold': active?.tokenWarningThreshold ?? 1500000,
         'top_k': active?.topK,
@@ -377,6 +382,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
       await widget.service.setInjectToolCallingRules(_injectToolCallingRules);
       await widget.service.setEnable2ndStageToolFiltering(_enable2ndStageToolFiltering);
       await widget.service.setToolFilteringLlmSource(_toolFilteringLlmSource);
+      await widget.service.setToolDeliveryStrategy(_toolDeliveryStrategy);
       await _syncToServer();
 
       if (mounted) {
@@ -411,10 +417,25 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
     final theme = Theme.of(context);
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l.llmSettings),
+        actions: [
+          if (_editingProfileId == null)
+            IconButton(
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check),
+              tooltip: l.save,
+              onPressed: _saving ? null : _saveAllSettings,
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -423,22 +444,50 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           ],
         ),
       ),
+      bottomNavigationBar: _editingProfileId != null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 5 : 16,
+                  vertical: 8,
+                ),
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _saveAllSettings,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(l.save),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: AppTheme.primaryBlue,
+                  ),
+                ),
+              ),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
-              child: AnimatedBuilder(
-                animation: _tabController,
-                builder: (context, _) => IndexedStack(
-                  index: _tabController.index,
-                  children: [
-                    _editingProfileId != null
-                        ? _buildProfileEditView(theme, isModern)
-                        : _buildProfilesListView(theme, isModern),
-                    if (!_isLightMode) _buildEmbeddedTab(l, theme),
-                  ],
-                ),
-              ),
+              child: _editingProfileId != null
+                  ? _buildProfileEditView(theme, isModern)
+                  : AnimatedBuilder(
+                      animation: _tabController,
+                      builder: (context, _) => IndexedStack(
+                        index: _tabController.index,
+                        children: [
+                          _buildProfilesListView(theme, isModern),
+                          if (!_isLightMode) _buildEmbeddedTab(l, theme),
+                        ],
+                      ),
+                    ),
             ),
     );
   }
@@ -448,11 +497,16 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   // ───────────────────────────────────────────────────
 
   Widget _buildProfilesListView(ThemeData theme, bool isModern) {
-    final l = L.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 5 : 16,
+        vertical: isMobile ? 8 : 16,
+      ),
       children: [
+        _buildGlobalSettingsSection(theme, isModern),
+        SizedBox(height: isMobile ? 10 : 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -506,28 +560,6 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           ..._profiles.map((p) => _buildProfileCard(p, theme, isModern)),
 
         const SizedBox(height: 16),
-        _buildGlobalSettingsSection(theme, isModern),
-        const SizedBox(height: 24),
-
-        FilledButton.icon(
-          onPressed: _saving ? null : _saveAllSettings,
-          icon: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.save),
-          label: Text(l.save),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            backgroundColor: AppTheme.primaryBlue,
-          ),
-        ),
-        const SizedBox(height: 24),
       ],
     );
   }
@@ -537,10 +569,11 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
     ThemeData theme,
     bool isModern,
   ) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final isActive = profile.id == _selectedProfileId;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: isMobile ? 8 : 12),
       child: _buildConfigCard(
         isModern: isModern,
         theme: theme,
@@ -551,7 +584,10 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             ? AppTheme.primaryBlue.withValues(alpha: 0.06)
             : theme.colorScheme.surface,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 14,
+            vertical: isMobile ? 10 : 14,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -671,8 +707,13 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   // ───────────────────────────────────────────────────
 
   Widget _buildProfileEditView(ThemeData theme, bool isModern) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 5 : 16,
+        vertical: isMobile ? 8 : 16,
+      ),
       children: [
         Row(
           children: [
@@ -761,17 +802,23 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   Widget _buildEmbeddedTab(L l, ThemeData theme) {
     final uiStyle = AppPreferencesService.instance.uiStyle;
     final isModern = uiStyle == 'modern';
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 5 : 16,
+        vertical: isMobile ? 8 : 16,
+      ),
       children: [
+        _buildGlobalSettingsSection(theme, isModern),
+        SizedBox(height: isMobile ? 10 : 16),
         _buildConfigCard(
           isModern: isModern,
           theme: theme,
           baseColor: isModern ? const Color(0xFF7C3AED) : AppTheme.primaryBlue,
           classicBgColor: AppTheme.primaryBlue.withValues(alpha: 0.08),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(isMobile ? 8 : 12),
             child: Row(
               children: [
                 Icon(
@@ -814,46 +861,86 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   // ───────────────────────────────────────────────────
 
   Widget _buildGlobalSettingsSection(ThemeData theme, bool isModern) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return _buildConfigCard(
       isModern: isModern,
       theme: theme,
       baseColor: isModern ? const Color(0xFF7C3AED) : AppTheme.primaryBlue,
       classicBgColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 14,
+          vertical: isMobile ? 6 : 10,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.rule_outlined,
-                  size: 22,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Inject Tool Calling Rules',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+            InkWell(
+              onTap: () => setState(() => _isGlobalSettingsExpanded = !_isGlobalSettingsExpanded),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.rule_outlined,
+                      size: 20,
+                      color: theme.colorScheme.primary,
                     ),
-                    subtitle: const Text(
-                      'Appends strict completion rules to system prompts so smaller models stop calling tools once the answer is ready',
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Global Tool Rules & Strategy',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (!_isGlobalSettingsExpanded)
+                            Text(
+                              'Strategy: ${_toolDeliveryStrategy.toUpperCase()} • Tool Rules: ${_injectToolCallingRules ? "Active" : "Off"}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    value: _injectToolCallingRules,
-                    onChanged: (val) =>
-                        setState(() => _injectToolCallingRules = val ?? true),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
+                    Icon(
+                      _isGlobalSettingsExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 22,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-            const Divider(height: 16),
-            _buildToolFilteringSection(theme),
+            if (_isGlobalSettingsExpanded) ...[
+              const SizedBox(height: 6),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  'Inject Tool Calling Rules',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                subtitle: const Text(
+                  'Appends strict completion rules to system prompts so smaller models stop calling tools once the answer is ready',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                value: _injectToolCallingRules,
+                onChanged: (val) =>
+                    setState(() => _injectToolCallingRules = val ?? true),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+              const Divider(height: 12),
+              _buildToolFilteringSection(theme),
+            ],
           ],
         ),
       ),
@@ -863,7 +950,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   Widget _buildToolFilteringSection(ThemeData theme) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 550;
+        final isCompact = constraints.maxWidth < 600;
 
         final dropdownItems = _profiles.map((p) {
           return DropdownMenuItem<String>(
@@ -876,108 +963,279 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
           dropdownItems.add(const DropdownMenuItem(value: 'llm1', child: Text('LLM 1 (Primary)')));
         }
 
-        final currentValue = dropdownItems.any((item) => item.value == _toolFilteringLlmSource)
+        final currentLlmValue = dropdownItems.any((item) => item.value == _toolFilteringLlmSource)
             ? _toolFilteringLlmSource
             : dropdownItems.first.value;
 
-        final dropdownWidget = DropdownButtonFormField<String>(
-          initialValue: currentValue,
+        final filterLlmWidget = DropdownButtonFormField<String>(
+          isExpanded: true,
+          initialValue: currentLlmValue,
           decoration: const InputDecoration(
             labelText: 'Tool Filter Model',
             border: OutlineInputBorder(),
             isDense: true,
             prefixIcon: Icon(Icons.psychology_outlined, size: 20),
           ),
-          items: dropdownItems,
+          items: dropdownItems.map((item) {
+            final child = item.child;
+            if (child is Text) {
+              return DropdownMenuItem<String>(
+                value: item.value,
+                child: Text(child.data ?? '', overflow: TextOverflow.ellipsis),
+              );
+            }
+            return item;
+          }).toList(),
+          selectedItemBuilder: (context) {
+            return dropdownItems.map((item) {
+              final child = item.child;
+              final text = child is Text ? (child.data ?? '') : (item.value ?? '');
+              return Text(text, overflow: TextOverflow.ellipsis);
+            }).toList();
+          },
           onChanged: (val) {
             if (val != null) setState(() => _toolFilteringLlmSource = val);
           },
         );
 
-        if (isCompact) {
-          return Column(
+        final strategyDropdown = DropdownButtonFormField<String>(
+          isExpanded: true,
+          initialValue: _toolDeliveryStrategy,
+          decoration: const InputDecoration(
+            labelText: 'Tool Delivery Strategy',
+            border: OutlineInputBorder(),
+            isDense: true,
+            prefixIcon: Icon(Icons.hub_outlined, size: 20),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'auto',
+              child: Text(
+                'Auto (Progressive for SLMs / >25 tools)',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'progressive',
+              child: Text(
+                'Progressive Discovery (mcp_list_tools, mcp_call_tool)',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'prefilter',
+              child: Text(
+                '2nd-Stage LLM Prefilter',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'direct',
+              child: Text(
+                'Direct Schemas (All tools in context)',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+          selectedItemBuilder: (context) => const [
+            Text('Auto (Progressive for SLMs / >25 tools)', overflow: TextOverflow.ellipsis),
+            Text('Progressive Discovery (mcp_list_tools, mcp_call_tool)', overflow: TextOverflow.ellipsis),
+            Text('2nd-Stage LLM Prefilter', overflow: TextOverflow.ellipsis),
+            Text('Direct Schemas (All tools in context)', overflow: TextOverflow.ellipsis),
+          ],
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _toolDeliveryStrategy = val;
+                if (val == 'prefilter') {
+                  _enable2ndStageToolFiltering = true;
+                } else if (val == 'direct' || val == 'progressive') {
+                  _enable2ndStageToolFiltering = false;
+                }
+              });
+            }
+          },
+        );
+
+        NamedLlmProfile? activeProfile;
+        for (final p in _profiles) {
+          if (p.id == _selectedProfileId) {
+            activeProfile = p;
+            break;
+          }
+        }
+        activeProfile ??= widget.service.selectedProfile ?? (_profiles.isNotEmpty ? _profiles.first : null);
+
+        final isEmbeddedLoaded = EmbeddedLlmAdapter.instance.isLoaded;
+        final embeddedPath = EmbeddedLlmAdapter.instance.loadedModelPath ?? _embeddedModelFile;
+        final isEmbedded = activeProfile?.provider == LlmProvider.embedded || (activeProfile == null && isEmbeddedLoaded);
+
+        final String activeModelName;
+        if (isEmbedded && embeddedPath.isNotEmpty) {
+          activeModelName = embeddedPath.split(RegExp(r'[\\/]')).last;
+        } else if (activeProfile != null && activeProfile.model.isNotEmpty) {
+          activeModelName = activeProfile.model;
+        } else if (activeProfile != null && activeProfile.name.isNotEmpty) {
+          activeModelName = activeProfile.name;
+        } else {
+          activeModelName = 'Active Model';
+        }
+
+        final isSlm = isEmbedded ||
+            (activeProfile?.isSlm ?? false) ||
+            RegExp(r'(?:^|[:\-_.])([0-9]+\.?[0-9]*)b(?:\b|-)', caseSensitive: false)
+                .hasMatch(activeModelName.toLowerCase()) ||
+            activeModelName.toLowerCase().contains('phi') ||
+            activeModelName.toLowerCase().contains('mini') ||
+            activeModelName.toLowerCase().contains('tiny');
+
+        final String recommendedStrategy = isSlm ? 'prefilter' : 'progressive';
+        final String recommendedTitle = isSlm ? '2nd-Stage LLM Prefilter' : 'Progressive Discovery';
+        final bool isCurrentRecommended = _toolDeliveryStrategy == recommendedStrategy;
+
+        final String recommendationReason = isSlm
+            ? 'Local SLMs (like $activeModelName) have 2K–4K context limits and struggle with multi-step tool discovery. 2nd-Stage Prefilter uses a secondary LLM to preselect candidate tools upfront, feeding only 1–2 exact schemas directly.'
+            : 'Frontier cloud LLMs (like $activeModelName) excel at autonomous tool exploration. Progressive Discovery passes only 2 meta-tools (~220 tokens total), saving >90% tokens and cost without an extra filter pass.';
+
+        final strategyDescription = switch (_toolDeliveryStrategy) {
+          'prefilter' =>
+            '• 2nd-Stage Prefilter: Runs an upfront secondary LLM call (e.g. Hetzner, Gemini Flash) to preselect matching tools before the main turn.\n'
+            '  ✓ Best for: Local GGUF / Embedded models & SLMs (≤14B) to prevent 4K context overflows and ensure direct tool calls.\n'
+            '  ℹ️ Requires: A capable Tool Filter Model configured below.',
+          'progressive' =>
+            '• Progressive Discovery: Injects only 2 meta-tools (~220 tokens total). Discovers and executes tools on-demand via mcp_list_tools & mcp_call_tool.\n'
+            '  ✓ Best for: High-capacity cloud models (DeepSeek, Claude, GPT, Gemini) with strong reasoning.\n'
+            '  ⚠️ Avoid for 3B/7B SLMs: Small models may hallucinate search filters or blow context.',
+          'direct' =>
+            '• Direct Schemas: Passes all enabled tool definitions directly in context on every turn.\n'
+            '  ✓ Best for: Small tool sets (<15 tools) or coding mode.\n'
+            '  ⚠️ Warning: 20+ tools can easily exceed the 4K context limits of local embedded models.',
+          _ =>
+            '• Auto Mode: Automatically selects Progressive Discovery for cloud models or >25 tools, and direct schemas otherwise.\n'
+            '  💡 Note for Local Models: For embedded SLMs with >15 tools, 2nd-Stage LLM Prefilter is strongly recommended over Auto.',
+        };
+
+        final showFilterModelSelector = _toolDeliveryStrategy == 'prefilter' || _toolDeliveryStrategy == 'auto';
+
+        final isMobile = MediaQuery.of(context).size.width < 600;
+
+        return Container(
+          padding: EdgeInsets.all(isMobile ? 8 : 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.filter_alt_outlined,
-                    size: 22,
+                    Icons.explore_outlined,
+                    size: 20,
                     color: theme.colorScheme.primary,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        '2nd Stage LLM Tool Filtering',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Text(
+                      'Tool Delivery & Discovery Strategy',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      subtitle: const Text(
-                        'Filter candidate tools down to exact tools using LLM',
-                      ),
-                      value: _enable2ndStageToolFiltering,
-                      onChanged: (val) => setState(
-                        () => _enable2ndStageToolFiltering = val ?? false,
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              if (_enable2ndStageToolFiltering) ...[
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.only(left: 34),
-                  child: dropdownWidget,
+              const SizedBox(height: 12),
+              if (isCompact) ...[
+                strategyDropdown,
+                if (showFilterModelSelector) ...[
+                  const SizedBox(height: 10),
+                  filterLlmWidget,
+                ],
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 3, child: strategyDropdown),
+                    if (showFilterModelSelector) ...[
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: filterLlmWidget),
+                    ],
+                  ],
                 ),
               ],
+              const SizedBox(height: 10),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 8 : 10,
+                  vertical: isMobile ? 6 : 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isCurrentRecommended
+                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.25)
+                      : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isCurrentRecommended
+                        ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                        : theme.colorScheme.tertiary.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      isCurrentRecommended ? Icons.check_circle_outline : Icons.lightbulb_outline,
+                      size: 16,
+                      color: isCurrentRecommended
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.tertiary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Recommended for $activeModelName (${isSlm ? "Local SLM" : "Cloud LLM"}): $recommendedTitle',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isCurrentRecommended
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.tertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            recommendationReason,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                strategyDescription,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 11.5,
+                  height: 1.35,
+                ),
+              ),
             ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.filter_alt_outlined,
-                  size: 22,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 3,
-                  child: CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      '2nd Stage LLM Tool Filtering',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text(
-                      'Filter candidate tools down to exact tools using LLM',
-                    ),
-                    value: _enable2ndStageToolFiltering,
-                    onChanged: (val) => setState(
-                      () => _enable2ndStageToolFiltering = val ?? false,
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                if (_enable2ndStageToolFiltering)
-                  Expanded(
-                    flex: 2,
-                    child: dropdownWidget,
-                  ),
-              ],
-            ),
-          ],
+          ),
         );
       },
     );
@@ -1029,7 +1287,14 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         child: child,
       );
     } else {
-      return Card(color: classicBgColor, child: child);
+      final isMobile = MediaQuery.of(context).size.width < 600;
+      return Card(
+        margin: isMobile
+            ? const EdgeInsets.symmetric(horizontal: 0, vertical: 4)
+            : const EdgeInsets.all(4.0),
+        color: classicBgColor,
+        child: child,
+      );
     }
   }
 }

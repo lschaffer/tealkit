@@ -11,6 +11,7 @@ class TerminalPrinter {
   static String reset(String text) => supportsAnsi ? '\x1B[0m$text\x1B[0m' : text;
   static String bold(String text) => supportsAnsi ? '\x1B[1m$text\x1B[0m' : text;
   static String dim(String text) => supportsAnsi ? '\x1B[2m$text\x1B[0m' : text;
+  static String underline(String text) => supportsAnsi ? '\x1B[4m$text\x1B[0m' : text;
   static String cyan(String text) => supportsAnsi ? '\x1B[36m$text\x1B[0m' : text;
   static String green(String text) => supportsAnsi ? '\x1B[32m$text\x1B[0m' : text;
   static String yellow(String text) => supportsAnsi ? '\x1B[33m$text\x1B[0m' : text;

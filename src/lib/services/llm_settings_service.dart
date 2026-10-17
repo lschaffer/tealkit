@@ -590,6 +590,7 @@ class LlmSettingsService extends ChangeNotifier {
   static const _kInjectToolCallingRules = 'llm_inject_tool_calling_rules';
   static const _kEnable2ndStageToolFiltering = 'llm_enable_2nd_stage_tool_filtering';
   static const _kToolFilteringLlmSource = 'llm_tool_filtering_llm_source';
+  static const _kToolDeliveryStrategy = 'llm_tool_delivery_strategy';
 
   // ── LLM 2 (coding) storage keys ───────────────────
   static const _kProvider2 = 'llm2_provider';
@@ -652,6 +653,7 @@ class LlmSettingsService extends ChangeNotifier {
   bool _injectToolCallingRules = true;
   bool? _enable2ndStageToolFiltering;
   String _toolFilteringLlmSource = 'llm1';
+  String _toolDeliveryStrategy = 'auto';
   bool _loaded = false;
 
   // ── LLM 2 state ───────────────────────────────────
@@ -722,6 +724,13 @@ class LlmSettingsService extends ChangeNotifier {
 
   /// Which model source to use for tool filtering ('llm1' or 'llm2')
   String get toolFilteringLlmSource => _toolFilteringLlmSource;
+
+  /// Tool delivery strategy:
+  /// - 'auto': Progressive for SLM or >25 tools, 2nd-stage prefilter for 15-25 tools, direct for <=15
+  /// - 'progressive': Always uses McpListToolsTool and McpCallToolTool
+  /// - 'prefilter': 2nd-stage LLM prefilter
+  /// - 'direct': Always send all tool schemas directly
+  String get toolDeliveryStrategy => _toolDeliveryStrategy;
 
   /// Whether LLM 2 is a Small Language Model.
   bool get isSlm2 => _isSlm2;
@@ -902,6 +911,9 @@ class LlmSettingsService extends ChangeNotifier {
     _injectToolCallingRules = remote['inject_tool_calling_rules'] as bool? ?? true;
     _enable2ndStageToolFiltering = remote['enable_2nd_stage_tool_filtering'] as bool?;
     _toolFilteringLlmSource = (remote['tool_filtering_llm_source'] as String?) ?? 'llm1';
+    if (remote.containsKey('tool_delivery_strategy')) {
+      _toolDeliveryStrategy = (remote['tool_delivery_strategy'] as String? ?? 'auto').toLowerCase();
+    }
     _topK = (remote['top_k'] as int?) ?? _topK;
     _topP = (remote['top_p'] as num?)?.toDouble() ?? _topP;
     _repeatPenalty =
@@ -1248,6 +1260,10 @@ class LlmSettingsService extends ChangeNotifier {
       final filterEnabledRaw = await _storage.read(key: _kEnable2ndStageToolFiltering);
       _enable2ndStageToolFiltering = filterEnabledRaw != null ? filterEnabledRaw == 'true' : null;
       _toolFilteringLlmSource = await _storage.read(key: _kToolFilteringLlmSource) ?? 'llm1';
+      final strategyRaw = await _storage.read(key: _kToolDeliveryStrategy);
+      if (strategyRaw != null && strategyRaw.isNotEmpty) {
+        _toolDeliveryStrategy = strategyRaw.toLowerCase();
+      }
       final topKRaw = await _storage.read(key: _kTopK);
       _topK = topKRaw != null ? int.tryParse(topKRaw) : null;
       final topPRaw = await _storage.read(key: _kTopP);
@@ -1432,6 +1448,7 @@ class LlmSettingsService extends ChangeNotifier {
         await prefs.remove('${_kShadowPrefix}enable2ndStageToolFiltering');
       }
       await prefs.setString('${_kShadowPrefix}toolFilteringLlmSource', _toolFilteringLlmSource);
+      await prefs.setString('${_kShadowPrefix}toolDeliveryStrategy', _toolDeliveryStrategy);
       if (_topK != null) await prefs.setInt('${_kShadowPrefix}topK', _topK!);
       if (_topP != null) await prefs.setDouble('${_kShadowPrefix}topP', _topP!);
       if (_repeatPenalty != null) await prefs.setDouble('${_kShadowPrefix}repeatPenalty', _repeatPenalty!);
@@ -1488,6 +1505,7 @@ class LlmSettingsService extends ChangeNotifier {
           prefs.getBool('${_kShadowPrefix}injectToolCallingRules') ?? _injectToolCallingRules;
       _enable2ndStageToolFiltering = prefs.getBool('${_kShadowPrefix}enable2ndStageToolFiltering');
       _toolFilteringLlmSource = prefs.getString('${_kShadowPrefix}toolFilteringLlmSource') ?? _toolFilteringLlmSource;
+      _toolDeliveryStrategy = prefs.getString('${_kShadowPrefix}toolDeliveryStrategy') ?? _toolDeliveryStrategy;
       if (_apiKey.isNotEmpty) {
         _apiKeysByProvider[_provider.configKey] = _apiKey;
       }
@@ -2060,6 +2078,19 @@ class LlmSettingsService extends ChangeNotifier {
       await _storage.write(
         key: _kToolFilteringLlmSource,
         value: source,
+      );
+    } catch (_) {}
+    await _writeShadowPrefs();
+    notifyListeners();
+  }
+
+  /// Update tool delivery strategy ('auto', 'progressive', 'prefilter', 'direct')
+  Future<void> setToolDeliveryStrategy(String strategy) async {
+    _toolDeliveryStrategy = strategy.toLowerCase().trim();
+    try {
+      await _storage.write(
+        key: _kToolDeliveryStrategy,
+        value: _toolDeliveryStrategy,
       );
     } catch (_) {}
     await _writeShadowPrefs();

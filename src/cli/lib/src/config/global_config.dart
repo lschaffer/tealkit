@@ -31,7 +31,14 @@ class GlobalConfigLocator {
     final local = File(p.join(Directory.current.path, filename));
     if (local.existsSync()) return local;
 
-    // 2. Check global ~/.tealkit/
+    // 2. Check executable directory (useful when run from elsewhere or via Task Scheduler)
+    try {
+      final exeDir = p.dirname(Platform.resolvedExecutable);
+      final exeLocal = File(p.join(exeDir, filename));
+      if (exeLocal.existsSync()) return exeLocal;
+    } catch (_) {}
+
+    // 3. Check global ~/.tealkit/
     final global = File(p.join(globalDir, filename));
     if (global.existsSync()) return global;
 

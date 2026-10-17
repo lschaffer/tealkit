@@ -5,6 +5,7 @@ import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
 import '../models/mcp_models.dart';
 import '../utils/logger.dart';
+import '../utils/image_downscaler.dart';
 
 /// Helper service to read images and files from system clipboard on desktop platforms.
 class DesktopClipboardService {
@@ -48,14 +49,25 @@ class DesktopClipboardService {
       final mimeType = lookupMimeType(filePath) ?? 'application/octet-stream';
       final isImage = mimeType.startsWith('image/');
 
+      var finalBytes = bytes;
+      var finalMime = mimeType;
+      if (isImage) {
+        final downscaled = await ImageDownscaler.downscaleIfNeeded(
+          bytes: bytes,
+          originalMimeType: mimeType,
+        );
+        finalBytes = downscaled.bytes;
+        finalMime = downscaled.mimeType;
+      }
+
       return MessageAttachment(
         id: _uuid.v4(),
         type: isImage ? AttachmentType.image : AttachmentType.file,
         path: filePath,
         name: name,
-        size: bytes.length,
-        mimeType: mimeType,
-        bytes: bytes,
+        size: finalBytes.length,
+        mimeType: finalMime,
+        bytes: finalBytes,
       );
     } catch (e) {
       talker.warning('Failed to create attachment from file ($filePath): $e');
@@ -75,15 +87,24 @@ class DesktopClipboardService {
         final f = File(tempImgPath);
         await f.writeAsBytes(imgBytes);
 
+        var finalBytes = imgBytes;
+        var finalMime = 'image/bmp';
+        final downscaled = await ImageDownscaler.downscaleIfNeeded(
+          bytes: imgBytes,
+          originalMimeType: 'image/bmp',
+        );
+        finalBytes = downscaled.bytes;
+        finalMime = downscaled.mimeType;
+
         attachments.add(
           MessageAttachment(
             id: _uuid.v4(),
             type: AttachmentType.image,
             path: tempImgPath,
             name: 'clipboard_image.png',
-            size: imgBytes.length,
-            mimeType: 'image/bmp',
-            bytes: imgBytes,
+            size: finalBytes.length,
+            mimeType: finalMime,
+            bytes: finalBytes,
           ),
         );
         return attachments;

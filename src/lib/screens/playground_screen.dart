@@ -268,6 +268,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   bool _overrideLlm = false;
   bool _showCustomLlmAdvanced = false;
   bool _testingLlmConnection = false;
+  bool _fetchingPlaygroundModels = false;
+  List<String> _fetchedPlaygroundModels = [];
   bool _customThinking = false;
   bool _customUseNativeToolCall = true;
   bool _customIsSlm = false;
@@ -591,6 +593,23 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     } catch (_) {
       // Ignore persistence load failures
     }
+  }
+
+  String _getEffectiveDocumentRootPaths() {
+    final configured =
+        (_mcpInitParams['document']?['rootPath'] as String? ?? '').trim();
+    if (configured.isNotEmpty) return configured;
+    final ds = DataSourcesSettingsService.instance;
+    return ds.documentRootPaths.trim();
+  }
+
+  String _getEffectiveDocumentFileTypes() {
+    final configured =
+        (_mcpInitParams['document']?['fileTypes'] as String? ?? '').trim();
+    if (configured.isNotEmpty) return configured;
+    final ds = DataSourcesSettingsService.instance;
+    if (ds.documentFileTypes.trim().isNotEmpty) return ds.documentFileTypes.trim();
+    return _kDefaultDocFileTypes;
   }
 
   Future<void> _loadPersistedWebsiteSearchSettings() async {
@@ -1299,6 +1318,124 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
   }
 
+  Future<void> _fetchPlaygroundModels() async {
+    setState(() => _fetchingPlaygroundModels = true);
+    final provider = LlmProvider.fromConfigKey(_llmProviderCtrl.text.trim());
+    try {
+      final List<String> list = [];
+      var baseUrl = _llmBaseUrlCtrl.text.trim();
+      var apiKey = _llmApiKeyCtrl.text.trim();
+
+      if (apiKey.isEmpty) {
+        apiKey = LlmSettingsService.instance.getApiKeyForProvider(provider);
+      }
+      if (baseUrl.isEmpty) {
+        baseUrl = LlmSettingsService.instance.getBaseUrlForProvider(provider);
+      }
+
+      if (provider == LlmProvider.ollama) {
+        final base = (baseUrl.isEmpty ? 'http://localhost:11434' : baseUrl)
+            .replaceAll(RegExp(r'/+$'), '');
+        final tagsBase = base.endsWith('/api') ? base : '$base/api';
+        final url = Uri.parse('$tagsBase/tags');
+        final headers = apiKey.isNotEmpty
+            ? {'Authorization': 'Bearer $apiKey'}
+            : <String, String>{};
+        final resp = await http
+            .get(url, headers: headers)
+            .timeout(const Duration(seconds: 15));
+        if (resp.statusCode < 200 || resp.statusCode >= 300) {
+          throw Exception('HTTP ${resp.statusCode}');
+        }
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final fetched = (data['models'] as List<dynamic>? ?? [])
+            .map((m) => (m as Map<String, dynamic>)['name'] as String? ?? '')
+            .where((n) => n.isNotEmpty)
+            .toList();
+        list.addAll(fetched);
+      } else {
+        var resolvedBaseUrl = baseUrl;
+        if (provider == LlmProvider.mistral) {
+          if (resolvedBaseUrl.isEmpty ||
+              resolvedBaseUrl.contains('deepinfra') ||
+              resolvedBaseUrl.contains('openai.com') ||
+              resolvedBaseUrl.contains('localhost')) {
+            resolvedBaseUrl = 'https://api.mistral.ai/v1';
+          }
+        } else if (resolvedBaseUrl.isEmpty) {
+          if (provider == LlmProvider.openai) {
+            resolvedBaseUrl = 'https://api.openai.com/v1';
+          }
+        }
+        final base = resolvedBaseUrl.replaceAll(RegExp(r'/+$'), '');
+        if (base.isEmpty) {
+          throw Exception('Base URL is required to fetch models for ${provider.label}');
+        }
+        final url = Uri.parse('$base/models');
+        final headers = {
+          'Accept': 'application/json',
+          if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+        };
+        final resp = await http
+            .get(url, headers: headers)
+            .timeout(const Duration(seconds: 15));
+        if (resp.statusCode < 200 || resp.statusCode >= 300) {
+          String detail = 'HTTP ${resp.statusCode}';
+          try {
+            final errJson = jsonDecode(resp.body);
+            if (errJson is Map && errJson['message'] != null) {
+              detail = 'HTTP ${resp.statusCode}: ${errJson['message']}';
+            } else if (errJson is Map && errJson['detail'] != null) {
+              detail = 'HTTP ${resp.statusCode}: ${errJson['detail']}';
+            }
+          } catch (_) {}
+          throw Exception(detail);
+        }
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final fetched = (data['data'] as List<dynamic>? ?? [])
+            .map((m) => (m as Map<String, dynamic>)['id'] as String? ?? '')
+            .where((n) => n.isNotEmpty)
+            .toList();
+        list.addAll(fetched);
+      }
+
+      if (mounted) {
+        setState(() {
+          _fetchedPlaygroundModels = list;
+          if (list.isNotEmpty && _llmModelCtrl.text.trim().isEmpty) {
+            _llmModelCtrl.text = list.first;
+            _customIsMultiModal = LlmSettingsService.detectDefaultMultiModal(
+              provider,
+              list.first,
+            );
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully fetched ${list.length} models!'),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not reach ${provider.label}: $e'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _fetchingPlaygroundModels = false);
+      }
+    }
+  }
+
   Uri? _normalizeWebsiteUrl(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return null;
@@ -1522,11 +1659,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             final provider = LlmProvider.fromConfigKey(
               _llmProviderCtrl.text.trim(),
             );
-            if (provider == LlmProvider.ollama ||
-                provider == LlmProvider.openaiCompatible) {
-              return const Iterable<String>.empty();
-            }
-            final suggestions = defaultModels[provider] ?? const <String>[];
+            final isFetchable = provider == LlmProvider.ollama ||
+                provider == LlmProvider.openaiCompatible ||
+                provider == LlmProvider.openai ||
+                provider == LlmProvider.mistral;
+            final suggestions = (isFetchable && _fetchedPlaygroundModels.isNotEmpty)
+                ? _fetchedPlaygroundModels
+                : (defaultModels[provider] ?? const <String>[]);
             // Sort by model name
             final sorted = List<String>.from(suggestions)
               ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -1795,25 +1934,51 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         if (selectedProvider != LlmProvider.none &&
             selectedProvider != LlmProvider.embedded) ...[
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: _testingLlmConnection
-                ? null
-                : _testPlaygroundLlmConnection,
-            icon: _testingLlmConnection
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Icon(Icons.wifi, size: 16),
-            label: Text(_testingLlmConnection ? 'Testing...' : 'Test API'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _fetchingPlaygroundModels
+                      ? null
+                      : _fetchPlaygroundModels,
+                  icon: _fetchingPlaygroundModels
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 16),
+                  label: Text(
+                    _fetchedPlaygroundModels.isEmpty
+                        ? 'Fetch models'
+                        : 'Refresh (${_fetchedPlaygroundModels.length})',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _testingLlmConnection
+                      ? null
+                      : _testPlaygroundLlmConnection,
+                  icon: _testingLlmConnection
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.wifi, size: 16),
+                  label: Text(_testingLlmConnection ? 'Testing...' : 'Test API'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ],
@@ -2097,6 +2262,41 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             'You are a Codebase Assistant for workspace: $ws.\n'
             '• Answer questions using fs_find, fs_list_dir, and fs_read_file.\n'
             '• Do NOT modify or execute destructive commands.\n\n';
+      } else if (_codingAgentSubMode == '/rag') {
+        final ds = DataSourcesSettingsService.instance;
+        final effectiveRoots = _getEffectiveDocumentRootPaths();
+        final dirList = effectiveRoots.isNotEmpty
+            ? effectiveRoots
+                .split(';')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .map((e) => '  • $e')
+                .join('\n')
+            : '  (None configured yet in Document Tool Settings)';
+
+        final webUrls = ds.websiteIndexUrls.trim();
+        final urlList = webUrls.isNotEmpty
+            ? webUrls
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .map((e) => '  • $e')
+                .join('\n')
+            : '';
+
+        codingPrefix =
+            'MODE: KNOWLEDGE / RAG ASSISTANT (/rag)\n'
+            '$hostOsGuideline'
+            'You are a Knowledge Base & RAG Assistant for workspace: $ws.\n'
+            'Configured Document Directories (from Document Tool Settings):\n'
+            '$dirList\n'
+            '${urlList.isNotEmpty ? 'Configured Website URLs (from Document Tool Settings):\n$urlList\n' : ''}'
+            '• In UI mode, knowledge base and RAG strictly use the directories indexed in Document Tool Settings (above), NOT external YAML configuration.\n'
+            '• Use DuckDB indexed tools (`search_documents`, `get_document_content`, `list_indexed_documents`) to search across the configured directories.\n'
+            '${urlList.isNotEmpty ? '• Use `search_indexed_websites` to query indexed website documentation.\n' : ''}'
+            '• Use filesystem exploration tools (`fs_find`, `fs_read_file`, `fs_list_dir`) for workspace code files.\n'
+            '• Ground answers strictly on indexed documents and files. Always cite file paths, line numbers, or headings.\n'
+            '• Do NOT modify files or execute destructive actions without explicit user confirmation.\n\n';
       }
       systemPrompt = '$codingPrefix$systemPrompt'.trim();
     }
@@ -2132,6 +2332,36 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                     'workspace': _codingWorkspaceDir.isNotEmpty
                         ? _codingWorkspaceDir
                         : Directory.current.path,
+                  },
+                ),
+              if (_codingAgentMode &&
+                  _codingAgentSubMode == '/rag' &&
+                  !_selectedMcpTypes.contains('document'))
+                InternalMcpEntry(
+                  id: const Uuid().v4(),
+                  mcpType: 'document',
+                  label: 'Document Search',
+                  enabled: true,
+                  initParams: {
+                    ...(_mcpInitParams['document'] ?? {}),
+                    'rootPath': _getEffectiveDocumentRootPaths(),
+                    'fileTypes': _getEffectiveDocumentFileTypes(),
+                    'indexingStrategy': _mcpInitParams['document']?['indexingStrategy'] ?? 'before_first_run',
+                  },
+                ),
+              if (_codingAgentMode &&
+                  _codingAgentSubMode == '/rag' &&
+                  DataSourcesSettingsService.instance.websiteIndexUrls.trim().isNotEmpty &&
+                  !_selectedMcpTypes.contains('website_search'))
+                InternalMcpEntry(
+                  id: const Uuid().v4(),
+                  mcpType: 'website_search',
+                  label: 'Website Search',
+                  enabled: true,
+                  initParams: {
+                    ...(_mcpInitParams['website_search'] ?? {}),
+                    'urls': DataSourcesSettingsService.instance.websiteIndexUrls.trim(),
+                    'indexingStrategy': _mcpInitParams['website_search']?['indexingStrategy'] ?? 'before_first_run',
                   },
                 ),
               if (!_pgToolboxEnabled)
@@ -3023,11 +3253,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   }
 
   void _onSendMessage(ChatMessage message, ChatService chatService) async {
-    final ready = await _ensureDocumentIndexReadyBeforeSend();
-    if (!ready || !mounted) return;
-
     final rawText = message.content.trim();
     final lower = rawText.toLowerCase();
+    final isExplicitRag =
+        lower == '/rag' || lower.startsWith('/rag ') || lower.startsWith('/rag\n');
+
+    final ready = await _ensureDocumentIndexReadyBeforeSend(isRagExplicit: isExplicitRag);
+    if (!ready || !mounted) return;
 
     // Slash commands: session recording
     if (lower == '/save-session' ||
@@ -3056,6 +3288,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     } else if (lower == '/ask' || lower.startsWith('/ask ') || lower.startsWith('/ask\n')) {
       matchedMode = '/ask';
       remainingText = rawText.length > 4 ? rawText.substring(4).trim() : '';
+    } else if (lower == '/rag' || lower.startsWith('/rag ') || lower.startsWith('/rag\n')) {
+      matchedMode = '/rag';
+      remainingText = rawText.length > 4 ? rawText.substring(4).trim() : '';
     }
 
     if (matchedMode != null) {
@@ -3074,7 +3309,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       if (remainingText.isEmpty && (message.attachments == null || message.attachments!.isEmpty)) {
         final modeLabel = matchedMode == '/code'
             ? 'Engineer (/code)'
-            : (matchedMode == '/plan' ? 'Architect (/plan)' : 'Explain (/ask)');
+            : (matchedMode == '/plan'
+                ? 'Architect (/plan)'
+                : (matchedMode == '/rag' ? 'Knowledge / RAG (/rag)' : 'Explain (/ask)'));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -3146,14 +3383,93 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         talker.warning('Could not dynamically register coding_tools MCP: $e');
       }
     }
+
+    if (_codingAgentSubMode == '/rag') {
+      final hasDocTools = multi.clients.any(
+        (c) =>
+            c.name == 'document' ||
+            c.name == 'internal_document' ||
+            c.client is DocumentMcpServer ||
+            (c.client is InternalMcpClientAdapter &&
+                (c.client as InternalMcpClientAdapter).server
+                    is DocumentMcpServer),
+      );
+
+      if (!hasDocTools) {
+        try {
+          final rootPath = _getEffectiveDocumentRootPaths();
+          final fileTypes = _getEffectiveDocumentFileTypes();
+          final rawParams = _mcpInitParams['document'] ?? const <String, dynamic>{};
+          final docParams = <String, dynamic>{
+            ...rawParams,
+            'rootPath': rootPath,
+            'fileTypes': fileTypes,
+            'indexingStrategy': rawParams['indexingStrategy'] ?? 'before_first_run',
+          };
+
+          if (rootPath.isNotEmpty) {
+            final docServer = DocumentMcpServer();
+            await docServer.initialize(docParams);
+            final adapter = InternalMcpClientAdapter(docServer);
+            final def = MCPClientDef(
+              name: 'internal_document',
+              displayName: 'Document Search',
+              client: adapter,
+            );
+            multi.registerClient(def);
+            await def.connect();
+          }
+        } catch (e) {
+          talker.warning('Could not dynamically register document MCP for /rag: $e');
+        }
+      }
+
+      final hasWebTools = multi.clients.any(
+        (c) =>
+            c.name == 'website_search' ||
+            c.name == 'internal_website_search' ||
+            c.client is WebsiteSearchMcpServer ||
+            (c.client is InternalMcpClientAdapter &&
+                (c.client as InternalMcpClientAdapter).server
+                    is WebsiteSearchMcpServer),
+      );
+
+      if (!hasWebTools) {
+        try {
+          final ds = DataSourcesSettingsService.instance;
+          if (!ds.isLoaded) await ds.load();
+          final webUrls = ds.websiteIndexUrls.trim();
+          if (webUrls.isNotEmpty) {
+            final webServer = WebsiteSearchMcpServer();
+            await webServer.initialize({
+              'urls': webUrls,
+              'indexingStrategy': 'before_first_run',
+            });
+            final adapter = InternalMcpClientAdapter(webServer);
+            final def = MCPClientDef(
+              name: 'internal_website_search',
+              displayName: 'Website Search',
+              client: adapter,
+            );
+            multi.registerClient(def);
+            await def.connect();
+          }
+        } catch (e) {
+          talker.warning('Could not dynamically register website_search MCP for /rag: $e');
+        }
+      }
+    }
   }
 
-  Future<bool> _ensureDocumentIndexReadyBeforeSend() async {
-    if (!_selectedMcpTypes.contains('document')) return true;
+  Future<bool> _ensureDocumentIndexReadyBeforeSend({bool isRagExplicit = false}) async {
+    final isRag = isRagExplicit || (_codingAgentMode && _codingAgentSubMode == '/rag');
+    if (!_selectedMcpTypes.contains('document') && !isRag) return true;
 
     final rawParams = _mcpInitParams['document'] ?? const <String, dynamic>{};
     final params = <String, dynamic>{...rawParams};
-    final rootPath = (params['rootPath'] as String? ?? '').trim();
+    final rootPath = _getEffectiveDocumentRootPaths();
+    params['rootPath'] = rootPath;
+    params['fileTypes'] = _getEffectiveDocumentFileTypes();
     final indexingStrategy =
         (params['indexingStrategy'] as String? ?? 'before_first_run').trim();
 
@@ -5707,6 +6023,11 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                           label: Text('/ask (Explain)'),
                           icon: Icon(Icons.help_outline, size: 16),
                         ),
+                        ButtonSegment(
+                          value: '/rag',
+                          label: Text('/rag (Knowledge)'),
+                          icon: Icon(Icons.menu_book, size: 16),
+                        ),
                       ],
                       selected: {_codingAgentSubMode},
                       onSelectionChanged: (s) {
@@ -6087,7 +6408,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
             const Spacer(),
             Text(
-              'Tip: type /code, /plan, or /ask in prompt',
+              'Tip: type /code, /plan, /ask, or /rag in prompt',
               style: TextStyle(
                 fontSize: 11,
                 color: theme.colorScheme.outline.withValues(alpha: 0.6),
@@ -6179,6 +6500,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 label: Text('/ask', style: TextStyle(fontSize: 11)),
                 icon: Icon(Icons.help_outline, size: 13),
                 tooltip: 'Explain: codebase Q&A without destructive commands',
+              ),
+              ButtonSegment(
+                value: '/rag',
+                label: Text('/rag', style: TextStyle(fontSize: 11)),
+                icon: Icon(Icons.menu_book, size: 13),
+                tooltip: 'RAG: Grounded answers with local knowledge base citations',
               ),
             ],
             selected: {_codingAgentSubMode},
@@ -8694,10 +9021,21 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                                     ? '${raw.substring(0, 150)}…'
                                     : raw;
                                 final lines = [
-                                  if (argsPreview.isNotEmpty)
-                                    '$name($argsPreview)'
-                                  else
+                                  if (name == 'search_documents' || msg.content.contains('search_documents')) ...[
+                                    RegExp(r'"query"\s*:\s*"([^"]+)"').firstMatch(msg.content)?.group(1)?.isNotEmpty == true
+                                        ? 'Search for "${RegExp(r'"query"\s*:\s*"([^"]+)"').firstMatch(msg.content)!.group(1)}" in indexed documents'
+                                        : 'Search in indexed documents',
+                                  ] else if (name == 'search_indexed_websites' || msg.content.contains('search_indexed_websites')) ...[
+                                    RegExp(r'"query"\s*:\s*"([^"]+)"').firstMatch(msg.content)?.group(1)?.isNotEmpty == true
+                                        ? 'Search for "${RegExp(r'"query"\s*:\s*"([^"]+)"').firstMatch(msg.content)!.group(1)}" in indexed websites'
+                                        : 'Search in indexed websites',
+                                  ] else if (msg.content.startsWith('Search for ') || msg.content.startsWith('Search in ') || msg.content.startsWith('Reading document')) ...[
+                                    msg.content.split('\n').first.trim(),
+                                  ] else if (argsPreview.isNotEmpty) ...[
+                                    '$name($argsPreview)',
+                                  ] else ...[
                                     name,
+                                  ],
                                   if (resultPreview.isNotEmpty)
                                     '→ $resultPreview',
                                 ];

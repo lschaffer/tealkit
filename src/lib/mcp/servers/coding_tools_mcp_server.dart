@@ -123,6 +123,8 @@ class CodingToolsMcpServer extends InternalMcpServer {
       final MCPToolResult res = await tool.execute(arguments);
       return {
         'isError': res.isError,
+        'requestStop': res.requestStop,
+        if (res.metadata?.isNotEmpty == true) 'metadata': res.metadata,
         'content': res.content
             .map((c) => {
                   'type': c.type,

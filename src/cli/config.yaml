@@ -1,0 +1,41 @@
+# TealKit CLI Configuration
+prompt:
+  multiline: true
+  submit_key: "enter"
+  auto_paste_images: true
+
+agent:
+  planning: true
+  compression_threshold: 4000
+  progressive_tools: "auto"
+
+compact_tools: true
+
+rag:
+  enabled: true
+  database_path: "rag_index.db"
+  sources:
+    folders:
+      - "x:/doc_root"
+    web:
+      - "https://pub.dev"
+    max_pages: 50
+  file_extensions:
+    - ".txt"
+    - ".md"
+    - ".pdf"
+    - ".docx"
+    - ".csv"
+    - ".json"
+  chunking:
+    chunk_size: 1000
+    chunk_overlap: 150
+  embedding:
+    provider: "embedded"
+    model: "nomic-embed-text-v1.5.Q4_K_M.gguf"
+    base_url: "http://localhost:11434"
+    api_key: ""
+  search:
+    mode: "hybrid"
+    max_chunks: 5
+    min_score: 0.15
