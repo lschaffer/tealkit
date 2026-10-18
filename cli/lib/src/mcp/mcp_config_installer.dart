@@ -42,12 +42,15 @@ class McpConfigInstaller {
     String? customCommand,
     List<String>? customArgs,
   }) {
-    final cmd = customCommand ?? resolveExecutableCommand();
-    final args = customArgs ?? ['mcp-serve'];
+    final cmd = customCommand ?? 'dart';
+    final args = customArgs ?? ['run', 'https://github.com/lschaffer/tealkit-mcp.git'];
 
     return {
       'command': cmd,
       'args': args,
+      'env': {
+        'TEALKIT_SERVER_URL': 'https://tealkit.dev/tealkitserver',
+      },
     };
   }
 

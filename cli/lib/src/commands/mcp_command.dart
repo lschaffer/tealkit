@@ -3,14 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:tealkit_api/tealkit_api.dart';
 
-import '../config/server_config.dart';
 import '../formatters/terminal_printer.dart';
 import '../mcp/mcp_config_installer.dart';
-import '../mcp/mcp_sse_server.dart';
-import '../mcp/mcp_stdio_server.dart';
-import '../mcp/workflow_schema_generator.dart';
 
 /// Top-level command for TealKit MCP server and client integrations.
 class McpCommand extends Command {
@@ -18,7 +13,7 @@ class McpCommand extends Command {
   final String name = 'mcp';
   @override
   final String description =
-      'Model Context Protocol (MCP) server management, stdio serving, and client configuration.';
+      'Model Context Protocol (MCP) server management, installation, and client configuration.';
 
   McpCommand() {
     addSubcommand(McpServeCommand());
@@ -27,205 +22,48 @@ class McpCommand extends Command {
   }
 }
 
-/// Starts the TealKit MCP stdio server to expose workflows and RAG to external clients.
+/// Informs developers about the dedicated TealKit MCP server.
 class McpServeCommand extends Command {
   @override
   final String name = 'serve';
   @override
   final String description =
-      'Starts the TealKit MCP stdio server for Claude Desktop, Cursor, and Roo Code.';
+      'Starts or guides the TealKit MCP stdio server for Claude Desktop, Cursor, and Roo Code.';
   @override
   final List<String> aliases = ['mcp-serve'];
 
   McpServeCommand() {
     argParser
       ..addOption(
-        'data-dir',
-        abbr: 'd',
-        help: 'Path to local TealKit data directory or database.',
-        defaultsTo: Platform.environment['TEALKIT_DATA_DIR'] ?? './.tealkit',
+        'server-url',
+        help: 'TealKit Server URL (default: https://tealkit.dev/tealkitserver)',
+        defaultsTo: 'https://tealkit.dev/tealkitserver',
       )
       ..addOption(
-        'profile',
-        abbr: 'p',
-        help: 'Active configuration profile or server environment.',
-        defaultsTo: 'default',
-      )
-      ..addFlag(
-        'sse',
-        help: 'Run in HTTP / Server-Sent Events (SSE) mode instead of stdio.',
-        defaultsTo: false,
-      )
-      ..addOption(
-        'port',
-        help: 'HTTP / SSE port to listen on.',
-        defaultsTo: '8081',
-      )
-      ..addOption(
-        'host',
-        help: 'Host address to bind the SSE server to.',
-        defaultsTo: '0.0.0.0',
-      )
-      ..addOption(
-        'api-key',
-        help: 'Optional authentication Bearer token for SSE requests.',
-      )
-      ..addOption(
-        'cert',
-        help: 'Path to SSL/TLS certificate chain file for HTTPS.',
-      )
-      ..addOption('key', help: 'Path to SSL/TLS private key file for HTTPS.')
-      ..addFlag(
-        'verbose',
-        abbr: 'v',
-        help: 'Output detailed diagnostics to stderr.',
-        defaultsTo: false,
+        'server-key',
+        help: 'Optional TealKit Server API Key',
       );
   }
 
   @override
   Future<void> run() async {
-    final dataDir = argResults?['data-dir'] as String?;
-    final profile = (argResults?['profile'] as String?) ?? 'default';
-    final isSse = (argResults?['sse'] as bool?) ?? false;
-    final portStr = (argResults?['port'] as String?) ?? '8081';
-    final port = int.tryParse(portStr) ?? 8081;
-    final host = (argResults?['host'] as String?) ?? '0.0.0.0';
-    final apiKey = argResults?['api-key'] as String?;
-    final certPath = argResults?['cert'] as String?;
-    final keyPath = argResults?['key'] as String?;
-    final verbose = (argResults?['verbose'] as bool?) ?? false;
+    final serverUrl = (argResults?['server-url'] as String?) ?? 'https://tealkit.dev/tealkitserver';
+    final serverKey = argResults?['server-key'] as String?;
 
-    final workflows = await loadActiveWorkflows();
-
-    final stdioServer = McpStdioServer(
-      workflows: workflows,
-      dataDir: dataDir,
-      profile: profile,
-      verbose: verbose,
+    stdout.writeln(TerminalPrinter.bold('─── TealKit Model Context Protocol (MCP) ───'));
+    stdout.writeln('');
+    stdout.writeln('The TealKit MCP Server is now published in a dedicated lightweight package:');
+    stdout.writeln(TerminalPrinter.cyan('  https://github.com/lschaffer/tealkit-mcp'));
+    stdout.writeln('');
+    stdout.writeln('To launch the MCP server directly:');
+    stdout.writeln(
+      TerminalPrinter.green(
+        '  dart run https://github.com/lschaffer/tealkit-mcp.git --server-url $serverUrl ${serverKey != null ? "--server-key $serverKey" : ""}',
+      ),
     );
-
-    if (isSse) {
-      final sseServer = McpSseServer(
-        mcpServer: stdioServer,
-        host: host,
-        port: port,
-        apiKey: apiKey,
-        certificatePath: certPath,
-        privateKeyPath: keyPath,
-        verbose: verbose,
-      );
-      await sseServer.start();
-      stdout.writeln(
-        TerminalPrinter.green(
-          '✔ TealKit MCP Server running over SSE at ${certPath != null ? "https" : "http"}://$host:$port/sse',
-        ),
-      );
-      stdout.writeln(
-        TerminalPrinter.dim('  Health check: http://$host:$port/health'),
-      );
-      stdout.writeln(TerminalPrinter.dim('  Press Ctrl+C to terminate.'));
-
-      // Keep server alive until interrupt
-      final completer = Completer<void>();
-      ProcessSignal.sigint.watch().listen((_) async {
-        stdout.writeln('\nShutting down MCP SSE server...');
-        await sseServer.stop();
-        completer.complete();
-      });
-      await completer.future;
-    } else {
-      await stdioServer.serve();
-    }
-  }
-
-  /// Discovers local and remote workflows to expose as MCP tools.
-  static Future<List<TealKitWorkflow>> loadActiveWorkflows() async {
-    final workflows = <TealKitWorkflow>[];
-
-    // 1. Check for remote server workflows if configured
-    try {
-      final manager = ServerConfigManager();
-      final active = manager.getActiveProfile();
-      if (active != null && active.url.isNotEmpty) {
-        final client = ServerApiClient(
-          serverUrl: active.url,
-          apiKey: active.apiKey.isNotEmpty ? active.apiKey : null,
-        );
-        final remoteTasks = await client.getAllTasks().timeout(
-          const Duration(seconds: 4),
-          onTimeout: () => <WorkflowTask>[],
-        );
-        for (final t in remoteTasks) {
-          workflows.add(
-            TealKitWorkflow.fromTask(t, (args) async {
-              final runRes = await client.runTask(t.id);
-              return 'Remote workflow "${t.name}" queued. Execution Run ID: $runRes';
-            }),
-          );
-        }
-      }
-    } catch (_) {}
-
-    // 2. Discover local skills in ./skills directory
-    try {
-      final skillsDir = Directory('skills');
-      if (skillsDir.existsSync()) {
-        final mdFiles = skillsDir.listSync().whereType<File>().where(
-          (f) => f.path.endsWith('.md'),
-        );
-        for (final f in mdFiles) {
-          final fileName = f.uri.pathSegments.last.replaceAll('.md', '');
-          workflows.add(
-            TealKitWorkflow(
-              id: 'skill_$fileName',
-              name: fileName,
-              description: 'Execute local AgentSkill workflow: $fileName',
-              variables: [
-                WorkflowVariable(
-                  key: 'input',
-                  description:
-                      'Input arguments or prompt context for $fileName',
-                  type: 'string',
-                  required: false,
-                ),
-              ],
-              runner: (args) async {
-                final input = args['input'] as String? ?? '';
-                return 'AgentSkill "$fileName" executed successfully with context: "$input".';
-              },
-            ),
-          );
-        }
-      }
-    } catch (_) {}
-
-    // 3. Fallback sample workflow if empty
-    if (workflows.isEmpty) {
-      workflows.add(
-        TealKitWorkflow(
-          id: 'wf_sample_analysis',
-          name: 'analyze_project',
-          description:
-              'Performs a comprehensive automated code and architecture inspection.',
-          variables: [
-            WorkflowVariable(
-              key: 'scope',
-              description: 'Target files or scope (e.g. "cli", "lib", "all")',
-              type: 'string',
-              required: false,
-              defaultValue: 'all',
-            ),
-          ],
-          runner: (args) async {
-            final scope = args['scope'] ?? 'all';
-            return 'TealKit Project Analysis completed for scope: "$scope". All tests passing, architecture clean.';
-          },
-        ),
-      );
-    }
-
-    return workflows;
+    stdout.writeln('');
+    stdout.writeln('To automatically register in Claude Desktop, run:');
+    stdout.writeln(TerminalPrinter.green('  tealkit mcp install-claude'));
   }
 }
 
