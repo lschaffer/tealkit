@@ -897,20 +897,20 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
         case 'google':
           await llmService.initializeGemini(
             apiKey: apiKey ?? '',
-            model: model ?? 'gemini-2.5-flash',
+            model: model ?? 'gemini-3.8-flash',
           );
           break;
         case 'openai':
           await llmService.initializeOpenAI(
             apiKey: apiKey ?? '',
-            model: model ?? 'gpt-4o-mini',
+            model: model ?? 'gpt-5-mini',
           );
           break;
         case 'claude':
         case 'anthropic':
           await llmService.initializeClaude(
             apiKey: apiKey ?? '',
-            model: model ?? 'claude-3-5-sonnet-20241022',
+            model: model ?? 'claude-sonnet-4.5',
           );
           break;
         case 'mistral':

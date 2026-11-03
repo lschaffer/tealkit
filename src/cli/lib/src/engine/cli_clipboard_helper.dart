@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:path/path.dart' as p;
+import '../config/global_config.dart';
 
 /// Represents extracted content from the clipboard.
 class CliClipboardData {
@@ -21,7 +23,7 @@ class CliClipboardData {
 /// Cross-platform clipboard helper for TealKit CLI without Flutter GUI.
 class CliClipboardHelper {
   /// Extracts the clipboard content (image or text).
-  /// If it's an image, saves it to ~/.tealkit/temp/clip_<timestamp>.png.
+  /// If it's an image, saves it to ~/.tealkitcoder/temp/clip_<timestamp>.png.
   static Future<CliClipboardData?> getClipboardContent() async {
     final tempDir = await _getTempDir();
 
@@ -36,10 +38,7 @@ class CliClipboardHelper {
   }
 
   static Future<Directory> _getTempDir() async {
-    final home = Platform.environment['USERPROFILE'] ??
-        Platform.environment['HOME'] ??
-        Directory.current.path;
-    final dir = Directory('$home/.tealkit/temp');
+    final dir = Directory(p.join(GlobalConfigLocator.effectiveConfigDir, 'temp'));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }

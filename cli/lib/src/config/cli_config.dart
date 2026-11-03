@@ -3,6 +3,82 @@ import 'package:yaml/yaml.dart';
 import '../rag/rag_config.dart';
 import 'global_config.dart';
 
+/// Represents a specialized sub-agent role definition in `config.yaml`.
+class SubAgentDefinition {
+  final String key;
+  final String model;
+  final String description;
+  final String systemPrompt;
+  final List<String>? tools;
+  final int maxTurns;
+
+  const SubAgentDefinition({
+    required this.key,
+    required this.model,
+    this.description = '',
+    this.systemPrompt = '',
+    this.tools,
+    this.maxTurns = 10,
+  });
+
+  /// Inbuilt predefined sub-agents from ThiesCoder / TealKit.
+  static const List<SubAgentDefinition> predefined = [
+    SubAgentDefinition(
+      key: 'unit_tester',
+      model: 'default',
+      description: 'Automated unit test specialist: generates, updates, and executes test suites',
+      systemPrompt: '''You are an expert test engineer and QA specialist.
+Your task is to analyze code, write robust and comprehensive unit tests (covering happy paths, edge cases, and failure modes), and execute them to verify test suite health.
+Follow standard test frameworks for the target project (e.g. xUnit for .NET, pytest for Python, test/flutter_test for Dart).
+Always execute the test runner via terminal to verify all tests pass before completing.''',
+      tools: ['fs_read_file', 'fs_replace_text', 'fs_write_file', 'terminal_exec', 'fs_list_dir'],
+      maxTurns: 10,
+    ),
+    SubAgentDefinition(
+      key: 'git_auditor',
+      model: 'default',
+      description: 'Git repository auditor: inspects status, diffs, branch health, and formats commits',
+      systemPrompt: '''You are an expert Git and version control auditor.
+Your job is to inspect git status, review branch diffs, detect untracked or dangling files, ensure working tree hygiene, and prepare clean, conventional commit messages.
+Never force-push or destroy uncommitted work.
+Report a clean breakdown of modified, added, and deleted files with recommendations.''',
+      tools: ['terminal_exec', 'fs_read_file', 'fs_list_dir'],
+      maxTurns: 6,
+    ),
+    SubAgentDefinition(
+      key: 'web_researcher',
+      model: 'default',
+      description: 'Technical web researcher: queries online documentation, APIs, and release notes',
+      systemPrompt: '''You are a specialized technical documentation and web researcher.
+Your task is to search the web for API documentation, libraries, release notes, and solutions to technical errors or deprecations.
+Synthesize your findings concisely with direct links, code snippets, and citations.''',
+      tools: ['web_search', 'fs_read_file'],
+      maxTurns: 8,
+    ),
+    SubAgentDefinition(
+      key: 'code_scout',
+      model: 'default',
+      description: 'Fast codebase explorer and caller hierarchy / symbol scout',
+      systemPrompt: '''You are a specialized codebase exploration and symbol search agent.
+Your objective is to quickly locate symbols, caller hierarchies, interface implementations, and architectural structure without modifying any code.
+Return concise, structured findings with exact file paths and line numbers.''',
+      tools: ['fs_find', 'fs_read_file', 'fs_list_dir'],
+      maxTurns: 8,
+    ),
+    SubAgentDefinition(
+      key: 'c_analyzer',
+      model: 'default',
+      description: 'C/C++ firmware static analyzer and compiler warning expert',
+      systemPrompt: '''You are an expert embedded C/C++ systems engineer.
+Analyze source files and header files for compiler warnings, buffer overflows,
+pointer safety, signed/unsigned mismatches, and missing NULL checks.
+Be concise: return only file paths, line numbers, and actionable fixes.''',
+      tools: ['fs_read_file', 'fs_find', 'fs_list_dir'],
+      maxTurns: 8,
+    ),
+  ];
+}
+
 /// Configuration options for the TealKit CLI, loaded from `config.yaml`.
 class CliConfig {
   /// Whether multi-line prompt entry is enabled (Enter = newline, Ctrl-Enter = submit).
@@ -30,6 +106,9 @@ class CliConfig {
   /// Local RAG (document & web hybrid search) configuration.
   RagConfig rag;
 
+  /// Configured specialized sub-agents.
+  List<SubAgentDefinition> subagents;
+
   CliConfig({
     this.multilinePrompt = true,
     this.submitKey = 'ctrl-enter',
@@ -39,7 +118,9 @@ class CliConfig {
     this.compactTools = false,
     this.progressiveTools = 'auto',
     RagConfig? rag,
-  }) : rag = rag ?? RagConfig();
+    List<SubAgentDefinition>? subagents,
+  })  : rag = rag ?? RagConfig(),
+        subagents = subagents ?? [];
 
   /// Returns whether progressive tool discovery should be active given the available tool count and model provider.
   bool isProgressiveToolsActive({required int totalTools, LlmProvider? provider}) {
@@ -53,7 +134,7 @@ class CliConfig {
     return totalTools > 25;
   }
 
-  /// Loads configuration from `config.yaml` (workspace `./config.yaml` or global `~/.tealkit/config.yaml`).
+  /// Loads configuration from `config.yaml` (workspace `./config.yaml` or global `~/.tealkitcoder/config.yaml`).
   static CliConfig load({String configPath = 'config.yaml'}) {
     final file = GlobalConfigLocator.resolveConfigFile(configPath);
     if (!file.existsSync()) {
@@ -96,6 +177,34 @@ class CliConfig {
       final ragSection = doc['rag'] is Map ? doc['rag'] as Map : null;
       final ragConfig = RagConfig.fromYaml(ragSection);
 
+      final subagentsList = <SubAgentDefinition>[];
+      final subagentsSection = doc['subagents'] is Map ? doc['subagents'] as Map : null;
+      if (subagentsSection != null) {
+        for (final entry in subagentsSection.entries) {
+          final key = entry.key.toString().trim();
+          final val = entry.value;
+          if (val is Map) {
+            final model = val['model']?.toString().trim() ?? '';
+            final desc = val['description']?.toString().trim() ?? '';
+            final prompt = val['system_prompt']?.toString().trim() ?? '';
+            final tools = val['tools'] is List
+                ? (val['tools'] as List).map((t) => t.toString().trim()).toList()
+                : null;
+            final maxTurns = int.tryParse(val['max_turns']?.toString() ?? '10') ?? 10;
+            if (key.isNotEmpty && model.isNotEmpty) {
+              subagentsList.add(SubAgentDefinition(
+                key: key,
+                model: model,
+                description: desc,
+                systemPrompt: prompt,
+                tools: tools,
+                maxTurns: maxTurns,
+              ));
+            }
+          }
+        }
+      }
+
       return CliConfig(
         multilinePrompt: multiline,
         submitKey: submit,
@@ -105,6 +214,7 @@ class CliConfig {
         compactTools: compact,
         progressiveTools: progressive,
         rag: ragConfig,
+        subagents: subagentsList,
       );
     } catch (_) {
       return CliConfig();

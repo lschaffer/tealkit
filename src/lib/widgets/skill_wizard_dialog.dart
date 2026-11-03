@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -320,15 +318,13 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
         allowedExtensions: ['zip', 'md'],
         dialogTitle: 'Import Skill (agentskills.io format)',
       );
-      if (result == null || result.files.isEmpty) return;
+      if (result.isEmpty) return;
 
-      final file = result.files.first;
+      final file = result.first;
       final List<int> bytes;
-      if (file.bytes != null) {
-        bytes = file.bytes!;
-      } else if (file.path != null) {
-        bytes = await File(file.path!).readAsBytes();
-      } else {
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {
         throw Exception('Could not read file content.');
       }
 
@@ -645,41 +641,17 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
       }
     }
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final result = await showDialog<(Set<String>, Set<String>, bool)>(
       context: context,
+      useSafeArea: !isMobile,
       builder: (ctx) {
-        final screenSize = MediaQuery.of(ctx).size;
-        final isMobile = screenSize.width < 600;
-
         return StatefulBuilder(
-          builder: (ctx, setDialogState) => Dialog(
-            insetPadding: isMobile
-                ? EdgeInsets.zero
-                : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            clipBehavior: Clip.antiAlias,
-            shape: isMobile
-                ? const RoundedRectangleBorder()
-                : RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-            child: SizedBox(
-              width: isMobile ? screenSize.width : 400,
-              height: isMobile ? screenSize.height : null,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select Tools',
-                      style: Theme.of(ctx).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 16),
-                    Flexible(
-                      child: ListView(
-                        shrinkWrap: !isMobile,
-                        children: [
+          builder: (ctx, setDialogState) {
+            Widget buildToolList() {
+              return ListView(
+                shrinkWrap: !isMobile,
+                children: [
                           // Toolbox
                           Card(
                             margin: const EdgeInsets.only(bottom: 4),
@@ -812,33 +784,82 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
                               );
                             }),
                           ],
+                ],
+              );
+            }
+
+            if (isMobile) {
+              return Dialog.fullscreen(
+                child: Scaffold(
+                  appBar: AppBar(
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                    title: const Text('Select Tools'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop((
+                          tempSelection,
+                          tempExternalSelection,
+                          tempToolboxEnabled,
+                        )),
+                        child: const Text('Confirm'),
+                      ),
+                    ],
+                  ),
+                  body: buildToolList(),
+                ),
+              );
+            }
+
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: SizedBox(
+                width: 400,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Tools',
+                        style: Theme.of(ctx).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 16),
+                      Flexible(
+                        child: buildToolList(),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            onPressed: () => Navigator.of(ctx).pop((
+                              tempSelection,
+                              tempExternalSelection,
+                              tempToolboxEnabled,
+                            )),
+                            child: const Text('Confirm'),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: () => Navigator.of(ctx).pop((
-                            tempSelection,
-                            tempExternalSelection,
-                            tempToolboxEnabled,
-                          )),
-                          child: const Text('Confirm'),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -890,18 +911,7 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
         _selectedExternalServerUrls.length +
         (_toolboxEnabled ? 1 : 0);
 
-    return Dialog(
-      insetPadding: isMobile
-          ? EdgeInsets.zero
-          : EdgeInsets.symmetric(
-              horizontal: screenSize.width * 0.025,
-              vertical: screenSize.height * 0.025,
-            ),
-      clipBehavior: Clip.antiAlias,
-      shape: isMobile
-          ? const RoundedRectangleBorder()
-          : RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SizedBox(
+    final dialogContent = SizedBox(
         width: isMobile ? screenSize.width : screenSize.width * 0.95,
         height: isMobile ? screenSize.height : screenSize.height * 0.95,
         child: Column(
@@ -1268,7 +1278,24 @@ class _SkillWizardDialogState extends ConsumerState<SkillWizardDialog> {
               ),
           ],
         ),
+      );
+
+    if (isMobile) {
+      return Dialog.fullscreen(
+        child: SafeArea(
+          child: dialogContent,
+        ),
+      );
+    }
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: screenSize.width * 0.025,
+        vertical: screenSize.height * 0.025,
       ),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: dialogContent,
     );
   }
 }

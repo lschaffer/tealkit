@@ -126,23 +126,20 @@ class ImportExportService {
       dialogTitle: 'Select TealKit Backup',
       type: FileType.custom,
       allowedExtensions: ['json'],
-      allowMultiple: false,
-      withData: true,
     );
 
-    if (picked == null || picked.files.isEmpty) {
+    if (picked.isEmpty) {
       return ImportResult.cancelled();
     }
 
     try {
       // ── 2. Read JSON ────────────────────────────────────────────────────
-      final file = picked.files.first;
+      final file = picked.first;
       final String content;
-      if (file.bytes != null) {
-        content = utf8.decode(file.bytes!);
-      } else if (file.path != null) {
-        content = await File(file.path!).readAsString();
-      } else {
+      try {
+        final bytes = await file.readAsBytes();
+        content = utf8.decode(bytes);
+      } catch (_) {
         return ImportResult.error('Could not read file content.');
       }
 
@@ -373,20 +370,15 @@ class ImportExportService {
       final fullName = '$fileName.json';
 
       if (!kIsWeb) {
-        final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-        final outputPath = await FilePicker.saveFile(
+        final uri = await FilePicker.saveFile(
           dialogTitle: 'Save Playground Session',
           fileName: fullName,
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-          bytes: isMobile ? Uint8List.fromList(jsonBytes) : null,
+          bytes: Uint8List.fromList(jsonBytes),
         );
-        if (outputPath == null) return (error: null, savedPath: null); // cancelled
-        if (!isMobile) {
-          await File(outputPath).writeAsBytes(jsonBytes);
-        }
+        if (uri == null) return (error: null, savedPath: null); // cancelled
+        final outputPath = uri.toFilePath();
         log.info('[Session Export] Saved to $outputPath');
-        return (error: null, savedPath: isMobile ? outputPath : null);
+        return (error: null, savedPath: outputPath);
       }
       return (error: 'Export not supported on this platform.', savedPath: null);
     } catch (e, st) {
@@ -403,22 +395,19 @@ class ImportExportService {
       dialogTitle: 'Open Playground Session',
       type: FileType.custom,
       allowedExtensions: ['json'],
-      allowMultiple: false,
-      withData: true,
     );
 
-    if (picked == null || picked.files.isEmpty) {
+    if (picked.isEmpty) {
       return PlaygroundSessionImport.cancelled();
     }
 
     try {
-      final file = picked.files.first;
+      final file = picked.first;
       final String content;
-      if (file.bytes != null) {
-        content = utf8.decode(file.bytes!);
-      } else if (file.path != null) {
-        content = await File(file.path!).readAsString();
-      } else {
+      try {
+        final bytes = await file.readAsBytes();
+        content = utf8.decode(bytes);
+      } catch (_) {
         return PlaygroundSessionImport.error('Could not read file content.');
       }
 

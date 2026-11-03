@@ -1,8 +1,8 @@
----
+﻿---
 name: coding-agent-skill
 description: Autonomous coding agent for project exploration, architectural planning (tasks.md), and verified implementation.
 version: 1.0.0
-author: TealKit Engineering
+author: TealKitCoder Engineering
 system_prompt: |
   You are an expert autonomous software engineer and architectural planner.
   
@@ -67,14 +67,14 @@ A reusable Hermes / `agentskills.io` compatible skill for **autonomous software 
 ## Usage in CLI
 ```bash
 # Execute the skill prompt sequence
-tealkit skill run example_skills/coding-agent-skill.md
+TealKitCoder skill run example_skills/coding-agent-skill.md
 
 # Or start an interactive coding REPL with this skill preloaded
-tealkit code --instructions example_skills/coding-agent-skill.md
+TealKitCoder code --instructions example_skills/coding-agent-skill.md
 ```
 
 ## Usage in Desktop App
-1. Open **Skills & Workflows** in TealKit Desktop.
+1. Open **Skills & Workflows** in TealKitCoder Desktop.
 2. Click **Import Skill** and select `example_skills/coding-agent-skill.md`.
 3. Select your local workspace directory in the Playground.
 4. Click **Run** to execute the multi-step engineering loop.

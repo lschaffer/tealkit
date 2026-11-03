@@ -99,11 +99,13 @@ class FileDownloadService {
       return savePath;
     }
 
-    final outputPath = await FilePicker.saveFile(dialogTitle: 'Save file', fileName: fileName);
-    if (outputPath != null) {
-      final file = File(outputPath);
-      await file.writeAsBytes(bytes);
-      return outputPath;
+    final uri = await FilePicker.saveFile(
+      dialogTitle: 'Save file',
+      fileName: fileName,
+      bytes: bytes,
+    );
+    if (uri != null) {
+      return uri.toFilePath();
     }
 
     throw Exception('User cancelled file save');

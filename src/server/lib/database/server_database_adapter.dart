@@ -117,6 +117,14 @@ abstract class ServerDatabaseAdapter {
     List<Map<String, dynamic>> rows, {
     bool overwrite = false,
   });
+
+  // ── Specialized Subagents ───────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getSubagentDefinitions();
+  Future<void> saveSubagentDefinition(Map<String, dynamic> data);
+  Future<void> deleteSubagentDefinition(String key);
+  Future<int> seedSampleSubagents();
+
 }
 
 /// Stub adapter used before [serverBootstrap] sets the real [serverDb].

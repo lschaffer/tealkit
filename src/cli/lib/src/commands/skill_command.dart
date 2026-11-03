@@ -102,7 +102,7 @@ class SkillListCommand extends Command {
     }
 
     if (skillFiles.isEmpty) {
-      stdout.writeln('No skill (.md) files found in ./skills/, ~/.tealkit/skills/, or current directory.');
+      stdout.writeln('No skill (.md) files found in ./skills/, ~/.tealkitcoder/skills/, or current directory.');
       stdout.writeln('Tip: Use `tealkit auto-discover skills` to download skills from your server.');
       return;
     }

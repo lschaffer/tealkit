@@ -1299,18 +1299,18 @@ class MultimediaMessageWidget extends StatelessWidget {
     String fileName,
     String mimeType,
   ) async {
-    final String? outputPath = await FilePicker.saveFile(
+    final Uri? uri = await FilePicker.saveFile(
       dialogTitle: 'Save File',
       fileName: fileName,
+      bytes: bytes,
     );
 
-    if (outputPath != null) {
-      final file = File(outputPath);
-      await file.writeAsBytes(bytes);
+    if (uri != null) {
+      final savedPath = uri.toFilePath();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('File saved: ${file.path}'),
+            content: Text('File saved: $savedPath'),
             backgroundColor: Colors.green,
           ),
         );
@@ -3671,16 +3671,12 @@ class MultimediaMessageWidget extends StatelessWidget {
   ) async {
     final bytes = base64Decode(base64Data);
 
-    // Use file picker to save file
-    String? outputFile = await FilePicker.saveFile(
+    await FilePicker.saveFile(
       dialogTitle: 'Save file',
       fileName: fileName,
+      bytes: bytes,
     );
 
-    if (outputFile != null) {
-      final file = File(outputFile);
-      await file.writeAsBytes(bytes);
-    }
   }
 
   Future<bool> _saveFileToDownloads(Uint8List bytes, String fileName) async {
@@ -5306,22 +5302,18 @@ class MultimediaMessageWidget extends StatelessWidget {
       }
 
       // Desktop/Mobile: Use file picker to save the file
-      String? outputPath = await FilePicker.saveFile(
+      final Uri? uri = await FilePicker.saveFile(
         dialogTitle: 'Save Chart Image',
         fileName: defaultFileName,
-        type: FileType.custom,
-        allowedExtensions: ['png', 'jpg', 'jpeg'],
+        bytes: imageBytes,
       );
 
-      if (outputPath != null) {
-        // Write the file
-        final outputFile = File(outputPath);
-        await outputFile.writeAsBytes(imageBytes);
-
+      if (uri != null) {
+        final savedPath = uri.toFilePath();
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Image saved to: $outputPath'),
+            content: Text('Image saved to: $savedPath'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),

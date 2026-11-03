@@ -356,15 +356,13 @@ class WorkflowExportService {
         dialogTitle: 'Select TealKit Skill File or Zip',
         type: FileType.custom,
         allowedExtensions: ['md', 'zip'],
-        allowMultiple: false,
-        withData: true,
       );
 
-      if (picked == null || picked.files.isEmpty) {
+      if (picked.isEmpty) {
         return (error: null, importedTasks: null);
       }
 
-      final file = picked.files.first;
+      final file = picked.first;
       final importedTasks = <WorkflowTask>[];
       final archiveScripts =
           <
@@ -374,11 +372,9 @@ class WorkflowExportService {
 
       if (file.name.endsWith('.zip')) {
         final List<int> bytes;
-        if (file.bytes != null) {
-          bytes = file.bytes!;
-        } else if (file.path != null) {
-          bytes = await File(file.path!).readAsBytes();
-        } else {
+        try {
+          bytes = await file.readAsBytes();
+        } catch (_) {
           return (
             error: 'Could not read zip file content.',
             importedTasks: null,
@@ -426,11 +422,10 @@ class WorkflowExportService {
       } else {
         // Single md file
         final String content;
-        if (file.bytes != null) {
-          content = utf8.decode(file.bytes!);
-        } else if (file.path != null) {
-          content = await File(file.path!).readAsString();
-        } else {
+        try {
+          final bytes = await file.readAsBytes();
+          content = utf8.decode(bytes);
+        } catch (_) {
           return (error: 'Could not read file content.', importedTasks: null);
         }
 

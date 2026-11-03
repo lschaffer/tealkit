@@ -675,12 +675,21 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
   }
 
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.pickFiles(type: FileType.any, allowMultiple: false, withData: true);
+    final result = await FilePicker.pickFiles(type: FileType.any);
 
-    if (result != null && result.files.isNotEmpty) {
-      final file = result.files.single;
-      String? filePath = file.path;
-      Uint8List? fileBytes = file.bytes;
+    if (result.isNotEmpty) {
+      final file = result.first;
+      final filePath = file.path;
+      Uint8List? fileBytes;
+      try {
+        fileBytes = await file.readAsBytes();
+      } catch (_) {
+        if (filePath != null) {
+          try {
+            fileBytes = File(filePath).readAsBytesSync();
+          } catch (_) {}
+        }
+      }
       String? mimeType;
 
       if (filePath != null) {
@@ -770,7 +779,7 @@ class _MultimediaInputWidgetState extends State<MultimediaInputWidget> {
 
       var effectiveBytes = fileBytes;
       var effectiveMime = mimeType;
-      var effectiveSize = file.size;
+      var effectiveSize = file.lengthSync() ?? (effectiveBytes?.length ?? 0);
 
       if (type == AttachmentType.image && effectiveBytes != null) {
         final downscaled = await ImageDownscaler.downscaleIfNeeded(

@@ -217,7 +217,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build skills.'),
+            content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build tool hints.'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -265,7 +265,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build skills.'),
+              content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build tool hints.'),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
@@ -306,7 +306,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build skills.'),
+              content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build tool hints.'),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
@@ -346,7 +346,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Skill generation is already running — please wait.'), duration: Duration(seconds: 2)));
+        ).showSnackBar(const SnackBar(content: Text('Hint generation is already running — please wait.'), duration: Duration(seconds: 2)));
       }
       return;
     }
@@ -394,7 +394,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Skill generation failed: $e'), duration: const Duration(seconds: 4)));
+        ).showSnackBar(SnackBar(content: Text('Hint generation failed: $e'), duration: const Duration(seconds: 4)));
       }
     } finally {
       if (mounted) Navigator.of(context).pop();
@@ -452,7 +452,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Server skill build failed: $e'), duration: const Duration(seconds: 4)));
+        ).showSnackBar(SnackBar(content: Text('Server hint build failed: $e'), duration: const Duration(seconds: 4)));
       }
     } finally {
       notifier.dispose();
@@ -515,8 +515,8 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remove skill'),
-        content: Text('Delete the skill for "${skill.toolName}"?'),
+        title: const Text('Remove hint'),
+        content: Text('Delete the hint for "${skill.toolName}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
@@ -555,7 +555,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
       if (!silent && mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('No orphaned skills found.'), duration: Duration(seconds: 2)));
+        ).showSnackBar(const SnackBar(content: Text('No orphaned hints found.'), duration: Duration(seconds: 2)));
       }
       return;
     }
@@ -590,7 +590,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
     if (!silent && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Removed ${toRemove.length} skills for ${orphanedTypes.length} deregistered server(s).'),
+          content: Text('Removed ${toRemove.length} hints for ${orphanedTypes.length} deregistered server(s).'),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -690,7 +690,7 @@ class _SkillsScreenState extends ConsumerState<FunctionHintsScreen> {
                     children: [
                       Expanded(
                         child: _TokenField(
-                          label: 'Max tokens – LLM (full skill)',
+                          label: 'Max tokens – LLM (full hint)',
                           controller: _llmTokenCtrl,
                           hint: '${FunctionHintGenerationService.defaultMaxTokensLlm}',
                           onEditingComplete: _saveSettings,
@@ -774,7 +774,7 @@ class _GenerationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final label = progress.total > 0 ? 'Generating skills… ${progress.processed}/${progress.total}' : 'Generating skills…';
+    final label = progress.total > 0 ? 'Generating function hints… ${progress.processed}/${progress.total}' : 'Generating function hints…';
     final sub = progress.currentTool.isNotEmpty ? progress.currentTool : null;
 
     return Material(
@@ -969,11 +969,11 @@ class _SkillTile extends StatelessWidget {
                     child: Icon(Icons.edit_note, size: 16, color: theme.hintColor),
                   ),
                 ),
-              IconButton(icon: const Icon(Icons.edit_outlined, size: 18), tooltip: 'Edit skill', onPressed: onEdit),
+              IconButton(icon: const Icon(Icons.edit_outlined, size: 18), tooltip: 'Edit function hint', onPressed: onEdit),
               IconButton(icon: const Icon(Icons.refresh, size: 18), tooltip: 'Regenerate', onPressed: onRegenerate),
               IconButton(
                 icon: Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
-                tooltip: 'Remove skill',
+                tooltip: 'Remove function hint',
                 onPressed: onDelete,
               ),
             ],
@@ -1077,7 +1077,7 @@ class _SkillEditDialogState extends State<_SkillEditDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Full skill (for large models ≥ 7B)', style: theme.textTheme.labelMedium),
+                    Text('Full hint (for large models ≥ 7B)', style: theme.textTheme.labelMedium),
                     const SizedBox(height: 6),
                     Expanded(
                       child: TextField(
@@ -1089,7 +1089,7 @@ class _SkillEditDialogState extends State<_SkillEditDialog> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Compact skill (for SLM / embedded < 7B)', style: theme.textTheme.labelMedium),
+                    Text('Compact hint (for SLM / embedded < 7B)', style: theme.textTheme.labelMedium),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _slmCtrl,

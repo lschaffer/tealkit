@@ -1,9 +1,11 @@
 // ignore_for_file: unused_element
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart' hide Step;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +20,7 @@ import '../mcp/servers/google_drive_mcp_server.dart';
 import '../mcp/servers/py_bridge_mcp_server.dart';
 import '../mcp/servers/website_search_mcp_server.dart';
 import '../models/workflow_task.dart';
+import '../models/subagent_definition.dart';
 import '../models/github_mcp_server_definition.dart';
 import '../models/mcp_models.dart';
 import '../providers/active_task_provider.dart';
@@ -3306,6 +3309,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
       l.tabBuiltIn,
       l.tabPrompts,
       l.tabLlm,
+      'Sub-Agents',
       l.routingModeLabel,
       l.tabSchedule,
       l.tabNotify,
@@ -3551,11 +3555,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         );
       case 2: // LLM
         return _buildLlmSettingsSection(l);
-      case 3: // Routing
+      case 3: // Sub-Agents
+        return _buildDelegatedSubAgentsSection(exec);
+      case 4: // Routing
         return _buildAgentRoutingTab(l, exec);
-      case 4: // Schedule
+      case 5: // Schedule
         return _buildAgentSchedulingTab(exec);
-      case 5: // Output
+      case 6: // Output
         return _buildAgentOutputSection(exec);
       default:
         return const SizedBox();
@@ -3566,6 +3572,1209 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: _buildLlmContent(),
+    );
+  }
+
+  void _updateCurrentAgentSubAgents({
+    bool? enableDelegation,
+    List<SubAgentConfig>? subAgents,
+    bool? enableEpisodicMemory,
+    String? memoryScope,
+  }) {
+    if (_selectedExecutorIndex < 0 ||
+        _selectedExecutorIndex >= _executors.length) {
+      return;
+    }
+    final exec = _executors[_selectedExecutorIndex];
+    setState(() {
+      _executors[_selectedExecutorIndex] = exec.copyWith(
+        enableDelegation: enableDelegation ?? exec.enableDelegation,
+        subAgents: subAgents ?? exec.subAgents,
+        enableEpisodicMemory: enableEpisodicMemory ?? exec.enableEpisodicMemory,
+        memoryScope: memoryScope ?? exec.memoryScope,
+      );
+    });
+  }
+
+  void _addPresetSubAgent(
+    Agent exec, {
+    required String key,
+    required String name,
+    String? systemPrompt,
+    int maxTurns = 5,
+  }) {
+    String uniqueKey = key;
+    int suffix = 1;
+    while (exec.subAgents.any((s) => s.key == uniqueKey)) {
+      uniqueKey = '${key}_$suffix';
+      suffix++;
+    }
+
+    final newSub = SubAgentConfig(
+      id: const Uuid().v4(),
+      key: uniqueKey,
+      name: suffix > 1 ? '$name $suffix' : name,
+      systemPrompt: systemPrompt,
+      maxTurns: maxTurns,
+      maxToolCallsPerTurn: 3,
+      enableMemoryAccess: true,
+    );
+
+    final updated = List<SubAgentConfig>.from(exec.subAgents)..add(newSub);
+    _updateCurrentAgentSubAgents(
+      enableDelegation: true,
+      subAgents: updated,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Added sub-agent: ${newSub.name} ($uniqueKey)'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget _buildDelegatedSubAgentsSection(Agent exec) {
+    final subAgents = exec.subAgents;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final llmSettings = ref.watch(llmSettingsProvider);
+    final l = L.of(context);
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final isMobileDevice = isMobile || (!kIsWeb && (Platform.isAndroid || Platform.isIOS));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Card 1: Delegation Master Switch & Memory Settings ──
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.6)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: exec.enableDelegation,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.hub_outlined, size: 20, color: Colors.blueAccent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.autonomousTaskDelegation,
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    l.autonomousTaskDelegationDesc,
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  onChanged: (val) {
+                    _updateCurrentAgentSubAgents(enableDelegation: val);
+                  },
+                ),
+                const Divider(),
+                const SizedBox(height: 8),
+                if (isMobile) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.memory, size: 18, color: Colors.purpleAccent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.sharedWorkflowMemoryScope,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  DropdownButton<String>(
+                    isExpanded: true,
+                    value: exec.memoryScope,
+                    underline: const SizedBox(),
+                    borderRadius: BorderRadius.circular(8),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'workflow_shared',
+                        child: Text('${l.workflowShared} (Recommended)', style: const TextStyle(fontSize: 13)),
+                      ),
+                      DropdownMenuItem(
+                        value: 'agent_isolated',
+                        child: Text(l.isolatedPerSubAgent, style: const TextStyle(fontSize: 13)),
+                      ),
+                      const DropdownMenuItem(
+                        value: 'none',
+                        child: Text('Disabled', style: TextStyle(fontSize: 13)),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        _updateCurrentAgentSubAgents(memoryScope: val);
+                      }
+                    },
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.memory, size: 18, color: Colors.purpleAccent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.sharedWorkflowMemoryScope,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      DropdownButton<String>(
+                        value: exec.memoryScope,
+                        underline: const SizedBox(),
+                        borderRadius: BorderRadius.circular(8),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'workflow_shared',
+                            child: Text('${l.workflowShared} (Recommended)', style: const TextStyle(fontSize: 13)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'agent_isolated',
+                            child: Text(l.isolatedPerSubAgent, style: const TextStyle(fontSize: 13)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'none',
+                            child: Text('Disabled', style: TextStyle(fontSize: 13)),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            _updateCurrentAgentSubAgents(memoryScope: val);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 8),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: exec.enableEpisodicMemory,
+                  title: Text(
+                    l.episodicMemoryArchive,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    l.episodicMemoryArchiveDesc,
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  onChanged: (val) {
+                    _updateCurrentAgentSubAgents(enableEpisodicMemory: val);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Card 2: Configured Sub-Agents & Quick Chips ──
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l.configuredSubAgents(subAgents.length),
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: () => _showSubAgentConfigDialog(context, exec, null),
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(l.addSubAgent, style: const TextStyle(fontSize: 12)),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Quick Spawn Action Chips
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              l.quickAdd,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.copy_rounded, size: 14, color: Colors.teal),
+              label: const Text('+ Clone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.teal.withValues(alpha: 0.1),
+              side: BorderSide(color: Colors.teal.withValues(alpha: 0.3)),
+              onPressed: () {
+                _addPresetSubAgent(
+                  exec,
+                  key: 'clone',
+                  name: 'Clone',
+                  systemPrompt: null,
+                  maxTurns: 5,
+                );
+              },
+            ),
+            if (!isMobileDevice)
+              ActionChip(
+                avatar: const Icon(Icons.bug_report_outlined, size: 14, color: Colors.orange),
+                label: const Text('+ Code Reviewer', style: TextStyle(fontSize: 12)),
+                backgroundColor: Colors.orange.withValues(alpha: 0.1),
+                side: BorderSide(color: Colors.orange.withValues(alpha: 0.3)),
+                onPressed: () {
+                  _addPresetSubAgent(
+                    exec,
+                    key: 'code_reviewer',
+                    name: 'Code Reviewer',
+                    systemPrompt:
+                        'You are an expert code reviewer. Analyze the code for bugs, logic errors, and security issues. Return a concise, structured summary of findings.',
+                    maxTurns: 5,
+                  );
+                },
+              ),
+            if (!isMobileDevice) ...[
+              ActionChip(
+                avatar: const Icon(Icons.rule_folder_outlined, size: 14, color: Colors.green),
+                label: const Text('+ Unit Tester', style: TextStyle(fontSize: 12)),
+                backgroundColor: Colors.green.withValues(alpha: 0.1),
+                side: BorderSide(color: Colors.green.withValues(alpha: 0.3)),
+                onPressed: () {
+                  final tmpl = SubAgentDefinition.predefined.firstWhere((p) => p.key == 'unit_tester');
+                  _addPresetSubAgent(
+                    exec,
+                    key: tmpl.key,
+                    name: tmpl.displayName,
+                    systemPrompt: tmpl.systemPrompt,
+                    maxTurns: tmpl.maxTurns,
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.commit_outlined, size: 14, color: Colors.amber),
+                label: const Text('+ Git Auditor', style: TextStyle(fontSize: 12)),
+                backgroundColor: Colors.amber.withValues(alpha: 0.1),
+                side: BorderSide(color: Colors.amber.withValues(alpha: 0.3)),
+                onPressed: () {
+                  final tmpl = SubAgentDefinition.predefined.firstWhere((p) => p.key == 'git_auditor');
+                  _addPresetSubAgent(
+                    exec,
+                    key: tmpl.key,
+                    name: tmpl.displayName,
+                    systemPrompt: tmpl.systemPrompt,
+                    maxTurns: tmpl.maxTurns,
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.explore_outlined, size: 14, color: Colors.indigo),
+                label: const Text('+ Code Scout', style: TextStyle(fontSize: 12)),
+                backgroundColor: Colors.indigo.withValues(alpha: 0.1),
+                side: BorderSide(color: Colors.indigo.withValues(alpha: 0.3)),
+                onPressed: () {
+                  final tmpl = SubAgentDefinition.predefined.firstWhere((p) => p.key == 'code_scout');
+                  _addPresetSubAgent(
+                    exec,
+                    key: tmpl.key,
+                    name: tmpl.displayName,
+                    systemPrompt: tmpl.systemPrompt,
+                    maxTurns: tmpl.maxTurns,
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.memory_outlined, size: 14, color: Colors.deepOrange),
+                label: const Text('+ C/C++ Analyzer', style: TextStyle(fontSize: 12)),
+                backgroundColor: Colors.deepOrange.withValues(alpha: 0.1),
+                side: BorderSide(color: Colors.deepOrange.withValues(alpha: 0.3)),
+                onPressed: () {
+                  final tmpl = SubAgentDefinition.predefined.firstWhere((p) => p.key == 'c_analyzer');
+                  _addPresetSubAgent(
+                    exec,
+                    key: tmpl.key,
+                    name: tmpl.displayName,
+                    systemPrompt: tmpl.systemPrompt,
+                    maxTurns: tmpl.maxTurns,
+                  );
+                },
+              ),
+            ],
+            ActionChip(
+              avatar: const Icon(Icons.travel_explore, size: 14, color: Colors.blue),
+              label: const Text('+ Web Researcher', style: TextStyle(fontSize: 12)),
+              backgroundColor: Colors.blue.withValues(alpha: 0.1),
+              side: BorderSide(color: Colors.blue.withValues(alpha: 0.3)),
+              onPressed: () {
+                _addPresetSubAgent(
+                  exec,
+                  key: 'web_researcher',
+                  name: 'Web Researcher',
+                  systemPrompt:
+                      'You are a deep web research assistant. Extract key facts, summarize citations, and return clean data.',
+                  maxTurns: 5,
+                );
+              },
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.manage_search, size: 14, color: Colors.purple),
+              label: const Text('+ Doc Searcher', style: TextStyle(fontSize: 12)),
+              backgroundColor: Colors.purple.withValues(alpha: 0.1),
+              side: BorderSide(color: Colors.purple.withValues(alpha: 0.3)),
+              onPressed: () {
+                _addPresetSubAgent(
+                  exec,
+                  key: 'doc_searcher',
+                  name: 'Doc Searcher',
+                  systemPrompt:
+                      'You are a documentation search specialist. Find the exact matching documentation sections and synthesize an answer.',
+                  maxTurns: 5,
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (subAgents.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.dividerColor.withValues(alpha: 0.4)),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.group_work_outlined,
+                  size: 36,
+                  color: colorScheme.primary.withValues(alpha: 0.6),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'No Sub-Agents Configured',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sub-agents execute in fresh, isolated contexts to avoid polluting this agent’s context window. '
+                  'Use [+ Clone] or quick presets above to get started.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color),
+                ),
+              ],
+            ),
+          )
+        else
+          ...subAgents.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final sub = entry.value;
+            String modelLabel = 'Inherit Parent Model';
+            if (sub.modelProfileId != null) {
+              final prof = llmSettings.getProfile(sub.modelProfileId!);
+              if (prof != null) modelLabel = '${prof.name} (${prof.model})';
+            } else if (sub.model != null && sub.model!.isNotEmpty) {
+              modelLabel = sub.model!;
+            }
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.6)),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                leading: CircleAvatar(
+                  backgroundColor: colorScheme.primaryContainer,
+                  child: Text(
+                    sub.name.isNotEmpty ? sub.name[0].toUpperCase() : 'S',
+                    style: TextStyle(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                title: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        sub.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        sub.key,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.smart_toy_outlined, size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 130),
+                            child: Text(
+                              modelLabel,
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.replay, size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text('${sub.maxTurns} turns', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.handyman_outlined, size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            sub.toolWhitelist == null
+                                ? 'All tools'
+                                : '${sub.toolWhitelist!.length} tools',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.settings_outlined, size: 18),
+                      tooltip: 'Configure Sub-Agent',
+                      onPressed: () => _showSubAgentConfigDialog(context, exec, sub),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                      tooltip: 'Remove Sub-Agent',
+                      onPressed: () {
+                        final updated = List<SubAgentConfig>.from(subAgents)..removeAt(idx);
+                        _updateCurrentAgentSubAgents(subAgents: updated);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  Future<void> _showSubAgentConfigDialog(
+    BuildContext context,
+    Agent exec,
+    SubAgentConfig? initial,
+  ) async {
+    final llmSettings = ref.read(llmSettingsProvider);
+    final isEditing = initial != null;
+
+    final keyCtrl = TextEditingController(text: initial?.key ?? '');
+    final nameCtrl = TextEditingController(text: initial?.name ?? '');
+    final promptCtrl = TextEditingController(text: initial?.systemPrompt ?? '');
+    final toolGuideCtrl = TextEditingController(text: initial?.toolGuide ?? '');
+
+    final initialModel = initial?.model;
+    String? selectedProfileId = initial?.modelProfileId;
+    if (selectedProfileId == null && initialModel != null && initialModel.isNotEmpty) {
+      final match = llmSettings.profiles
+          .where((p) => p.model == initialModel || p.id == initialModel)
+          .firstOrNull;
+      if (match != null) {
+        selectedProfileId = match.id;
+      }
+    }
+    bool inheritModel = selectedProfileId == null &&
+        (initialModel == null || initialModel.isEmpty);
+    int maxTurns = initial?.maxTurns ?? 5;
+    int maxToolCalls = initial?.maxToolCallsPerTurn ?? 3;
+    bool enableMemory = initial?.enableMemoryAccess ?? true;
+    String? selectedTemplateKey;
+
+    // Collect available tools from parent
+    final availableTools = <String>[];
+    for (final m in _internalMcps) {
+      availableTools.add(m.mcpType);
+    }
+    for (final s in _mcpServers) {
+      availableTools.add(s.name != null && s.name!.isNotEmpty ? s.name! : s.serverUrl);
+    }
+    for (final u in _selectedGlobalServerUrls) {
+      availableTools.add(u);
+    }
+
+    Set<String>? whitelist = initial?.toolWhitelist != null
+        ? Set<String>.from(initial!.toolWhitelist!)
+        : null;
+
+    final formKey = GlobalKey<FormState>();
+
+    void onSave(BuildContext dialogCtx) {
+      if (!formKey.currentState!.validate()) return;
+
+      final chosenProfile = (!inheritModel && selectedProfileId != null)
+          ? llmSettings.getProfile(selectedProfileId!)
+          : null;
+
+      final updatedConfig = SubAgentConfig(
+        id: initial?.id ?? const Uuid().v4(),
+        key: keyCtrl.text.trim(),
+        name: nameCtrl.text.trim(),
+        systemPrompt: promptCtrl.text.trim().isNotEmpty
+            ? promptCtrl.text.trim()
+            : null,
+        modelProfileId: !inheritModel ? selectedProfileId : null,
+        provider: chosenProfile?.provider.configKey,
+        model: chosenProfile?.model,
+        toolGuide: toolGuideCtrl.text.trim().isNotEmpty
+            ? toolGuideCtrl.text.trim()
+            : null,
+        maxTurns: maxTurns,
+        maxToolCallsPerTurn: maxToolCalls,
+        toolWhitelist: whitelist?.toList(),
+        enableMemoryAccess: enableMemory,
+      );
+
+      final currentList = List<SubAgentConfig>.from(exec.subAgents);
+      if (isEditing) {
+        final idx = currentList.indexWhere((s) => s.id == initial.id);
+        if (idx >= 0) {
+          currentList[idx] = updatedConfig;
+        } else {
+          currentList.add(updatedConfig);
+        }
+      } else {
+        currentList.add(updatedConfig);
+      }
+
+      _updateCurrentAgentSubAgents(
+        enableDelegation: true,
+        subAgents: currentList,
+      );
+
+      Navigator.of(dialogCtx).pop();
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final l = L.of(ctx);
+            final size = MediaQuery.sizeOf(ctx);
+            final isMobile = size.width < 600;
+
+            Widget buildFormBody() {
+              return Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Inbuilt Template Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedTemplateKey,
+                      decoration: const InputDecoration(
+                        labelText: 'Choose Template / Inbuilt Sub-Agent',
+                        prefixIcon: Icon(Icons.auto_awesome, size: 18),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Custom Sub-Agent')),
+                        ...SubAgentDefinition.predefined.map((p) => DropdownMenuItem(
+                              value: p.key,
+                              child: Text('${p.displayName} (${p.key})'),
+                            )),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedTemplateKey = val;
+                          if (val != null) {
+                            final tmpl = SubAgentDefinition.predefined.firstWhere((p) => p.key == val);
+                            if (!isEditing) keyCtrl.text = tmpl.key;
+                            nameCtrl.text = tmpl.name;
+                            promptCtrl.text = tmpl.systemPrompt;
+                            maxTurns = tmpl.maxTurns;
+                            if (tmpl.tools.isNotEmpty) {
+                              whitelist = Set<String>.from(tmpl.tools);
+                            }
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Key & Display Name: Vertical on mobile, row on wide desktop
+                    if (isMobile) ...[
+                      TextFormField(
+                        controller: keyCtrl,
+                        decoration: InputDecoration(
+                          labelText: l.assigneeKey,
+                          hintText: isMobile ? 'e.g. clone, web_researcher' : 'e.g. clone, code_reviewer',
+                          prefixIcon: Icon(Icons.key, size: 18),
+                          isDense: true,
+                        ),
+                        validator: (val) {
+                          final v = val?.trim() ?? '';
+                          if (v.isEmpty) return l.keyIsRequired;
+                          final clash = exec.subAgents.any(
+                            (s) => s.key == v && s.id != initial?.id,
+                          );
+                          if (clash) return l.keyMustBeUnique;
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: InputDecoration(
+                          labelText: l.displayNameLabel,
+                          hintText: isMobile ? 'e.g. Web Researcher' : 'e.g. Code Reviewer',
+                          prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                          isDense: true,
+                        ),
+                        validator: (val) => (val?.trim().isEmpty ?? true)
+                            ? l.nameIsRequired
+                            : null,
+                      ),
+                    ] else ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: keyCtrl,
+                              decoration: InputDecoration(
+                                labelText: l.assigneeKey,
+                                hintText: isMobile ? 'e.g. clone, web_researcher' : 'e.g. clone, code_reviewer',
+                                prefixIcon: Icon(Icons.key, size: 18),
+                                isDense: true,
+                              ),
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return l.keyIsRequired;
+                                final clash = exec.subAgents.any(
+                                  (s) => s.key == v && s.id != initial?.id,
+                                );
+                                if (clash) return l.keyMustBeUnique;
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: nameCtrl,
+                              decoration: InputDecoration(
+                                labelText: l.displayNameLabel,
+                                hintText: isMobile ? 'e.g. Web Researcher' : 'e.g. Code Reviewer',
+                                prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                                isDense: true,
+                              ),
+                              validator: (val) => (val?.trim().isEmpty ?? true)
+                                  ? l.nameIsRequired
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+
+                    // Model Selection
+                    Card(
+                      elevation: 0,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(isMobile ? 8 : 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.modelAssignment,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<bool>(
+                              segments: [
+                                ButtonSegment<bool>(
+                                  value: true,
+                                  label: Text(l.inheritParentModel, style: const TextStyle(fontSize: 12)),
+                                  icon: Icon(Icons.link, size: 16),
+                                ),
+                                ButtonSegment<bool>(
+                                  value: false,
+                                  label: Text(l.specificProfile, style: const TextStyle(fontSize: 12)),
+                                  icon: Icon(Icons.tune, size: 16),
+                                ),
+                              ],
+                              selected: {inheritModel},
+                              onSelectionChanged: (selection) {
+                                setDialogState(() {
+                                  inheritModel = selection.first;
+                                  if (inheritModel) {
+                                    selectedProfileId = null;
+                                  } else if (selectedProfileId == null && llmSettings.profiles.isNotEmpty) {
+                                    selectedProfileId = llmSettings.profiles.first.id;
+                                  }
+                                });
+                              },
+                            ),
+                            if (!inheritModel) ...[
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                initialValue: selectedProfileId,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Select LLM Profile',
+                                  prefixIcon: Icon(
+                                    Icons.tune_outlined,
+                                    size: 18,
+                                  ),
+                                  isDense: true,
+                                ),
+                                items: llmSettings.profiles.map((p) {
+                                  return DropdownMenuItem<String>(
+                                    value: p.id,
+                                    child: Text(
+                                      '${p.name} (${p.model}) [${p.provider.name}]',
+                                      style: const TextStyle(fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setDialogState(() {
+                                    selectedProfileId = val;
+                                  });
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // System Prompt
+                    TextFormField(
+                      controller: promptCtrl,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: l.roleSystemPrompt,
+                        hintText:
+                            'Specialized instructions for this sub-agent role...',
+                        alignLabelWithHint: true,
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Tool Guidance
+                    TextFormField(
+                      controller: toolGuideCtrl,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: l.toolGuidance,
+                        hintText:
+                            'Operational instructions on how this sub-agent should use tools...',
+                        alignLabelWithHint: true,
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Execution Limits - 2 sliders vertical on mobile, row on desktop
+                    if (isMobile) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.maxTurnsParam(maxTurns),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Slider(
+                            value: maxTurns.toDouble(),
+                            min: 1,
+                            max: 20,
+                            divisions: 19,
+                            label: '$maxTurns',
+                            onChanged: (val) {
+                              setDialogState(() {
+                                maxTurns = val.round();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.maxToolCallsParam(maxToolCalls),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Slider(
+                            value: maxToolCalls.toDouble(),
+                            min: 1,
+                            max: 10,
+                            divisions: 9,
+                            label: '$maxToolCalls',
+                            onChanged: (val) {
+                              setDialogState(() {
+                                maxToolCalls = val.round();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.maxTurnsParam(maxTurns),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Slider(
+                                  value: maxTurns.toDouble(),
+                                  min: 1,
+                                  max: 20,
+                                  divisions: 19,
+                                  label: '$maxTurns',
+                                  onChanged: (val) {
+                                    setDialogState(() {
+                                      maxTurns = val.round();
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.maxToolCallsParam(maxToolCalls),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Slider(
+                                  value: maxToolCalls.toDouble(),
+                                  min: 1,
+                                  max: 10,
+                                  divisions: 9,
+                                  label: '$maxToolCalls',
+                                  onChanged: (val) {
+                                    setDialogState(() {
+                                      maxToolCalls = val.round();
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+
+                    // Tool Whitelist
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(isMobile ? 8 : 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Permitted Tools',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Spacer(),
+                                TextButton(
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      if (whitelist == null) {
+                                        whitelist = <String>{};
+                                      } else {
+                                        whitelist = null; // all
+                                      }
+                                    });
+                                  },
+                                  child: Text(
+                                    whitelist == null
+                                        ? 'Restrict Tools'
+                                        : 'Allow All Tools',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (whitelist == null)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  'All parent tools permitted (inherited automatically).',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                            else if (availableTools.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  'Parent agent has no tools configured.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: availableTools.map((t) {
+                                  final isChecked = whitelist!.contains(t);
+                                  return FilterChip(
+                                    label: Text(
+                                      t,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    selected: isChecked,
+                                    onSelected: (selected) {
+                                      setDialogState(() {
+                                        if (selected) {
+                                          whitelist!.add(t);
+                                        } else {
+                                          whitelist!.remove(t);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: enableMemory,
+                      title: const Text(
+                        'Shared Workflow Memory Access',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      subtitle: const Text(
+                        'Allows sub-agent to invoke store_memory and recall_memory.',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          enableMemory = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final titleWidget = Row(
+              children: [
+                Icon(
+                  isEditing ? Icons.settings : Icons.smart_toy_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isEditing ? l.configureSubAgent : l.addSubAgent,
+                    style: const TextStyle(fontSize: 18),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            );
+
+            if (isMobile) {
+              return Dialog.fullscreen(
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: titleWidget,
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                    ),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilledButton(
+                          onPressed: () => onSave(dialogCtx),
+                          child: Text(isEditing ? l.saveChanges : l.addSubAgent),
+                        ),
+                      ),
+                    ],
+                  ),
+                  body: SafeArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      child: buildFormBody(),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final desktopWidth = math.max(size.width * 0.8, 650.0);
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: desktopWidth,
+                  maxWidth: math.max(desktopWidth, size.width * 0.85),
+                  maxHeight: size.height * 0.88,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      titleWidget,
+                      const SizedBox(height: 16),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: buildFormBody(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogCtx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            onPressed: () => onSave(dialogCtx),
+                            child: Text(isEditing ? l.saveChanges : l.addSubAgent),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -4118,6 +5327,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
               icon: Icons.smart_toy,
               title: l.tabLlm,
               children: _buildLlmContent(),
+            ),
+            const SizedBox(height: 8),
+            _buildExpansionSection(
+              icon: Icons.hub_outlined,
+              title: 'Delegated Sub-Agents',
+              children: [_buildDelegatedSubAgentsSection(exec)],
             ),
             const SizedBox(height: 8),
             _buildExpansionSection(
@@ -5382,10 +6597,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
     final isLightServer =
         ref.read(serverModeProvider).value?.isLightMode == true;
+    final seenMcpTypes = <String>{};
     final available =
         serverInfos
             .where(
               (server) =>
+                  seenMcpTypes.add(server.type) &&
                   server.type != 'toolbox' &&
                   server.type != 'traffic' &&
                   !server.type.startsWith('gh_mcp_') &&
@@ -6453,21 +7670,22 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                         onPressed: () async {
                           final result = await FilePicker.pickFiles(
                             type: FileType.any,
-                            allowMultiple: false,
-                            withData: true,
                           );
-                          if (result != null &&
-                              result.files.single.bytes != null) {
-                            final content = utf8.decode(
-                              result.files.single.bytes!,
-                              allowMalformed: false,
-                            );
-                            updateParam('privateKey', content);
-                            updateParam(
-                              '_privateKeyFileName',
-                              result.files.single.name,
-                            );
-                            setRowState(() {});
+                          if (result.isNotEmpty) {
+                            final file = result.first;
+                            try {
+                              final bytes = await file.readAsBytes();
+                              final content = utf8.decode(
+                                bytes,
+                                allowMalformed: false,
+                              );
+                              updateParam('privateKey', content);
+                              updateParam(
+                                '_privateKeyFileName',
+                                file.name,
+                              );
+                              setRowState(() {});
+                            } catch (_) {}
                           }
                         },
                         icon: const Icon(Icons.key, size: 16),
@@ -7003,14 +8221,10 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                           label: const Text('Pick Files'),
                           onPressed: () async {
                             final result = await FilePicker.pickFiles(
-                              allowMultiple: true,
                               type: FileType.custom,
                               allowedExtensions: const ['pdf', 'md', 'docx'],
-                              withData: true,
                             );
-                            if (!mounted ||
-                                result == null ||
-                                result.files.isEmpty) {
+                            if (!mounted || result.isEmpty) {
                               return;
                             }
                             final supportDir =
@@ -7020,21 +8234,13 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                             );
                             await destDir.create(recursive: true);
                             int copied = 0;
-                            for (final file in result.files) {
+                            for (final file in result) {
                               try {
-                                final bytes = file.bytes;
-                                final srcPath = file.path;
-                                if (bytes != null) {
-                                  await File(
-                                    '${destDir.path}/${file.name}',
-                                  ).writeAsBytes(bytes);
-                                  copied++;
-                                } else if (srcPath != null) {
-                                  await File(
-                                    srcPath,
-                                  ).copy('${destDir.path}/${file.name}');
-                                  copied++;
-                                }
+                                final bytes = await file.readAsBytes();
+                                await File(
+                                  '${destDir.path}/${file.name}',
+                                ).writeAsBytes(bytes);
+                                copied++;
                               } catch (_) {}
                             }
                             if (copied == 0 || !mounted) return;
@@ -8002,20 +9208,20 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                   onPressed: () async {
                     final result = await FilePicker.pickFiles(
                       type: FileType.any,
-                      allowMultiple: false,
-                      withData: true,
                     );
-                    if (result == null || result.files.single.bytes == null) {
-                      return;
-                    }
-                    final decoded = utf8.decode(
-                      result.files.single.bytes!,
-                      allowMalformed: false,
-                    );
-                    setState(() {
-                      _sftpPrivateKeyPem = decoded;
-                      _sftpPrivateKeyFileName = result.files.single.name;
-                    });
+                    if (result.isEmpty) return;
+                    final file = result.first;
+                    try {
+                      final bytes = await file.readAsBytes();
+                      final decoded = utf8.decode(
+                        bytes,
+                        allowMalformed: false,
+                      );
+                      setState(() {
+                        _sftpPrivateKeyPem = decoded;
+                        _sftpPrivateKeyFileName = file.name;
+                      });
+                    } catch (_) {}
                   },
                   icon: const Icon(Icons.key, size: 16),
                   label: Text(

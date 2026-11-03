@@ -2,6 +2,94 @@
 
 This file tracks release changes by version.
 
+## v2.2.1+160 - Pure Dart Fetch MCP Server, Full-Screen Mobile Sub-Agent Editor & Mobile UI Hardening
+
+### Major Features & Enhancements
+- **Pure Dart Fetch MCP Server (FetchMcpServer)**:
+  - Implemented an in-process, pure Dart MCP server adhering to the official @modelcontextprotocol/server-fetch specification.
+  - Exposed tool etch with full support for url (required), max_length (default: 5000), start_index (default: 0), and 
+aw (default: false).
+  - Converts HTML documents into clean, readable Markdown (title, headers, resolved links, code blocks, lists, quotes, tables, and entity decoding).
+  - Skips non-document binary downloads (.msi, .exe, .zip, .pdf, media) and validates content-type headers.
+  - Automatically registered in InternalMcpRegistry and TealKitToolsBuilder for out-of-the-box local tool access across mobile, desktop, and web.
+- **Mobile Full-Screen Sub-Agent Editor & Layout Overflow Fixes**:
+  - Sub-agent editor now renders as a dedicated full-screen page (Dialog.fullscreen) with an app bar and safe area on mobile viewports.
+  - Fixed row layout overflow (RIGHT OVERFLOWED BY X PIXELS) on narrow screens by enforcing isExpanded: true and text truncation on template and LLM profile assignee dropdowns.
+  - Mode buttons ('Agentenmodus' / 'Direkter Chat') dynamically stack vertically on mobile to prevent horizontal boundary clipping.
+  - Mobile sub-agent tool whitelist automatically filters out desktop coding tools (s_*, 	erminal_exec), focusing on mobile web tools (web_search, etch).
+
+## v2.2.0+159 - Specialized Sub-Agents Catalog, DuckDB Persistence, Server REST API & HITL Tool Permissions
+
+### Major Features & Enhancements
+- **Inbuilt Specialized Sub-Agents Catalog (`SubAgentDefinition`)**:
+  - Integrated 5 standard specialized sub-agents adapted from ThiesCoder, fully usable across TealKit Assistant, Workflow Editor, Server Mode, and CLI Coder:
+    - **`unit_tester`**: Automated unit test specialist that generates, updates, and runs test suites via project test runners (`max_turns: 10`).
+    - **`git_auditor`**: Git repository auditor that inspects status, diffs, branch hygiene, and formats clean conventional commit messages (`max_turns: 6`).
+    - **`web_researcher`**: Technical web researcher that queries documentation, APIs, and release notes, synthesizing concise citations (`max_turns: 8`).
+    - **`code_scout`**: Fast codebase explorer and symbol / caller-hierarchy scout that explores architecture without mutating files (`max_turns: 8`).
+    - **`c_analyzer`**: Embedded C/C++ firmware static analyzer and compiler warning specialist focusing on pointer safety and buffer checks (`max_turns: 8`).
+- **Database Persistence & Server Mode Sync (`subagent_definitions`)**:
+  - Added persistent `subagent_definitions` table in local DuckDB (`DuckDbService`) and server database (`ServerDuckDbAdapter` and `ServerSqliteAdapter`).
+  - Added REST API endpoints in headless server (`server_runner.dart`):
+    - `GET /api/v1/subagents` (list)
+    - `POST /api/v1/subagents` (save/update)
+    - `DELETE /api/v1/subagents/<key>` (delete)
+    - `POST /api/v1/subagents/sample` (seed default sample subagents)
+  - Seamless local/remote synchronization via `SubAgentDatabaseService` and `ServerApiClient`.
+- **Specialized Sub-Agents UI Card & Template Dropdowns**:
+  - Added **Specialized Sub-Agents** card to TealKit Assistant Settings with live count badge, one-click `[✨ Generate Sample Subagents]` button, and `[+ Add Subagent]`.
+  - Added **"Choose Template / Inbuilt Sub-Agent"** dropdown in the Sub-Agent configuration dialogs across Assistant and Workflow Editor to instantly auto-populate keys, personas, prompts, limits, and tool whitelists.
+  - Added one-click quick-add chips for all specialized sub-agents in the Workflow Editor.
+- **Human-in-the-Loop (HITL) Tool Permissions & Plan Guard**:
+  - Added interactive tool permission toggles in Assistant settings: Auto-Approve Read Tools, Write Tools, Execution Tools, and Network Tools.
+  - Enforced strict Architect `/plan` mode guard blocking file modifications and terminal command execution while in planning mode.
+- **CLI Coder Out-of-the-Box Sub-Agent Delegation**:
+  - Predefined sub-agents are automatically registered and discoverable by `delegate_task` in `tealkit code` and `tealkit chat` even without manual `config.yaml` entries.
+  - Sub-agents configured with `model: default` automatically inherit and route to the active CLI LLM profile.
+  - Added Windows native DLL loader (`windows_dll_helper.dart`) using Win32 `SetDllDirectoryW` to reliably resolve `llamadart`, `pdfium`, and `ggml` native binaries.
+
+## v2.1.0+158 - Autonomous Sub-Agents, Shared Memory Store, Visual Flow Branching & Assistant UI Modernization
+
+### Major Features & Enhancements
+- **Autonomous Sub-Agents & Heterogeneous Model Routing (`SubAgentConfig`, `delegate_task`)**:
+  - Primary workflow agents can now dynamically delegate specialized tasks to autonomous child sub-agents via the native `delegate_task` tool.
+  - Sub-agents run with isolated fresh conversation contexts, independent system prompts, and custom model profile routing (e.g., Claude 3.5 Sonnet orchestrator delegating deep analysis to DeepSeek-Coder, Gemini Flash, or local Ollama).
+  - Enforces execution safety guardrails with configurable `maxTurns` and `maxToolCalls` per sub-agent.
+  - Automatically synthesizes and returns structured sub-agent results back to the primary agent's context.
+- **Persistent Shared Workflow Memory Store (`workflow_memory_store`, `WorkflowMemoryService`)**:
+  - Added native DuckDB persistent memory backing via the `workflow_memory_store` table, supporting string, JSON, and structured data with metadata and TTL expirations.
+  - Implemented `WorkflowMemoryService` bridging DuckDB with `dart_mcp_core.WorkflowMemoryStore`.
+  - Automatically registers `store_memory` and `recall_memory` tools whenever shared or episodic memory is enabled, allowing agents and sub-agents to persist, query, and coordinate knowledge across steps and sessions.
+  - Configurable memory scopes (`global`, `workflow`, `session`).
+- **Workflow Editor Sub-Agents Section & 1-Click Worker Cloning**:
+  - Added dedicated **Sub-Agents** card in the Workflow Editor with master delegation toggle, memory scope selector, and episodic memory switches.
+  - Integrated **`[+ Clone]`** instant worker action that duplicates the primary agent's model, prompts, and parameters into a sub-agent with a single click.
+  - Added quick role preset chips (`+ Code Reviewer`, `+ Web Researcher`, `+ Doc Searcher`) for immediate specialized sub-agent bootstrapping.
+  - Comprehensive sub-agent configuration dialog for fine-tuning descriptions, prompts, tool overrides, and model choices.
+- **Visual Flow Designer Sub-Agent Branching Canvas**:
+  - Extended the 2D interactive canvas in Visual Flow Designer to render hierarchical child sub-agent tree branches directly beneath parent agent nodes using clean connector lines (`├──`, `└──`).
+  - Displays sub-agent model badges, role tags, and delegation status indicators directly within the visual topology.
+- **Assistant UI Simplification & Modernized Controls (`flutter_ui_mcp: ^1.5.1`, `dart_mcp_core: ^1.5.1`)**:
+  - Deduplicated actions and menu items across top bar and overflow menus in the TealKit Assistant.
+  - Adopted searchable model selector dropdown with inline endpoint reload button (`Icons.refresh_rounded`) from `flutter_ui_mcp_core`.
+  - Expanded desktop settings modal dialog to 95% viewport width and height for improved ergonomics and readability.
+  - Replaced legacy monolithic layouts with modular responsive components across desktop and mobile.
+  - Consolidated settings into a dedicated dialog (fullscreen modal on mobile, clean dialog on desktop) keeping the primary view focused on direct-to-chat interactions and agent inspection.
+  - Retained TealKit custom top bar controls: Workflow load/save, Skills manager, and dynamic tool selectors.
+  - Dynamically configured system prompts (`showSystemPromptTemplates: false`) generated strictly from active tools or loaded AgentSkills.
+- **Dedicated Desktop Coding Agent Button**:
+  - Added a prominent Coding Agent icon button (`Icons.terminal_rounded` / `Coding Agent`) on the top bar in desktop mode.
+  - Directly launches autonomous coding agent workflows with the complete 10-tool pure-Dart `CodingTools` suite (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `terminal_exec`, etc.).
+
+- **RAG Subsystem Overhaul & Query Intent Routing**:
+  - Renamed "website search" (`website_search`) to **Web-Crawl** (`web_crawl`) for clarity.
+  - Created `RagAutoService` to verify DuckDB index health (`document_index` and `website_index`) and auto-enable Document Search and Web-Crawl tools when RAG is toggled.
+  - Parses localized user intents like `"search in documents"` or `"search in websites"` to automatically query DuckDB vector and text indices.
+- **Database & Preferences Storage Delegate**:
+  - Implemented `TealKitDatabaseStorageDelegate` so all server configs, active LLMs, skills, workflows, and tool whitelists persist directly in TealKit's database and preferences rather than unmanaged YAML files.
+- **Modernized FilePicker 13.x APIs**:
+  - Upgraded all file handling across the entire application to `file_picker: ^13.1.0` asynchronous streams and bytes methods (`readAsBytes()`, `lengthSync()`, `saveFile(bytes: ...)`).
+
 ## v2.0.2+157 - Progressive MCP Tool Selection, CLI Multiline Input & Submit Keys, Local RAG Knowledge Engine & Image Optimization
 
 ### Major Features & Enhancements

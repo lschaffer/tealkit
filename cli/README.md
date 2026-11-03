@@ -13,7 +13,7 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 
 | Capability | Description |
 |---|---|
-| 📁 **Global Setup & Fallbacks** | Auto-detects and prompts to initialize `~/.tealkit/` settings directory, copies local configs/skills, and supports `--reinit`. |
+| 📁 **Global Setup & Fallbacks** | Auto-detects and prompts to initialize `~/.tealkitcoder/` settings directory, copies local configs/skills, and supports `--reinit`. |
 | 🌐 **Server Management** | Switch between dev/prod server profiles in `server.yaml` and ping health status. |
 | 🔍 **Auto-Discovery** | Pull remote LLM settings, task definitions, MCP registry, and skills down to local YAML / Markdown files. |
 | 🚀 **Remote Workflow Runner** | Trigger asynchronous workflows/agents, poll execution status, stream execution logs, and download generated artifacts. |
@@ -21,6 +21,8 @@ A native Dart command-line tool for **TealKit** that unifies remote server manag
 | ⚡ **Ad-Hoc Prompt Runner** | Run single-turn prompts with local LLM and MCP tool calling via CLI or piped `stdin`. |
 | 💬 **Interactive Agent REPL** | Multi-turn terminal chat with tool call cards, dynamic model switching (`/llm`), session saving/resuming (`.json`/`.md`), MCP uninstallation (`/uninstall`), token cost estimation (`/estimated_costs`), and slash commands. |
 | 💻 **Coding Agent REPL (`tealkit code`)** | Claude Code / Roo Code style terminal coding agent with Architect, Code, Ask, and RAG modes, 10 native tools (`fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `fs_replace_text`, `fs_create_dir`, `fs_move`, `fs_delete`, `terminal_exec`, `fetch_web`), session persistence, token cost tracking, `tasks.md` checklists, and `tealkit_agent.md` workspace rules. |
+| 🤖 **Multi-Model SubAgents** | Hierarchical delegation to specialized subagents (`c_analyzer`, `code_scout`, etc.) across multiple configured LLM models via `DelegateTaskTool` and `SubAgentHelper`, with live streaming of subagent progress. |
+| 🧠 **Episodic Memory Recall** | Automated context compression archiving older session turns with semantic and historical recall via `RetrieveMemoryTool` across extended development sessions. |
 | 📚 **Local RAG & Web Crawler (`tealkit rag`)** | Hybrid SQLite FTS5 (BM25) + Nomic Embed Text v1.5 vector search (RRF), pure Dart website crawler with `max_pages`, and clickable file links (`file:///...`) with line number citations. |
 | ⚡ **Progressive Tool Discovery** | Slashes prompt token consumption from 10,000+ tokens to ~250 tokens across large MCP server collections via on-demand meta-tools (`mcp_list_tools`, `mcp_call_tool`). |
 | ⌨️ **Multiline Input & Submit Keys** | Raw terminal input with configurable submit keys (`ctrl-enter`, `double-enter`, `enter`), continuation prompt (`... `), Backspace editing, and instant clipboard paste (`Ctrl+V`). |
@@ -118,13 +120,13 @@ Follow these steps to build natively on Apple Silicon with hardware Metal GPU ac
 
 TealKit resolves configuration files (`server.yaml`, `llm.yaml`, `extern_mcp_tools.yaml`, `mcp.yaml`, `skills/`, `permissions.yaml`) in the following priority order:
 1. **Local Directory**: First checks `./<file>` in current working directory.
-2. **Global Fallback Directory**: If not found locally, checks user's home directory (`~/.tealkit/` on Linux/macOS or `%USERPROFILE%\.tealkit` on Windows).
+2. **Global Fallback Directory**: If not found locally, checks user's home directory (`~/.tealkitcoder/` on Linux/macOS or `%USERPROFILE%\.tealkitcoder` on Windows).
 3. **Environment Variables**: Reads `.env` / system environment variables for API keys and endpoint substitutions.
 
 ### 🚀 First-Run Initialization & `--reinit`
-On first startup (or when passing `--reinit`), TealKit checks if the global directory (`~/.tealkit/` or `%USERPROFILE%\.tealkit`) exists:
-- If not found, it prompts: `Create global directory for settings at "~/.tealkit"? [y/N]`
-- When confirmed (`y`), it creates the `.tealkit` directory, copies `.env`, `llm.yaml`, `mcp.yaml`, and all other `*.yaml` files found in the installation/executable directory, and recursively copies the `skills/` directory.
+On first startup (or when passing `--reinit`), TealKit checks if the global directory (`~/.tealkitcoder/` or `%USERPROFILE%\.tealkitcoder`) exists:
+- If not found, it prompts: `Create settings directory at "~/.tealkitcoder"? [Y/n]`
+- When confirmed (`y`), it creates the `.tealkitcoder` directory, copies `.env`, `llm.yaml`, `mcp.yaml`, and all other `*.yaml` files found in the installation/executable directory, and recursively copies the `skills/` directory.
 - You can force reinitializing and re-copying default settings at any time:
    ```bash
    tealkit --reinit
@@ -391,6 +393,9 @@ The CLI provides built-in tools that do not require external subprocesses:
   - `geocode_city`: Resolves city names to latitude, longitude, country, elevation, and timezone.
 - **Remote SSH (`ssh.yaml`)**:
   - `ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`, `ssh_download_file`, `ssh_make_directory`, `ssh_remove_directory`, and `ssh_execute_command` for remote server execution and SFTP management.
+- **SubAgent Delegation & Episodic Memory (`dart_mcp_core: ^1.4.0`)**:
+  - `delegate_task`: Autonomous delegation of specialized sub-tasks to child subagents running distinct LLM models (e.g. Claude orchestrator delegating deep analysis to local Ollama or DeepSeek).
+  - `retrieve_memory`: Autonomous retrieval of archived episodic memory turns, enabling the agent to search past decisions and code context across long-running sessions.
 
 - `/workspace` — Show the current active workspace directory.
 - `/workspace set <directory>` — Switch active base workspace directory on the fly (rebinds `fs_find`, `fs_list_dir`, `fs_read_file`, `fs_write_file`, `terminal_exec` to new target directory).
@@ -432,7 +437,7 @@ Approve execution? [y/n/always/deny-all] >
 ```
 - Type `y` or Enter: Approve the single tool call.
 - Type `n`: Deny the tool call (the agent receives a rejection message and adjusts its plan).
-- Type `always` or `a`: Auto-approve all future actions for this category and persist to `~/.tealkit/permissions.yaml`.
+- Type `always` or `a`: Auto-approve all future actions for this category and persist to `~/.tealkitcoder/permissions.yaml`.
 - Type `deny-all` or `d`: Block and disable auto-approvals.
 
 ---

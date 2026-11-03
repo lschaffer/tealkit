@@ -432,47 +432,8 @@ class _SubPromptListEditorState extends State<StepListEditor> {
                 children: [
                   for (int i = 0; i < _entries.length; i++) ...[
                     _buildTabHeader(theme, i),
-                    const SizedBox(width: 6),
+                    if (i < _entries.length - 1) const SizedBox(width: 6),
                   ],
-                  Tooltip(
-                    message: 'Add step',
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => _addEntryAfter(_entries.length - 1),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.add_rounded,
-                              size: 16,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Step',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

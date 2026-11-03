@@ -100,9 +100,9 @@ class ServerEmbeddedLlmAdapter {
     try {
       await _unloadCurrentModel();
       _engine ??= LlamaEngine(_getBackend());
-      await _engine!.loadModel(
-        modelPath,
-        modelParams: ModelParams(
+      await _engine!.setModel(
+        LlamaModel(ModelSource.path(modelPath)),
+        params: ModelParams(
           contextSize: contextSize,
           gpuLayers: targetGpuLayers,
         ),

@@ -1033,7 +1033,7 @@ class SettingsVaultService {
   /// Uses FileType.any on mobile to avoid the unsupported-extension error on Android.
   Future<File?> pickImportFile() async {
     final useCustom = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-    final FilePickerResult? result;
+    final List<PlatformFile> result;
     try {
       result = await FilePicker.pickFiles(
         dialogTitle: 'Open TealKit Settings Vault',
@@ -1046,8 +1046,8 @@ class SettingsVaultService {
       }
       rethrow;
     }
-    if (result == null || result.files.isEmpty) return null;
-    final path = result.files.single.path;
+    if (result.isEmpty) return null;
+    final path = result.first.path;
     if (path == null) return null;
     return File(path);
   }

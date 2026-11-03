@@ -1585,7 +1585,7 @@ class _ServerCardState extends ConsumerState<_ServerCard> {
         setState(() => _buildingSkills = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build skills.'),
+            content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build function hints.'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -1690,14 +1690,14 @@ class _ServerCardState extends ConsumerState<_ServerCard> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Generated ${generated.length} skill${generated.length == 1 ? '' : 's'} for ${def.displayName}')),
+          SnackBar(content: Text('Generated ${generated.length} function hint${generated.length == 1 ? '' : 's'} for ${def.displayName}')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Skill generation failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+        ).showSnackBar(SnackBar(content: Text('Function hint generation failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
       }
     } finally {
       if (mounted) {
@@ -3825,7 +3825,7 @@ class _MyServerCardState extends ConsumerState<_MyServerCard> {
         setState(() => _buildingSkills = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build skills.'),
+            content: const Text('LLM 1 (Primary Model) must be configured/accepted in Settings to build function hints.'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -3926,14 +3926,14 @@ class _MyServerCardState extends ConsumerState<_MyServerCard> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Generated ${generated.length} skill${generated.length == 1 ? '' : 's'} for ${def.displayName}')),
+          SnackBar(content: Text('Generated ${generated.length} function hint${generated.length == 1 ? '' : 's'} for ${def.displayName}')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Skill generation failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
+        ).showSnackBar(SnackBar(content: Text('Function hint generation failed: $e'), backgroundColor: Theme.of(context).colorScheme.error));
       }
     } finally {
       if (mounted) {

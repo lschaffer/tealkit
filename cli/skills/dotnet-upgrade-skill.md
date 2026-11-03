@@ -1,8 +1,8 @@
----
+﻿---
 name: dotnet-upgrade-skill
 description: Automated skill to inspect .NET projects, check installed SDKs, draft upgrade tasks, and bump target framework versions.
 version: 1.0.0
-author: TealKit Engineering
+author: TealKitCoder Engineering
 system_prompt: |
   You are a specialized .NET migration and DevOps engineer.
   You inspect .NET solutions (.sln, .csproj, global.json), determine the highest compatible .NET SDK, and safely perform TargetFramework bumps with compilation verification.
@@ -51,5 +51,5 @@ An automated migration skill that safely upgrades .NET projects to the latest in
 ## Execution
 ```bash
 # Execute the automated upgrade sequence
-tealkit skill run example_skills/dotnet-upgrade-skill.md
+TealKitCoder skill run example_skills/dotnet-upgrade-skill.md
 ```

@@ -18,6 +18,7 @@ import '../engine/embedded/cli_embedded_model_manager.dart';
 import '../engine/mcp_manager_helper.dart';
 import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
+import '../engine/subagent_helper.dart';
 import '../engine/token_usage_tracker.dart';
 import '../formatters/terminal_printer.dart';
 import '../formatters/terminal_spinner.dart';
@@ -101,12 +102,14 @@ class CodeCommand extends Command {
     argParser.addFlag(
       'compact',
       defaultsTo: true,
-      help: 'Compact display mode (hide file read contents, show only filename)',
+      help:
+          'Compact display mode (hide file read contents, show only filename)',
     );
     argParser.addOption(
       'progressive-tools',
       allowed: ['auto', 'on', 'off'],
-      help: 'Progressive MCP tool discovery mode (auto, on, off). Auto enables when tool count > 25 or SLM.',
+      help:
+          'Progressive MCP tool discovery mode (auto, on, off). Auto enables when tool count > 25 or SLM.',
     );
   }
 
@@ -213,7 +216,7 @@ Commands:
       if (!isDownloaded) {
         stdout.writeln(
           TerminalPrinter.yellow(
-            '⬇ Embedded model "$filename" not found locally in ~/.tealkit/models/.',
+            '⬇ Embedded model "$filename" not found locally in ~/.tealkitcoder/models/.',
           ),
         );
         stdout.writeln(
@@ -227,14 +230,18 @@ Commands:
           await manager.ensureModelDownloaded(
             modelFilename: filename,
             repo: profile.repo,
-            directUrl: profile.config.baseUrl.isNotEmpty ? profile.config.baseUrl : null,
+            directUrl: profile.config.baseUrl.isNotEmpty
+                ? profile.config.baseUrl
+                : null,
             onProgress: (p, status) {
               final pct = (p * 100).toStringAsFixed(1);
               spinner.start('Downloading model: $status ($pct%)');
             },
           );
           spinner.stop();
-          stdout.writeln(TerminalPrinter.green('✔ Download complete: $filename'));
+          stdout.writeln(
+            TerminalPrinter.green('✔ Download complete: $filename'),
+          );
         } catch (e) {
           spinner.stop();
           stderr.writeln(TerminalPrinter.red('❌ Failed to download model: $e'));
@@ -243,17 +250,24 @@ Commands:
       }
 
       final file = await manager.getModelFile(filename);
-      stdout.writeln(TerminalPrinter.dim('  Initializing llamadart engine with: ${file.path}...'));
+      stdout.writeln(
+        TerminalPrinter.dim(
+          '  Initializing llamadart engine with: ${file.path}...',
+        ),
+      );
       await CliEmbeddedLlmAdapter.instance.initialize(
         file.path,
         gpuLayers: profile.gpuLayers ?? 0,
         contextSize: profile.contextSize ?? 4096,
       );
       CliEmbeddedLlmAdapter.instance.registerWithMcpCore();
-      stdout.writeln(TerminalPrinter.green('✔ Embedded model ready for inference.'));
+      stdout.writeln(
+        TerminalPrinter.green('✔ Embedded model ready for inference.'),
+      );
     }
 
-    if (activeProfile != null && activeProfile.config.provider == LlmProvider.embedded) {
+    if (activeProfile != null &&
+        activeProfile.config.provider == LlmProvider.embedded) {
       try {
         await ensureEmbeddedModelLoaded(activeProfile);
       } catch (_) {}
@@ -327,6 +341,7 @@ Commands:
 
     final history = <ChatMessage>[];
     final usageTracker = TokenUsageTracker();
+    final episodicMemoryStore = EpisodicMemoryStore();
 
     // Load initial session if requested
     if (loadSessionPath != null) {
@@ -367,7 +382,7 @@ Commands:
       'LLM Profile  : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
       'Active Mode  : ${currentMode.displayName}',
       'MCP Servers  : $mcpSummary',
-      'Permissions  : Write=${permissions.autoApproveWrite ? "Auto" : "Ask"}, Exec=${permissions.autoApproveExecute ? "Auto" : "Ask"}',
+      'Permissions  : Read=${permissions.autoApproveRead ? "Auto" : "Ask"}, Write=${permissions.autoApproveWrite ? "Auto" : "Ask"}, Exec=${permissions.autoApproveExecute ? "Auto" : "Ask"}, Net=${permissions.autoApproveNetwork ? "Auto" : "Ask"}',
       'Compact Mode : ${compactMode ? "ON (file content hidden)" : "OFF"}',
       'Progressive  : ${cliConfig.progressiveTools.toUpperCase()} (active: ${initialProgressiveActive ? "YES [mcp_list_tools, mcp_call_tool]" : "NO [all schemas upfront]"})',
       'Instructions : ${userInstructions.isNotEmpty ? "Loaded from workspace" : "(None found, default active)"}',
@@ -422,740 +437,860 @@ Commands:
 
     try {
       while (true) {
-      final attachBadge = pendingAttachments.isNotEmpty
-          ? ' (${pendingAttachments.length} att)'
-          : '';
-      final promptPrefix = switch (currentMode) {
-        CodingMode.architect => '[architect$attachBadge] > ',
-        CodingMode.code => '[code$attachBadge] > ',
-        CodingMode.ask => '[ask$attachBadge] > ',
-      };
+        final attachBadge = pendingAttachments.isNotEmpty
+            ? ' (${pendingAttachments.length} att)'
+            : '';
+        final promptPrefix = switch (currentMode) {
+          CodingMode.architect => '[architect$attachBadge] > ',
+          CodingMode.code => '[code$attachBadge] > ',
+          CodingMode.ask => '[ask$attachBadge] > ',
+        };
 
-      final rawInput = await CliPromptReader.readPrompt(
-        promptPrefix: promptPrefix,
-        config: cliConfig,
-        stagedAttachments: pendingAttachments,
-        workspaceDir: workspaceDir,
-      );
-      if (rawInput == null) break;
+        final rawInput = await CliPromptReader.readPrompt(
+          promptPrefix: promptPrefix,
+          config: cliConfig,
+          stagedAttachments: pendingAttachments,
+          workspaceDir: workspaceDir,
+        );
+        if (rawInput == null) break;
 
-      final input = rawInput.trim();
-      if (input.isEmpty) continue;
+        final input = rawInput.trim();
+        if (input.isEmpty) continue;
 
-      if (input == '/bye' || input == '/exit') break;
+        if (input == '/bye' || input == '/exit') break;
 
-      if (input == '/help' || input == '/?') {
-        stdout.writeln(_helpText);
-        continue;
-      }
-
-      if (input == '/multiline' || input.startsWith('/multiline ')) {
-        final arg = input.replaceFirst('/multiline', '').trim().toLowerCase();
-        if (arg == 'on' || arg == 'true' || arg == '1') {
-          cliConfig.multilinePrompt = true;
-          cliConfig.save();
-          stdout.writeln(TerminalPrinter.green('✔ Multi-line prompt enabled (Enter = newline, Ctrl-Enter = submit).'));
-        } else if (arg == 'off' || arg == 'false' || arg == '0') {
-          cliConfig.multilinePrompt = false;
-          cliConfig.save();
-          stdout.writeln(TerminalPrinter.yellow('✔ Multi-line prompt disabled (Enter = submit).'));
-        } else {
-          cliConfig.multilinePrompt = !cliConfig.multilinePrompt;
-          cliConfig.save();
-          final status = cliConfig.multilinePrompt
-              ? 'enabled (Enter = newline, Ctrl-Enter = submit)'
-              : 'disabled (Enter = submit)';
-          stdout.writeln(TerminalPrinter.cyan('Multi-line prompt is now $status.'));
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/progressive' || input.startsWith('/progressive ')) {
-        final arg = input.replaceFirst('/progressive', '').trim().toLowerCase();
-        final totalToolCount = dartTools.length + mcpTools.length;
-        if (arg == 'on' || arg == 'true' || arg == '1' || arg == 'enable') {
-          cliConfig.progressiveTools = 'on';
-          cliConfig.save();
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Progressive tool discovery forced ON (exposing mcp_list_tools and mcp_call_tool).',
-            ),
-          );
-        } else if (arg == 'off' || arg == 'false' || arg == '0' || arg == 'disable') {
-          cliConfig.progressiveTools = 'off';
-          cliConfig.save();
-          stdout.writeln(
-            TerminalPrinter.yellow(
-              '✔ Progressive tool discovery OFF (all $totalToolCount tool schemas sent directly).',
-            ),
-          );
-        } else if (arg == 'auto') {
-          cliConfig.progressiveTools = 'auto';
-          cliConfig.save();
-          final active = cliConfig.isProgressiveToolsActive(
-            totalTools: totalToolCount,
-            provider: activeLlmConfig.provider,
-          );
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Progressive tool discovery set to AUTO (currently ${active ? "ACTIVE ($totalToolCount tools > 25 or SLM)" : "INACTIVE ($totalToolCount tools <= 25)"}).',
-            ),
-          );
-        } else {
-          final active = cliConfig.isProgressiveToolsActive(
-            totalTools: totalToolCount,
-            provider: activeLlmConfig.provider,
-          );
-          stdout.writeln(
-            'Progressive tools mode: ${TerminalPrinter.bold(cliConfig.progressiveTools.toUpperCase())} '
-            '(active: ${active ? TerminalPrinter.green("YES") : TerminalPrinter.yellow("NO")}, '
-            'total tools: $totalToolCount)',
-          );
-          stdout.writeln('Usage: /progressive [auto|on|off]');
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── Attachment Commands ──
-      if (input.startsWith('/attach-file') ||
-          (input.startsWith('/attach') && !input.startsWith('/attach-clipboard') && !input.startsWith('/attachments'))) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length < 2) {
-          stdout.writeln('Usage: /attach-file <file_path> or /attach clear');
-          stdout.writeln('');
+        if (input == '/help' || input == '/?') {
+          stdout.writeln(_helpText);
           continue;
         }
 
-        final arg = parts.sublist(1).join(' ').trim();
-        if (arg == 'clear' || arg == 'reset') {
-          pendingAttachments.clear();
-          stdout.writeln(TerminalPrinter.green('✔ Cleared all staged attachments.'));
-          stdout.writeln('');
-          continue;
-        }
-
-        try {
-          final att = await CliAttachmentHelper.fromFile(arg, workspaceDir: workspaceDir);
-          pendingAttachments.add(att);
-          stdout.writeln(
-            TerminalPrinter.green('✔ Attached: ${att.name} (${att.mimeType}, ${att.sizeLabel})'),
-          );
-          if (att.isImage) {
-            stdout.writeln(TerminalPrinter.dim('  (Image will be sent as multi-modal visual context)'));
+        if (input == '/multiline' || input.startsWith('/multiline ')) {
+          final arg = input.replaceFirst('/multiline', '').trim().toLowerCase();
+          if (arg == 'on' || arg == 'true' || arg == '1') {
+            cliConfig.multilinePrompt = true;
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Multi-line prompt enabled (Enter = newline, Ctrl-Enter = submit).',
+              ),
+            );
+          } else if (arg == 'off' || arg == 'false' || arg == '0') {
+            cliConfig.multilinePrompt = false;
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.yellow(
+                '✔ Multi-line prompt disabled (Enter = submit).',
+              ),
+            );
           } else {
-            stdout.writeln(TerminalPrinter.dim('  (Text/document content will be injected into prompt)'));
+            cliConfig.multilinePrompt = !cliConfig.multilinePrompt;
+            cliConfig.save();
+            final status = cliConfig.multilinePrompt
+                ? 'enabled (Enter = newline, Ctrl-Enter = submit)'
+                : 'disabled (Enter = submit)';
+            stdout.writeln(
+              TerminalPrinter.cyan('Multi-line prompt is now $status.'),
+            );
           }
-        } catch (e) {
-          stderr.writeln(TerminalPrinter.red('Error attaching file: $e'));
+          stdout.writeln('');
+          continue;
         }
-        stdout.writeln('');
-        continue;
-      }
 
-      if (input == '/attach-clipboard' || input == '/paste' || input == '/clipboard' || input == '/paste image' || input == '/paste-image') {
-        final forceImage = input == '/paste image' || input == '/paste-image';
-        try {
-          stdout.writeln(TerminalPrinter.dim('Checking system clipboard...'));
-          final clipData = await CliClipboardHelper.getClipboardContent();
-          if (clipData == null) {
-            stdout.writeln(TerminalPrinter.yellow('Clipboard is empty or format unsupported.'));
-          } else if (clipData.isImage && clipData.imageBytes != null) {
-            final att = CliAttachmentHelper.fromBytes(
-              bytes: clipData.imageBytes!,
-              name: p.basename(clipData.imagePath ?? 'clipboard_image.png'),
-              path: clipData.imagePath ?? 'clipboard_image.png',
-              mimeType: clipData.mimeType,
+        if (input == '/progressive' || input.startsWith('/progressive ')) {
+          final arg = input
+              .replaceFirst('/progressive', '')
+              .trim()
+              .toLowerCase();
+          final totalToolCount = dartTools.length + mcpTools.length;
+          if (arg == 'on' || arg == 'true' || arg == '1' || arg == 'enable') {
+            cliConfig.progressiveTools = 'on';
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Progressive tool discovery forced ON (exposing mcp_list_tools and mcp_call_tool).',
+              ),
+            );
+          } else if (arg == 'off' ||
+              arg == 'false' ||
+              arg == '0' ||
+              arg == 'disable') {
+            cliConfig.progressiveTools = 'off';
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.yellow(
+                '✔ Progressive tool discovery OFF (all $totalToolCount tool schemas sent directly).',
+              ),
+            );
+          } else if (arg == 'auto') {
+            cliConfig.progressiveTools = 'auto';
+            cliConfig.save();
+            final active = cliConfig.isProgressiveToolsActive(
+              totalTools: totalToolCount,
+              provider: activeLlmConfig.provider,
+            );
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Progressive tool discovery set to AUTO (currently ${active ? "ACTIVE ($totalToolCount tools > 25 or SLM)" : "INACTIVE ($totalToolCount tools <= 25)"}).',
+              ),
+            );
+          } else {
+            final active = cliConfig.isProgressiveToolsActive(
+              totalTools: totalToolCount,
+              provider: activeLlmConfig.provider,
+            );
+            stdout.writeln(
+              'Progressive tools mode: ${TerminalPrinter.bold(cliConfig.progressiveTools.toUpperCase())} '
+              '(active: ${active ? TerminalPrinter.green("YES") : TerminalPrinter.yellow("NO")}, '
+              'total tools: $totalToolCount)',
+            );
+            stdout.writeln('Usage: /progressive [auto|on|off]');
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── Attachment Commands ──
+        if (input.startsWith('/attach-file') ||
+            (input.startsWith('/attach') &&
+                !input.startsWith('/attach-clipboard') &&
+                !input.startsWith('/attachments'))) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 2) {
+            stdout.writeln('Usage: /attach-file <file_path> or /attach clear');
+            stdout.writeln('');
+            continue;
+          }
+
+          final arg = parts.sublist(1).join(' ').trim();
+          if (arg == 'clear' || arg == 'reset') {
+            pendingAttachments.clear();
+            stdout.writeln(
+              TerminalPrinter.green('✔ Cleared all staged attachments.'),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          try {
+            final att = await CliAttachmentHelper.fromFile(
+              arg,
+              workspaceDir: workspaceDir,
             );
             pendingAttachments.add(att);
             stdout.writeln(
-              TerminalPrinter.green('✔ Attached image from clipboard: ${att.name} (${att.sizeLabel})'),
+              TerminalPrinter.green(
+                '✔ Attached: ${att.name} (${att.mimeType}, ${att.sizeLabel})',
+              ),
             );
-          } else if (!forceImage && clipData.text != null && clipData.text!.isNotEmpty) {
-            final bytes = utf8.encode(clipData.text!);
-            final att = CliAttachmentHelper.fromBytes(
-              bytes: bytes,
-              name: 'clipboard_text.txt',
-              path: 'clipboard_text.txt',
-              mimeType: 'text/plain',
-              textContent: clipData.text,
+            if (att.isImage) {
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  '  (Image will be sent as multi-modal visual context)',
+                ),
+              );
+            } else {
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  '  (Text/document content will be injected into prompt)',
+                ),
+              );
+            }
+          } catch (e) {
+            stderr.writeln(TerminalPrinter.red('Error attaching file: $e'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/attach-clipboard' ||
+            input == '/paste' ||
+            input == '/clipboard' ||
+            input == '/paste image' ||
+            input == '/paste-image') {
+          final forceImage = input == '/paste image' || input == '/paste-image';
+          try {
+            stdout.writeln(TerminalPrinter.dim('Checking system clipboard...'));
+            final clipData = await CliClipboardHelper.getClipboardContent();
+            if (clipData == null) {
+              stdout.writeln(
+                TerminalPrinter.yellow(
+                  'Clipboard is empty or format unsupported.',
+                ),
+              );
+            } else if (clipData.isImage && clipData.imageBytes != null) {
+              final att = CliAttachmentHelper.fromBytes(
+                bytes: clipData.imageBytes!,
+                name: p.basename(clipData.imagePath ?? 'clipboard_image.png'),
+                path: clipData.imagePath ?? 'clipboard_image.png',
+                mimeType: clipData.mimeType,
+              );
+              pendingAttachments.add(att);
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Attached image from clipboard: ${att.name} (${att.sizeLabel})',
+                ),
+              );
+            } else if (!forceImage &&
+                clipData.text != null &&
+                clipData.text!.isNotEmpty) {
+              final bytes = utf8.encode(clipData.text!);
+              final att = CliAttachmentHelper.fromBytes(
+                bytes: bytes,
+                name: 'clipboard_text.txt',
+                path: 'clipboard_text.txt',
+                mimeType: 'text/plain',
+                textContent: clipData.text,
+              );
+              pendingAttachments.add(att);
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Attached text from clipboard (${clipData.text!.length} chars)',
+                ),
+              );
+            } else if (forceImage) {
+              stdout.writeln(
+                TerminalPrinter.yellow('No image found on system clipboard.'),
+              );
+            }
+          } catch (e) {
+            stderr.writeln(
+              TerminalPrinter.red('Error accessing clipboard: $e'),
             );
-            pendingAttachments.add(att);
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/attachments') {
+          if (pendingAttachments.isEmpty) {
             stdout.writeln(
-              TerminalPrinter.green('✔ Attached text from clipboard (${clipData.text!.length} chars)'),
+              'No staged attachments. Use /attach-file <path> or /attach-clipboard to attach.',
             );
-          } else if (forceImage) {
-            stdout.writeln(TerminalPrinter.yellow('No image found on system clipboard.'));
+          } else {
+            stdout.writeln(
+              TerminalPrinter.bold(
+                '--- Staged Attachments (${pendingAttachments.length}) ---',
+              ),
+            );
+            for (int i = 0; i < pendingAttachments.length; i++) {
+              final att = pendingAttachments[i];
+              stdout.writeln(
+                '  [${i + 1}] ${att.name} (${att.mimeType}, ${att.sizeLabel})',
+              );
+            }
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Attachments will be included with your next prompt. Use "/attach clear" to remove.',
+              ),
+            );
           }
-        } catch (e) {
-          stderr.writeln(TerminalPrinter.red('Error accessing clipboard: $e'));
+          stdout.writeln('');
+          continue;
         }
-        stdout.writeln('');
-        continue;
-      }
 
-      if (input == '/attachments') {
-        if (pendingAttachments.isEmpty) {
-          stdout.writeln('No staged attachments. Use /attach-file <path> or /attach-clipboard to attach.');
-        } else {
-          stdout.writeln(TerminalPrinter.bold('--- Staged Attachments (${pendingAttachments.length}) ---'));
-          for (int i = 0; i < pendingAttachments.length; i++) {
-            final att = pendingAttachments[i];
-            stdout.writeln('  [${i + 1}] ${att.name} (${att.mimeType}, ${att.sizeLabel})');
-          }
-          stdout.writeln(TerminalPrinter.dim('Attachments will be included with your next prompt. Use "/attach clear" to remove.'));
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/plan' || input == '/architect') {
-        currentMode = CodingMode.architect;
-        stdout.writeln(
-          TerminalPrinter.green('Switched to ${currentMode.displayName}'),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/code') {
-        currentMode = CodingMode.code;
-        stdout.writeln(
-          TerminalPrinter.green('Switched to ${currentMode.displayName}'),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/ask') {
-        currentMode = CodingMode.ask;
-        stdout.writeln(
-          TerminalPrinter.green('Switched to ${currentMode.displayName}'),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input.startsWith('/mode')) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length > 1) {
-          final target = parts[1].toLowerCase();
-          currentMode = switch (target) {
-            'architect' || 'plan' => CodingMode.architect,
-            'ask' => CodingMode.ask,
-            _ => CodingMode.code,
-          };
+        if (input == '/plan' || input == '/architect') {
+          currentMode = CodingMode.architect;
           stdout.writeln(
             TerminalPrinter.green('Switched to ${currentMode.displayName}'),
           );
-        } else {
-          stdout.writeln('Current mode: ${currentMode.displayName}');
-          stdout.writeln('Usage: /mode <architect|code|ask>');
+          stdout.writeln('');
+          continue;
         }
-        stdout.writeln('');
-        continue;
-      }
 
-      // ── LLM Model Listing & Switching (/llm, /llm:<name>, /llm <name>) ──
-      if (input.startsWith('/llm')) {
-        String? target;
-        if (input.startsWith('/llm:')) {
-          target = input.substring(5).trim();
-        } else {
+        if (input == '/code') {
+          currentMode = CodingMode.code;
+          stdout.writeln(
+            TerminalPrinter.green('Switched to ${currentMode.displayName}'),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/ask') {
+          currentMode = CodingMode.ask;
+          stdout.writeln(
+            TerminalPrinter.green('Switched to ${currentMode.displayName}'),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/mode')) {
           final parts = input.split(RegExp(r'\s+'));
           if (parts.length > 1) {
-            target = parts.sublist(1).join(' ').trim();
-          }
-        }
-
-        final profiles = LlmConfigManager.loadAllProfiles(configPath: llmPath);
-
-        if (target == null || target.isEmpty) {
-          stdout.writeln(
-            TerminalPrinter.bold('--- Configured LLM Profiles ---'),
-          );
-          for (final p in profiles) {
-            final isCurrent =
-                (p.name == activeLlmName) ||
-                (p.config.model == activeLlmConfig.model &&
-                    p.config.provider == activeLlmConfig.provider);
-            final marker = isCurrent
-                ? TerminalPrinter.green('* [ACTIVE]')
-                : ' ';
-            final rates = await TokenUsageTracker.getRatesAsync(p.config);
-            final badgeParts = <String>[];
-            if (rates?.contextWindow != null) {
-              badgeParts.add(
-                TokenUsageTracker.formatContextWindow(rates!.contextWindow),
-              );
-            }
-            if (rates != null &&
-                rates.inputPerM == 0.0 &&
-                rates.outputPerM == 0.0) {
-              badgeParts.add("Free");
-            } else if (rates != null) {
-              badgeParts.add(
-                r"$" +
-                    rates.inputPerM.toStringAsFixed(2) +
-                    r"/$" +
-                    rates.outputPerM.toStringAsFixed(2),
-              );
-            }
-            final badgeStr = badgeParts.isNotEmpty
-                ? TerminalPrinter.cyan(" [${badgeParts.join(" • ")}]")
-                : "";
+            final target = parts[1].toLowerCase();
+            currentMode = switch (target) {
+              'architect' || 'plan' => CodingMode.architect,
+              'ask' => CodingMode.ask,
+              _ => CodingMode.code,
+            };
             stdout.writeln(
-              '  $marker ${TerminalPrinter.bold(p.name.padRight(12))} : ${p.config.provider.displayName} / ${p.config.model}$badgeStr (temp: ${p.config.temperature}, max_tokens: ${p.config.maxTokens})',
+              TerminalPrinter.green('Switched to ${currentMode.displayName}'),
             );
+          } else {
+            stdout.writeln('Current mode: ${currentMode.displayName}');
+            stdout.writeln('Usage: /mode <architect|code|ask>');
           }
-          stdout.writeln('--------------------------------');
-          stdout.writeln(
-            TerminalPrinter.dim(
-              'Usage: /llm <name> or /llm:<name> (e.g. /llm:ollama, /llm deepseek)',
-            ),
-          );
           stdout.writeln('');
           continue;
         }
 
-        try {
-          final newConfig = LlmConfigManager.resolveConfig(
-            nameOrPath: target,
+        // ── LLM Model Listing & Switching (/llm, /llm:<name>, /llm <name>) ──
+        if (input.startsWith('/llm')) {
+          String? target;
+          if (input.startsWith('/llm:')) {
+            target = input.substring(5).trim();
+          } else {
+            final parts = input.split(RegExp(r'\s+'));
+            if (parts.length > 1) {
+              target = parts.sublist(1).join(' ').trim();
+            }
+          }
+
+          final profiles = LlmConfigManager.loadAllProfiles(
             configPath: llmPath,
           );
-          activeLlmConfig = newConfig;
-          activeLlmName = target;
-          NamedLlmProfile? matchingProfile;
-          for (final p in profiles) {
-            if (p.name.toLowerCase() == target.toLowerCase()) {
-              activeLlmName = p.name;
-              matchingProfile = p;
-              break;
-            }
-          }
-          if (matchingProfile != null && matchingProfile.config.provider == LlmProvider.embedded) {
-            await ensureEmbeddedModelLoaded(matchingProfile);
-          }
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Switched LLM to: $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
-            ),
-          );
-        } catch (e) {
-          stderr.writeln(TerminalPrinter.red('Error switching LLM: $e'));
-        }
-        stdout.writeln('');
-        continue;
-      }
 
-      // ── Workspace Directory Management: /workspace [set <dir>|clear|reset] ──
-      if (input.startsWith('/workspace')) {
-        final parts = input.split(RegExp(r'\s+'));
-        final subCmd = parts.length > 1 ? parts[1].toLowerCase() : '';
-
-        if (subCmd == 'clear' || subCmd == 'reset') {
-          workspaceDir = defaultWorkspaceDir;
-          userInstructions = _loadWorkspaceInstructions(
-            customInstructionsPath,
-            workspaceDir: workspaceDir,
-          );
-          // Rebuild native coding tools bound to reset workspace
-          dartTools.clear();
-          dartTools.addAll(
-            CodingTools.createAll(workingDirectory: workspaceDir),
-          );
-          final builtinGroups = <String, List<McpLocalTool>>{
-            'web_search': [BuiltinMcpServers.createWebSearchTool()],
-            'mermaid': [BuiltinMcpServers.createMermaidTool()],
-            'toolbox': BuiltinMcpServers.createToolboxTools(),
-            'ssh': BuiltinMcpServers.createSshTools(),
-          };
-          for (final bEntry in builtinGroups.entries) {
-            final bFilter = activeFilters[bEntry.key.toLowerCase()];
-            if (bFilter != null) {
-              dartTools.addAll(
-                bEntry.value.where((t) => bFilter.contains(t.name)),
+          if (target == null || target.isEmpty) {
+            stdout.writeln(
+              TerminalPrinter.bold('--- Configured LLM Profiles ---'),
+            );
+            for (final p in profiles) {
+              final isCurrent =
+                  (p.name == activeLlmName) ||
+                  (p.config.model == activeLlmConfig.model &&
+                      p.config.provider == activeLlmConfig.provider);
+              final marker = isCurrent
+                  ? TerminalPrinter.green('* [ACTIVE]')
+                  : ' ';
+              final rates = await TokenUsageTracker.getRatesAsync(p.config);
+              final badgeParts = <String>[];
+              if (rates?.contextWindow != null) {
+                badgeParts.add(
+                  TokenUsageTracker.formatContextWindow(rates!.contextWindow),
+                );
+              }
+              if (rates != null &&
+                  rates.inputPerM == 0.0 &&
+                  rates.outputPerM == 0.0) {
+                badgeParts.add("Free");
+              } else if (rates != null) {
+                badgeParts.add(
+                  r"$" +
+                      rates.inputPerM.toStringAsFixed(2) +
+                      r"/$" +
+                      rates.outputPerM.toStringAsFixed(2),
+                );
+              }
+              final badgeStr = badgeParts.isNotEmpty
+                  ? TerminalPrinter.cyan(" [${badgeParts.join(" • ")}]")
+                  : "";
+              stdout.writeln(
+                '  $marker ${TerminalPrinter.bold(p.name.padRight(12))} : ${p.config.provider.displayName} / ${p.config.model}$badgeStr (temp: ${p.config.temperature}, max_tokens: ${p.config.maxTokens})',
               );
-            } else {
-              dartTools.addAll(bEntry.value);
             }
-          }
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Workspace reset to startup directory: $workspaceDir',
-            ),
-          );
-          stdout.writeln('');
-          continue;
-        }
-
-        if (subCmd == 'set') {
-          if (parts.length < 3) {
-            stdout.writeln('Usage: /workspace set <directory_path>');
-            stdout.writeln('');
-            continue;
-          }
-          final rawPath = parts.sublist(2).join(' ').trim();
-          // Remove surrounding quotes if supplied
-          var cleanedPath = rawPath;
-          if ((cleanedPath.startsWith('"') && cleanedPath.endsWith('"')) ||
-              (cleanedPath.startsWith("'") && cleanedPath.endsWith("'"))) {
-            cleanedPath = cleanedPath.substring(1, cleanedPath.length - 1);
-          }
-
-          final targetDir = Directory(
-            p.isAbsolute(cleanedPath)
-                ? cleanedPath
-                : p.normalize(p.join(workspaceDir, cleanedPath)),
-          );
-
-          if (!targetDir.existsSync()) {
-            stderr.writeln(
-              TerminalPrinter.red(
-                '❌ Directory does not exist: "${targetDir.path}"\nPlease verify the path and specify an existing folder.',
+            stdout.writeln('--------------------------------');
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Usage: /llm <name> or /llm:<name> (e.g. /llm:ollama, /llm deepseek)',
               ),
             );
             stdout.writeln('');
             continue;
           }
 
-          workspaceDir = p.canonicalize(targetDir.path);
-          userInstructions = _loadWorkspaceInstructions(
-            customInstructionsPath,
-            workspaceDir: workspaceDir,
-          );
-
-          // Rebind native coding tools to new base workspace directory
-          dartTools.clear();
-          dartTools.addAll(
-            CodingTools.createAll(workingDirectory: workspaceDir),
-          );
-          final builtinGroups = <String, List<McpLocalTool>>{
-            'web_search': [BuiltinMcpServers.createWebSearchTool()],
-            'mermaid': [BuiltinMcpServers.createMermaidTool()],
-            'toolbox': BuiltinMcpServers.createToolboxTools(),
-            'ssh': BuiltinMcpServers.createSshTools(),
-          };
-          for (final bEntry in builtinGroups.entries) {
-            final bFilter = activeFilters[bEntry.key.toLowerCase()];
-            if (bFilter != null) {
-              dartTools.addAll(
-                bEntry.value.where((t) => bFilter.contains(t.name)),
-              );
-            } else {
-              dartTools.addAll(bEntry.value);
-            }
-          }
-
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Workspace base directory switched to: $workspaceDir',
-            ),
-          );
-          stdout.writeln(
-            TerminalPrinter.dim(
-              '  File search, read, write, replace, and terminal execution are now rooted in this directory.',
-            ),
-          );
-          stdout.writeln('');
-          continue;
-        }
-
-        // Default /workspace -> print current active workspace
-        stdout.writeln(TerminalPrinter.bold('--- Workspace Directory ---'));
-        stdout.writeln('  Active Base Directory : $workspaceDir');
-        stdout.writeln('  Startup Directory     : $defaultWorkspaceDir');
-        stdout.writeln(
-          '  Is Default            : ${workspaceDir == defaultWorkspaceDir}',
-        );
-        stdout.writeln('---------------------------');
-        stdout.writeln(
-          TerminalPrinter.dim(
-            'Commands: /workspace set <path> | /workspace clear | /workspace reset',
-          ),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── Interactive SSH Session Management: /ssh [connect <url>|disconnect] ──
-      if (input.startsWith('/ssh')) {
-        final parts = input.split(RegExp(r'\s+'));
-        final subCmd = parts.length > 1 ? parts[1].toLowerCase() : '';
-
-        if (subCmd == 'disconnect') {
           try {
-            await BuiltinMcpServers.disconnectSshSession();
+            final newConfig = LlmConfigManager.resolveConfig(
+              nameOrPath: target,
+              configPath: llmPath,
+            );
+            activeLlmConfig = newConfig;
+            activeLlmName = target;
+            NamedLlmProfile? matchingProfile;
+            for (final p in profiles) {
+              if (p.name.toLowerCase() == target.toLowerCase()) {
+                activeLlmName = p.name;
+                matchingProfile = p;
+                break;
+              }
+            }
+            if (matchingProfile != null &&
+                matchingProfile.config.provider == LlmProvider.embedded) {
+              await ensureEmbeddedModelLoaded(matchingProfile);
+            }
             stdout.writeln(
               TerminalPrinter.green(
-                '✔ Disconnected active SSH session. Preconfigured ssh.yaml restored.',
+                '✔ Switched LLM to: $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
               ),
             );
           } catch (e) {
-            stderr.writeln(TerminalPrinter.red('Error disconnecting SSH: $e'));
+            stderr.writeln(TerminalPrinter.red('Error switching LLM: $e'));
           }
           stdout.writeln('');
           continue;
         }
 
-        if (subCmd == 'connect') {
-          if (parts.length < 3) {
-            stdout.writeln(
-              'Usage: /ssh connect user:pwd@host[:port] or user@host[:port]',
-            );
-            stdout.writeln('');
-            continue;
-          }
+        // ── Workspace Directory Management: /workspace [set <dir>|clear|reset] ──
+        if (input.startsWith('/workspace')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final subCmd = parts.length > 1 ? parts[1].toLowerCase() : '';
 
-          final connStr = parts.sublist(2).join(' ').trim();
-          // Regex to parse user:pwd@host:port or user@host:port
-          final uriReg = RegExp(
-            r'^(?:(?<user>[^:@\s]+)(?::(?<pwd>[^@\s]+))?@)?(?<host>[^:\s]+)(?::(?<port>\d+))?$',
-          );
-          final match = uriReg.firstMatch(connStr);
-          if (match == null) {
-            stderr.writeln(
-              TerminalPrinter.red(
-                'Invalid connection format. Expected: user:password@host[:port] or user@host[:port]',
-              ),
+          if (subCmd == 'clear' || subCmd == 'reset') {
+            workspaceDir = defaultWorkspaceDir;
+            userInstructions = _loadWorkspaceInstructions(
+              customInstructionsPath,
+              workspaceDir: workspaceDir,
             );
-            stdout.writeln('');
-            continue;
-          }
-
-          final user = match.namedGroup('user') ?? '';
-          final pwd = match.namedGroup('pwd') ?? '';
-          final host = match.namedGroup('host') ?? '';
-          final port = int.tryParse(match.namedGroup('port') ?? '') ?? 22;
-
-          if (host.isEmpty || user.isEmpty) {
-            stderr.writeln(
-              TerminalPrinter.red(
-                'Host and username are required. Example: /ssh connect root:secret@192.168.1.50:22',
-              ),
+            // Rebuild native coding tools bound to reset workspace
+            dartTools.clear();
+            dartTools.addAll(
+              CodingTools.createAll(workingDirectory: workspaceDir),
             );
-            stdout.writeln('');
-            continue;
-          }
-
-          stdout.writeln(
-            TerminalPrinter.bold(
-              'Connecting via SSH to $user@$host:$port for this session...',
-            ),
-          );
-          try {
-            await BuiltinMcpServers.connectSshSession(
-              host: host,
-              port: port,
-              username: user,
-              password: pwd,
-            );
+            final builtinGroups = <String, List<McpLocalTool>>{
+              'web_search': [BuiltinMcpServers.createWebSearchTool()],
+              'mermaid': [BuiltinMcpServers.createMermaidTool()],
+              'toolbox': BuiltinMcpServers.createToolboxTools(),
+              'ssh': BuiltinMcpServers.createSshTools(),
+            };
+            for (final bEntry in builtinGroups.entries) {
+              final bFilter = activeFilters[bEntry.key.toLowerCase()];
+              if (bFilter != null) {
+                dartTools.addAll(
+                  bEntry.value.where((t) => bFilter.contains(t.name)),
+                );
+              } else {
+                dartTools.addAll(bEntry.value);
+              }
+            }
             stdout.writeln(
               TerminalPrinter.green(
-                '✔ Connected successfully to $user@$host:$port (Session override active).',
+                '✔ Workspace reset to startup directory: $workspaceDir',
+              ),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          if (subCmd == 'set') {
+            if (parts.length < 3) {
+              stdout.writeln('Usage: /workspace set <directory_path>');
+              stdout.writeln('');
+              continue;
+            }
+            final rawPath = parts.sublist(2).join(' ').trim();
+            // Remove surrounding quotes if supplied
+            var cleanedPath = rawPath;
+            if ((cleanedPath.startsWith('"') && cleanedPath.endsWith('"')) ||
+                (cleanedPath.startsWith("'") && cleanedPath.endsWith("'"))) {
+              cleanedPath = cleanedPath.substring(1, cleanedPath.length - 1);
+            }
+
+            final targetDir = Directory(
+              p.isAbsolute(cleanedPath)
+                  ? cleanedPath
+                  : p.normalize(p.join(workspaceDir, cleanedPath)),
+            );
+
+            if (!targetDir.existsSync()) {
+              stderr.writeln(
+                TerminalPrinter.red(
+                  '❌ Directory does not exist: "${targetDir.path}"\nPlease verify the path and specify an existing folder.',
+                ),
+              );
+              stdout.writeln('');
+              continue;
+            }
+
+            workspaceDir = p.canonicalize(targetDir.path);
+            userInstructions = _loadWorkspaceInstructions(
+              customInstructionsPath,
+              workspaceDir: workspaceDir,
+            );
+
+            // Rebind native coding tools to new base workspace directory
+            dartTools.clear();
+            dartTools.addAll(
+              CodingTools.createAll(workingDirectory: workspaceDir),
+            );
+            final builtinGroups = <String, List<McpLocalTool>>{
+              'web_search': [BuiltinMcpServers.createWebSearchTool()],
+              'mermaid': [BuiltinMcpServers.createMermaidTool()],
+              'toolbox': BuiltinMcpServers.createToolboxTools(),
+              'ssh': BuiltinMcpServers.createSshTools(),
+            };
+            for (final bEntry in builtinGroups.entries) {
+              final bFilter = activeFilters[bEntry.key.toLowerCase()];
+              if (bFilter != null) {
+                dartTools.addAll(
+                  bEntry.value.where((t) => bFilter.contains(t.name)),
+                );
+              } else {
+                dartTools.addAll(bEntry.value);
+              }
+            }
+
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Workspace base directory switched to: $workspaceDir',
               ),
             );
             stdout.writeln(
               TerminalPrinter.dim(
-                '  Note: Preconfigured ssh.yaml is preserved. Use "/ssh disconnect" to revert.',
+                '  File search, read, write, replace, and terminal execution are now rooted in this directory.',
               ),
             );
-          } catch (e) {
-            stderr.writeln(TerminalPrinter.red('❌ SSH connection failed: $e'));
-          }
-          stdout.writeln('');
-          continue;
-        }
-
-        // Default /ssh -> list SSH features, status, and tools
-        final status = BuiltinMcpServers.getSshStatus();
-        final hasOverride = status['hasSessionOverride'] as bool? ?? false;
-        final isConn = status['isConnected'] as bool? ?? false;
-        final host = status['host'] as String? ?? '';
-        final port = status['port'] ?? 22;
-        final user = status['username'] as String? ?? '';
-        final hasPwd = status['hasPassword'] as bool? ?? false;
-        final hasKey = status['hasPrivateKey'] as bool? ?? false;
-
-        stdout.writeln(
-          TerminalPrinter.bold('--- SSH Feature & Connection Status ---'),
-        );
-        stdout.writeln(
-          '  Active Target Host  : ${host.isNotEmpty ? "$user@$host:$port" : "(not connected / not configured)"}',
-        );
-        stdout.writeln(
-          '  Session Override    : ${hasOverride ? TerminalPrinter.yellow("Active (in-memory)") : "None (using ssh.yaml / env)"}',
-        );
-        stdout.writeln(
-          '  Connected Socket    : ${isConn ? TerminalPrinter.green("Connected") : TerminalPrinter.dim("Idle / Disconnected")}',
-        );
-        stdout.writeln(
-          '  Authentication      : ${hasPwd ? "Password" : (hasKey ? "Private Key" : "None")}',
-        );
-        stdout.writeln('  Config File         : ${status['configPath']}');
-        stdout.writeln('');
-        stdout.writeln(TerminalPrinter.bold('Available SSH Tools:'));
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_execute_command")}: Execute a shell command on remote server',
-        );
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_list_directory")}: List remote directory contents',
-        );
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_read_file")}: Read remote text file content',
-        );
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_upload_file")}: Upload text content to remote file',
-        );
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_download_file")}: Download remote file as base64',
-        );
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_make_directory")}: Create remote directory (mkdir -p)',
-        );
-        stdout.writeln(
-          '  • ${TerminalPrinter.cyan("ssh_remove_directory")}: Remove remote empty directory (rmdir)',
-        );
-        stdout.writeln('----------------------------------------');
-        stdout.writeln(
-          TerminalPrinter.dim(
-            'Usage: /ssh connect user:pwd@host[:port] | /ssh disconnect | /ssh',
-          ),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input.startsWith('/uninstall')) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length < 2) {
-          stdout.writeln('Usage: /uninstall <server_name|server_id|all_mcp>');
-          stdout.writeln(
-            TerminalPrinter.dim(
-              'Available MCP servers: ${localServers.map((s) => s.name).join(", ")}',
-            ),
-          );
-          stdout.writeln('');
-          continue;
-        }
-
-        final target = parts.sublist(1).join(' ').trim();
-        stdout.writeln(
-          TerminalPrinter.bold(
-            'Uninstalling MCP server(s) matching "$target"...',
-          ),
-        );
-        final results = await McpManagerHelper.uninstallServers(
-          targetQuery: target,
-          configuredServers: localServers,
-          mcpManager: mcpManager,
-          verbose: verbose,
-        );
-
-        if (results.isNotEmpty) {
-          mcpTools = mcpManager.availableTools;
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ MCP server uninstalled. Remaining MCP tools: ${mcpTools.length} (${mcpTools.map((t) => t.name).join(", ")})',
-            ),
-          );
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input.startsWith('/install')) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length < 2) {
-          stdout.writeln('Usage: /install <server_name|server_id|all_mcp>');
-          stdout.writeln(
-            TerminalPrinter.dim(
-              'Configured MCP servers: ${localServers.map((s) => s.name).join(", ")}',
-            ),
-          );
-          stdout.writeln('');
-          continue;
-        }
-
-        final target = parts.sublist(1).join(' ').trim();
-        stdout.writeln(
-          TerminalPrinter.bold(
-            'Installing / loading MCP server(s) matching "$target"...',
-          ),
-        );
-        final results = await McpManagerHelper.installServers(
-          targetQuery: target,
-          configuredServers: localServers,
-          mcpManager: mcpManager,
-          verbose: verbose,
-        );
-
-        if (results.any((r) => r.success)) {
-          mcpTools = mcpManager.availableTools;
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ MCP server ready. Active MCP tools: ${mcpTools.length} (${mcpTools.map((t) => t.name).join(", ")})',
-            ),
-          );
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── MCP Inspect: /mcp_inspect [server_name] ──
-      if (input.startsWith('/mcp_inspect')) {
-        final parts = input.split(RegExp(r'\s+'));
-        final serverQuery = parts.length > 1
-            ? parts[1].trim().toLowerCase()
-            : null;
-
-        stdout.writeln(
-          TerminalPrinter.bold('--- MCP Function & Schema Inspector ---'),
-        );
-
-        // 1. External MCP Servers
-        bool foundAny = false;
-        for (final clientDef in mcpManager.clients) {
-          final sName = clientDef.label;
-          if (serverQuery != null &&
-              !sName.toLowerCase().contains(serverQuery) &&
-              !clientDef.name.toLowerCase().contains(serverQuery)) {
+            stdout.writeln('');
             continue;
           }
-          foundAny = true;
-          final original =
-              originalServerTools[sName.toLowerCase()] ??
-              originalServerTools[clientDef.name.toLowerCase()] ??
-              clientDef.availableTools;
-          final activeSet =
-              activeFilters[sName.toLowerCase()] ??
-              activeFilters[clientDef.name.toLowerCase()];
-          final filterBadge = activeSet != null
-              ? TerminalPrinter.yellow(
-                  ' [RESTRICTED: ${activeSet.length}/${original.length} tools visible]',
-                )
-              : TerminalPrinter.green(' [ALL ${original.length} tools active]');
 
+          // Default /workspace -> print current active workspace
+          stdout.writeln(TerminalPrinter.bold('--- Workspace Directory ---'));
+          stdout.writeln('  Active Base Directory : $workspaceDir');
+          stdout.writeln('  Startup Directory     : $defaultWorkspaceDir');
           stdout.writeln(
-            '\n${TerminalPrinter.bold("● External Server:")} ${TerminalPrinter.cyan(sName)}$filterBadge',
+            '  Is Default            : ${workspaceDir == defaultWorkspaceDir}',
           );
-          final isLocal = clientDef.client is LocalMCPClient;
+          stdout.writeln('---------------------------');
           stdout.writeln(
-            '  Transport: ${isLocal ? "stdio (${clientDef.url})" : "remote (${clientDef.url})"}',
+            TerminalPrinter.dim(
+              'Commands: /workspace set <path> | /workspace clear | /workspace reset',
+            ),
           );
+          stdout.writeln('');
+          continue;
+        }
 
-          for (final tool in original) {
-            final isEnabled =
-                activeSet == null || activeSet.contains(tool.name);
-            final statusIcon = isEnabled
-                ? TerminalPrinter.green('✔')
-                : TerminalPrinter.red('✖ (hidden)');
-            stdout.writeln(
-              '  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description ?? "(no description)"}',
+        // ── Interactive SSH Session Management: /ssh [connect <url>|disconnect] ──
+        if (input.startsWith('/ssh')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final subCmd = parts.length > 1 ? parts[1].toLowerCase() : '';
+
+          if (subCmd == 'disconnect') {
+            try {
+              await BuiltinMcpServers.disconnectSshSession();
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Disconnected active SSH session. Preconfigured ssh.yaml restored.',
+                ),
+              );
+            } catch (e) {
+              stderr.writeln(
+                TerminalPrinter.red('Error disconnecting SSH: $e'),
+              );
+            }
+            stdout.writeln('');
+            continue;
+          }
+
+          if (subCmd == 'connect') {
+            if (parts.length < 3) {
+              stdout.writeln(
+                'Usage: /ssh connect user:pwd@host[:port] or user@host[:port]',
+              );
+              stdout.writeln('');
+              continue;
+            }
+
+            final connStr = parts.sublist(2).join(' ').trim();
+            // Regex to parse user:pwd@host:port or user@host:port
+            final uriReg = RegExp(
+              r'^(?:(?<user>[^:@\s]+)(?::(?<pwd>[^@\s]+))?@)?(?<host>[^:\s]+)(?::(?<port>\d+))?$',
             );
-            if (tool.inputSchema != null &&
-                (tool.inputSchema as Map).isNotEmpty) {
+            final match = uriReg.firstMatch(connStr);
+            if (match == null) {
+              stderr.writeln(
+                TerminalPrinter.red(
+                  'Invalid connection format. Expected: user:password@host[:port] or user@host[:port]',
+                ),
+              );
+              stdout.writeln('');
+              continue;
+            }
+
+            final user = match.namedGroup('user') ?? '';
+            final pwd = match.namedGroup('pwd') ?? '';
+            final host = match.namedGroup('host') ?? '';
+            final port = int.tryParse(match.namedGroup('port') ?? '') ?? 22;
+
+            if (host.isEmpty || user.isEmpty) {
+              stderr.writeln(
+                TerminalPrinter.red(
+                  'Host and username are required. Example: /ssh connect root:secret@192.168.1.50:22',
+                ),
+              );
+              stdout.writeln('');
+              continue;
+            }
+
+            stdout.writeln(
+              TerminalPrinter.bold(
+                'Connecting via SSH to $user@$host:$port for this session...',
+              ),
+            );
+            try {
+              await BuiltinMcpServers.connectSshSession(
+                host: host,
+                port: port,
+                username: user,
+                password: pwd,
+              );
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Connected successfully to $user@$host:$port (Session override active).',
+                ),
+              );
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  '  Note: Preconfigured ssh.yaml is preserved. Use "/ssh disconnect" to revert.',
+                ),
+              );
+            } catch (e) {
+              stderr.writeln(
+                TerminalPrinter.red('❌ SSH connection failed: $e'),
+              );
+            }
+            stdout.writeln('');
+            continue;
+          }
+
+          // Default /ssh -> list SSH features, status, and tools
+          final status = BuiltinMcpServers.getSshStatus();
+          final hasOverride = status['hasSessionOverride'] as bool? ?? false;
+          final isConn = status['isConnected'] as bool? ?? false;
+          final host = status['host'] as String? ?? '';
+          final port = status['port'] ?? 22;
+          final user = status['username'] as String? ?? '';
+          final hasPwd = status['hasPassword'] as bool? ?? false;
+          final hasKey = status['hasPrivateKey'] as bool? ?? false;
+
+          stdout.writeln(
+            TerminalPrinter.bold('--- SSH Feature & Connection Status ---'),
+          );
+          stdout.writeln(
+            '  Active Target Host  : ${host.isNotEmpty ? "$user@$host:$port" : "(not connected / not configured)"}',
+          );
+          stdout.writeln(
+            '  Session Override    : ${hasOverride ? TerminalPrinter.yellow("Active (in-memory)") : "None (using ssh.yaml / env)"}',
+          );
+          stdout.writeln(
+            '  Connected Socket    : ${isConn ? TerminalPrinter.green("Connected") : TerminalPrinter.dim("Idle / Disconnected")}',
+          );
+          stdout.writeln(
+            '  Authentication      : ${hasPwd ? "Password" : (hasKey ? "Private Key" : "None")}',
+          );
+          stdout.writeln('  Config File         : ${status['configPath']}');
+          stdout.writeln('');
+          stdout.writeln(TerminalPrinter.bold('Available SSH Tools:'));
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_execute_command")}: Execute a shell command on remote server',
+          );
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_list_directory")}: List remote directory contents',
+          );
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_read_file")}: Read remote text file content',
+          );
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_upload_file")}: Upload text content to remote file',
+          );
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_download_file")}: Download remote file as base64',
+          );
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_make_directory")}: Create remote directory (mkdir -p)',
+          );
+          stdout.writeln(
+            '  • ${TerminalPrinter.cyan("ssh_remove_directory")}: Remove remote empty directory (rmdir)',
+          );
+          stdout.writeln('----------------------------------------');
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Usage: /ssh connect user:pwd@host[:port] | /ssh disconnect | /ssh',
+            ),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/uninstall')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 2) {
+            stdout.writeln('Usage: /uninstall <server_name|server_id|all_mcp>');
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Available MCP servers: ${localServers.map((s) => s.name).join(", ")}',
+              ),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          final target = parts.sublist(1).join(' ').trim();
+          stdout.writeln(
+            TerminalPrinter.bold(
+              'Uninstalling MCP server(s) matching "$target"...',
+            ),
+          );
+          final results = await McpManagerHelper.uninstallServers(
+            targetQuery: target,
+            configuredServers: localServers,
+            mcpManager: mcpManager,
+            verbose: verbose,
+          );
+
+          if (results.isNotEmpty) {
+            mcpTools = mcpManager.availableTools;
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ MCP server uninstalled. Remaining MCP tools: ${mcpTools.length} (${mcpTools.map((t) => t.name).join(", ")})',
+              ),
+            );
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/install')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 2) {
+            stdout.writeln('Usage: /install <server_name|server_id|all_mcp>');
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Configured MCP servers: ${localServers.map((s) => s.name).join(", ")}',
+              ),
+            );
+            stdout.writeln('');
+            continue;
+          }
+
+          final target = parts.sublist(1).join(' ').trim();
+          stdout.writeln(
+            TerminalPrinter.bold(
+              'Installing / loading MCP server(s) matching "$target"...',
+            ),
+          );
+          final results = await McpManagerHelper.installServers(
+            targetQuery: target,
+            configuredServers: localServers,
+            mcpManager: mcpManager,
+            verbose: verbose,
+          );
+
+          if (results.any((r) => r.success)) {
+            mcpTools = mcpManager.availableTools;
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ MCP server ready. Active MCP tools: ${mcpTools.length} (${mcpTools.map((t) => t.name).join(", ")})',
+              ),
+            );
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── MCP Inspect: /mcp_inspect [server_name] ──
+        if (input.startsWith('/mcp_inspect')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final serverQuery = parts.length > 1
+              ? parts[1].trim().toLowerCase()
+              : null;
+
+          stdout.writeln(
+            TerminalPrinter.bold('--- MCP Function & Schema Inspector ---'),
+          );
+
+          // 1. External MCP Servers
+          bool foundAny = false;
+          for (final clientDef in mcpManager.clients) {
+            final sName = clientDef.label;
+            if (serverQuery != null &&
+                !sName.toLowerCase().contains(serverQuery) &&
+                !clientDef.name.toLowerCase().contains(serverQuery)) {
+              continue;
+            }
+            foundAny = true;
+            final original =
+                originalServerTools[sName.toLowerCase()] ??
+                originalServerTools[clientDef.name.toLowerCase()] ??
+                clientDef.availableTools;
+            final activeSet =
+                activeFilters[sName.toLowerCase()] ??
+                activeFilters[clientDef.name.toLowerCase()];
+            final filterBadge = activeSet != null
+                ? TerminalPrinter.yellow(
+                    ' [RESTRICTED: ${activeSet.length}/${original.length} tools visible]',
+                  )
+                : TerminalPrinter.green(
+                    ' [ALL ${original.length} tools active]',
+                  );
+
+            stdout.writeln(
+              '\n${TerminalPrinter.bold("● External Server:")} ${TerminalPrinter.cyan(sName)}$filterBadge',
+            );
+            final isLocal = clientDef.client is LocalMCPClient;
+            stdout.writeln(
+              '  Transport: ${isLocal ? "stdio (${clientDef.url})" : "remote (${clientDef.url})"}',
+            );
+
+            for (final tool in original) {
+              final isEnabled =
+                  activeSet == null || activeSet.contains(tool.name);
+              final statusIcon = isEnabled
+                  ? TerminalPrinter.green('✔')
+                  : TerminalPrinter.red('✖ (hidden)');
+              stdout.writeln(
+                '  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description ?? "(no description)"}',
+              );
+              if (tool.inputSchema != null &&
+                  (tool.inputSchema as Map).isNotEmpty) {
+                final schemaStr = jsonEncode(tool.inputSchema);
+                final preview = schemaStr.length > 120
+                    ? '${schemaStr.substring(0, 117)}...'
+                    : schemaStr;
+                stdout.writeln(
+                  '      ${TerminalPrinter.dim("Schema: $preview")}',
+                );
+              }
+            }
+          }
+
+          // 2. Built-in Tools (web_search, mermaid, toolbox, ssh)
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+
+          for (final entry in builtinGroups.entries) {
+            final bName = entry.key;
+            if (serverQuery != null &&
+                !bName.toLowerCase().contains(serverQuery)) {
+              continue;
+            }
+            foundAny = true;
+            final bTools = entry.value;
+            final activeSet = activeFilters[bName.toLowerCase()];
+            final filterBadge = activeSet != null
+                ? TerminalPrinter.yellow(
+                    ' [RESTRICTED: ${activeSet.length}/${bTools.length} tools visible]',
+                  )
+                : TerminalPrinter.green(' [ALL ${bTools.length} tools active]');
+
+            stdout.writeln(
+              '\n${TerminalPrinter.bold("● Built-in Server:")} ${TerminalPrinter.cyan(bName)}$filterBadge',
+            );
+            stdout.writeln('  Integration: Native TealKit Tool');
+
+            for (final tool in bTools) {
+              final isEnabled =
+                  activeSet == null || activeSet.contains(tool.name);
+              final statusIcon = isEnabled
+                  ? TerminalPrinter.green('✔')
+                  : TerminalPrinter.red('✖ (hidden)');
+              stdout.writeln(
+                '  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description}',
+              );
               final schemaStr = jsonEncode(tool.inputSchema);
               final preview = schemaStr.length > 120
                   ? '${schemaStr.substring(0, 117)}...'
@@ -1165,1024 +1300,290 @@ Commands:
               );
             }
           }
-        }
 
-        // 2. Built-in Tools (web_search, mermaid, toolbox, ssh)
-        final builtinGroups = <String, List<McpLocalTool>>{
-          'web_search': [BuiltinMcpServers.createWebSearchTool()],
-          'mermaid': [BuiltinMcpServers.createMermaidTool()],
-          'toolbox': BuiltinMcpServers.createToolboxTools(),
-          'ssh': BuiltinMcpServers.createSshTools(),
-        };
-
-        for (final entry in builtinGroups.entries) {
-          final bName = entry.key;
-          if (serverQuery != null &&
-              !bName.toLowerCase().contains(serverQuery)) {
-            continue;
-          }
-          foundAny = true;
-          final bTools = entry.value;
-          final activeSet = activeFilters[bName.toLowerCase()];
-          final filterBadge = activeSet != null
-              ? TerminalPrinter.yellow(
-                  ' [RESTRICTED: ${activeSet.length}/${bTools.length} tools visible]',
-                )
-              : TerminalPrinter.green(' [ALL ${bTools.length} tools active]');
-
-          stdout.writeln(
-            '\n${TerminalPrinter.bold("● Built-in Server:")} ${TerminalPrinter.cyan(bName)}$filterBadge',
-          );
-          stdout.writeln('  Integration: Native TealKit Tool');
-
-          for (final tool in bTools) {
-            final isEnabled =
-                activeSet == null || activeSet.contains(tool.name);
-            final statusIcon = isEnabled
-                ? TerminalPrinter.green('✔')
-                : TerminalPrinter.red('✖ (hidden)');
+          if (!foundAny) {
             stdout.writeln(
-              '  $statusIcon ${TerminalPrinter.bold(tool.name)}: ${tool.description}',
+              'No MCP server or built-in service found matching "$serverQuery".',
             );
-            final schemaStr = jsonEncode(tool.inputSchema);
-            final preview = schemaStr.length > 120
-                ? '${schemaStr.substring(0, 117)}...'
-                : schemaStr;
-            stdout.writeln('      ${TerminalPrinter.dim("Schema: $preview")}');
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Available: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}',
+              ),
+            );
           }
-        }
 
-        if (!foundAny) {
+          stdout.writeln('----------------------------------------');
           stdout.writeln(
-            'No MCP server or built-in service found matching "$serverQuery".',
+            TerminalPrinter.dim(
+              'Tip: Use /mcp_enable_fnc <server> <tool1,tool2> to restrict visible functions.',
+            ),
           );
           stdout.writeln(
             TerminalPrinter.dim(
-              'Available: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}',
+              '     Use /mcp_reset_fnc [server] to restore all functions.',
             ),
-          );
-        }
-
-        stdout.writeln('----------------------------------------');
-        stdout.writeln(
-          TerminalPrinter.dim(
-            'Tip: Use /mcp_enable_fnc <server> <tool1,tool2> to restrict visible functions.',
-          ),
-        );
-        stdout.writeln(
-          TerminalPrinter.dim(
-            '     Use /mcp_reset_fnc [server] to restore all functions.',
-          ),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── MCP Enable Function: /mcp_enable_fnc <server> <tool1,tool2,...> ──
-      if (input.startsWith('/mcp_enable_fnc') ||
-          input.startsWith('/mcp_enable')) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length < 3) {
-          stdout.writeln(
-            'Usage: /mcp_enable_fnc <server_name> <func1,func2,...>',
-          );
-          stdout.writeln('Example: /mcp_enable_fnc fetch fetch');
-          stdout.writeln(
-            'Example: /mcp_enable_fnc toolbox calculate,get_current_time',
           );
           stdout.writeln('');
           continue;
         }
 
-        final serverName = parts[1].trim().toLowerCase();
-        final rawFuncs = parts.sublist(2).join(',').split(',');
-        final allowedTools = rawFuncs
-            .map((f) => f.trim())
-            .where((f) => f.isNotEmpty)
-            .toSet();
-
-        bool applied = false;
-
-        // Check external MCP servers
-        for (final clientDef in mcpManager.clients) {
-          final label = clientDef.label.toLowerCase();
-          final idName = clientDef.name.toLowerCase();
-          if (label == serverName ||
-              label.contains(serverName) ||
-              idName == serverName ||
-              idName.contains(serverName)) {
-            final orig =
-                originalServerTools[label] ??
-                originalServerTools[idName] ??
-                clientDef.availableTools;
-            final filtered = orig
-                .where((t) => allowedTools.contains(t.name))
-                .toList();
-            if (filtered.isEmpty) {
-              stdout.writeln(
-                TerminalPrinter.yellow(
-                  'Warning: None of [${allowedTools.join(", ")}] match tools in server "${clientDef.label}".',
-                ),
-              );
-              stdout.writeln(
-                TerminalPrinter.dim(
-                  'Available in ${clientDef.label}: ${orig.map((t) => t.name).join(", ")}',
-                ),
-              );
-            } else {
-              clientDef.cachedTools = filtered;
-              activeFilters[label] = allowedTools;
-              activeFilters[idName] = allowedTools;
-              stdout.writeln(
-                TerminalPrinter.green(
-                  '✔ Server "${clientDef.label}" restricted to [${filtered.map((t) => t.name).join(", ")}] until /bye or reset.',
-                ),
-              );
-              applied = true;
-            }
+        // ── MCP Enable Function: /mcp_enable_fnc <server> <tool1,tool2,...> ──
+        if (input.startsWith('/mcp_enable_fnc') ||
+            input.startsWith('/mcp_enable')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 3) {
+            stdout.writeln(
+              'Usage: /mcp_enable_fnc <server_name> <func1,func2,...>',
+            );
+            stdout.writeln('Example: /mcp_enable_fnc fetch fetch');
+            stdout.writeln(
+              'Example: /mcp_enable_fnc toolbox calculate,get_current_time',
+            );
+            stdout.writeln('');
+            continue;
           }
-        }
 
-        // Check built-in servers (web_search, mermaid, toolbox, ssh)
-        final builtinGroups = <String, List<McpLocalTool>>{
-          'web_search': [BuiltinMcpServers.createWebSearchTool()],
-          'mermaid': [BuiltinMcpServers.createMermaidTool()],
-          'toolbox': BuiltinMcpServers.createToolboxTools(),
-          'ssh': BuiltinMcpServers.createSshTools(),
-        };
+          final serverName = parts[1].trim().toLowerCase();
+          final rawFuncs = parts.sublist(2).join(',').split(',');
+          final allowedTools = rawFuncs
+              .map((f) => f.trim())
+              .where((f) => f.isNotEmpty)
+              .toSet();
 
-        for (final entry in builtinGroups.entries) {
-          final bName = entry.key;
-          if (bName.toLowerCase() == serverName ||
-              bName.toLowerCase().contains(serverName)) {
-            final orig = entry.value;
-            final matched = orig
-                .where((t) => allowedTools.contains(t.name))
-                .toList();
-            if (matched.isEmpty) {
-              stdout.writeln(
-                TerminalPrinter.yellow(
-                  'Warning: None of [${allowedTools.join(", ")}] match tools in built-in "$bName".',
-                ),
-              );
-              stdout.writeln(
-                TerminalPrinter.dim(
-                  'Available in $bName: ${orig.map((t) => t.name).join(", ")}',
-                ),
-              );
-            } else {
-              activeFilters[bName.toLowerCase()] = allowedTools;
-              // Recompute dartTools
-              dartTools.clear();
-              dartTools.addAll(
-                CodingTools.createAll(workingDirectory: workspaceDir),
-              );
-              for (final bEntry in builtinGroups.entries) {
-                final bFilter = activeFilters[bEntry.key.toLowerCase()];
-                if (bFilter != null) {
-                  dartTools.addAll(
-                    bEntry.value.where((t) => bFilter.contains(t.name)),
-                  );
-                } else {
-                  dartTools.addAll(bEntry.value);
-                }
-              }
-              stdout.writeln(
-                TerminalPrinter.green(
-                  '✔ Built-in "$bName" restricted to [${matched.map((t) => t.name).join(", ")}] until /bye or reset.',
-                ),
-              );
-              applied = true;
-            }
-          }
-        }
+          bool applied = false;
 
-        if (!applied) {
-          stdout.writeln(
-            TerminalPrinter.red('Error: Server "$serverName" not found.'),
-          );
-          stdout.writeln(
-            TerminalPrinter.dim(
-              'Available servers: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}',
-            ),
-          );
-        } else {
-          mcpTools = mcpManager.availableTools;
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── MCP Reset Functions: /mcp_reset_fnc [server] ──
-      if (input.startsWith('/mcp_reset_fnc') ||
-          input.startsWith('/mcp_reset')) {
-        final parts = input.split(RegExp(r'\s+'));
-        final serverQuery = parts.length > 1
-            ? parts[1].trim().toLowerCase()
-            : null;
-
-        final builtinGroups = <String, List<McpLocalTool>>{
-          'web_search': [BuiltinMcpServers.createWebSearchTool()],
-          'mermaid': [BuiltinMcpServers.createMermaidTool()],
-          'toolbox': BuiltinMcpServers.createToolboxTools(),
-          'ssh': BuiltinMcpServers.createSshTools(),
-        };
-
-        if (serverQuery == null || serverQuery == 'all') {
-          // Reset all external
-          for (final clientDef in mcpManager.clients) {
-            final orig =
-                originalServerTools[clientDef.label.toLowerCase()] ??
-                originalServerTools[clientDef.name.toLowerCase()];
-            if (orig != null) {
-              clientDef.cachedTools = List<MCPTool>.from(orig);
-            }
-          }
-          activeFilters.clear();
-
-          // Reset all built-in
-          dartTools.clear();
-          dartTools.addAll(allDartTools);
-
-          mcpTools = mcpManager.availableTools;
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ All MCP tool filters reset. All tools restored to active visibility.',
-            ),
-          );
-        } else {
-          bool resetFound = false;
-          // Reset specific external
+          // Check external MCP servers
           for (final clientDef in mcpManager.clients) {
             final label = clientDef.label.toLowerCase();
             final idName = clientDef.name.toLowerCase();
-            if (label == serverQuery ||
-                label.contains(serverQuery) ||
-                idName == serverQuery ||
-                idName.contains(serverQuery)) {
+            if (label == serverName ||
+                label.contains(serverName) ||
+                idName == serverName ||
+                idName.contains(serverName)) {
               final orig =
-                  originalServerTools[label] ?? originalServerTools[idName];
-              if (orig != null) {
-                clientDef.cachedTools = List<MCPTool>.from(orig);
+                  originalServerTools[label] ??
+                  originalServerTools[idName] ??
+                  clientDef.availableTools;
+              final filtered = orig
+                  .where((t) => allowedTools.contains(t.name))
+                  .toList();
+              if (filtered.isEmpty) {
+                stdout.writeln(
+                  TerminalPrinter.yellow(
+                    'Warning: None of [${allowedTools.join(", ")}] match tools in server "${clientDef.label}".',
+                  ),
+                );
+                stdout.writeln(
+                  TerminalPrinter.dim(
+                    'Available in ${clientDef.label}: ${orig.map((t) => t.name).join(", ")}',
+                  ),
+                );
+              } else {
+                clientDef.cachedTools = filtered;
+                activeFilters[label] = allowedTools;
+                activeFilters[idName] = allowedTools;
+                stdout.writeln(
+                  TerminalPrinter.green(
+                    '✔ Server "${clientDef.label}" restricted to [${filtered.map((t) => t.name).join(", ")}] until /bye or reset.',
+                  ),
+                );
+                applied = true;
               }
-              activeFilters.remove(label);
-              activeFilters.remove(idName);
-              stdout.writeln(
-                TerminalPrinter.green(
-                  '✔ Server "${clientDef.label}" filters reset. All ${orig?.length ?? 0} tools restored.',
-                ),
-              );
-              resetFound = true;
             }
           }
 
-          // Reset specific built-in
+          // Check built-in servers (web_search, mermaid, toolbox, ssh)
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+
           for (final entry in builtinGroups.entries) {
-            if (entry.key.toLowerCase() == serverQuery ||
-                entry.key.toLowerCase().contains(serverQuery)) {
-              activeFilters.remove(entry.key.toLowerCase());
-              dartTools.clear();
-              dartTools.addAll(
-                CodingTools.createAll(workingDirectory: workspaceDir),
-              );
-              for (final bEntry in builtinGroups.entries) {
-                final bFilter = activeFilters[bEntry.key.toLowerCase()];
-                if (bFilter != null) {
-                  dartTools.addAll(
-                    bEntry.value.where((t) => bFilter.contains(t.name)),
-                  );
-                } else {
-                  dartTools.addAll(bEntry.value);
+            final bName = entry.key;
+            if (bName.toLowerCase() == serverName ||
+                bName.toLowerCase().contains(serverName)) {
+              final orig = entry.value;
+              final matched = orig
+                  .where((t) => allowedTools.contains(t.name))
+                  .toList();
+              if (matched.isEmpty) {
+                stdout.writeln(
+                  TerminalPrinter.yellow(
+                    'Warning: None of [${allowedTools.join(", ")}] match tools in built-in "$bName".',
+                  ),
+                );
+                stdout.writeln(
+                  TerminalPrinter.dim(
+                    'Available in $bName: ${orig.map((t) => t.name).join(", ")}',
+                  ),
+                );
+              } else {
+                activeFilters[bName.toLowerCase()] = allowedTools;
+                // Recompute dartTools
+                dartTools.clear();
+                dartTools.addAll(
+                  CodingTools.createAll(workingDirectory: workspaceDir),
+                );
+                for (final bEntry in builtinGroups.entries) {
+                  final bFilter = activeFilters[bEntry.key.toLowerCase()];
+                  if (bFilter != null) {
+                    dartTools.addAll(
+                      bEntry.value.where((t) => bFilter.contains(t.name)),
+                    );
+                  } else {
+                    dartTools.addAll(bEntry.value);
+                  }
                 }
+                stdout.writeln(
+                  TerminalPrinter.green(
+                    '✔ Built-in "$bName" restricted to [${matched.map((t) => t.name).join(", ")}] until /bye or reset.',
+                  ),
+                );
+                applied = true;
               }
-              stdout.writeln(
-                TerminalPrinter.green(
-                  '✔ Built-in "${entry.key}" filters reset. All ${entry.value.length} tools restored.',
-                ),
-              );
-              resetFound = true;
             }
           }
 
-          if (!resetFound) {
+          if (!applied) {
             stdout.writeln(
-              TerminalPrinter.red(
-                'Error: Server "$serverQuery" not found to reset.',
+              TerminalPrinter.red('Error: Server "$serverName" not found.'),
+            );
+            stdout.writeln(
+              TerminalPrinter.dim(
+                'Available servers: ${[...mcpManager.clients.map((c) => c.label), ...builtinGroups.keys].join(", ")}',
               ),
             );
           } else {
             mcpTools = mcpManager.availableTools;
           }
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── Session Management: /save-session, /load-session, /clear-session, /session ──
-      if (input.startsWith('/save-session') || input.startsWith('/save')) {
-        final parts = input.split(RegExp(r'\s+'));
-        String targetPath;
-        if (parts.length > 1) {
-          targetPath = parts.sublist(1).join(' ').trim();
-        } else if (autoSavePath != null) {
-          targetPath = autoSavePath;
-        } else {
-          final timestamp = DateTime.now()
-              .toIso8601String()
-              .replaceAll(':', '-')
-              .split('.')
-              .first;
-          targetPath = 'coding-session-$timestamp.json';
-        }
-
-        try {
-          final session = SessionData(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            title: 'TealKit Coding Session',
-            mode: currentMode.name,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-            llmName: activeLlmName,
-            llmProvider: activeLlmConfig.provider.displayName,
-            llmModel: activeLlmConfig.model,
-            messages: history,
-          );
-          final savedFile = await SessionManager.saveSession(
-            session,
-            targetPath,
-          );
-          autoSavePath = savedFile.path;
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Session saved successfully to "${savedFile.path}" (${history.length} messages recorded).',
-            ),
-          );
-        } catch (e) {
-          stderr.writeln(TerminalPrinter.red('Error saving session: $e'));
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input.startsWith('/load-session') || input.startsWith('/load')) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length < 2) {
-          stdout.writeln('Usage: /load-session <path-to-session.json-or-md>');
           stdout.writeln('');
           continue;
         }
 
-        final targetPath = parts.sublist(1).join(' ').trim();
-        try {
-          final session = await SessionManager.loadSession(targetPath);
-          history.clear();
-          history.addAll(session.messages);
-          if (session.mode == 'architect') currentMode = CodingMode.architect;
-          if (session.mode == 'ask') currentMode = CodingMode.ask;
-          if (session.mode == 'code') currentMode = CodingMode.code;
-          autoSavePath = targetPath;
-          stdout.writeln(
-            TerminalPrinter.green(
-              '✔ Restored session from "$targetPath" (${history.length} messages loaded, mode: ${currentMode.displayName}).',
-            ),
-          );
-          stdout.writeln('');
-          TerminalPrinter.renderSessionHistory(
-            history,
-            mode: currentMode.name,
-            compact: compactMode,
-          );
-        } catch (e) {
-          stderr.writeln(TerminalPrinter.red('Error loading session: $e'));
-        }
-        stdout.writeln('');
-        continue;
-      }
+        // ── MCP Reset Functions: /mcp_reset_fnc [server] ──
+        if (input.startsWith('/mcp_reset_fnc') ||
+            input.startsWith('/mcp_reset')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final serverQuery = parts.length > 1
+              ? parts[1].trim().toLowerCase()
+              : null;
 
-      if (input.startsWith('/compact')) {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length > 1) {
-          final arg = parts[1].toLowerCase();
-          if (arg == 'on' || arg == 'true' || arg == '1' || arg == 'enable') {
-            compactMode = true;
+          final builtinGroups = <String, List<McpLocalTool>>{
+            'web_search': [BuiltinMcpServers.createWebSearchTool()],
+            'mermaid': [BuiltinMcpServers.createMermaidTool()],
+            'toolbox': BuiltinMcpServers.createToolboxTools(),
+            'ssh': BuiltinMcpServers.createSshTools(),
+          };
+
+          if (serverQuery == null || serverQuery == 'all') {
+            // Reset all external
+            for (final clientDef in mcpManager.clients) {
+              final orig =
+                  originalServerTools[clientDef.label.toLowerCase()] ??
+                  originalServerTools[clientDef.name.toLowerCase()];
+              if (orig != null) {
+                clientDef.cachedTools = List<MCPTool>.from(orig);
+              }
+            }
+            activeFilters.clear();
+
+            // Reset all built-in
+            dartTools.clear();
+            dartTools.addAll(allDartTools);
+
+            mcpTools = mcpManager.availableTools;
             stdout.writeln(
               TerminalPrinter.green(
-                '✔ Compact mode enabled (file contents hidden when reading, showing filename only).',
+                '✔ All MCP tool filters reset. All tools restored to active visibility.',
               ),
-            );
-          } else if (arg == 'off' || arg == 'false' || arg == '0' || arg == 'disable') {
-            compactMode = false;
-            stdout.writeln(
-              TerminalPrinter.yellow(
-                '✔ Compact mode disabled (file read contents will be displayed).',
-              ),
-            );
-          } else if (arg == 'status') {
-            stdout.writeln(
-              'Compact mode is currently: ${compactMode ? TerminalPrinter.green("ON") : TerminalPrinter.yellow("OFF")}',
             );
           } else {
-            stdout.writeln('Usage: /compact on | off');
-          }
-        } else {
-          compactMode = !compactMode;
-          stdout.writeln(
-            compactMode
-                ? TerminalPrinter.green(
-                    '✔ Compact mode enabled (file contents hidden when reading, showing filename only).',
-                  )
-                : TerminalPrinter.yellow(
-                    '✔ Compact mode disabled (file read contents will be displayed).',
+            bool resetFound = false;
+            // Reset specific external
+            for (final clientDef in mcpManager.clients) {
+              final label = clientDef.label.toLowerCase();
+              final idName = clientDef.name.toLowerCase();
+              if (label == serverQuery ||
+                  label.contains(serverQuery) ||
+                  idName == serverQuery ||
+                  idName.contains(serverQuery)) {
+                final orig =
+                    originalServerTools[label] ?? originalServerTools[idName];
+                if (orig != null) {
+                  clientDef.cachedTools = List<MCPTool>.from(orig);
+                }
+                activeFilters.remove(label);
+                activeFilters.remove(idName);
+                stdout.writeln(
+                  TerminalPrinter.green(
+                    '✔ Server "${clientDef.label}" filters reset. All ${orig?.length ?? 0} tools restored.',
                   ),
-          );
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/clear-session' || input == '/clear') {
-        history.clear();
-        usageTracker.reset();
-        stdout.writeln(
-          TerminalPrinter.dim(
-            'Conversation history and token/cost statistics cleared.',
-          ),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/estimated_costs' ||
-          input == '/costs' ||
-          input == '/cost' ||
-          input == '/tokens' ||
-          input == '/usage') {
-        stdout.writeln(
-          await usageTracker.formatReportAsync(
-            activeLlmConfig,
-            modelDisplayName: activeLlmName,
-          ),
-        );
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/session') {
-        final rates = await TokenUsageTracker.getRatesAsync(activeLlmConfig);
-        final estCost = usageTracker.calculateEstimatedCost(
-          activeLlmConfig,
-          rates: rates,
-        );
-        final costStr = estCost != null
-            ? 'est. \$${estCost.toStringAsFixed(6)}'
-            : 'cost N/A';
-
-        stdout.writeln(TerminalPrinter.bold('--- Session Information ---'));
-        stdout.writeln('  Mode             : ${currentMode.displayName}');
-        stdout.writeln(
-          '  Active LLM       : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
-        );
-        stdout.writeln('  History Messages : ${history.length}');
-        stdout.writeln('  Compact Mode     : ${compactMode ? "ON" : "OFF"}');
-        stdout.writeln(
-          '  Tokens Tracked   : ${usageTracker.totalTokens} ($costStr)',
-        );
-        stdout.writeln(
-          '  Auto-Save File   : ${autoSavePath ?? "(not set, use /save-session <path>)"}',
-        );
-        stdout.writeln('  Workspace        : $workspaceDir');
-        stdout.writeln('---------------------------');
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/auto-approve') {
-        final parts = input.split(RegExp(r'\s+'));
-        if (parts.length > 1 && parts[1].toLowerCase() == 'on') {
-          permissions.autoApproveWrite = true;
-          permissions.autoApproveExecute = true;
-          permissions.save();
-          stdout.writeln(
-            TerminalPrinter.green(
-              'Auto-approval ENABLED for write & exec tools.',
-            ),
-          );
-        } else if (parts.length > 1 && parts[1].toLowerCase() == 'off') {
-          permissions.autoApproveWrite = false;
-          permissions.autoApproveExecute = false;
-          permissions.save();
-          stdout.writeln(
-            TerminalPrinter.yellow(
-              'Auto-approval DISABLED (will prompt on write & exec).',
-            ),
-          );
-        } else {
-          stdout.writeln('Usage: /auto-approve <on|off>');
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/permissions') {
-        stdout.writeln(
-          TerminalPrinter.bold('--- Tool Permissions Configuration ---'),
-        );
-        stdout.writeln(
-          '  Read operations   (fs_read_file, fs_find)   : ${permissions.autoApproveRead ? "Auto-Approved" : "Requires Confirmation"}',
-        );
-        stdout.writeln(
-          '  Write operations  (fs_write, fs_replace)    : ${permissions.autoApproveWrite ? "Auto-Approved" : "Requires Confirmation"}',
-        );
-        stdout.writeln(
-          '  Execute commands  (terminal_exec)           : ${permissions.autoApproveExecute ? "Auto-Approved" : "Requires Confirmation"}',
-        );
-        stdout.writeln(
-          '  Network actions   (remote MCP)              : ${permissions.autoApproveNetwork ? "Auto-Approved" : "Requires Confirmation"}',
-        );
-        stdout.writeln(
-          TerminalPrinter.dim(
-            'Tip: Use "/auto-approve on" or edit ~/.tealkit/permissions.yaml',
-          ),
-        );
-        stdout.writeln('--------------------------------------');
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/tasks') {
-        final tasksFile = File(p.join(workspaceDir, 'tasks.md'));
-        if (tasksFile.existsSync()) {
-          stdout.writeln(TerminalPrinter.bold('--- tasks.md ---'));
-          stdout.writeln(tasksFile.readAsStringSync().trim());
-          stdout.writeln(TerminalPrinter.bold('----------------'));
-        } else {
-          stdout.writeln('No tasks.md found in workspace.');
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/instructions') {
-        userInstructions = _loadWorkspaceInstructions(
-          customInstructionsPath,
-          workspaceDir: workspaceDir,
-        );
-        if (userInstructions.isNotEmpty) {
-          stdout.writeln(TerminalPrinter.bold('Workspace Instructions:'));
-          stdout.writeln(userInstructions);
-        } else {
-          stdout.writeln(
-            'No custom instructions found. You can create a "tealkit_agent.md" file in the workspace root.',
-          );
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input == '/tools') {
-        stdout.writeln(
-          TerminalPrinter.bold('Native Coding Tools (${dartTools.length}):'),
-        );
-        for (final t in dartTools) {
-          stdout.writeln(
-            '  • ${TerminalPrinter.cyan(t.name)} (${t.riskLevel.name}) — ${t.description}',
-          );
-        }
-        if (mcpTools.isNotEmpty) {
-          stdout.writeln('');
-          stdout.writeln(
-            TerminalPrinter.bold('External MCP Tools (${mcpTools.length}):'),
-          );
-          for (final t in mcpTools) {
-            stdout.writeln(
-              '  • ${TerminalPrinter.green(t.name)} — ${t.description ?? "(no description)"}',
-            );
-          }
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      // ── RAG Management: /reindex, /rag [status|on|off], /rag search <query> ──
-      if (input.startsWith('/reindex')) {
-        final reindexParts = input.split(RegExp(r'\s+'));
-        if (reindexParts.length > 1) {
-          final customPages = int.tryParse(reindexParts[1]);
-          if (customPages != null && customPages > 0) {
-            cliConfig.rag.maxPages = customPages;
-          }
-        }
-        stdout.writeln(TerminalPrinter.bold('─── TealKit Local RAG Indexer ───'));
-        stdout.writeln('Database: ${cliConfig.rag.databasePath}');
-        stdout.writeln('Folders:  ${cliConfig.rag.folderSources.join(", ")}');
-        if (cliConfig.rag.webSources.isNotEmpty) {
-          stdout.writeln('Web URLs: ${cliConfig.rag.webSources.join(", ")} (max_pages: ${cliConfig.rag.maxPages})');
-        }
-        final spinner = TerminalProgress('Scanning and indexing sources...');
-        spinner.start();
-        final ragService = RagService(cliConfig.rag);
-        try {
-          final res = await ragService.reindex(
-            onProgress: (current, total, status) {
-              spinner.start('[$current/$total] $status');
-            },
-          );
-          spinner.stop();
-          stdout.writeln(TerminalPrinter.green('✔ Indexing completed in ${res['duration_seconds']}s'));
-          stdout.writeln('  Evaluated: ${res['evaluated']} | Updated: ${res['updated']} | Unchanged: ${res['skipped']} | Chunks: ${res['new_chunks']}');
-          final stats = res['stats'] as Map<String, dynamic>;
-          stdout.writeln('  Total docs: ${stats['document_count']} | Total chunks: ${stats['chunk_count']} | Size: ${stats['file_size_mb']} MB');
-        } catch (e) {
-          spinner.stop();
-          stderr.writeln(TerminalPrinter.red('❌ Indexing failed: $e'));
-        } finally {
-          ragService.dispose();
-        }
-        stdout.writeln('');
-        continue;
-      }
-
-      if (input.startsWith('/rag')) {
-        final parts = input.split(RegExp(r'\s+'));
-        final sub = parts.length > 1 ? parts[1].toLowerCase() : 'status';
-
-        if (sub == 'on' || sub == 'enable' || sub == '1') {
-          cliConfig.rag.enabled = true;
-          cliConfig.save();
-          stdout.writeln(TerminalPrinter.green('✔ Local RAG context injection ENABLED.'));
-        } else if (sub == 'off' || sub == 'disable' || sub == '0') {
-          cliConfig.rag.enabled = false;
-          cliConfig.save();
-          stdout.writeln(TerminalPrinter.yellow('✔ Local RAG context injection DISABLED.'));
-        } else if (sub == 'search' && parts.length > 2) {
-          final query = parts.sublist(2).join(' ').trim();
-          final ragService = RagService(cliConfig.rag);
-          try {
-            stdout.writeln(TerminalPrinter.dim('Searching RAG database for: "$query"...'));
-            final results = await ragService.search(query, limit: 5);
-            if (results.isEmpty) {
-              stdout.writeln(TerminalPrinter.yellow('No matching chunks found in RAG index.'));
-            } else {
-              stdout.writeln(TerminalPrinter.bold('Found ${results.length} matching chunk(s):'));
-              for (int i = 0; i < results.length; i++) {
-                final r = results[i];
-                final scoreStr = (r.score * 100).toStringAsFixed(1);
-                final method = r.matchType.toUpperCase();
-                final title = r.documentTitle ?? r.documentUri;
-                stdout.writeln(TerminalPrinter.cyan('[${i + 1}] $title ($method, $scoreStr%, ${r.locationLabel})'));
-                stdout.writeln('    File: ${TerminalPrinter.bold(r.terminalLocation)}');
-                stdout.writeln('    Link: ${TerminalPrinter.underline(r.clickableLink)}');
-                final snippet = r.content.length > 200 ? '${r.content.substring(0, 200)}...' : r.content;
-                stdout.writeln(TerminalPrinter.dim('    ${snippet.replaceAll("\n", " ")}'));
+                );
+                resetFound = true;
               }
             }
-          } catch (e) {
-            stderr.writeln(TerminalPrinter.red('Search error: $e'));
-          } finally {
-            ragService.dispose();
-          }
-        } else {
-          // Status
-          final ragService = RagService(cliConfig.rag);
-          try {
-            ragService.init();
-            final stats = ragService.database.getStats();
-            stdout.writeln(TerminalPrinter.bold('─── Local RAG Status ───'));
-            stdout.writeln('Status:       ${cliConfig.rag.enabled ? TerminalPrinter.green("Enabled") : TerminalPrinter.yellow("Disabled")}');
-            stdout.writeln('Database:     ${stats['database_path']}');
-            stdout.writeln('DB Size:      ${stats['file_size_mb']} MB');
-            stdout.writeln('Documents:    ${stats['document_count']}');
-            stdout.writeln('Total Chunks: ${stats['chunk_count']} (Vectors: ${stats['vector_count']})');
-            stdout.writeln('Search Mode:  ${cliConfig.rag.searchMode}');
-            stdout.writeln('Embedder:     ${cliConfig.rag.embeddingProvider} (${cliConfig.rag.embeddingModel})');
-            stdout.writeln('Folder Srcs:  ${cliConfig.rag.folderSources.join(", ")}');
-            if (cliConfig.rag.webSources.isNotEmpty) {
-              stdout.writeln('Web Srcs:     ${cliConfig.rag.webSources.join(", ")}');
-            }
-            stdout.writeln(TerminalPrinter.dim('Tip: Use "/rag on" / "/rag off" to toggle, "/reindex" to update index, "/rag search <query>" to test.'));
-          } catch (e) {
-            stderr.writeln(TerminalPrinter.red('Error reading RAG status: $e'));
-          } finally {
-            ragService.dispose();
-          }
-        }
-        stdout.writeln('');
-        continue;
-      }
 
-      // ── Process Staged Attachments ──
-      final effectivePromptBuffer = StringBuffer();
-      final messageAttachments = <MessageAttachment>[];
-
-      if (pendingAttachments.isNotEmpty) {
-        effectivePromptBuffer.writeln('User Attachments:');
-        for (final att in pendingAttachments) {
-          if (att.isImage) {
-            effectivePromptBuffer.writeln('- [Image Attachment: ${att.name}] (${att.mimeType}, ${att.sizeLabel})');
-            messageAttachments.add(att.toMessageAttachment());
-          } else {
-            effectivePromptBuffer.writeln('\n[Attached File: ${att.name}]');
-            effectivePromptBuffer.writeln('--- CONTENT START ---');
-            effectivePromptBuffer.writeln(att.extractedText ?? '[Binary/unreadable file content: ${att.sizeLabel}]');
-            effectivePromptBuffer.writeln('--- CONTENT END ---\n');
-          }
-        }
-        effectivePromptBuffer.writeln('\nTask Prompt:');
-      }
-
-      // RAG context injection
-      if (cliConfig.rag.enabled) {
-        final ragService = RagService(cliConfig.rag);
-        try {
-          final ragContext = await ragService.buildPromptContext(input);
-          if (ragContext != null && ragContext.isNotEmpty) {
-            stdout.writeln(TerminalPrinter.dim('⚡ RAG: Retrieved context from indexed documents'));
-            effectivePromptBuffer.writeln(ragContext);
-            effectivePromptBuffer.writeln('');
-          }
-        } catch (e) {
-          if (verbose) {
-            stderr.writeln(TerminalPrinter.dim('[RAG retrieval warning: $e]'));
-          }
-        } finally {
-          ragService.dispose();
-        }
-      }
-
-      effectivePromptBuffer.write(input);
-      final effectivePromptText = effectivePromptBuffer.toString();
-
-      // Build effective system prompt tailored for mode and instructions
-      final systemPrompt = _buildSystemPrompt(
-        mode: currentMode,
-        workspaceDir: workspaceDir,
-        userInstructions: userInstructions,
-      );
-
-      final cliMaxToolIterations = int.tryParse(
-        argResults?['max-tool-iterations'] as String? ?? '',
-      );
-
-      final initialTurnMessages = <ChatMessage>[...history];
-      if (messageAttachments.isNotEmpty) {
-        initialTurnMessages.add(
-          ChatMessage(
-            id: 'turn_att_${DateTime.now().millisecondsSinceEpoch}',
-            content: effectivePromptText,
-            role: ChatRole.user,
-            timestamp: DateTime.now(),
-            attachments: messageAttachments,
-          ),
-        );
-      }
-
-      final currentTotalTools = dartTools.length + mcpTools.length;
-      final isProgressiveActive = cliConfig.isProgressiveToolsActive(
-        totalTools: currentTotalTools,
-        provider: activeLlmConfig.provider,
-      );
-
-      final agent = Agent(
-        key: 'code_agent',
-        name: 'Coding Assistant',
-        llmConfig: activeLlmConfig,
-        systemPrompt: systemPrompt,
-        enablePlanning: cliConfig.enablePlanning,
-        progressiveMcpDiscovery: isProgressiveActive,
-        contextCompressor: ContextCompressor(
-          tokenThreshold: cliConfig.contextCompressionThreshold,
-        ),
-        prompts: messageAttachments.isNotEmpty
-            ? [const SubPromptStep(text: '')]
-            : [SubPromptStep(text: effectivePromptText)],
-        dartTools: dartTools,
-        localServers: localServers.where((s) => s.isLocal).toList(),
-        remoteServers: localServers.where((s) => !s.isLocal).toList(),
-        initialMessages: initialTurnMessages,
-        maxToolIterations: cliMaxToolIterations,
-      );
-
-      final engine = McpAgentEngine();
-      engine.setAgents([agent]);
-      activeEngine = engine;
-      isTurnActive = true;
-
-      bool turnSuccess = false;
-      String lastAssistantResponse = '';
-      final spinner = TerminalProgress('Thinking...');
-      spinner.start();
-
-      try {
-        final subscription = engine.agentEvents.listen((event) {
-          switch (event) {
-            case AgentLogEvent(:final message):
-              if (verbose) {
-                spinner.clear();
-                stdout.writeln(TerminalPrinter.dim('[log] $message'));
-                spinner.start('Thinking...');
-              }
-            case AgentToolResultEvent(
-              :final toolName,
-              :final parameters,
-              :final result,
-            ):
-              spinner.clear();
-              TerminalPrinter.printToolCall(
-                toolName: toolName,
-                argumentsJson: jsonEncode(parameters),
-                result: result,
-                compact: compactMode,
-              );
-              spinner.start('Thinking...');
-            case AgentAssistantResultEvent(:final response):
-              spinner.clear();
-              lastAssistantResponse = response;
-              stdout.writeln('');
-              stdout.writeln(response.trim());
-              stdout.writeln('');
-            case AgentErrorEvent(:final error):
-              spinner.clear();
-              stderr.writeln(TerminalPrinter.red('❌ ERROR: $error'));
-            case AgentFinalResultEvent(:final response, :final messages):
-              spinner.stop();
-              if (response.isNotEmpty) {
-                lastAssistantResponse = response;
-              }
-              if (messages.isNotEmpty) {
-                history.clear();
-                history.addAll(messages);
-              }
-            case AgentUsageEvent(:final promptTokens, :final completionTokens):
-              usageTracker.recordUsage(
-                prompt: promptTokens,
-                completion: completionTokens,
-              );
-            case AgentPlanEvent(:final plan):
-              spinner.clear();
-              stdout.writeln(TerminalPrinter.bold('\n📋 Plan / Todo Progress:'));
-              for (final step in plan.steps) {
-                final statusSymbol = switch (step.status) {
-                  PlanStepStatus.completed => TerminalPrinter.green('✔ [done]'),
-                  PlanStepStatus.inProgress => TerminalPrinter.yellow('⏳ [in_progress]'),
-                  PlanStepStatus.cancelled => TerminalPrinter.dim('🚫 [cancelled]'),
-                  PlanStepStatus.pending => TerminalPrinter.dim('◽ [pending]'),
-                };
-                stdout.writeln('  $statusSymbol ${step.description}');
-              }
-              stdout.writeln('');
-              spinner.start('Thinking...');
-            case AgentContextCompressedEvent(
-              :final originalTokens,
-              :final compressedTokens,
-              :final compressedTurnCount,
-            ):
-              spinner.clear();
-              stdout.writeln(TerminalPrinter.cyan(
-                '⚡ [Context Compressed] $originalTokens -> $compressedTokens tokens ($compressedTurnCount turns compressed)',
-              ));
-              spinner.start('Thinking...');
-            case AgentTextChunkEvent():
-              spinner.clear();
-              break;
-          }
-        });
-
-        try {
-          await engine.run(
-            agent.key,
-            onToolApproval:
-                ({
-                  required String toolName,
-                  required Map<String, dynamic> parameters,
-                  required ToolRiskLevel riskLevel,
-                }) async {
-                  final autoApproved = switch (riskLevel) {
-                    ToolRiskLevel.read => permissions.autoApproveRead,
-                    ToolRiskLevel.write => permissions.autoApproveWrite,
-                    ToolRiskLevel.execute => permissions.autoApproveExecute,
-                    ToolRiskLevel.network => permissions.autoApproveNetwork,
-                  };
-
-                  if (autoApproved) {
-                    spinner.update('Executing tool $toolName...');
-                    return true;
-                  }
-
-                  spinner.clear();
-
-                  // Interactive prompt for user approval
-                  stdout.writeln('');
-                  stdout.writeln(
-                    TerminalPrinter.yellow('⚠️  Tool Approval Requested:'),
-                  );
-                  stdout.writeln(
-                    '  • Tool   : ${TerminalPrinter.cyan(toolName)} ($riskLevel)',
-                  );
-                  stdout.writeln('  • Args   : ${jsonEncode(parameters)}');
-                  stdout.write(
-                    TerminalPrinter.bold(
-                      'Approve execution? [y/n/always/deny-all] > ',
-                    ),
-                  );
-
-                  final response = stdin.readLineSync()?.trim().toLowerCase();
-                  if (response == 'a' || response == 'always') {
-                    if (riskLevel == ToolRiskLevel.write) {
-                      permissions.autoApproveWrite = true;
-                    } else if (riskLevel == ToolRiskLevel.execute) {
-                      permissions.autoApproveExecute = true;
-                    }
-                    permissions.save();
-                    stdout.writeln(
-                      TerminalPrinter.green(
-                        'Approved and saved to preferences.',
-                      ),
-                    );
-                    spinner.start('Executing tool $toolName...');
-                    return true;
-                  } else if (response == 'd' || response == 'deny-all') {
-                    permissions.autoApproveWrite = false;
-                    permissions.autoApproveExecute = false;
-                    permissions.save();
-                    stdout.writeln(
-                      TerminalPrinter.red('Denied and disabled auto-approval.'),
-                    );
-                    return false;
-                  }
-
-                  final approved =
-                      response == 'y' || response == 'yes' || response == '';
-                  if (!approved) {
-                    stdout.writeln(
-                      TerminalPrinter.red('Tool execution rejected by user.'),
+            // Reset specific built-in
+            for (final entry in builtinGroups.entries) {
+              if (entry.key.toLowerCase() == serverQuery ||
+                  entry.key.toLowerCase().contains(serverQuery)) {
+                activeFilters.remove(entry.key.toLowerCase());
+                dartTools.clear();
+                dartTools.addAll(
+                  CodingTools.createAll(workingDirectory: workspaceDir),
+                );
+                for (final bEntry in builtinGroups.entries) {
+                  final bFilter = activeFilters[bEntry.key.toLowerCase()];
+                  if (bFilter != null) {
+                    dartTools.addAll(
+                      bEntry.value.where((t) => bFilter.contains(t.name)),
                     );
                   } else {
-                    spinner.start('Executing tool $toolName...');
+                    dartTools.addAll(bEntry.value);
                   }
-                  return approved;
-                },
-          );
-          turnSuccess = true;
-        } catch (e, stack) {
-          spinner.stop();
-          stderr.writeln('');
-          stderr.writeln(TerminalPrinter.red('❌ Execution Error during turn:'));
-          stderr.writeln(TerminalPrinter.yellow('   $e'));
-          if (e.toString().contains('400') ||
-              e.toString().contains('context_length') ||
-              e.toString().contains('max_tokens')) {
-            stderr.writeln(
-              TerminalPrinter.dim(
-                '   Tip: The model returned a request error. Check max_tokens or use /clear-session to reset history.',
-              ),
-            );
+                }
+                stdout.writeln(
+                  TerminalPrinter.green(
+                    '✔ Built-in "${entry.key}" filters reset. All ${entry.value.length} tools restored.',
+                  ),
+                );
+                resetFound = true;
+              }
+            }
+
+            if (!resetFound) {
+              stdout.writeln(
+                TerminalPrinter.red(
+                  'Error: Server "$serverQuery" not found to reset.',
+                ),
+              );
+            } else {
+              mcpTools = mcpManager.availableTools;
+            }
           }
-          if (verbose) {
-            stderr.writeln(TerminalPrinter.dim('\nStacktrace:\n$stack'));
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── Session Management: /save-session, /load-session, /clear-session, /session ──
+        if (input.startsWith('/save-session') || input.startsWith('/save')) {
+          final parts = input.split(RegExp(r'\s+'));
+          String targetPath;
+          if (parts.length > 1) {
+            targetPath = parts.sublist(1).join(' ').trim();
+          } else if (autoSavePath != null) {
+            targetPath = autoSavePath;
           } else {
-            stderr.writeln(
-              TerminalPrinter.dim(
-                '   (Run with --verbose for complete debug logs)',
-              ),
-            );
+            final timestamp = DateTime.now()
+                .toIso8601String()
+                .replaceAll(':', '-')
+                .split('.')
+                .first;
+            targetPath = 'coding-session-$timestamp.json';
           }
-        } finally {
-          spinner.stop();
-          await Future.delayed(const Duration(milliseconds: 50));
-          await subscription.cancel();
-        }
-      } finally {
-        isTurnActive = false;
-        activeEngine = null;
-        await engine.dispose();
-      }
 
-      if (turnSuccess) {
-        if (history.isEmpty) {
-          history.add(
-            ChatMessage(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              content: input,
-              role: ChatRole.user,
-              timestamp: DateTime.now(),
-            ),
-          );
-          if (lastAssistantResponse.isNotEmpty) {
-            history.add(
-              ChatMessage(
-                id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
-                content: lastAssistantResponse,
-                role: ChatRole.assistant,
-                timestamp: DateTime.now(),
-              ),
-            );
-          }
-        }
-
-        pendingAttachments.clear();
-
-        // Auto-save session if path is configured
-        if (autoSavePath != null) {
           try {
             final session = SessionData(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -2195,16 +1596,963 @@ Commands:
               llmModel: activeLlmConfig.model,
               messages: history,
             );
-            await SessionManager.saveSession(session, autoSavePath);
-          } catch (_) {}
+            final savedFile = await SessionManager.saveSession(
+              session,
+              targetPath,
+            );
+            autoSavePath = savedFile.path;
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Session saved successfully to "${savedFile.path}" (${history.length} messages recorded).',
+              ),
+            );
+          } catch (e) {
+            stderr.writeln(TerminalPrinter.red('Error saving session: $e'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/load-session') || input.startsWith('/load')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length < 2) {
+            stdout.writeln('Usage: /load-session <path-to-session.json-or-md>');
+            stdout.writeln('');
+            continue;
+          }
+
+          final targetPath = parts.sublist(1).join(' ').trim();
+          try {
+            final session = await SessionManager.loadSession(targetPath);
+            history.clear();
+            history.addAll(session.messages);
+            if (session.mode == 'architect') currentMode = CodingMode.architect;
+            if (session.mode == 'ask') currentMode = CodingMode.ask;
+            if (session.mode == 'code') currentMode = CodingMode.code;
+            autoSavePath = targetPath;
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Restored session from "$targetPath" (${history.length} messages loaded, mode: ${currentMode.displayName}).',
+              ),
+            );
+            stdout.writeln('');
+            TerminalPrinter.renderSessionHistory(
+              history,
+              mode: currentMode.name,
+              compact: compactMode,
+            );
+          } catch (e) {
+            stderr.writeln(TerminalPrinter.red('Error loading session: $e'));
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/compact')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length > 1) {
+            final arg = parts[1].toLowerCase();
+            if (arg == 'on' || arg == 'true' || arg == '1' || arg == 'enable') {
+              compactMode = true;
+              stdout.writeln(
+                TerminalPrinter.green(
+                  '✔ Compact mode enabled (file contents hidden when reading, showing filename only).',
+                ),
+              );
+            } else if (arg == 'off' ||
+                arg == 'false' ||
+                arg == '0' ||
+                arg == 'disable') {
+              compactMode = false;
+              stdout.writeln(
+                TerminalPrinter.yellow(
+                  '✔ Compact mode disabled (file read contents will be displayed).',
+                ),
+              );
+            } else if (arg == 'status') {
+              stdout.writeln(
+                'Compact mode is currently: ${compactMode ? TerminalPrinter.green("ON") : TerminalPrinter.yellow("OFF")}',
+              );
+            } else {
+              stdout.writeln('Usage: /compact on | off');
+            }
+          } else {
+            compactMode = !compactMode;
+            stdout.writeln(
+              compactMode
+                  ? TerminalPrinter.green(
+                      '✔ Compact mode enabled (file contents hidden when reading, showing filename only).',
+                    )
+                  : TerminalPrinter.yellow(
+                      '✔ Compact mode disabled (file read contents will be displayed).',
+                    ),
+            );
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/clear-session' || input == '/clear') {
+          history.clear();
+          usageTracker.reset();
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Conversation history and token/cost statistics cleared.',
+            ),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/estimated_costs' ||
+            input == '/costs' ||
+            input == '/cost' ||
+            input == '/tokens' ||
+            input == '/usage') {
+          stdout.writeln(
+            await usageTracker.formatReportAsync(
+              activeLlmConfig,
+              modelDisplayName: activeLlmName,
+            ),
+          );
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/session') {
+          final rates = await TokenUsageTracker.getRatesAsync(activeLlmConfig);
+          final estCost = usageTracker.calculateEstimatedCost(
+            activeLlmConfig,
+            rates: rates,
+          );
+          final costStr = estCost != null
+              ? 'est. \$${estCost.toStringAsFixed(6)}'
+              : 'cost N/A';
+
+          stdout.writeln(TerminalPrinter.bold('--- Session Information ---'));
+          stdout.writeln('  Mode             : ${currentMode.displayName}');
+          stdout.writeln(
+            '  Active LLM       : $activeLlmName (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})',
+          );
+          stdout.writeln('  History Messages : ${history.length}');
+          stdout.writeln('  Compact Mode     : ${compactMode ? "ON" : "OFF"}');
+          stdout.writeln(
+            '  Tokens Tracked   : ${usageTracker.totalTokens} ($costStr)',
+          );
+          stdout.writeln(
+            '  Auto-Save File   : ${autoSavePath ?? "(not set, use /save-session <path>)"}',
+          );
+          stdout.writeln('  Workspace        : $workspaceDir');
+          stdout.writeln('---------------------------');
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/auto-approve' || input.startsWith('/auto-approve ')) {
+          final parts = input.split(RegExp(r'\s+'));
+          if (parts.length > 1) {
+            final arg = parts[1].toLowerCase();
+            if (arg == 'on' || arg == 'true' || arg == 'all') {
+              permissions.autoApproveRead = true;
+              permissions.autoApproveWrite = true;
+              permissions.autoApproveExecute = true;
+              permissions.autoApproveNetwork = true;
+              permissions.save();
+              stdout.writeln(
+                TerminalPrinter.green(
+                  'Auto-approval ENABLED for all tools (read, write, exec, network).',
+                ),
+              );
+            } else if (arg == 'off' || arg == 'false' || arg == 'none') {
+              permissions.autoApproveRead = false;
+              permissions.autoApproveWrite = false;
+              permissions.autoApproveExecute = false;
+              permissions.autoApproveNetwork = false;
+              permissions.save();
+              stdout.writeln(
+                TerminalPrinter.yellow(
+                  'Auto-approval DISABLED for all tools (confirmation required).',
+                ),
+              );
+            } else if (parts.length >= 3) {
+              final cat = arg;
+              final val = parts[2].toLowerCase() == 'on';
+              if (cat == 'read') {
+                permissions.autoApproveRead = val;
+              } else if (cat == 'write') {
+                permissions.autoApproveWrite = val;
+              } else if (cat == 'exec' || cat == 'execute') {
+                permissions.autoApproveExecute = val;
+              } else if (cat == 'net' || cat == 'network') {
+                permissions.autoApproveNetwork = val;
+              }
+              permissions.save();
+              stdout.writeln(
+                TerminalPrinter.green('Auto-approval for $cat set to $val.'),
+              );
+            } else {
+              stdout.writeln(
+                'Usage: /auto-approve <on|off> or /auto-approve <read|write|exec|network> <on|off>',
+              );
+            }
+          } else {
+            stdout.writeln(
+              'Usage: /auto-approve <on|off> or /auto-approve <read|write|exec|network> <on|off>',
+            );
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/permissions') {
+          stdout.writeln(
+            TerminalPrinter.bold('--- Tool Permissions Configuration ---'),
+          );
+          stdout.writeln(
+            '  Read operations   (fs_read_file, fs_find)   : ${permissions.autoApproveRead ? "Auto-Approved" : "Requires Confirmation"}',
+          );
+          stdout.writeln(
+            '  Write operations  (fs_write, fs_replace)    : ${permissions.autoApproveWrite ? "Auto-Approved" : "Requires Confirmation"}',
+          );
+          stdout.writeln(
+            '  Execute commands  (terminal_exec)           : ${permissions.autoApproveExecute ? "Auto-Approved" : "Requires Confirmation"}',
+          );
+          stdout.writeln(
+            '  Network actions   (remote MCP)              : ${permissions.autoApproveNetwork ? "Auto-Approved" : "Requires Confirmation"}',
+          );
+          stdout.writeln(
+            TerminalPrinter.dim(
+              'Tip: Use "/auto-approve on" or edit ~/.tealkitcoder/permissions.yaml',
+            ),
+          );
+          stdout.writeln('--------------------------------------');
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/tasks') {
+          final tasksFile = File(p.join(workspaceDir, 'tasks.md'));
+          if (tasksFile.existsSync()) {
+            stdout.writeln(TerminalPrinter.bold('--- tasks.md ---'));
+            stdout.writeln(tasksFile.readAsStringSync().trim());
+            stdout.writeln(TerminalPrinter.bold('----------------'));
+          } else {
+            stdout.writeln('No tasks.md found in workspace.');
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/instructions') {
+          userInstructions = _loadWorkspaceInstructions(
+            customInstructionsPath,
+            workspaceDir: workspaceDir,
+          );
+          if (userInstructions.isNotEmpty) {
+            stdout.writeln(TerminalPrinter.bold('Workspace Instructions:'));
+            stdout.writeln(userInstructions);
+          } else {
+            stdout.writeln(
+              'No custom instructions found. You can create a "tealkit_agent.md" file in the workspace root.',
+            );
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input == '/tools') {
+          stdout.writeln(
+            TerminalPrinter.bold('Native Coding Tools (${dartTools.length}):'),
+          );
+          for (final t in dartTools) {
+            stdout.writeln(
+              '  • ${TerminalPrinter.cyan(t.name)} (${t.riskLevel.name}) — ${t.description}',
+            );
+          }
+          if (mcpTools.isNotEmpty) {
+            stdout.writeln('');
+            stdout.writeln(
+              TerminalPrinter.bold('External MCP Tools (${mcpTools.length}):'),
+            );
+            for (final t in mcpTools) {
+              stdout.writeln(
+                '  • ${TerminalPrinter.green(t.name)} — ${t.description ?? "(no description)"}',
+              );
+            }
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── RAG Management: /reindex, /rag [status|on|off], /rag search <query> ──
+        if (input.startsWith('/reindex')) {
+          final reindexParts = input.split(RegExp(r'\s+'));
+          if (reindexParts.length > 1) {
+            final customPages = int.tryParse(reindexParts[1]);
+            if (customPages != null && customPages > 0) {
+              cliConfig.rag.maxPages = customPages;
+            }
+          }
+          stdout.writeln(
+            TerminalPrinter.bold('─── TealKit Local RAG Indexer ───'),
+          );
+          stdout.writeln('Database: ${cliConfig.rag.databasePath}');
+          stdout.writeln('Folders:  ${cliConfig.rag.folderSources.join(", ")}');
+          if (cliConfig.rag.webSources.isNotEmpty) {
+            stdout.writeln(
+              'Web URLs: ${cliConfig.rag.webSources.join(", ")} (max_pages: ${cliConfig.rag.maxPages})',
+            );
+          }
+          final spinner = TerminalProgress('Scanning and indexing sources...');
+          spinner.start();
+          final ragService = RagService(cliConfig.rag);
+          try {
+            final res = await ragService.reindex(
+              onProgress: (current, total, status) {
+                spinner.start('[$current/$total] $status');
+              },
+            );
+            spinner.stop();
+            stdout.writeln(
+              TerminalPrinter.green(
+                '✔ Indexing completed in ${res['duration_seconds']}s',
+              ),
+            );
+            stdout.writeln(
+              '  Evaluated: ${res['evaluated']} | Updated: ${res['updated']} | Unchanged: ${res['skipped']} | Chunks: ${res['new_chunks']}',
+            );
+            final stats = res['stats'] as Map<String, dynamic>;
+            stdout.writeln(
+              '  Total docs: ${stats['document_count']} | Total chunks: ${stats['chunk_count']} | Size: ${stats['file_size_mb']} MB',
+            );
+          } catch (e) {
+            spinner.stop();
+            stderr.writeln(TerminalPrinter.red('❌ Indexing failed: $e'));
+          } finally {
+            ragService.dispose();
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        if (input.startsWith('/rag')) {
+          final parts = input.split(RegExp(r'\s+'));
+          final sub = parts.length > 1 ? parts[1].toLowerCase() : 'status';
+
+          if (sub == 'on' || sub == 'enable' || sub == '1') {
+            cliConfig.rag.enabled = true;
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.green('✔ Local RAG context injection ENABLED.'),
+            );
+          } else if (sub == 'off' || sub == 'disable' || sub == '0') {
+            cliConfig.rag.enabled = false;
+            cliConfig.save();
+            stdout.writeln(
+              TerminalPrinter.yellow('✔ Local RAG context injection DISABLED.'),
+            );
+          } else if (sub == 'search' && parts.length > 2) {
+            final query = parts.sublist(2).join(' ').trim();
+            final ragService = RagService(cliConfig.rag);
+            try {
+              stdout.writeln(
+                TerminalPrinter.dim('Searching RAG database for: "$query"...'),
+              );
+              final results = await ragService.search(query, limit: 5);
+              if (results.isEmpty) {
+                stdout.writeln(
+                  TerminalPrinter.yellow(
+                    'No matching chunks found in RAG index.',
+                  ),
+                );
+              } else {
+                stdout.writeln(
+                  TerminalPrinter.bold(
+                    'Found ${results.length} matching chunk(s):',
+                  ),
+                );
+                for (int i = 0; i < results.length; i++) {
+                  final r = results[i];
+                  final scoreStr = (r.score * 100).toStringAsFixed(1);
+                  final method = r.matchType.toUpperCase();
+                  final title = r.documentTitle ?? r.documentUri;
+                  stdout.writeln(
+                    TerminalPrinter.cyan(
+                      '[${i + 1}] $title ($method, $scoreStr%, ${r.locationLabel})',
+                    ),
+                  );
+                  stdout.writeln(
+                    '    File: ${TerminalPrinter.bold(r.terminalLocation)}',
+                  );
+                  stdout.writeln(
+                    '    Link: ${TerminalPrinter.underline(r.clickableLink)}',
+                  );
+                  final snippet = r.content.length > 200
+                      ? '${r.content.substring(0, 200)}...'
+                      : r.content;
+                  stdout.writeln(
+                    TerminalPrinter.dim('    ${snippet.replaceAll("\n", " ")}'),
+                  );
+                }
+              }
+            } catch (e) {
+              stderr.writeln(TerminalPrinter.red('Search error: $e'));
+            } finally {
+              ragService.dispose();
+            }
+          } else {
+            // Status
+            final ragService = RagService(cliConfig.rag);
+            try {
+              ragService.init();
+              final stats = ragService.database.getStats();
+              stdout.writeln(TerminalPrinter.bold('─── Local RAG Status ───'));
+              stdout.writeln(
+                'Status:       ${cliConfig.rag.enabled ? TerminalPrinter.green("Enabled") : TerminalPrinter.yellow("Disabled")}',
+              );
+              stdout.writeln('Database:     ${stats['database_path']}');
+              stdout.writeln('DB Size:      ${stats['file_size_mb']} MB');
+              stdout.writeln('Documents:    ${stats['document_count']}');
+              stdout.writeln(
+                'Total Chunks: ${stats['chunk_count']} (Vectors: ${stats['vector_count']})',
+              );
+              stdout.writeln('Search Mode:  ${cliConfig.rag.searchMode}');
+              stdout.writeln(
+                'Embedder:     ${cliConfig.rag.embeddingProvider} (${cliConfig.rag.embeddingModel})',
+              );
+              stdout.writeln(
+                'Folder Srcs:  ${cliConfig.rag.folderSources.join(", ")}',
+              );
+              if (cliConfig.rag.webSources.isNotEmpty) {
+                stdout.writeln(
+                  'Web Srcs:     ${cliConfig.rag.webSources.join(", ")}',
+                );
+              }
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  'Tip: Use "/rag on" / "/rag off" to toggle, "/reindex" to update index, "/rag search <query>" to test.',
+                ),
+              );
+            } catch (e) {
+              stderr.writeln(
+                TerminalPrinter.red('Error reading RAG status: $e'),
+              );
+            } finally {
+              ragService.dispose();
+            }
+          }
+          stdout.writeln('');
+          continue;
+        }
+
+        // ── Process Staged Attachments ──
+        final effectivePromptBuffer = StringBuffer();
+        final messageAttachments = <MessageAttachment>[];
+
+        if (pendingAttachments.isNotEmpty) {
+          effectivePromptBuffer.writeln('User Attachments:');
+          for (final att in pendingAttachments) {
+            if (att.isImage) {
+              effectivePromptBuffer.writeln(
+                '- [Image Attachment: ${att.name}] (${att.mimeType}, ${att.sizeLabel})',
+              );
+              messageAttachments.add(att.toMessageAttachment());
+            } else {
+              effectivePromptBuffer.writeln('\n[Attached File: ${att.name}]');
+              effectivePromptBuffer.writeln('--- CONTENT START ---');
+              effectivePromptBuffer.writeln(
+                att.extractedText ??
+                    '[Binary/unreadable file content: ${att.sizeLabel}]',
+              );
+              effectivePromptBuffer.writeln('--- CONTENT END ---\n');
+            }
+          }
+          effectivePromptBuffer.writeln('\nTask Prompt:');
+        }
+
+        // RAG context injection
+        if (cliConfig.rag.enabled) {
+          final ragService = RagService(cliConfig.rag);
+          try {
+            final ragContext = await ragService.buildPromptContext(input);
+            if (ragContext != null && ragContext.isNotEmpty) {
+              stdout.writeln(
+                TerminalPrinter.dim(
+                  '⚡ RAG: Retrieved context from indexed documents',
+                ),
+              );
+              effectivePromptBuffer.writeln(ragContext);
+              effectivePromptBuffer.writeln('');
+            }
+          } catch (e) {
+            if (verbose) {
+              stderr.writeln(
+                TerminalPrinter.dim('[RAG retrieval warning: $e]'),
+              );
+            }
+          } finally {
+            ragService.dispose();
+          }
+        }
+
+        effectivePromptBuffer.write(input);
+        final effectivePromptText = effectivePromptBuffer.toString();
+
+        // Build effective system prompt tailored for mode and instructions
+        final systemPrompt = _buildSystemPrompt(
+          mode: currentMode,
+          workspaceDir: workspaceDir,
+          userInstructions: userInstructions,
+        );
+
+        final cliMaxToolIterations = int.tryParse(
+          argResults?['max-tool-iterations'] as String? ?? '',
+        );
+
+        final initialTurnMessages = <ChatMessage>[...history];
+        if (messageAttachments.isNotEmpty) {
+          initialTurnMessages.add(
+            ChatMessage(
+              id: 'turn_att_${DateTime.now().millisecondsSinceEpoch}',
+              content: effectivePromptText,
+              role: ChatRole.user,
+              timestamp: DateTime.now(),
+              attachments: messageAttachments,
+            ),
+          );
+        }
+
+        final currentTotalTools = dartTools.length + mcpTools.length;
+        final isProgressiveActive = cliConfig.isProgressiveToolsActive(
+          totalTools: currentTotalTools,
+          provider: activeLlmConfig.provider,
+        );
+
+        List<McpLocalTool> activeDartTools = dartTools;
+        if (currentMode == CodingMode.ask) {
+          activeDartTools = dartTools.where((t) {
+            final isWriteOrExec =
+                t.name == "fs_write_file" ||
+                t.name == "fs_replace_text" ||
+                t.name == "execute_command" ||
+                t.name == "terminal_exec" ||
+                t.name == "git_commit";
+            return !isWriteOrExec;
+          }).toList();
+        }
+
+        final subAgents = SubAgentHelper.buildSubAgents(
+          allProfiles: allProfiles,
+          activeProfileName: activeLlmName,
+          configuredSubagents: cliConfig.subagents,
+          availableTools: activeDartTools,
+          localServers: localServers.where((s) => s.isLocal).toList(),
+          remoteServers: localServers.where((s) => !s.isLocal).toList(),
+        );
+        final subAgentKeys = subAgents.map((a) => a.key).toList();
+
+        final agent = Agent(
+          key: 'code_agent',
+          name: 'Coding Assistant',
+          llmConfig: activeLlmConfig,
+          systemPrompt: systemPrompt,
+          enablePlanning: cliConfig.enablePlanning,
+          progressiveMcpDiscovery: isProgressiveActive,
+          enableDelegation: true,
+          subAgentKeys: subAgentKeys,
+          contextCompressor: ContextCompressor(
+            tokenThreshold: cliConfig.contextCompressionThreshold,
+            memoryStore: episodicMemoryStore,
+          ),
+          prompts: messageAttachments.isNotEmpty
+              ? [const SubPromptStep(text: '')]
+              : [SubPromptStep(text: effectivePromptText)],
+          dartTools: activeDartTools,
+          localServers: localServers.where((s) => s.isLocal).toList(),
+          remoteServers: localServers.where((s) => !s.isLocal).toList(),
+          initialMessages: initialTurnMessages,
+          maxToolIterations: cliMaxToolIterations,
+        );
+
+        final engine = McpAgentEngine();
+        engine.setAgents([agent, ...subAgents]);
+        activeEngine = engine;
+        isTurnActive = true;
+
+        bool turnSuccess = false;
+        String lastAssistantResponse = '';
+        final spinner = TerminalProgress('Thinking...');
+        spinner.start();
+
+        try {
+          final subscription = engine.agentEvents.listen((event) {
+            switch (event) {
+              case AgentLogEvent(:final message):
+                if (verbose) {
+                  spinner.clear();
+                  stdout.writeln(TerminalPrinter.dim('[log] $message'));
+                  spinner.start('Thinking...');
+                }
+              case AgentToolResultEvent(
+                :final toolName,
+                :final parameters,
+                :final result,
+              ):
+                spinner.clear();
+                TerminalPrinter.printToolCall(
+                  toolName: toolName,
+                  argumentsJson: jsonEncode(parameters),
+                  result: result,
+                  compact: compactMode,
+                );
+                spinner.start('Thinking...');
+              case AgentAssistantResultEvent(:final response):
+                spinner.clear();
+                lastAssistantResponse = response;
+                stdout.writeln('');
+                stdout.writeln(response.trim());
+                stdout.writeln('');
+              case AgentErrorEvent(:final error):
+                spinner.clear();
+                stderr.writeln(TerminalPrinter.red('❌ ERROR: $error'));
+              case AgentFinalResultEvent(:final response, :final messages):
+                spinner.stop();
+                if (response.isNotEmpty) {
+                  lastAssistantResponse = response;
+                }
+                if (messages.isNotEmpty) {
+                  history.clear();
+                  history.addAll(messages);
+                }
+              case AgentUsageEvent(
+                :final promptTokens,
+                :final completionTokens,
+              ):
+                usageTracker.recordUsage(
+                  prompt: promptTokens,
+                  completion: completionTokens,
+                );
+              case AgentPlanEvent(:final plan):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.bold('\n📋 Plan / Todo Progress:'),
+                );
+                for (final step in plan.steps) {
+                  final statusSymbol = switch (step.status) {
+                    PlanStepStatus.completed => TerminalPrinter.green(
+                      '✔ [done]',
+                    ),
+                    PlanStepStatus.inProgress => TerminalPrinter.yellow(
+                      '⏳ [in_progress]',
+                    ),
+                    PlanStepStatus.cancelled => TerminalPrinter.dim(
+                      '🚫 [cancelled]',
+                    ),
+                    PlanStepStatus.pending => TerminalPrinter.dim(
+                      '◽ [pending]',
+                    ),
+                  };
+                  stdout.writeln('  $statusSymbol ${step.description}');
+                }
+                stdout.writeln('');
+                spinner.start('Thinking...');
+              case AgentContextCompressedEvent(
+                :final originalTokens,
+                :final compressedTokens,
+                :final compressedTurnCount,
+              ):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.cyan(
+                    '⚡ [Context Compressed] $originalTokens -> $compressedTokens tokens ($compressedTurnCount turns compressed into Episodic Memory)',
+                  ),
+                );
+                spinner.start('Thinking...');
+              case AgentMemoryRetrievedEvent(
+                :final archiveId,
+                :final recalledTurnCount,
+                :final query,
+              ):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.magenta(
+                    '🧠 [Episodic Memory] Recalled $recalledTurnCount historical turns (Archive: $archiveId${query != null && query.isNotEmpty ? ', Query: "$query"' : ''})',
+                  ),
+                );
+                spinner.start('Thinking...');
+              case AgentSubAgentStartedEvent(:final subAgentKey, :final task):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.cyan(
+                    '🤖 [Delegation] Spawning sub-agent "$subAgentKey"...',
+                  ),
+                );
+                stdout.writeln(TerminalPrinter.dim('   Task: $task'));
+                spinner.start('Sub-agent ($subAgentKey) running...');
+              case AgentSubAgentProgressEvent(
+                :final subAgentKey,
+                :final innerEvent,
+              ):
+                if (innerEvent is AgentToolResultEvent) {
+                  spinner.clear();
+                  stdout.write(TerminalPrinter.cyan('  [$subAgentKey] '));
+                  TerminalPrinter.printToolCall(
+                    toolName: innerEvent.toolName,
+                    argumentsJson: jsonEncode(innerEvent.parameters),
+                    result: innerEvent.result,
+                    compact: true,
+                  );
+                  spinner.start('Sub-agent ($subAgentKey) running...');
+                }
+              case AgentSubAgentCompletedEvent(:final subAgentKey, result: _):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.green(
+                    '✔ [Delegation] Sub-agent "$subAgentKey" finished task.',
+                  ),
+                );
+                spinner.start('Thinking...');
+              case AgentSkillsChangedEvent(:final activeSkills):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.dim(
+                    '🧩 [Dynamic Skills] Active skills: ${activeSkills.join(', ')}',
+                  ),
+                );
+                spinner.start('Thinking...');
+              case AgentWorkflowMemoryEvent(
+                :final operation,
+                :final key,
+                :final value,
+              ):
+                spinner.clear();
+                stdout.writeln(
+                  TerminalPrinter.cyan(
+                    '📝 [Workflow Memory] $operation "$key"${value != null ? ': $value' : ''}',
+                  ),
+                );
+                spinner.start('Thinking...');
+              case AgentTextChunkEvent():
+                spinner.clear();
+                break;
+            }
+          });
+
+          try {
+            await engine.run(
+              agent.key,
+              onToolApproval:
+                  ({
+                    required String toolName,
+                    required Map<String, dynamic> parameters,
+                    required ToolRiskLevel riskLevel,
+                  }) async {
+                    if (currentMode == CodingMode.architect) {
+                      final path =
+                          (parameters['path'] ??
+                                  parameters['filePath'] ??
+                                  parameters['file_path'])
+                              ?.toString() ??
+                          '';
+                      final isSourceCode =
+                          path.endsWith('.dart') ||
+                          path.endsWith('.c') ||
+                          path.endsWith('.cpp') ||
+                          path.endsWith('.h') ||
+                          path.endsWith('.py') ||
+                          path.endsWith('.js') ||
+                          path.endsWith('.ts') ||
+                          path.endsWith('.java') ||
+                          path.endsWith('.kt') ||
+                          path.endsWith('.go') ||
+                          path.endsWith('.rs') ||
+                          path.endsWith('.swift');
+                      if ((toolName == 'fs_replace_text' ||
+                              toolName == 'fs_write_file' ||
+                              toolName == 'file_edit' ||
+                              toolName == 'edit_file') &&
+                          isSourceCode) {
+                        spinner.clear();
+                        stdout.writeln('');
+                        stdout.writeln(
+                          TerminalPrinter.red(
+                            '⛔ Tool Blocked in ARCHITECT / PLAN mode:',
+                          ),
+                        );
+                        stdout.writeln(
+                          '  • Tool: $toolName on source code file: $path',
+                        );
+                        stdout.writeln(
+                          '  • Architect mode is strictly for exploration and planning (tasks.md, implementation_plan.md, etc.).',
+                        );
+                        stdout.writeln(
+                          '  • Switch to /code mode when ready to implement code changes.',
+                        );
+                        stdout.writeln('');
+                        return false;
+                      }
+                    }
+
+                    final autoApproved = switch (riskLevel) {
+                      ToolRiskLevel.read => permissions.autoApproveRead,
+                      ToolRiskLevel.write => permissions.autoApproveWrite,
+                      ToolRiskLevel.execute => permissions.autoApproveExecute,
+                      ToolRiskLevel.network => permissions.autoApproveNetwork,
+                    };
+
+                    if (autoApproved) {
+                      spinner.update('Executing tool $toolName...');
+                      return true;
+                    }
+
+                    spinner.clear();
+
+                    // Interactive prompt for user approval
+                    stdout.writeln('');
+                    stdout.writeln(
+                      TerminalPrinter.yellow('⚠️  Tool Approval Requested:'),
+                    );
+                    stdout.writeln(
+                      '  • Tool   : ${TerminalPrinter.cyan(toolName)} ($riskLevel)',
+                    );
+                    stdout.writeln('  • Args   : ${jsonEncode(parameters)}');
+                    stdout.write(
+                      TerminalPrinter.bold(
+                        'Approve execution? [y/n/always/deny-all] > ',
+                      ),
+                    );
+
+                    final response = stdin.readLineSync()?.trim().toLowerCase();
+                    if (response == 'a' || response == 'always') {
+                      switch (riskLevel) {
+                        case ToolRiskLevel.read:
+                          permissions.autoApproveRead = true;
+                        case ToolRiskLevel.write:
+                          permissions.autoApproveWrite = true;
+                        case ToolRiskLevel.execute:
+                          permissions.autoApproveExecute = true;
+                        case ToolRiskLevel.network:
+                          permissions.autoApproveNetwork = true;
+                      }
+                      permissions.save();
+                      stdout.writeln(
+                        TerminalPrinter.green(
+                          'Approved and saved auto-approval for ${riskLevel.name} tools.',
+                        ),
+                      );
+                      spinner.start('Executing tool $toolName...');
+                      return true;
+                    } else if (response == 'd' || response == 'deny-all') {
+                      permissions.autoApproveRead = false;
+                      permissions.autoApproveWrite = false;
+                      permissions.autoApproveExecute = false;
+                      permissions.autoApproveNetwork = false;
+                      permissions.save();
+                      stdout.writeln(
+                        TerminalPrinter.red(
+                          'Denied and disabled auto-approval for all tools.',
+                        ),
+                      );
+                      return false;
+                    }
+
+                    final approved =
+                        response == 'y' || response == 'yes' || response == '';
+                    if (!approved) {
+                      stdout.writeln(
+                        TerminalPrinter.red('Tool execution rejected by user.'),
+                      );
+                    } else {
+                      spinner.start('Executing tool $toolName...');
+                    }
+                    return approved;
+                  },
+            );
+            turnSuccess = true;
+          } catch (e, stack) {
+            spinner.stop();
+            stderr.writeln('');
+            stderr.writeln(
+              TerminalPrinter.red('❌ Execution Error during turn:'),
+            );
+            stderr.writeln(TerminalPrinter.yellow('   $e'));
+            if (e.toString().contains('400') ||
+                e.toString().contains('context_length') ||
+                e.toString().contains('max_tokens')) {
+              stderr.writeln(
+                TerminalPrinter.dim(
+                  '   Tip: The model returned a request error. Check max_tokens or use /clear-session to reset history.',
+                ),
+              );
+            }
+            if (verbose) {
+              stderr.writeln(TerminalPrinter.dim('\nStacktrace:\n$stack'));
+            } else {
+              stderr.writeln(
+                TerminalPrinter.dim(
+                  '   (Run with --verbose for complete debug logs)',
+                ),
+              );
+            }
+          } finally {
+            spinner.stop();
+            await Future.delayed(const Duration(milliseconds: 50));
+            await subscription.cancel();
+          }
+        } finally {
+          isTurnActive = false;
+          activeEngine = null;
+          await engine.dispose();
+        }
+
+        if (turnSuccess) {
+          if (history.isEmpty) {
+            history.add(
+              ChatMessage(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                content: input,
+                role: ChatRole.user,
+                timestamp: DateTime.now(),
+              ),
+            );
+            if (lastAssistantResponse.isNotEmpty) {
+              history.add(
+                ChatMessage(
+                  id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
+                  content: lastAssistantResponse,
+                  role: ChatRole.assistant,
+                  timestamp: DateTime.now(),
+                ),
+              );
+            }
+          }
+
+          pendingAttachments.clear();
+
+          // Auto-save session if path is configured
+          if (autoSavePath != null) {
+            try {
+              final session = SessionData(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                title: 'TealKit Coding Session',
+                mode: currentMode.name,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+                llmName: activeLlmName,
+                llmProvider: activeLlmConfig.provider.displayName,
+                llmModel: activeLlmConfig.model,
+                messages: history,
+              );
+              await SessionManager.saveSession(session, autoSavePath);
+            } catch (_) {}
+          }
         }
       }
+    } finally {
+      try {
+        await sigintSub?.cancel();
+      } catch (_) {}
     }
-  } finally {
-    try {
-      await sigintSub?.cancel();
-    } catch (_) {}
-  }
 
     try {
       await mcpManager.disconnectAll();
@@ -2243,11 +2591,11 @@ Commands:
     final os = Platform.operatingSystem;
     final osEnv = isWin
         ? 'HOST ENVIRONMENT: Windows (${Platform.operatingSystemVersion})\n'
-          '- Shell commands run under Windows (cmd.exe / PowerShell).\n'
-          '- NEVER execute Linux/POSIX-specific utilities such as `head`, `tail`, `cat`, `grep`, `ls`, `export`, or bash pipe filters.\n'
-          '- Always use native tool arguments (e.g. `git log -n 20` or `git status --short`) or built-in file tools (`fs_read_file`, `fs_find`).'
+              '- Shell commands run under Windows (cmd.exe / PowerShell).\n'
+              '- NEVER execute Linux/POSIX-specific utilities such as `head`, `tail`, `cat`, `grep`, `ls`, `export`, or bash pipe filters.\n'
+              '- Always use native tool arguments (e.g. `git log -n 20` or `git status --short`) or built-in file tools (`fs_read_file`, `fs_find`).'
         : 'HOST ENVIRONMENT: $os (${Platform.operatingSystemVersion})\n'
-          '- Shell commands run under POSIX shell (/bin/sh).';
+              '- Shell commands run under POSIX shell (/bin/sh).';
 
     buffer.writeln('''
 You are an expert autonomous software engineer and coding assistant inside the TealKit CLI environment.

@@ -171,7 +171,7 @@
   "overrideDefaultLlmSubtitle": "Use a specific model/provider for this task",
   "provider": "Provider",
   "model": "Model",
-  "modelHint": "e.g. gpt-4o, gemini-2.5-flash",
+  "modelHint": "e.g. gpt-5, gemini-3.8-flash, claude-sonnet-4.5",
   "apiKey": "API Key",
   "apiKeyHint": "sk-...",
   "apiKeyNotSet": "Not set",
@@ -789,7 +789,7 @@
   "llmClearSettingsMessage": "This will remove all stored LLM credentials and configuration. Are you sure?",
   "llmProviderLabel": "Provider",
   "llmModelLabel": "Model",
-  "llmModelHint": "e.g. gemini-2.5-flash",
+  "llmModelHint": "e.g. gemini-3.8-flash, claude-sonnet-4.5",
   "llmModelRequired": "Model name is required",
   "llmApiKeyLabel": "API Key",
   "llmApiKeyRequired": "API key is required for this provider",
@@ -1735,5 +1735,205 @@
         "type": "String"
       }
     }
-  }
+  },
+  "codingAgentModeDisabled": "Coding Agent Mode disabled.",
+  "@codingAgentModeDisabled": {},
+  "codingAgentModeActivated": "Coding Agent Mode activated with workspace tools.",
+  "@codingAgentModeActivated": {},
+  "activateCodingAgent": "Activate Coding Agent",
+  "@activateCodingAgent": {},
+  "activateCodingAgentMode": "Activate Coding Agent Mode",
+  "@activateCodingAgentMode": {},
+  "disableCodingAgentMode": "Disable Coding Agent Mode",
+  "@disableCodingAgentMode": {},
+  "codingAgentModeActiveTooltip": "Coding Agent Mode Active (Click to Disable)",
+  "@codingAgentModeActiveTooltip": {},
+  "codingAgentDescription": "Enables the full 10-tool autonomous filesystem and terminal execution suite with safe multi-step planning.",
+  "@codingAgentDescription": {},
+  "activeWorkspaceDirectory": "Active Workspace Directory:",
+  "@activeWorkspaceDirectory": {},
+  "change": "Change",
+  "@change": {},
+  "back": "Back",
+  "@back": {},
+  "loadSavedWorkflow": "Load Saved Workflow",
+  "@loadSavedWorkflow": {},
+  "saveCurrentAsWorkflow": "Save Current as Workflow",
+  "@saveCurrentAsWorkflow": {},
+  "noSavedWorkflowsRemote": "No saved workflows found on remote server.",
+  "@noSavedWorkflowsRemote": {},
+  "noSavedWorkflowsLocal": "No saved workflows found in local database.",
+  "@noSavedWorkflowsLocal": {},
+  "loadedWorkflow": "Loaded workflow: \"{name}\"",
+  "@loadedWorkflow": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "saveWorkflowRemoteDesc": "Saves current system prompt, active tools, and setup to remote server via REST API.",
+  "@saveWorkflowRemoteDesc": {},
+  "saveWorkflowLocalDesc": "Saves current system prompt, active tools, and initial setup to TealKit's local database.",
+  "@saveWorkflowLocalDesc": {},
+  "saveToServer": "Save to Server",
+  "@saveToServer": {},
+  "saveToDatabase": "Save to Database",
+  "@saveToDatabase": {},
+  "workflowSavedRemote": "Workflow \"{name}\" saved to remote server via REST API.",
+  "@workflowSavedRemote": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowSavedLocal": "Workflow \"{name}\" saved to local database.",
+  "@workflowSavedLocal": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "appliedSkill": "Applied Skill: \"{name}\"",
+  "@appliedSkill": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "skillsManager": "Skills Manager",
+  "@skillsManager": {},
+  "serverBadge": "Server",
+  "@serverBadge": {},
+  "localBadge": "Local",
+  "@localBadge": {},
+  "toggleTealKitMenu": "Toggle TealKit Menu",
+  "@toggleTealKitMenu": {},
+  "workflowName": "Workflow Name",
+  "@workflowName": {},
+  "turnsAndTools": "Turns: ∞  •  Tools: {count}",
+  "@turnsAndTools": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "loadWorkflow": "Load Workflow",
+  "@loadWorkflow": {},
+  "toolPermissionsHitl": "Tool Permissions (Human-in-the-Loop)",
+  "@toolPermissionsHitl": {},
+  "toolPermissionsHitlDesc": "When auto-approval is disabled, TealKit prompts you with interactive Accept / Denied buttons (matching Cline / Roo Code):",
+  "@toolPermissionsHitlDesc": {},
+  "autoApproveReadTools": "Auto-Approve Read Tools (view_file, grep, list_dir)",
+  "@autoApproveReadTools": {},
+  "autoApproveWriteTools": "Auto-Approve Write Tools (create file, edit code)",
+  "@autoApproveWriteTools": {},
+  "autoApproveExecutionTools": "Auto-Approve Execution Tools (terminal commands)",
+  "@autoApproveExecutionTools": {},
+  "autoApproveNetworkTools": "Auto-Approve Network Tools (web search, URL fetch)",
+  "@autoApproveNetworkTools": {},
+  "operationMode": "Operation Mode",
+  "@operationMode": {},
+  "agentMode": "Agent Mode",
+  "@agentMode": {},
+  "directChat": "Direct Chat",
+  "@directChat": {},
+  "agentModeDesc": "Equipped with autonomous tools, memory, and persona guidelines.",
+  "@agentModeDesc": {},
+  "directChatDesc": "Direct LLM conversation without tools or system prompt (fastest for simple queries).",
+  "@directChatDesc": {},
+  "toolsBypassedInDirectChat": "Tools are bypassed while Direct Chat Mode is active.",
+  "@toolsBypassedInDirectChat": {},
+  "maxPagesToBeIndexed": "Max pages to be indexed",
+  "@maxPagesToBeIndexed": {},
+  "maxPagesCrawledHelper": "Max pages crawled per website (1 - 1000)",
+  "@maxPagesCrawledHelper": {},
+  "resetToDefaultCount": "Reset to default ({count})",
+  "@resetToDefaultCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "saveAndApplyAgentSettings": "Save & Apply Agent Settings",
+  "@saveAndApplyAgentSettings": {},
+  "agentSettingsApplied": "Agent settings applied.",
+  "@agentSettingsApplied": {},
+  "systemPromptPersona": "System Prompt / Persona",
+  "@systemPromptPersona": {},
+  "assistantSystemPromptHint": "Enter instructions, persona details, or operational guidelines for the agent...",
+  "@assistantSystemPromptHint": {},
+  "quickPersonaTemplates": "Quick Persona Templates:",
+  "@quickPersonaTemplates": {},
+  "configuredSubAgents": "Configured Sub-Agents ({count})",
+  "@configuredSubAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addSubAgent": "Add Sub-Agent",
+  "@addSubAgent": {},
+  "quickAdd": "Quick Add:",
+  "@quickAdd": {},
+  "autonomousTaskDelegation": "Autonomous Task Delegation",
+  "@autonomousTaskDelegation": {},
+  "autonomousTaskDelegationDesc": "Allows this agent to invoke `delegate_task` to dispatch isolated sub-tasks to clones or specialized sub-agents.",
+  "@autonomousTaskDelegationDesc": {},
+  "sharedWorkflowMemoryScope": "Shared Workflow Memory Scope",
+  "@sharedWorkflowMemoryScope": {},
+  "workflowShared": "Workflow Shared",
+  "@workflowShared": {},
+  "isolatedPerSubAgent": "Isolated Per Sub-Agent",
+  "@isolatedPerSubAgent": {},
+  "episodicMemoryArchive": "Episodic Memory Archive",
+  "@episodicMemoryArchive": {},
+  "episodicMemoryArchiveDesc": "Persists past turns into a searchable long-term archive for retrieval via `retrieve_memory`.",
+  "@episodicMemoryArchiveDesc": {},
+  "configureSubAgent": "Configure Sub-Agent",
+  "@configureSubAgent": {},
+  "assigneeKey": "Assignee Key *",
+  "@assigneeKey": {},
+  "displayNameLabel": "Display Name *",
+  "@displayNameLabel": {},
+  "modelAssignment": "Model Assignment (Heterogeneous Model)",
+  "@modelAssignment": {},
+  "inheritParentModel": "Inherit Parent Model",
+  "@inheritParentModel": {},
+  "specificProfile": "Specific Profile",
+  "@specificProfile": {},
+  "roleSystemPrompt": "Role System Prompt (Optional)",
+  "@roleSystemPrompt": {},
+  "toolGuidance": "Tool Guidance (Optional)",
+  "@toolGuidance": {},
+  "maxTurnsParam": "Max Turns: {count}",
+  "@maxTurnsParam": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "maxToolCallsParam": "Max Tool Calls/Turn: {count}",
+  "@maxToolCallsParam": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "saveChanges": "Save Changes",
+  "@saveChanges": {},
+  "keyIsRequired": "Key is required",
+  "@keyIsRequired": {},
+  "keyMustBeUnique": "Key must be unique",
+  "@keyMustBeUnique": {},
+  "nameIsRequired": "Name is required",
+  "@nameIsRequired": {}
 }

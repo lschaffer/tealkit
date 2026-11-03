@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -245,15 +246,13 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
         allowedExtensions: ['zip', 'md'],
         dialogTitle: 'Import Skill',
       );
-      if (picked == null || picked.files.isEmpty) return;
+      if (picked.isEmpty) return;
 
-      final file = picked.files.first;
+      final file = picked.first;
       final List<int> bytes;
-      if (file.bytes != null) {
-        bytes = file.bytes!;
-      } else if (file.path != null) {
-        bytes = await File(file.path!).readAsBytes();
-      } else {
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {
         throw Exception('Could not read file.');
       }
 
@@ -317,90 +316,114 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
       },
     };
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
+      useSafeArea: !isMobile,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          title: const Text('Import Skill'),
-          content: SizedBox(
-            width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: urlCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'https://raw.githubusercontent.com/.../skill.md',
-                    labelText: 'Import from URL',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    prefixIcon: Icon(Icons.link),
-                  ),
-                  onChanged: (_) => setD(() {}),
+        builder: (ctx, setD) {
+          final content = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'https://raw.githubusercontent.com/.../skill.md',
+                  labelText: 'Import from URL',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  prefixIcon: Icon(Icons.link),
                 ),
-                const SizedBox(height: 4),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.tonalIcon(
-                    onPressed: urlCtrl.text.trim().isEmpty
-                        ? null
-                        : () =>
-                              Navigator.pop(ctx, {'url': urlCtrl.text.trim()}),
-                    icon: const Icon(Icons.download, size: 16),
-                    label: const Text('Fetch URL'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      minimumSize: Size.zero,
+                onChanged: (_) => setD(() {}),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonalIcon(
+                  onPressed: urlCtrl.text.trim().isEmpty
+                      ? null
+                      : () =>
+                            Navigator.pop(ctx, {'url': urlCtrl.text.trim()}),
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('Fetch URL'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
+                    minimumSize: Size.zero,
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 8),
-                const Text(
-                  'Gallery',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                ...galleryItems.entries.map(
-                  (e) => ListTile(
-                    dense: true,
-                    leading: const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.amber,
-                      size: 20,
-                    ),
-                    title: Text(
-                      e.key,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      e.value['desc']!,
-                      style: const TextStyle(fontSize: 11),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.download, size: 18),
-                    onTap: () => Navigator.pop(ctx, {'file': e.value['file']!}),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Gallery',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              ...galleryItems.entries.map(
+                (e) => ListTile(
+                  dense: true,
+                  leading: const Icon(
+                    Icons.auto_awesome,
+                    color: Colors.amber,
+                    size: 20,
                   ),
+                  title: Text(
+                    e.key,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    e.value['desc']!,
+                    style: const TextStyle(fontSize: 11),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.download, size: 18),
+                  onTap: () => Navigator.pop(ctx, {'file': e.value['file']!}),
                 ),
-              ],
+              ),
+            ],
+          );
+
+          if (isMobile) {
+            return Dialog.fullscreen(
+              child: Scaffold(
+                appBar: AppBar(
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                  title: const Text('Import Skill'),
+                ),
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: content,
+                ),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('Import Skill'),
+            content: SizedBox(
+              width: 450,
+              child: content,
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
@@ -475,22 +498,16 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
 
   Future<void> _exportSkill(SkillDef skill) async {
     final safeName = skill.name.replaceAll(RegExp(r'[^a-zA-Z0-9_\- ]'), '_');
-    final bytes = utf8.encode(skill.skillDef);
-    final outputPath = await FilePicker.saveFile(
+    final bytes = Uint8List.fromList(utf8.encode(skill.skillDef));
+    final uri = await FilePicker.saveFile(
       dialogTitle: 'Export Skill',
       fileName: '$safeName.md',
       bytes: bytes,
-      type: FileType.custom,
-      allowedExtensions: ['md'],
     );
-    if (outputPath == null) return;
+    if (uri == null) return;
+    final outputPath = uri.toFilePath();
 
     try {
-      // On desktop (non-mobile), write the file ourselves.
-      // On mobile, FilePicker already wrote the bytes.
-      if (outputPath.isNotEmpty) {
-        await File(outputPath).writeAsString(skill.skillDef);
-      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

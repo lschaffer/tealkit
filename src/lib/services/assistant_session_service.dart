@@ -104,13 +104,12 @@ class AssistantSessionService {
           : 'session_$ts.json';
 
       if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-        filePath = await FilePicker.saveFile(
+        final uri = await FilePicker.saveFile(
           dialogTitle: 'Save Assistant Session',
           fileName: defaultName,
-          type: FileType.custom,
-          allowedExtensions: ['json', 'md'],
           bytes: Uint8List.fromList(bytes),
         );
+        filePath = uri?.toFilePath();
       } else {
         // Mobile fallback
         final docs = await getApplicationDocumentsDirectory();
@@ -142,17 +141,21 @@ class AssistantSessionService {
         dialogTitle: 'Load Assistant Session',
         type: FileType.custom,
         allowedExtensions: ['json', 'md'],
-        allowMultiple: false,
       );
-      if (res == null || res.files.isEmpty) return null;
-      path = res.files.first.path;
-      if (path == null && res.files.first.bytes != null) {
-        final content = utf8.decode(res.files.first.bytes!);
-        return _parseContent(content, fileName: res.files.first.name);
+      if (res.isEmpty) return null;
+      final picked = res.first;
+      path = picked.path;
+      if (path == null) {
+        try {
+          final bytes = await picked.readAsBytes();
+          final content = utf8.decode(bytes);
+          return _parseContent(content, fileName: picked.name);
+        } catch (_) {
+          return null;
+        }
       }
     }
 
-    if (path == null) return null;
     final file = File(p.normalize(path));
     if (!file.existsSync()) {
       throw FileSystemException('Session file not found', path);

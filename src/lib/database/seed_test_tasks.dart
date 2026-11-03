@@ -23,7 +23,7 @@ class TestTaskSeeder {
 
   /// Create a "Get Weather in Current Location" test task with:
   ///   - Internal Weather MCP (location: current)
-  ///   - Gemini LLM (gemini-2.5-flash)
+  ///   - Gemini LLM (gemini-3.8-flash)
   ///   - File output notification
   Future<bool> seedTestWeatherTask() async {
     try {
@@ -58,10 +58,10 @@ class TestTaskSeeder {
           executeImmediately: true,
         ),
 
-        // ── LLM: Gemini 2.5 Flash ──
+        // ── LLM: Gemini 3.8 Flash ──
         llmConfig: const TaskLlmConfig(
           provider: 'gemini',
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           apiKey: '',
           temperature: 0.2,
           maxTokens: 8192,

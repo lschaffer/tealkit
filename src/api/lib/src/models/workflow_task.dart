@@ -98,6 +98,12 @@ class WorkflowTask {
   List<Agent> get executors => agents;
   List<Edge> get routingRules => edges;
 
+  // ── Sub-Agents & Shared Memory ──
+  final bool enableDelegation;
+  final List<SubAgentConfig> subAgents;
+  final bool enableEpisodicMemory;
+  final String memoryScope;
+
   WorkflowTask({
     required this.id,
     required this.name,
@@ -123,6 +129,10 @@ class WorkflowTask {
     List<Agent>? executors,
     List<Edge> edges = const [],
     List<Edge>? routingRules,
+    this.enableDelegation = false,
+    this.subAgents = const [],
+    this.enableEpisodicMemory = false,
+    this.memoryScope = 'workflow_shared',
   }) : agents = executors ?? agents,
        edges = routingRules ?? edges,
        createdAt = createdAt ?? DateTime.now(),
@@ -155,6 +165,10 @@ class WorkflowTask {
     List<Agent>? executors,
     List<Edge>? edges,
     List<Edge>? routingRules,
+    bool? enableDelegation,
+    List<SubAgentConfig>? subAgents,
+    bool? enableEpisodicMemory,
+    String? memoryScope,
   }) {
     return WorkflowTask(
       id: id ?? this.id,
@@ -179,6 +193,10 @@ class WorkflowTask {
       updatedAt: DateTime.now(),
       agents: executors ?? agents ?? this.agents,
       edges: routingRules ?? edges ?? this.edges,
+      enableDelegation: enableDelegation ?? this.enableDelegation,
+      subAgents: subAgents ?? this.subAgents,
+      enableEpisodicMemory: enableEpisodicMemory ?? this.enableEpisodicMemory,
+      memoryScope: memoryScope ?? this.memoryScope,
     );
   }
 
@@ -205,9 +223,21 @@ class WorkflowTask {
     'updated_at': updatedAt.toIso8601String(),
     'agents': agents.map((e) => e.toJson()).toList(),
     'edges': edges.map((r) => r.toJson()).toList(),
+    'enable_delegation': enableDelegation,
+    'sub_agents': subAgents.map((s) => s.toJson()).toList(),
+    'enable_episodic_memory': enableEpisodicMemory,
+    'memory_scope': memoryScope,
   };
 
   factory WorkflowTask.fromJson(Map<String, dynamic> json) {
+    final bool enableDelegation = json['enable_delegation'] as bool? ?? false;
+    final List<SubAgentConfig> subAgents = (json['sub_agents'] as List<dynamic>?)
+            ?.map((e) => SubAgentConfig.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [];
+    final bool enableEpisodicMemory = json['enable_episodic_memory'] as bool? ?? false;
+    final String memoryScope = json['memory_scope'] as String? ?? 'workflow_shared';
+
     var rawExecutors = (json['agents'] ?? json['executors']) as List<dynamic>?;
     List<Agent> parsedExecutors = [];
     if (rawExecutors != null) {
@@ -252,6 +282,10 @@ class WorkflowTask {
           chatMode: json['chat_mode'] as bool? ?? false,
           stopAfterToolCall: json['stop_after_tool_call'] as bool? ?? false,
           notification: legacyNotification,
+          enableDelegation: enableDelegation,
+          subAgents: subAgents,
+          enableEpisodicMemory: enableEpisodicMemory,
+          memoryScope: memoryScope,
         ),
       ];
     }
@@ -311,6 +345,10 @@ class WorkflowTask {
       updatedAt: DateTime.parse(json['updated_at'] as String),
       agents: parsedExecutors,
       edges: parsedRouting,
+      enableDelegation: enableDelegation,
+      subAgents: subAgents,
+      enableEpisodicMemory: enableEpisodicMemory,
+      memoryScope: memoryScope,
     );
   }
 
@@ -1578,6 +1616,110 @@ class TaskChainConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SUB-AGENT CONFIGURATION
+// ═══════════════════════════════════════════════════════════════
+
+/// Configuration for an autonomous sub-agent delegated by a parent agent.
+class SubAgentConfig {
+  final String id;
+  final String key;                  // e.g. "clone", "code_reviewer"
+  final String name;                 // e.g. "Code Auditor"
+  final String? systemPrompt;        // Specialized instructions
+  final String? modelProfileId;      // null = inherit parent profile
+  final String? provider;            // e.g. "openaiCompatible", "ollama", "foundry"
+  final String? model;               // e.g. "qwen3-coder-32b"
+  final List<String>? toolWhitelist; // null = inherit all parent tools
+  final int maxTurns;                // default: 5
+  final int maxToolCallsPerTurn;     // default: 3
+  final String? toolGuide;           // special hints for using tools
+  final bool enableMemoryAccess;     // access to workflow shared memory
+
+  const SubAgentConfig({
+    required this.id,
+    required this.key,
+    required this.name,
+    this.systemPrompt,
+    this.modelProfileId,
+    this.provider,
+    this.model,
+    this.toolWhitelist,
+    this.maxTurns = 5,
+    this.maxToolCallsPerTurn = 3,
+    this.toolGuide,
+    this.enableMemoryAccess = true,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'key': key,
+    'name': name,
+    if (systemPrompt != null) 'system_prompt': systemPrompt,
+    if (modelProfileId != null) 'model_profile_id': modelProfileId,
+    if (provider != null) 'provider': provider,
+    if (model != null) 'model': model,
+    if (toolWhitelist != null) 'tool_whitelist': toolWhitelist,
+    'max_turns': maxTurns,
+    'max_tool_calls_per_turn': maxToolCallsPerTurn,
+    if (toolGuide != null) 'tool_guide': toolGuide,
+    'enable_memory_access': enableMemoryAccess,
+  };
+
+  factory SubAgentConfig.fromJson(Map<String, dynamic> json) => SubAgentConfig(
+    id: json['id'] as String? ?? const Uuid().v4(),
+    key: json['key'] as String? ?? 'clone',
+    name: json['name'] as String? ?? 'Clone',
+    systemPrompt: json['system_prompt'] as String?,
+    modelProfileId: json['model_profile_id'] as String?,
+    provider: json['provider'] as String?,
+    model: json['model'] as String?,
+    toolWhitelist: (json['tool_whitelist'] as List<dynamic>?)?.cast<String>(),
+    maxTurns: (json['max_turns'] as num?)?.toInt() ?? 5,
+    maxToolCallsPerTurn: (json['max_tool_calls_per_turn'] as num?)?.toInt() ?? 3,
+    toolGuide: json['tool_guide'] as String?,
+    enableMemoryAccess: json['enable_memory_access'] as bool? ?? true,
+  );
+
+  SubAgentConfig copyWith({
+    String? id,
+    String? key,
+    String? name,
+    String? systemPrompt,
+    bool clearSystemPrompt = false,
+    String? modelProfileId,
+    bool clearModelProfileId = false,
+    String? provider,
+    bool clearProvider = false,
+    String? model,
+    bool clearModel = false,
+    List<String>? toolWhitelist,
+    bool clearToolWhitelist = false,
+    int? maxTurns,
+    int? maxToolCallsPerTurn,
+    String? toolGuide,
+    bool clearToolGuide = false,
+    bool? enableMemoryAccess,
+  }) {
+    return SubAgentConfig(
+      id: id ?? this.id,
+      key: key ?? this.key,
+      name: name ?? this.name,
+      systemPrompt: clearSystemPrompt ? null : (systemPrompt ?? this.systemPrompt),
+      modelProfileId: clearModelProfileId ? null : (modelProfileId ?? this.modelProfileId),
+      provider: clearProvider ? null : (provider ?? this.provider),
+      model: clearModel ? null : (model ?? this.model),
+      toolWhitelist: clearToolWhitelist ? null : (toolWhitelist ?? this.toolWhitelist),
+      maxTurns: maxTurns ?? this.maxTurns,
+      maxToolCallsPerTurn: maxToolCallsPerTurn ?? this.maxToolCallsPerTurn,
+      toolGuide: clearToolGuide ? null : (toolGuide ?? this.toolGuide),
+      enableMemoryAccess: enableMemoryAccess ?? this.enableMemoryAccess,
+    );
+  }
+
+  @override
+  String toString() => 'SubAgentConfig($key, name: $name, model: $model)';
+}
+
+// ═══════════════════════════════════════════════════════════════
 // EXECUTOR & ROUTING ENGINE
 // ═══════════════════════════════════════════════════════════════
 
@@ -1597,6 +1739,14 @@ class Agent {
   final DateTime? nextRun;
   final String? skillDefId;
 
+  // ── Delegation & Sub-Agents ──
+  final bool enableDelegation;
+  final List<SubAgentConfig> subAgents;
+
+  // ── Shared / Episodic Memory ──
+  final bool enableEpisodicMemory;
+  final String memoryScope;
+
   const Agent({
     required this.id,
     required this.name,
@@ -1612,6 +1762,10 @@ class Agent {
     this.lastRun,
     this.nextRun,
     this.skillDefId,
+    this.enableDelegation = false,
+    this.subAgents = const [],
+    this.enableEpisodicMemory = false,
+    this.memoryScope = 'workflow_shared',
   });
 
   Map<String, dynamic> toJson() => {
@@ -1629,6 +1783,10 @@ class Agent {
     if (lastRun != null) 'last_run': lastRun!.toUtc().toIso8601String(),
     if (nextRun != null) 'next_run': nextRun!.toUtc().toIso8601String(),
     if (skillDefId != null) 'skill_def_id': skillDefId,
+    'enable_delegation': enableDelegation,
+    'sub_agents': subAgents.map((s) => s.toJson()).toList(),
+    'enable_episodic_memory': enableEpisodicMemory,
+    'memory_scope': memoryScope,
   };
 
   factory Agent.fromJson(Map<String, dynamic> json) => Agent(
@@ -1666,6 +1824,13 @@ class Agent {
         ? DateTime.parse(json['next_run'] as String).toLocal()
         : null,
     skillDefId: json['skill_def_id'] as String?,
+    enableDelegation: json['enable_delegation'] as bool? ?? false,
+    subAgents: (json['sub_agents'] as List<dynamic>?)
+            ?.map((e) => SubAgentConfig.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [],
+    enableEpisodicMemory: json['enable_episodic_memory'] as bool? ?? false,
+    memoryScope: json['memory_scope'] as String? ?? 'workflow_shared',
   );
 
   Agent copyWith({
@@ -1685,6 +1850,10 @@ class Agent {
     DateTime? nextRun,
     String? skillDefId,
     bool clearSkillDefId = false,
+    bool? enableDelegation,
+    List<SubAgentConfig>? subAgents,
+    bool? enableEpisodicMemory,
+    String? memoryScope,
   }) {
     return Agent(
       id: id,
@@ -1703,6 +1872,10 @@ class Agent {
       lastRun: lastRun ?? this.lastRun,
       nextRun: nextRun ?? this.nextRun,
       skillDefId: clearSkillDefId ? null : (skillDefId ?? this.skillDefId),
+      enableDelegation: enableDelegation ?? this.enableDelegation,
+      subAgents: subAgents ?? this.subAgents,
+      enableEpisodicMemory: enableEpisodicMemory ?? this.enableEpisodicMemory,
+      memoryScope: memoryScope ?? this.memoryScope,
     );
   }
 }

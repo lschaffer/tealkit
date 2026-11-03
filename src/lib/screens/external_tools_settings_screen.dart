@@ -920,11 +920,11 @@ class _McpToolsViewerScreenState extends ConsumerState<_McpToolsViewerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Generated ${generated.length} skill${generated.length == 1 ? '' : 's'}')));
+        ).showSnackBar(SnackBar(content: Text('Generated ${generated.length} function hint${generated.length == 1 ? '' : 's'}')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Skill generation failed: $e'), backgroundColor: AppTheme.error));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Function hint generation failed: $e'), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) Navigator.of(context).pop();
@@ -1171,7 +1171,7 @@ class _McpToolsViewerScreenState extends ConsumerState<_McpToolsViewerScreen> {
               children: [
                 Icon(Icons.psychology_outlined, size: 16),
                 SizedBox(width: 4),
-                Text('Skill:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text('Function Hint:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               ],
             ),
             const SizedBox(height: 4),

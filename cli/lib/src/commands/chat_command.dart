@@ -15,6 +15,7 @@ import '../engine/embedded/cli_embedded_model_manager.dart';
 import '../engine/mcp_manager_helper.dart';
 import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
+import '../engine/subagent_helper.dart';
 import '../engine/token_usage_tracker.dart';
 import '../formatters/terminal_printer.dart';
 import '../formatters/terminal_spinner.dart';
@@ -164,7 +165,7 @@ Commands:
       if (!isDownloaded) {
         stdout.writeln(
           TerminalPrinter.yellow(
-            '⬇ Embedded model "$filename" not found locally in ~/.tealkit/models/.',
+            '⬇ Embedded model "$filename" not found locally in ~/.tealkitcoder/models/.',
           ),
         );
         stdout.writeln(
@@ -234,6 +235,7 @@ Commands:
 
     final conversation = <ChatMessage>[];
     final usageTracker = TokenUsageTracker();
+    final episodicMemoryStore = EpisodicMemoryStore();
 
     if (loadSessionPath != null) {
       try {
@@ -1403,6 +1405,16 @@ Commands:
           provider: activeLlmConfig.provider,
         );
 
+        final subAgents = SubAgentHelper.buildSubAgents(
+          allProfiles: allProfiles,
+          activeProfileName: activeLlmName,
+          configuredSubagents: cliConfig.subagents,
+          availableTools: dartTools,
+          localServers: localServers.where((s) => s.isLocal).toList(),
+          remoteServers: localServers.where((s) => !s.isLocal).toList(),
+        );
+        final subAgentKeys = subAgents.map((a) => a.key).toList();
+
         final agent = Agent(
           key: 'chat_agent',
           name: 'Chat Agent',
@@ -1410,20 +1422,24 @@ Commands:
           systemPrompt: systemPrompt,
           enablePlanning: cliConfig.enablePlanning,
           progressiveMcpDiscovery: isProgressiveActive,
+          enableDelegation: true,
+          subAgentKeys: subAgentKeys,
           contextCompressor: ContextCompressor(
             tokenThreshold: cliConfig.contextCompressionThreshold,
+            memoryStore: episodicMemoryStore,
           ),
           prompts: messageAttachments.isNotEmpty
               ? [const SubPromptStep(text: '')]
               : [SubPromptStep(text: effectivePromptText)],
           dartTools: dartTools,
-          localServers: [],
+          localServers: localServers.where((s) => s.isLocal).toList(),
+          remoteServers: localServers.where((s) => !s.isLocal).toList(),
           initialMessages: initialTurnMessages,
           maxToolIterations: cliMaxToolIterations,
         );
 
         final engine = McpAgentEngine();
-        engine.setAgents([agent]);
+        engine.setAgents([agent, ...subAgents]);
 
         bool turnSuccess = false;
         String lastAssistantResponse = '';
@@ -1499,7 +1515,44 @@ Commands:
               ):
                 spinner.clear();
                 stdout.writeln(TerminalPrinter.cyan(
-                  '⚡ [Context Compressed] $originalTokens -> $compressedTokens tokens ($compressedTurnCount turns compressed)',
+                  '⚡ [Context Compressed] $originalTokens -> $compressedTokens tokens ($compressedTurnCount turns compressed into Episodic Memory)',
+                ));
+                spinner.start('Thinking...');
+              case AgentMemoryRetrievedEvent(:final archiveId, :final recalledTurnCount, :final query):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.magenta(
+                  '🧠 [Episodic Memory] Recalled $recalledTurnCount historical turns (Archive: $archiveId${query != null && query.isNotEmpty ? ', Query: "$query"' : ''})',
+                ));
+                spinner.start('Thinking...');
+              case AgentSubAgentStartedEvent(:final subAgentKey, :final task):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.cyan('🤖 [Delegation] Spawning sub-agent "$subAgentKey"...'));
+                stdout.writeln(TerminalPrinter.dim('   Task: $task'));
+                spinner.start('Sub-agent ($subAgentKey) running...');
+              case AgentSubAgentProgressEvent(:final subAgentKey, :final innerEvent):
+                if (innerEvent is AgentToolResultEvent) {
+                  spinner.clear();
+                  stdout.write(TerminalPrinter.cyan('  [$subAgentKey] '));
+                  TerminalPrinter.printToolCall(
+                    toolName: innerEvent.toolName,
+                    argumentsJson: jsonEncode(innerEvent.parameters),
+                    result: innerEvent.result,
+                    compact: true,
+                  );
+                  spinner.start('Sub-agent ($subAgentKey) running...');
+                }
+              case AgentSubAgentCompletedEvent(:final subAgentKey, result: _):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.green('✔ [Delegation] Sub-agent "$subAgentKey" finished task.'));
+                spinner.start('Thinking...');
+              case AgentSkillsChangedEvent(:final activeSkills):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.dim('🧩 [Dynamic Skills] Active skills: ${activeSkills.join(', ')}'));
+                spinner.start('Thinking...');
+              case AgentWorkflowMemoryEvent(:final operation, :final key, :final value):
+                spinner.clear();
+                stdout.writeln(TerminalPrinter.cyan(
+                  '📝 [Workflow Memory] $operation "$key"${value != null ? ': $value' : ''}',
                 ));
                 spinner.start('Thinking...');
               case AgentTextChunkEvent():

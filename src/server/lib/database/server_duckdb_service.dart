@@ -353,6 +353,20 @@ class ServerDuckDbService {
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS subagent_definitions (
+        key           VARCHAR PRIMARY KEY,
+        name          VARCHAR NOT NULL,
+        description   TEXT DEFAULT '',
+        model         VARCHAR DEFAULT 'default',
+        system_prompt TEXT DEFAULT '',
+        tools_json    TEXT DEFAULT '[]',
+        max_turns     INTEGER DEFAULT 8,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
   }
 
   // ──────────────────────────────────────────────
@@ -1332,6 +1346,127 @@ class ServerDuckDbService {
         '[DuckDB Migration] Failed to run orchestrator migration: $e',
       );
     }
+  }
+
+  // ── Subagents CRUD ──────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getSubagentDefinitions() async {
+    final conn = await connection;
+    final result = await conn.query(
+      'SELECT key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at FROM subagent_definitions ORDER BY key',
+    );
+    return result.fetchAll().map((r) {
+      List<String> tools = [];
+      try {
+        final rawTools = r[5];
+        if (rawTools is List) {
+          tools = rawTools.map((e) => e.toString()).toList();
+        } else if (rawTools is String && rawTools.isNotEmpty) {
+          final decoded = jsonDecode(rawTools);
+          if (decoded is List) {
+            tools = decoded.map((e) => e.toString()).toList();
+          }
+        }
+      } catch (_) {}
+
+      return {
+        'key': r[0].toString(),
+        'name': r[1]?.toString() ?? '',
+        'description': r[2]?.toString() ?? '',
+        'model': r[3]?.toString() ?? 'default',
+        'system_prompt': r[4]?.toString() ?? '',
+        'tools': tools,
+        'max_turns': (r[6] as num?)?.toInt() ?? 8,
+        'created_at': r[7]?.toString(),
+        'updated_at': r[8]?.toString(),
+      };
+    }).toList();
+  }
+
+  Future<void> saveSubagentDefinition(Map<String, dynamic> data) async {
+    final conn = await connection;
+    final key = _esc(data['key']?.toString().trim() ?? '');
+    final name = _esc(data['name']?.toString().trim() ?? '');
+    final desc = _esc(data['description']?.toString().trim() ?? '');
+    final model = _esc(data['model']?.toString().trim() ?? 'default');
+    final prompt = _esc(data['system_prompt']?.toString() ?? '');
+    final toolsList = (data['tools'] as List?)?.map((t) => t.toString().trim()).where((s) => s.isNotEmpty).toList() ?? [];
+    final toolsJson = _esc(jsonEncode(toolsList));
+    final maxTurns = (data['max_turns'] as num?)?.toInt() ?? 8;
+    final now = DateTime.now().toIso8601String();
+
+    await conn.execute('''
+      INSERT OR REPLACE INTO subagent_definitions
+        (key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at)
+      VALUES (
+        '$key', '$name', '$desc', '$model', '$prompt', '$toolsJson', $maxTurns, '$now', '$now'
+      )
+    ''');
+  }
+
+  Future<void> deleteSubagentDefinition(String key) async {
+    final conn = await connection;
+    await conn.execute("DELETE FROM subagent_definitions WHERE key = '${_esc(key)}'");
+  }
+
+  Future<int> seedSampleSubagents() async {
+    final existing = await getSubagentDefinitions();
+    final existingKeys = existing.map((e) => e['key'].toString().toLowerCase()).toSet();
+    int added = 0;
+
+    const samples = [
+      {
+        'key': 'unit_tester',
+        'name': 'Automated Unit Test Specialist',
+        'description': 'Automated unit test specialist: generates, updates, and executes test suites',
+        'model': 'default',
+        'system_prompt': 'You are an expert test engineer and QA specialist.\nYour task is to analyze code, write robust and comprehensive unit tests (covering happy paths, edge cases, and failure modes), and execute them to verify test suite health.\nFollow standard test frameworks for the target project (e.g. xUnit for .NET, pytest for Python, test/flutter_test for Dart).\nAlways execute the test runner via terminal to verify all tests pass before completing.',
+        'tools': ['fs_read_file', 'fs_replace_text', 'fs_write_file', 'terminal_exec', 'fs_list_dir'],
+        'max_turns': 10,
+      },
+      {
+        'key': 'git_auditor',
+        'name': 'Git Status, Diff & Commit Auditor',
+        'description': 'Git repository auditor: inspects status, diffs, branch health, and formats commits',
+        'model': 'default',
+        'system_prompt': 'You are an expert Git and version control auditor.\nYour job is to inspect git status, review branch diffs, detect untracked or dangling files, ensure working tree hygiene, and prepare clean, conventional commit messages.\nNever force-push or destroy uncommitted work.\nReport a clean breakdown of modified, added, and deleted files with recommendations.',
+        'tools': ['terminal_exec', 'fs_read_file', 'fs_list_dir'],
+        'max_turns': 6,
+      },
+      {
+        'key': 'web_researcher',
+        'name': 'Technical Web Researcher',
+        'description': 'Technical web researcher: queries online documentation, APIs, and release notes',
+        'model': 'default',
+        'system_prompt': 'You are a specialized technical documentation and web researcher.\nYour task is to search the web for API documentation, libraries, release notes, and solutions to technical errors or deprecations.\nSynthesize your findings concisely with direct links, code snippets, and citations.',
+        'tools': ['web_search', 'fs_read_file'],
+        'max_turns': 8,
+      },
+      {
+        'key': 'code_scout',
+        'name': 'Fast Codebase Explorer & Architecture Scout',
+        'description': 'Fast codebase explorer and caller hierarchy / symbol scout',
+        'system_prompt': 'You are a specialized codebase exploration and symbol search agent.\nYour objective is to quickly locate symbols, caller hierarchies, interface implementations, and architectural structure without modifying any code.\nReturn concise, structured findings with exact file paths and line numbers.',
+        'tools': ['fs_find', 'fs_read_file', 'fs_list_dir'],
+        'max_turns': 8,
+      },
+      {
+        'key': 'c_analyzer',
+        'name': 'Embedded C/C++ Firmware & Warning Specialist',
+        'description': 'C/C++ firmware static analyzer and compiler warning expert',
+        'system_prompt': 'You are an expert embedded C/C++ systems engineer.\nAnalyze source files and header files for compiler warnings, buffer overflows,\npointer safety, signed/unsigned mismatches, and missing NULL checks.\nBe concise: return only file paths, line numbers, and actionable fixes.',
+        'tools': ['fs_read_file', 'fs_find', 'fs_list_dir'],
+        'max_turns': 8,
+      },
+    ];
+
+    for (final s in samples) {
+      if (!existingKeys.contains(s['key']!.toString().toLowerCase())) {
+        await saveSubagentDefinition(s);
+        added++;
+      }
+    }
+    return added;
   }
 }
 

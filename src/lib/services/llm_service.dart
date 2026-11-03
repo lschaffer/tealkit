@@ -444,38 +444,39 @@ class LLMService extends ChangeNotifier with ServiceLogging {
 
   // Default models by provider
   static const List<String> _defaultOllamaModels = [
-    'deepseek-r1:14b',
+    'qwen3-coder:32b',
     'qwen3-vl:2b',
-    'llama3.1:latest',
+    'deepseek-r1:14b',
+    'llama3.3:latest',
     'gemma3:270m',
   ];
 
   static const List<String> _defaultGeminiModels = [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-pro',
+    'gemini-3.8-flash',
+    'gemini-3.8-flash-lite',
+    'gemini-3.8-pro',
+    'gemini-3.1-flash',
+    'gemini-3.1-pro',
     'gemini-3-flash',
     'gemini-3-pro',
-    'gemini-3-pro-image',
-    'gemini-3.0-pro',
   ];
 
   static const List<String> _defaultOpenAIModels = [
+    'gpt-5',
+    'gpt-5-mini',
+    'o3',
+    'o3-mini',
     'gpt-4o',
     'gpt-4o-mini',
-    'gpt-4-turbo',
-    'gpt-4',
-    'gpt-3.5-turbo',
-    'o1-preview',
-    'o1-mini',
   ];
 
   static const List<String> _defaultClaudeModels = [
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-    'claude-3-opus-20240229',
-    'claude-3-sonnet-20240229',
-    'claude-3-haiku-20240307',
+    'claude-sonnet-4.5',
+    'claude-haiku-4.5',
+    'claude-opus-4.5',
+    'claude-3-7-sonnet',
+    'claude-3-5-sonnet-latest',
+    'claude-3-5-haiku-latest',
   ];
 
   static const List<String> _defaultOpenAICompatibleModels = [
@@ -1192,7 +1193,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   /// Initialize Google Gemini
   Future<void> initializeGemini({
     required String apiKey,
-    String model = 'gemini-2.5-flash',
+    String model = 'gemini-3.8-flash',
     bool skipModelValidation = false,
   }) async {
     try {
@@ -1327,17 +1328,17 @@ class LLMService extends ChangeNotifier with ServiceLogging {
           'The model may not exist yet or is not available with your API key.\n'
           'Error: ${e.toString()}\n\n'
           'Please try one of these models:\n'
-          '• gemini-2.5-flash\n'
-          '• gemini-2.5-pro\n'
-          '• gemini-1.5-flash',
+          '• gemini-3.8-flash\n'
+          '• gemini-3.8-pro\n'
+          '• gemini-3.1-flash',
         );
       }
 
       // Fallback: Try other known working models (this code won't be reached now)
       final fallbackModels = [
-        'gemini-2.5-flash', // Gemini 2.5 flash model (default fallback)
-        'gemini-2.5-flash-lite', // Lightweight flash model (free tier)
-        'gemini-1.5-flash', // Stable flash model
+        'gemini-3.8-flash', // Gemini 3.8 flash model (default fallback)
+        'gemini-3.8-flash-lite', // Lightweight flash model (free tier)
+        'gemini-3.1-flash', // Stable flash model
       ];
 
       genai.GoogleAIClient? workingModel;
@@ -1636,7 +1637,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   /// Initialize OpenAI
   Future<void> initializeOpenAI({
     required String apiKey,
-    String model = 'gpt-4o-mini',
+    String model = 'gpt-5-mini',
   }) async {
     try {
       _openaiApiKey = apiKey;
@@ -1684,7 +1685,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
   /// Initialize Claude (Anthropic)
   Future<void> initializeClaude({
     required String apiKey,
-    String model = 'claude-3-5-sonnet-20241022',
+    String model = 'claude-sonnet-4.5',
   }) async {
     try {
       _claudeApiKey = apiKey;
@@ -1785,20 +1786,20 @@ class LLMService extends ChangeNotifier with ServiceLogging {
       case 'google':
         await initializeGemini(
           apiKey: apiKey ?? '',
-          model: model.isNotEmpty ? model : 'gemini-2.5-flash',
+          model: model.isNotEmpty ? model : 'gemini-3.8-flash',
         );
         break;
       case 'openai':
         await initializeOpenAI(
           apiKey: apiKey ?? '',
-          model: model.isNotEmpty ? model : 'gpt-4o-mini',
+          model: model.isNotEmpty ? model : 'gpt-5-mini',
         );
         break;
       case 'claude':
       case 'anthropic':
         await initializeClaude(
           apiKey: apiKey ?? '',
-          model: model.isNotEmpty ? model : 'claude-3-5-sonnet-20241022',
+          model: model.isNotEmpty ? model : 'claude-sonnet-4.5',
         );
         break;
       case 'ollama':
@@ -4774,16 +4775,15 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     try {
       // Gemini models with Flash as default
       return [
-        'gemini-3-flash', // Gemini 3 flash model
-        'gemini-3-pro', // Gemini 3 pro model
-        'gemini-flash', // Primary flash model
-        'gemini-2.5-pro', // Gemini 2.5 pro model
-        'gemini-2.5-flash', // Gemini 2.5 flash model
-        'gemini-2.5-flash-lite', // Lightweight flash model
+        'gemini-3.8-flash',
+        'gemini-3.8-flash-lite',
+        'gemini-3.8-pro',
+        'gemini-3.1-flash',
+        'gemini-3.1-pro',
       ];
     } catch (e) {
       talker.error('Model discovery failed: $e');
-      return ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+      return ['gemini-3.8-flash', 'gemini-3.8-flash-lite', 'gemini-3.1-flash'];
     }
   }
 
@@ -4798,7 +4798,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
 
       final response = await testModel.models
           .generateContent(
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3.8-flash',
             request: genai.GenerateContentRequest(
               contents: [genai.Content.text('Hello')],
             ),
@@ -4809,7 +4809,7 @@ class LLMService extends ChangeNotifier with ServiceLogging {
         return {
           'success': true,
           'message': 'API key is valid and working!',
-          'model': 'gemini-2.5-flash',
+          'model': 'gemini-3.8-flash',
         };
       } else {
         return {
@@ -4846,10 +4846,11 @@ class LLMService extends ChangeNotifier with ServiceLogging {
     switch (_currentProvider) {
       case LLMProvider.gemini:
         return [
-          'gemini-2.5-flash',
-          'gemini-2.5-flash-lite',
-          'gemini-2.5-pro',
-          'gemini-3.0-pro',
+          'gemini-3.8-flash',
+          'gemini-3.8-flash-lite',
+          'gemini-3.8-pro',
+          'gemini-3.1-flash',
+          'gemini-3.1-pro',
         ];
       case LLMProvider.openai:
         return _defaultOpenAIModels;

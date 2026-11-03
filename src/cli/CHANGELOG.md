@@ -2,6 +2,27 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.2
+
+- **Pure Dart Fetch MCP Server Integration (FetchMcpServer)**:
+  - Registered etch tool for direct web page content extraction into Markdown/text with character limits and pagination.
+  - Skips non-document binary file downloads (.msi, .exe, etc.).
+- **Sub-Agent Delegation Whitelist Alignment**:
+  - Aligned sub-agent tool whitelists across mobile and desktop environments.
+
+## 1.4.1
+
+- **Predefined Specialized Sub-Agents Catalog (`SubAgentDefinition.predefined`)**:
+  - Built-in availability of 5 specialized sub-agents adapted from ThiesCoder (`unit_tester`, `git_auditor`, `web_researcher`, `code_scout`, `c_analyzer`).
+  - Seamless invocation via `delegate_task` in `tealkit code` and `tealkit chat` without requiring manual YAML configuration.
+  - Automatically maps `model: "default"` to the currently active LLM profile name.
+  - Added smart tool alias matching (`web_search` and `fetch_web`).
+- **Windows Native DLL Helper (`windows_dll_helper.dart`)**:
+  - Implemented automatic DLL search path configuration using Win32 `SetDllDirectoryW` via `dart:ffi`.
+  - Ensures sibling native runtime libraries (`llamadart.dll`, `llama.dll`, `ggml-*.dll`, `pdfium.dll`, `dxcompiler.dll`, `vcomp140.dll`) load reliably across arbitrary working directories on Windows.
+- **Architect `/plan` Mode Safety Guard**:
+  - Stricter enforcement preventing destructive source file edits and terminal commands while in `/plan` mode.
+
 ## 1.4.0
 
 - **Progressive MCP Tool Discovery (`dart_mcp_core: ^1.2.0`)**:

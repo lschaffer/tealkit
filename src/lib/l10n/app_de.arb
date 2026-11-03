@@ -128,7 +128,7 @@
   "overrideDefaultLlmSubtitle": "Bestimmtes Modell/Anbieter für diese Aufgabe verwenden",
   "provider": "Anbieter",
   "model": "Modell",
-  "modelHint": "z. B. gpt-4o, gemini-2.5-flash",
+  "modelHint": "z. B. gpt-5, gemini-3.8-flash, claude-sonnet-4.5",
   "apiKey": "API-Schlüssel",
   "apiKeyHint": "sk-...",
   "apiKeyNotSet": "Nicht gesetzt",
@@ -529,7 +529,7 @@
   "llmClearSettingsMessage": "Dadurch werden alle gespeicherten LLM-Zugangsdaten und Konfigurationen entfernt. Sind Sie sicher?",
   "llmProviderLabel": "Anbieter",
   "llmModelLabel": "Modell",
-  "llmModelHint": "z.B. gemini-2.5-flash",
+  "llmModelHint": "z.B. gemini-3.8-flash, claude-sonnet-4.5",
   "llmModelRequired": "Modellname ist erforderlich",
   "llmApiKeyLabel": "API-Schlüssel",
   "llmApiKeyRequired": "API-Schlüssel ist für diesen Anbieter erforderlich",
@@ -1465,5 +1465,137 @@
         "type": "String"
       }
     }
-  }
+  },
+  "codingAgentModeDisabled": "Coding-Agent-Modus deaktiviert.",
+  "@codingAgentModeDisabled": {},
+  "codingAgentModeActivated": "Coding-Agent-Modus mit Workspace-Tools aktiviert.",
+  "@codingAgentModeActivated": {},
+  "activateCodingAgent": "Coding-Agent aktivieren",
+  "@activateCodingAgent": {},
+  "activateCodingAgentMode": "Coding-Agent-Modus aktivieren",
+  "@activateCodingAgentMode": {},
+  "disableCodingAgentMode": "Coding-Agent-Modus deaktivieren",
+  "@disableCodingAgentMode": {},
+  "codingAgentModeActiveTooltip": "Coding-Agent-Modus aktiv (Klicken zum Deaktivieren)",
+  "@codingAgentModeActiveTooltip": {},
+  "codingAgentDescription": "Aktiviert die autonome 10-Werkzeuge-Suite für Dateisystem und Terminal-Ausführung mit sicherer mehrstufiger Planung.",
+  "@codingAgentDescription": {},
+  "activeWorkspaceDirectory": "Aktives Arbeitsverzeichnis:",
+  "@activeWorkspaceDirectory": {},
+  "change": "Ändern",
+  "@change": {},
+  "back": "Zurück",
+  "@back": {},
+  "loadSavedWorkflow": "Gespeicherten Workflow laden",
+  "@loadSavedWorkflow": {},
+  "saveCurrentAsWorkflow": "Aktuellen als Workflow speichern",
+  "@saveCurrentAsWorkflow": {},
+  "noSavedWorkflowsRemote": "Keine gespeicherten Workflows auf dem Remote-Server gefunden.",
+  "@noSavedWorkflowsRemote": {},
+  "noSavedWorkflowsLocal": "Keine gespeicherten Workflows in der lokalen Datenbank gefunden.",
+  "@noSavedWorkflowsLocal": {},
+  "loadedWorkflow": "Workflow geladen: \"{name}\"",
+  "@loadedWorkflow": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "saveWorkflowRemoteDesc": "Speichert aktuellen System-Prompt, aktive Tools und Setup über die REST-API auf dem Remote-Server.",
+  "@saveWorkflowRemoteDesc": {},
+  "saveWorkflowLocalDesc": "Speichert aktuellen System-Prompt, aktive Tools und initiales Setup in der lokalen TealKit-Datenbank.",
+  "@saveWorkflowLocalDesc": {},
+  "saveToServer": "Auf Server speichern",
+  "@saveToServer": {},
+  "saveToDatabase": "In Datenbank speichern",
+  "@saveToDatabase": {},
+  "workflowSavedRemote": "Workflow \"{name}\" über REST-API auf dem Remote-Server gespeichert.",
+  "@workflowSavedRemote": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowSavedLocal": "Workflow \"{name}\" in der lokalen Datenbank gespeichert.",
+  "@workflowSavedLocal": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "appliedSkill": "Skill angewendet: \"{name}\"",
+  "@appliedSkill": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "skillsManager": "Skill-Verwaltung",
+  "@skillsManager": {},
+  "serverBadge": "Server",
+  "@serverBadge": {},
+  "localBadge": "Lokal",
+  "@localBadge": {},
+  "toggleTealKitMenu": "TealKit-Menü umschalten",
+  "@toggleTealKitMenu": {},
+  "workflowName": "Workflow-Name",
+  "@workflowName": {},
+  "turnsAndTools": "Runden: ∞  •  Tools: {count}",
+  "@turnsAndTools": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "loadWorkflow": "Workflow laden",
+  "@loadWorkflow": {},
+  "toolPermissionsHitl": "Tool-Berechtigungen (Human-in-the-Loop)",
+  "toolPermissionsHitlDesc": "Wenn die automatische Genehmigung deaktiviert ist, fordert TealKit Sie mit interaktiven Genehmigen / Ablehnen-Schaltflächen auf (entsprechend Cline / Roo Code):",
+  "autoApproveReadTools": "Lese-Tools automatisch genehmigen (view_file, grep, list_dir)",
+  "autoApproveWriteTools": "Schreib-Tools automatisch genehmigen (Datei erstellen, Code bearbeiten)",
+  "autoApproveExecutionTools": "Ausführungs-Tools automatisch genehmigen (Terminalbefehle)",
+  "autoApproveNetworkTools": "Netzwerk-Tools automatisch genehmigen (Websuche, URL-Abruf)",
+  "operationMode": "Betriebsmodus",
+  "agentMode": "Agentenmodus",
+  "directChat": "Direkter Chat",
+  "agentModeDesc": "Ausgestattet mit autonomen Tools, Gedächtnis und Persona-Richtlinien.",
+  "directChatDesc": "Direkte LLM-Unterhaltung ohne Tools oder System-Prompt (am schnellsten für einfache Anfragen).",
+  "toolsBypassedInDirectChat": "Tools werden umgangen, solange der direkte Chat-Modus aktiv ist.",
+  "maxPagesToBeIndexed": "Max. zu indexierende Seiten",
+  "maxPagesCrawledHelper": "Max. gecrawlte Seiten pro Website (1 - 1000)",
+  "resetToDefaultCount": "Auf Standard zurücksetzen ({count})",
+  "saveAndApplyAgentSettings": "Agenteneinstellungen speichern & anwenden",
+  "agentSettingsApplied": "Agenteneinstellungen angewendet.",
+  "systemPromptPersona": "System-Prompt / Persona",
+  "assistantSystemPromptHint": "Geben Sie Anweisungen, Persona-Details oder Richtlinien für den Agenten ein...",
+  "quickPersonaTemplates": "Schnelle Persona-Vorlagen:",
+  "configuredSubAgents": "Konfigurierte Sub-Agenten ({count})",
+  "addSubAgent": "Sub-Agent hinzufügen",
+  "quickAdd": "Schnell hinzufügen:",
+  "autonomousTaskDelegation": "Autonome Aufgaben-Delegation",
+  "autonomousTaskDelegationDesc": "Erlaubt diesem Agenten, `delegate_task` aufzurufen, um isolierte Teilaufgaben an Klone oder spezialisierte Sub-Agenten zu delegieren.",
+  "sharedWorkflowMemoryScope": "Geteilter Workflow-Speicherbereich",
+  "workflowShared": "Workflow-geteilt",
+  "isolatedPerSubAgent": "Isoliert pro Sub-Agent",
+  "episodicMemoryArchive": "Episodisches Speicherarchiv",
+  "episodicMemoryArchiveDesc": "Speichert vergangene Schritte in einem durchsuchbaren Langzeitarchiv für den Abruf über `retrieve_memory`.",
+  "configureSubAgent": "Sub-Agent konfigurieren",
+  "assigneeKey": "Zuweisungsschlüssel *",
+  "displayNameLabel": "Anzeigename *",
+  "modelAssignment": "Modellzuweisung (Heterogenes Modell)",
+  "inheritParentModel": "Elternmodell erben",
+  "specificProfile": "Bestimmtes Profil",
+  "roleSystemPrompt": "Rollen-System-Prompt (optional)",
+  "toolGuidance": "Tool-Anleitung (optional)",
+  "maxTurnsParam": "Max. Runden: {count}",
+  "maxToolCallsParam": "Max. Tool-Aufrufe/Runde: {count}",
+  "saveChanges": "Änderungen speichern",
+  "keyIsRequired": "Schlüssel ist erforderlich",
+  "keyMustBeUnique": "Schlüssel muss eindeutig sein",
+  "nameIsRequired": "Name ist erforderlich"
 }

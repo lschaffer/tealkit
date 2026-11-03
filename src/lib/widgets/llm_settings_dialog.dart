@@ -36,6 +36,34 @@ class LlmSettingsDialog extends StatefulWidget {
     ServerApiClient? serverClient,
     bool isLightMode = false,
   }) {
+    final size = MediaQuery.sizeOf(context);
+    final isDesktop = size.width >= 700;
+
+    if (isDesktop) {
+      return showDialog<bool>(
+        context: context,
+        builder: (ctx) => Dialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: size.width * 0.025,
+            vertical: size.height * 0.025,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: SizedBox(
+            width: size.width * 0.95,
+            height: size.height * 0.95,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: LlmSettingsDialog(
+                service: service,
+                serverClient: serverClient,
+                isLightMode: isLightMode,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Navigator.of(context).push<bool>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -187,7 +215,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
       _editingProfileId = newId;
       _nameCtrl.text = 'LLM $count';
       _provider = LlmProvider.gemini;
-      _modelCtrl.text = 'gemini-2.5-flash';
+      _modelCtrl.text = 'gemini-3.8-flash';
       _apiKeyCtrl.text = widget.service.getApiKeyForProvider(LlmProvider.gemini);
       _baseUrlCtrl.text = '';
       _temperatureCtrl.text = '0.2';
@@ -421,6 +449,11 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Close',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(l.llmSettings),
         actions: [
           if (_editingProfileId == null)

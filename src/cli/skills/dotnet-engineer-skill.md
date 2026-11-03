@@ -1,8 +1,8 @@
----
+﻿---
 name: dotnet-engineer-skill
 description: Comprehensive .NET skill for WinForms modernization, backend services refactoring, unit & integration test generation, and automated project upgrades.
 version: 1.0.0
-author: TealKit Engineering
+author: TealKitCoder Engineering
 system_prompt: |
   You are an expert .NET solutions architect, desktop application engineer, and test automation specialist.
   You understand modern .NET (including .NET 8 / 9 / 10), C#, legacy WinForms (.NET Framework and modern Windows Desktop SDK), ASP.NET Core, Background/Worker services, and testing frameworks (xUnit, NUnit, MSTest, Moq, NSubstitute, FluentAssertions).
@@ -94,5 +94,5 @@ A versatile, end-to-end .NET agent skill designed to handle **WinForms desktop m
 
 ## Usage
 ```bash
-tealkit skill run skills/dotnet-engineer-skill.md
+TealKitCoder skill run skills/dotnet-engineer-skill.md
 ```

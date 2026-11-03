@@ -1277,4 +1277,49 @@ class ServerApiClient {
         .timeout(_timeout);
     _checkStatus(r);
   }
+
+  // -- Subagents -------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> getAllSubagents() async {
+    final r = await http
+        .get(Uri.parse(_url('/api/v1/subagents')), headers: _headers)
+        .timeout(_timeout);
+    _checkStatus(r);
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final list = body['subagents'] as List? ?? [];
+    return list.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<void> saveSubagent(Map<String, dynamic> data) async {
+    final r = await http
+        .post(
+          Uri.parse(_url('/api/v1/subagents')),
+          headers: _headers,
+          body: jsonEncode(data),
+        )
+        .timeout(_timeout);
+    _checkStatus(r);
+  }
+
+  Future<void> deleteSubagent(String key) async {
+    final r = await http
+        .delete(
+          Uri.parse(_url('/api/v1/subagents/')),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+    _checkStatus(r);
+  }
+
+  Future<int> seedSampleSubagents() async {
+    final r = await http
+        .post(
+          Uri.parse(_url('/api/v1/subagents/sample')),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+    _checkStatus(r);
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    return (body['added'] as num?)?.toInt() ?? 0;
+  }
 }

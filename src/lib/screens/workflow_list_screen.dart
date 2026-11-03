@@ -422,7 +422,8 @@ class _TaskListScreenState extends ConsumerState<WorkflowListScreen> {
         title: Text(l.taskScheduler),
         leading: Builder(
           builder: (ctx) {
-            if (Navigator.of(ctx).canPop()) {
+            final route = ModalRoute.of(ctx);
+            if (route != null && !route.isFirst && Navigator.of(ctx).canPop()) {
               return IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: 'Back',

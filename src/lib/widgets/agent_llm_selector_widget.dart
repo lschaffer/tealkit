@@ -22,6 +22,7 @@ class AgentLlmSelectorWidget extends StatelessWidget {
   final ValueChanged<String> onProviderSelected;
   final Widget? editablePanel;
   final bool showEmbeddedOption;
+  final VoidCallback? onManageProfiles;
 
   const AgentLlmSelectorWidget({
     super.key,
@@ -32,6 +33,7 @@ class AgentLlmSelectorWidget extends StatelessWidget {
     required this.onProviderSelected,
     this.editablePanel,
     this.showEmbeddedOption = true,
+    this.onManageProfiles,
   });
 
   static const List<LlmProvider> supportedProviders = [
@@ -92,11 +94,26 @@ class AgentLlmSelectorWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'LLM',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'LLM',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (onManageProfiles != null)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                ),
+                onPressed: onManageProfiles,
+                icon: const Icon(Icons.tune_outlined, size: 14),
+                label: const Text('Manage LLMs', style: TextStyle(fontSize: 12)),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
@@ -318,12 +335,29 @@ class AgentLlmSelectorWidget extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    'To edit parameters (API key, temperature, max tokens, etc.), edit "${activeProfile.name}" in Settings > LLM.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                      fontSize: 11,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'To edit parameters (API key, temperature, max tokens, etc.), edit "${activeProfile.name}" in Settings > LLM.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      if (onManageProfiles != null)
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: onManageProfiles,
+                          child: const Text('Edit in Settings', style: TextStyle(fontSize: 11)),
+                        ),
+                    ],
                   ),
                 ],
               ),

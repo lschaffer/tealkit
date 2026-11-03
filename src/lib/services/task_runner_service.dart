@@ -6,9 +6,13 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:uuid/uuid.dart';
 
 import '../database/duckdb_service.dart';
 import '../database/task_database_service_duckdb.dart';
+import '../database/workflow_memory_service.dart';
+import 'package:dart_mcp_core/dart_mcp_core.dart'
+    show McpLocalTool, DelegateTaskTool, WorkflowMemoryStore;
 import '../mcp/internal_mcp_client_adapter.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../models/workflow_task.dart';
@@ -206,6 +210,14 @@ class TaskRunnerService {
       final List<ChatMessage> allStepsMessages = [];
       final executedSteps = <Map<String, dynamic>>[];
 
+      final memoryService = WorkflowMemoryService();
+      final runId = const Uuid().v4();
+      final workflowMemoryStore = await memoryService.createMemoryStoreForRun(
+        workflowId: task.id,
+        runId: runId,
+        defaultActor: task.name,
+      );
+
       while (stepsExecuted < 50) {
         stepsExecuted++;
         final stepStartTime = DateTime.now();
@@ -260,6 +272,48 @@ class TaskRunnerService {
 
         // 5. Connect internal MCPs
         await _connectInternalMcps(mcpManager, task, executor: currentExecutor);
+
+        // 5.1 Connect shared memory & sub-agent delegation tools
+        final localWorkflowTools = <McpLocalTool>[];
+        if (currentExecutor.memoryScope != 'none') {
+          localWorkflowTools.add(
+            memoryService.createStoreTool(
+              store: workflowMemoryStore,
+              workflowId: task.id,
+              runId: runId,
+              actor: currentExecutor.name,
+              scope: currentExecutor.memoryScope,
+            ),
+          );
+          localWorkflowTools.add(
+            memoryService.createRecallTool(
+              store: workflowMemoryStore,
+            ),
+          );
+        }
+
+        if (currentExecutor.enableDelegation) {
+          localWorkflowTools.add(
+            _createDelegateTaskTool(
+              executor: currentExecutor,
+              mcpManager: mcpManager,
+              locationService: locationService,
+              workflowMemoryStore: workflowMemoryStore,
+              workflowId: task.id,
+              runId: runId,
+            ),
+          );
+        }
+
+        if (localWorkflowTools.isNotEmpty) {
+          mcpManager.registerClient(
+            MCPClientDef(
+              name: 'local_workflow_tools_${currentExecutor.id}',
+              displayName: 'Workflow & Sub-Agent Tools',
+              client: LocalDartToolsClient(localWorkflowTools),
+            ),
+          );
+        }
 
         log.info(
           '[TaskRunner] Step "${currentExecutor.name}": ${mcpManager.availableTools.length} tools ready, sending prompt.',
@@ -1009,6 +1063,111 @@ class TaskRunnerService {
           );
         })();
     llmService.setIsMultiModal(resolvedIsMultiModal);
+  }
+
+  DelegateTaskTool _createDelegateTaskTool({
+    required Agent executor,
+    required MultiMCPManager mcpManager,
+    required LocationService locationService,
+    required WorkflowMemoryStore workflowMemoryStore,
+    required String workflowId,
+    required String runId,
+  }) {
+    final subMap = {for (final s in executor.subAgents) s.key: s};
+    final availableAssignees = ['clone', ...subMap.keys];
+
+    return DelegateTaskTool(
+      availableAssignees: availableAssignees,
+      runner: ({
+        required String assignee,
+        required String task,
+        List<String>? enabledTools,
+        String? model,
+      }) async {
+        log.info(
+          '[TaskRunner][SubAgent] Spawning sub-agent "$assignee" with task: "$task"',
+        );
+
+        final subConfig = subMap[assignee];
+        final childLlmService = LLMService();
+
+        // Configure child LLM
+        final settings = LlmSettingsService.instance;
+        if (!settings.isLoaded) await settings.load();
+
+        if (subConfig?.modelProfileId != null) {
+          final prof = settings.getProfile(subConfig!.modelProfileId!);
+          if (prof != null) {
+            await configureLlmFromParams(
+              llmService: childLlmService,
+              providerKey: prof.provider.configKey,
+              model: model ?? prof.model,
+              apiKey: prof.apiKey,
+              baseUrl: prof.baseUrl,
+              useNativeToolCall: prof.useNativeToolCall,
+            );
+          }
+        } else if (model != null && model.isNotEmpty) {
+          await configureLlmFromParams(
+            llmService: childLlmService,
+            providerKey: settings.provider.configKey,
+            model: model,
+            apiKey: settings.apiKey,
+            baseUrl: settings.baseUrl,
+            useNativeToolCall: settings.useNativeToolCall,
+          );
+        } else {
+          // Inherit parent configuration
+          await _configureLlm(
+            childLlmService,
+            WorkflowTask(
+              id: '',
+              name: '',
+              prompt: '',
+              executionPlan: ExecutionPlan(cronExpression: ''),
+            ),
+            executor: executor,
+          );
+        }
+
+        // Child system prompt
+        final childSystemPrompt = subConfig?.systemPrompt ??
+            'You are an autonomous sub-agent ($assignee) tasked with: $task\n'
+            'Execute tools directly to accomplish this goal, analyze the findings, and return a concise, distilled summary.\n'
+            '${subConfig?.toolGuide ?? ""}';
+
+        // Child ChatService
+        final childChatService = ChatService(
+          mcpClient: mcpManager,
+          llmService: childLlmService,
+          locationService: locationService,
+          getPluginPrompts: () => ProjectPrompts(systemPrompt: childSystemPrompt),
+          stopAfterToolCall: false,
+        );
+
+        final childTimeout = const Duration(minutes: 5);
+        await childChatService.sendMessage(task).timeout(
+          childTimeout,
+          onTimeout: () => throw TimeoutException(
+            'Sub-agent task timed out.',
+            childTimeout,
+          ),
+        );
+
+        String childResult = '';
+        for (final m in childChatService.messages.reversed) {
+          if (m.role == ChatRole.assistant && m.content.trim().isNotEmpty) {
+            childResult = m.content.trim();
+            break;
+          }
+        }
+
+        log.info(
+          '[TaskRunner][SubAgent] Sub-agent "$assignee" finished. Result length: ${childResult.length}',
+        );
+        return childResult.isNotEmpty ? childResult : 'Sub-agent task completed.';
+      },
+    );
   }
 
   /// Shared utility: configure an [LLMService] from raw provider params.

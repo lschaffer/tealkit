@@ -43,10 +43,10 @@ class RagConfig {
         fileExtensions = fileExtensions ??
             ['.txt', '.md', '.docx', '.pdf', '.csv', '.json'];
 
-  /// Default SQLite database path in user's ~/.tealkit/index/tealkit_rag.db
+  /// Default SQLite database path in user's ~/.tealkitcoder/index/tealkitcoder_rag.db
   static String get defaultDatabasePath {
     return p.normalize(
-      p.join(GlobalConfigLocator.globalDir, 'index', 'tealkit_rag.db'),
+      p.join(GlobalConfigLocator.effectiveConfigDir, 'index', 'tealkitcoder_rag.db'),
     );
   }
 

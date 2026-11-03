@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+import '../../config/global_config.dart';
 
 /// Token to cancel an active file download.
 class DownloadCancelToken {
@@ -14,12 +16,9 @@ class CliEmbeddedModelManager {
   CliEmbeddedModelManager._();
   static final CliEmbeddedModelManager instance = CliEmbeddedModelManager._();
 
-  /// Directory where models are kept: ~/.tealkit/models/
+  /// Directory where models are kept: ~/.tealkitcoder/models/
   Future<Directory> getModelsDirectory() async {
-    final home = Platform.environment['USERPROFILE'] ??
-        Platform.environment['HOME'] ??
-        Directory.current.path;
-    final dir = Directory('$home/.tealkit/models');
+    final dir = Directory(p.join(GlobalConfigLocator.effectiveConfigDir, 'models'));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -27,7 +26,7 @@ class CliEmbeddedModelManager {
   }
 
   /// Resolves the local file path for a model filename.
-  /// Checks local project ./models, executable's ../models or ./models, then ~/.tealkit/models.
+  /// Checks local project ./models, executable's ../models or ./models, ~/.tealkitcoder/models, then legacy ~/.tealkit/models.
   Future<File> getModelFile(String filename) async {
     // 1. Current working directory ./models/
     final localFile = File('models/$filename');
@@ -44,9 +43,19 @@ class CliEmbeddedModelManager {
     final directExeFile = File('$exeDir/$filename');
     if (directExeFile.existsSync()) return directExeFile;
 
-    // 3. User home ~/.tealkit/models/
+    // 3. User home ~/.tealkitcoder/models/
     final dir = await getModelsDirectory();
-    return File('${dir.path}/$filename');
+    final primaryFile = File('${dir.path}/$filename');
+    if (primaryFile.existsSync()) return primaryFile;
+
+    // 4. Legacy ~/.tealkit/models/ fallback
+    final home = Platform.environment['USERPROFILE'] ??
+        Platform.environment['HOME'] ??
+        Directory.current.path;
+    final legacyFile = File(p.join(home, '.tealkit', 'models', filename));
+    if (legacyFile.existsSync()) return legacyFile;
+
+    return primaryFile;
   }
 
   /// Checks if a model exists locally.

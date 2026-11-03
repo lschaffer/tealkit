@@ -131,7 +131,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
     }
   }
 
-  Future<void> _fetchModels() async {
+  Future<List<String>> _fetchModels() async {
     setState(() => _fetchingModels = true);
     final provider = _currentProvider;
     try {
@@ -226,6 +226,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
           ),
         );
       }
+      return list;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,6 +237,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
           ),
         );
       }
+      return _fetchedModels;
     } finally {
       if (mounted) {
         setState(() => _fetchingModels = false);
@@ -717,9 +719,8 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
               ),
             ),
             const SizedBox(height: 8),
-            Autocomplete<String>(
-              initialValue: widget.modelController.value,
-              optionsBuilder: (textEditingValue) {
+            Builder(
+              builder: (context) {
                 final isFetchable =
                     provider == LlmProvider.ollama ||
                     provider == LlmProvider.openaiCompatible ||
@@ -728,139 +729,69 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                 final models = (isFetchable && _fetchedModels.isNotEmpty)
                     ? _fetchedModels
                     : (defaultModels[provider] ?? const <String>[]);
-                // Sort by model name
-                final sorted = List<String>.from(models)
-                  ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-                if (textEditingValue.text.isEmpty) {
-                  return sorted;
-                }
-                return sorted.where(
-                  (m) => m.toLowerCase().contains(
-                    textEditingValue.text.toLowerCase(),
-                  ),
-                );
-              },
-              optionsViewBuilder: (ctx, onSelected, options) {
-                final isMobile = MediaQuery.of(ctx).size.width < 600;
-                final providerLabel = provider.label;
-                return Align(
-                  alignment: Alignment.topLeft,
-                  child: Material(
-                    elevation: 4,
-                    borderRadius: BorderRadius.circular(8),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: isMobile ? 300 : 400,
-                        maxWidth: isMobile
-                            ? MediaQuery.of(ctx).size.width - 32
-                            : 500,
-                      ),
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: options.length,
-                        itemBuilder: (ctx, index) {
-                          final modelName = options.elementAt(index);
-                          final isMultimodal =
-                              LlmSettingsService.detectDefaultMultiModal(
-                                provider,
-                                modelName,
-                              );
-                          final price = getModelTokenPrice(
-                            providerKey: provider.configKey,
-                            model: modelName,
-                          );
-                          return InkWell(
-                            onTap: () => onSelected(modelName),
-                            child: isMobile
-                                ? _buildMobileModelOption(
-                                    modelName: modelName,
-                                    providerLabel: providerLabel,
-                                    isMultimodal: isMultimodal,
-                                    price: price,
-                                  )
-                                : _buildDesktopModelOption(
-                                    modelName: modelName,
-                                    providerLabel: providerLabel,
-                                    isMultimodal: isMultimodal,
-                                    price: price,
-                                  ),
-                          );
-                        },
+
+                final hasSelection = widget.modelController.text.trim().isNotEmpty;
+                final displayText = hasSelection
+                    ? widget.modelController.text.trim()
+                    : 'Select or search model...';
+
+                final helperText = models.isNotEmpty
+                    ? '${models.length} models available. Tap to choose or search.'
+                    : 'Tap reload to fetch models from endpoint, or tap to search/enter custom name.';
+
+                return InkWell(
+                  onTap: () => _openModelSearchPicker(context, models),
+                  borderRadius: BorderRadius.circular(4),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: l.llmModelLabel,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      helperText: helperText,
+                      prefixIcon: const Icon(Icons.model_training),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (provider != LlmProvider.none && provider != LlmProvider.embedded)
+                            IconButton(
+                              icon: _fetchingModels
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.refresh_rounded, size: 20),
+                              tooltip: 'Fetch / Reload models from endpoint',
+                              onPressed: _fetchingModels ? null : _fetchModels,
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_drop_down, size: 22),
+                            tooltip: 'Select model',
+                            onPressed: () => _openModelSearchPicker(context, models),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                );
-              },
-              fieldViewBuilder: (ctx, controller, focusNode, onSubmitted) {
-                if (controller.text != widget.modelController.text) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (controller.text != widget.modelController.text) {
-                      controller.value = TextEditingValue(
-                        text: widget.modelController.text,
-                        selection: TextSelection.collapsed(
-                          offset: widget.modelController.text.length,
-                        ),
-                      );
-                    }
-                  });
-                }
-                return TextFormField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  onChanged: (value) {
-                    widget.modelController.text = value;
-                    widget.onModelChanged?.call(value);
-                    widget.onMultiModalChanged(
-                      LlmSettingsService.detectDefaultMultiModal(
-                        provider,
-                        value,
+                    child: Text(
+                      displayText,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: hasSelection ? FontWeight.w600 : FontWeight.normal,
+                        color: hasSelection
+                            ? Theme.of(context).textTheme.bodyMedium?.color
+                            : Theme.of(context).hintColor,
                       ),
-                    );
-                  },
-                  decoration: InputDecoration(
-                    hintText: l.llmModelHint,
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.model_training),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? l.llmModelRequired : null,
-                );
-              },
-              onSelected: (v) {
-                widget.modelController.text = v;
-                widget.onModelChanged?.call(v);
-                widget.onMultiModalChanged(
-                  LlmSettingsService.detectDefaultMultiModal(provider, v),
                 );
               },
             ),
 
-            // ── Fetch & Test Buttons ─────────────────────────────────
+            // ── Test Connection Button ──────────────────────────────
             const SizedBox(height: 8),
             Row(
               children: [
-                if (provider != LlmProvider.none &&
-                    provider != LlmProvider.embedded) ...[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _fetchingModels ? null : _fetchModels,
-                      icon: _fetchingModels
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh, size: 18),
-                      label: Text(
-                        _fetchedModels.isEmpty
-                            ? 'Fetch models'
-                            : 'Refresh (${_fetchedModels.length})',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _testingConnection ? null : _testConnection,
@@ -871,7 +802,7 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.wifi_tethering, size: 18),
-                    label: Text(_testingConnection ? 'Testing…' : 'Test API'),
+                    label: Text(_testingConnection ? 'Testing…' : 'Test API Connection'),
                   ),
                 ),
               ],
@@ -1073,155 +1004,6 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
     );
   }
 
-  // ── Model option builders for the Autocomplete dropdown ───────────────
-
-  Widget _buildDesktopModelOption({
-    required String modelName,
-    required String providerLabel,
-    required bool isMultimodal,
-    ModelTokenPrice? price,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  modelName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (providerLabel.isNotEmpty && providerLabel != '\u2014')
-                  Text(
-                    providerLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isMultimodal)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Tooltip(
-                    message: 'Multi-modal',
-                    child: Icon(
-                      Icons.image_outlined,
-                      size: 16,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-              if (price != null)
-                Flexible(
-                  child: Text(
-                    price.formattedContextWindow.isNotEmpty
-                        ? '${price.formattedContextWindow} • \$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}'
-                        : '\$${price.inputPer1MUsd.toStringAsFixed(2)}/\$${price.outputPer1MUsd.toStringAsFixed(2)}',
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileModelOption({
-    required String modelName,
-    required String providerLabel,
-    required bool isMultimodal,
-    ModelTokenPrice? price,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            modelName,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              if (providerLabel.isNotEmpty && providerLabel != '\u2014')
-                Text(
-                  providerLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-              if (isMultimodal) ...[
-                if (providerLabel.isNotEmpty && providerLabel != '\u2014')
-                  const SizedBox(width: 4),
-                Icon(
-                  Icons.image_outlined,
-                  size: 14,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.6),
-                ),
-              ],
-              if (price != null) ...[
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    price.formattedContextWindow.isNotEmpty
-                        ? '${price.formattedContextWindow} • in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}'
-                        : 'in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
-                    textAlign: TextAlign.end,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontFamily: 'monospace',
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   String _apiKeyHint(LlmProvider p) {
     switch (p) {
       case LlmProvider.gemini:
@@ -1248,5 +1030,376 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
       default:
         return 'https://...';
     }
+  }
+
+  void _openModelSearchPicker(BuildContext context, List<String> models) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final currentSelected = widget.modelController.text.trim();
+
+    void onSelected(String model) {
+      widget.modelController.text = model;
+      widget.onModelChanged?.call(model);
+      widget.onMultiModalChanged(
+        LlmSettingsService.detectDefaultMultiModal(_currentProvider, model),
+      );
+      Navigator.of(context).pop();
+    }
+
+    if (isMobile) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (ctx) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.75,
+            ),
+            child: _ModelSearchPickerContent(
+              models: models,
+              initialSelected: currentSelected,
+              onSelected: onSelected,
+              onReload: _fetchModels,
+              provider: _currentProvider,
+              onClose: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 550,
+              maxHeight: 550,
+            ),
+            child: _ModelSearchPickerContent(
+              models: models,
+              initialSelected: currentSelected,
+              onSelected: onSelected,
+              onReload: _fetchModels,
+              provider: _currentProvider,
+              onClose: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+}
+
+class _ModelSearchPickerContent extends StatefulWidget {
+  final List<String> models;
+  final String initialSelected;
+  final ValueChanged<String> onSelected;
+  final Future<List<String>> Function()? onReload;
+  final LlmProvider provider;
+  final VoidCallback? onClose;
+
+  const _ModelSearchPickerContent({
+    required this.models,
+    required this.initialSelected,
+    required this.onSelected,
+    this.onReload,
+    required this.provider,
+    this.onClose,
+  });
+
+  @override
+  State<_ModelSearchPickerContent> createState() =>
+      _ModelSearchPickerContentState();
+}
+
+class _ModelSearchPickerContentState extends State<_ModelSearchPickerContent> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  late List<String> _currentModels;
+  bool _isReloading = false;
+  String _filter = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _currentModels = List.from(widget.models);
+    if (_currentModels.isEmpty && widget.onReload != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleReload();
+      });
+    }
+  }
+
+  Future<void> _handleReload() async {
+    if (widget.onReload == null || _isReloading) return;
+    setState(() => _isReloading = true);
+    try {
+      final updated = await widget.onReload!();
+      if (mounted) {
+        setState(() {
+          _currentModels = List.from(updated);
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isReloading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final filtered = _filter.isEmpty
+        ? _currentModels
+        : _currentModels
+            .where((m) => m.toLowerCase().contains(_filter.toLowerCase()))
+            .toList();
+
+    final showCustomOption = _filter.trim().isNotEmpty &&
+        !_currentModels.any(
+          (m) => m.toLowerCase() == _filter.trim().toLowerCase(),
+        );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.psychology_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _isReloading
+                      ? 'Select Model (Loading...)'
+                      : 'Select Model (${_currentModels.length} available)',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (widget.onReload != null)
+                IconButton(
+                  icon: _isReloading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 20),
+                  tooltip: 'Reload models from endpoint',
+                  onPressed: _isReloading ? null : _handleReload,
+                ),
+              if (widget.onClose != null)
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: widget.onClose,
+                ),
+            ],
+          ),
+        ),
+        // Search field
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Search models...',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: _filter.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () {
+                        setState(() {
+                          _searchCtrl.clear();
+                          _filter = '';
+                        });
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            onChanged: (val) {
+              setState(() {
+                _filter = val;
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (_isReloading && _currentModels.isNotEmpty)
+          const LinearProgressIndicator(minHeight: 2),
+        const Divider(height: 1),
+        // Custom model entry option if search text doesn't match list
+        if (showCustomOption) ...[
+          Material(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
+            child: ListTile(
+              dense: true,
+              leading: const Icon(
+                Icons.add_circle_outline,
+                color: Colors.blueAccent,
+              ),
+              title: Text(
+                'Use custom: "${_filter.trim()}"',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text('Select to enter this model name manually'),
+              onTap: () => widget.onSelected(_filter.trim()),
+            ),
+          ),
+          const Divider(height: 1),
+        ],
+        // Models list
+        Flexible(
+          child: filtered.isEmpty && !showCustomOption
+              ? Padding(
+                  padding: const EdgeInsets.all(28.0),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isReloading) ...[
+                          const SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Loading available models...',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Connecting to endpoint and fetching model catalog...',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ] else ...[
+                          Icon(
+                            _currentModels.isEmpty
+                                ? Icons.cloud_download_outlined
+                                : Icons.search_off_rounded,
+                            size: 40,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _currentModels.isEmpty
+                                ? 'No models loaded yet'
+                                : 'No models found matching "${_filter.trim()}"',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _currentModels.isEmpty
+                                ? 'Tap reload to fetch models from the endpoint, or type a custom name in the search box above.'
+                                : 'You can type this name in the search bar and select "Use custom" to use it.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          if (_currentModels.isEmpty && widget.onReload != null) ...[
+                            const SizedBox(height: 16),
+                            FilledButton.tonalIcon(
+                              onPressed: _isReloading ? null : _handleReload,
+                              icon: _isReloading
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.refresh_rounded, size: 16),
+                              label: Text(_isReloading ? 'Fetching...' : 'Reload Models'),
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (ctx, index) {
+                    final model = filtered[index];
+                    final isSelected = model == widget.initialSelected;
+                    final isMulti = LlmSettingsService.detectDefaultMultiModal(
+                      widget.provider,
+                      model,
+                    );
+                    final price = getModelTokenPrice(
+                      providerKey: widget.provider.configKey,
+                      model: model,
+                    );
+                    return ListTile(
+                      dense: true,
+                      selected: isSelected,
+                      title: Text(
+                        model,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: price != null && price.formattedContextWindow.isNotEmpty
+                          ? Text(
+                              '${price.formattedContextWindow} • in \$${price.inputPer1MUsd.toStringAsFixed(2)} / out \$${price.outputPer1MUsd.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                            )
+                          : null,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isMulti) ...[
+                            const Icon(
+                              Icons.visibility_outlined,
+                              size: 15,
+                              color: Colors.blueAccent,
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          if (isSelected)
+                            const Icon(
+                              Icons.check,
+                              size: 18,
+                              color: Colors.green,
+                            ),
+                        ],
+                      ),
+                      onTap: () => widget.onSelected(model),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
   }
 }

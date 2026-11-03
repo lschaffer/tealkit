@@ -283,11 +283,14 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
         title: Text(title),
         leading: Builder(
           builder: (ctx) {
-            if (Navigator.of(ctx).canPop()) {
+            final route = ModalRoute.of(ctx);
+            final canGoBack =
+                route != null && !route.isFirst && Navigator.of(ctx).canPop();
+            if (canGoBack) {
               return IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: 'Back',
-                onPressed: () => Navigator.of(ctx).pop(),
+                onPressed: () => Navigator.of(ctx).maybePop(),
               );
             }
             return Consumer(
@@ -2098,7 +2101,7 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      skill.isEnabled ? 'Skill Active' : 'Skill Disabled',
+                      skill.isEnabled ? 'Hint Active' : 'Hint Disabled',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -2139,7 +2142,7 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
               const SizedBox(height: 6),
             ],
             Text(
-              'Procedural Guide (Skill):',
+              'Procedural Guide (Function Hint):',
               style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -2171,7 +2174,7 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
               ],
             ] else
               Text(
-                'No skill generated for this tool yet.',
+                'No function hint generated for this tool yet.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.hintColor,
                   fontStyle: FontStyle.italic,
@@ -2282,7 +2285,7 @@ class _InbuiltToolsCardState extends ConsumerState<_InbuiltToolsCard> {
                       FunctionHintsScreen.show(context, filter: info.type);
                     },
                     icon: const Icon(Icons.open_in_new, size: 14),
-                    label: const Text('Manage Skills directly'),
+                    label: const Text('Manage Function Hints directly'),
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       visualDensity: VisualDensity.compact,

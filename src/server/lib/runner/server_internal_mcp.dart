@@ -4759,7 +4759,7 @@ class ServerDocumentMcp extends ServerInternalMcp {
     if (words.isNotEmpty) {
       final likeConditions = words
           .take(3)
-          .map((w) => "LOWER(content_text) LIKE '%${_esc(w)}%'")
+          .map((w) => "(LOWER(content_text) LIKE '%${_esc(w)}%' OR LOWER(file_name) LIKE '%${_esc(w)}%')")
           .join(' OR ');
       conditions.write(' AND ($likeConditions)');
     }
@@ -4773,12 +4773,29 @@ class ServerDocumentMcp extends ServerInternalMcp {
         LIMIT 200
       ''');
       if (rows.isEmpty) {
+        int totalDocs = 0;
+        try {
+          final countRows = await db.query('SELECT COUNT(*) FROM document_index WHERE ${_rootPathInClause()}');
+          if (countRows.isNotEmpty) {
+            totalDocs = int.tryParse(countRows.first.first.toString()) ?? 0;
+          }
+        } catch (_) {}
+
+        final String summary;
+        if (totalDocs == 0) {
+          summary =
+              'No documents found matching "$query". The index is empty or files have not been indexed yet. Try calling reindex first.';
+        } else {
+          summary =
+              'No documents found matching "$query" across the $totalDocs indexed document(s). Try broadening your search terms or using different keywords.';
+        }
+
         return {
-          'summary':
-              'No documents found matching "$query". The index may be empty or files have not been indexed yet. Try calling reindex first.',
+          'summary': summary,
           'query': query,
           'searchMode': searchMode,
           'totalResults': 0,
+          'totalIndexedDocuments': totalDocs,
           'results': <dynamic>[],
         };
       }

@@ -339,7 +339,123 @@ class DuckDbService {
       )
     ''');
 
+    // ── Shared Workflow Memory Store (blackboard / key-value scratchpad) ──
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS workflow_memory_store (
+        workflow_id    VARCHAR NOT NULL,
+        run_id         VARCHAR NOT NULL,
+        memory_key     VARCHAR NOT NULL,
+        memory_value   TEXT NOT NULL,
+        scope          VARCHAR DEFAULT 'workflow',
+        created_by     VARCHAR NOT NULL,
+        updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (workflow_id, run_id, memory_key)
+      )
+    ''');
+
+    // ── Specialized Sub-Agents table ──
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS subagent_definitions (
+        key           VARCHAR PRIMARY KEY,
+        name          VARCHAR NOT NULL,
+        description   TEXT DEFAULT '',
+        model         VARCHAR DEFAULT 'default',
+        system_prompt TEXT DEFAULT '',
+        tools_json    TEXT DEFAULT '[]',
+        max_turns     INTEGER DEFAULT 8,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
     log.info('[DuckDB] Tables created / verified');
+  }
+
+  // ──────────────────────────────────────────────
+  // Shared Workflow Memory CRUD
+  // ──────────────────────────────────────────────
+
+  /// Upsert a workflow memory entry into DuckDB.
+  Future<void> saveWorkflowMemory({
+    required String workflowId,
+    required String runId,
+    required String key,
+    required String value,
+    String scope = 'workflow',
+    required String createdBy,
+  }) async {
+    final conn = await connection;
+    final now = DateTime.now().toIso8601String();
+    await conn.execute('''
+      INSERT OR REPLACE INTO workflow_memory_store
+        (workflow_id, run_id, memory_key, memory_value, scope, created_by, updated_at)
+      VALUES (
+        '${_esc(workflowId)}',
+        '${_esc(runId)}',
+        '${_esc(key)}',
+        '${_esc(value)}',
+        '${_esc(scope)}',
+        '${_esc(createdBy)}',
+        '$now'
+      )
+    ''');
+    log.verbose('[DuckDB] saveWorkflowMemory: key=$key runId=$runId');
+  }
+
+  /// Get a single memory entry value by key for a specific workflow run.
+  Future<String?> getWorkflowMemory({
+    required String workflowId,
+    required String runId,
+    required String key,
+  }) async {
+    final conn = await connection;
+    final result = await conn.query('''
+      SELECT memory_value FROM workflow_memory_store
+      WHERE workflow_id = '${_esc(workflowId)}'
+        AND run_id = '${_esc(runId)}'
+        AND memory_key = '${_esc(key)}'
+    ''');
+    final rows = result.fetchAll();
+    if (rows.isEmpty) return null;
+    return rows.first[0]?.toString();
+  }
+
+  /// Get all memory key-values for a given workflow run.
+  Future<Map<String, String>> getAllWorkflowMemories({
+    required String workflowId,
+    required String runId,
+  }) async {
+    final conn = await connection;
+    final result = await conn.query('''
+      SELECT memory_key, memory_value FROM workflow_memory_store
+      WHERE workflow_id = '${_esc(workflowId)}'
+        AND run_id = '${_esc(runId)}'
+      ORDER BY updated_at ASC
+    ''');
+    final rows = result.fetchAll();
+    final map = <String, String>{};
+    for (final row in rows) {
+      final k = row[0]?.toString();
+      final v = row[1]?.toString();
+      if (k != null && v != null) {
+        map[k] = v;
+      }
+    }
+    return map;
+  }
+
+  /// Delete all stored memories for a specific workflow run.
+  Future<void> deleteWorkflowMemoriesForRun({
+    required String workflowId,
+    required String runId,
+  }) async {
+    final conn = await connection;
+    await conn.execute('''
+      DELETE FROM workflow_memory_store
+      WHERE workflow_id = '${_esc(workflowId)}'
+        AND run_id = '${_esc(runId)}'
+    ''');
+    log.info('[DuckDB] deleteWorkflowMemoriesForRun: cleared memories for runId=$runId');
   }
 
   // ──────────────────────────────────────────────
@@ -940,6 +1056,69 @@ class DuckDbService {
     await conn.execute(
       "DELETE FROM tool_skills WHERE tool_name = '${_esc(toolName)}'",
     );
+  }
+
+  // ──────────────────────────────────────────────
+  // Subagent Definitions CRUD
+  // ──────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getSubagentDefinitions() async {
+    final conn = await connection;
+    final result = await conn.query(
+      'SELECT key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at FROM subagent_definitions ORDER BY key',
+    );
+    return result.fetchAll().map((r) {
+      List<String> tools = [];
+      try {
+        final rawTools = r[5];
+        if (rawTools is List) {
+          tools = rawTools.map((e) => e.toString()).toList();
+        } else if (rawTools is String && rawTools.isNotEmpty) {
+          final decoded = jsonDecode(rawTools);
+          if (decoded is List) {
+            tools = decoded.map((e) => e.toString()).toList();
+          }
+        }
+      } catch (_) {}
+
+      return {
+        'key': r[0].toString(),
+        'name': r[1]?.toString() ?? '',
+        'description': r[2]?.toString() ?? '',
+        'model': r[3]?.toString() ?? 'default',
+        'system_prompt': r[4]?.toString() ?? '',
+        'tools': tools,
+        'max_turns': (r[6] as num?)?.toInt() ?? 8,
+        'created_at': r[7]?.toString(),
+        'updated_at': r[8]?.toString(),
+      };
+    }).toList();
+  }
+
+  Future<void> saveSubagentDefinition(Map<String, dynamic> data) async {
+    final conn = await connection;
+    final key = _esc(data['key']?.toString().trim() ?? '');
+    final name = _esc(data['name']?.toString().trim() ?? '');
+    final desc = _esc(data['description']?.toString().trim() ?? '');
+    final model = _esc(data['model']?.toString().trim() ?? 'default');
+    final prompt = _esc(data['system_prompt']?.toString() ?? '');
+    final toolsList = (data['tools'] as List?)?.map((t) => t.toString().trim()).where((s) => s.isNotEmpty).toList() ?? [];
+    final toolsJson = _esc(jsonEncode(toolsList));
+    final maxTurns = (data['max_turns'] as num?)?.toInt() ?? 8;
+    final now = DateTime.now().toIso8601String();
+
+    await conn.execute('''
+      INSERT OR REPLACE INTO subagent_definitions
+        (key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at)
+      VALUES (
+        '$key', '$name', '$desc', '$model', '$prompt', '$toolsJson', $maxTurns, '$now', '$now'
+      )
+    ''');
+  }
+
+  Future<void> deleteSubagentDefinition(String key) async {
+    final conn = await connection;
+    await conn.execute("DELETE FROM subagent_definitions WHERE key = '${_esc(key)}'");
   }
 
   // ──────────────────────────────────────────────

@@ -45,7 +45,7 @@ class ServerConfigManager {
 
   ServerConfigManager([this.configPath = 'server.yaml']);
 
-  /// Resolves the actual File to read/write using local workspace first, then ~/.tealkit/
+  /// Resolves the actual File to read/write using local workspace first, then ~/.tealkitcoder/
   File get file => GlobalConfigLocator.resolveConfigFile('server.yaml', configPath);
 
   /// Default configuration template if server.yaml doesn't exist.

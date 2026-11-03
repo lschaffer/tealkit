@@ -22,6 +22,9 @@ List<String> _preprocessArgs(List<String> rawArgs) {
 }
 
 Future<void> main(List<String> args) async {
+  // 1. Initialize Windows DLL search path before loading any FFI libraries (llamadart, pdfium, etc.)
+  WindowsDllHelper.ensureConfigured();
+
   // Check for headless RAG reindexing (e.g. for Windows Task Scheduler)
   if (args.contains('--rag-reindex') || args.contains('-rag-reindex')) {
     await _handleRagReindex(args);

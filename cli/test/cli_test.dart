@@ -302,7 +302,7 @@ Follow the instructions carefully.
 
     test('returns non-empty globalDir string', () {
       expect(GlobalConfigLocator.globalDir, isNotEmpty);
-      expect(GlobalConfigLocator.globalSkillsDir, contains('.tealkit'));
+      expect(GlobalConfigLocator.globalSkillsDir, contains('.tealkitcoder'));
     });
   });
 

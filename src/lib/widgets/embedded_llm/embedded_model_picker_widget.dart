@@ -395,8 +395,8 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
         type: FileType.custom,
         allowedExtensions: ['gguf'],
       );
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.first;
+      if (result.isEmpty) return;
+      final file = result.first;
       final path = file.path;
       if (path == null) return;
 
@@ -425,7 +425,7 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
         filename: filename,
         url: finalUrl,
         description: 'Local model added from disk.',
-        sizeBytes: file.size,
+        sizeBytes: file.lengthSync() ?? 0,
       );
 
       await EmbeddedModelManager.instance.addCustomModel(model);

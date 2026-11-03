@@ -80,7 +80,7 @@ class _JsToolLibraryScreenState extends ConsumerState<JsToolLibraryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Generated ${generated.length} skill${generated.length == 1 ? '' : 's'} for JS tools')));
+        ).showSnackBar(SnackBar(content: Text('Generated ${generated.length} function hint${generated.length == 1 ? '' : 's'} for JS tools')));
       }
     } finally {
       if (mounted) Navigator.of(context).pop();
@@ -310,7 +310,7 @@ const generatedTool = {
         actions: [
           IconButton(
             icon: const Icon(Icons.psychology_outlined),
-            tooltip: 'Generate skills for JS tools',
+            tooltip: 'Generate function hints for JS tools',
             onPressed: _tools.isEmpty ? null : _generateJsSkills,
           ),
           IconButton(icon: const Icon(Icons.science_outlined), tooltip: 'Load sample tools', onPressed: _loadSamples),
@@ -461,15 +461,18 @@ class _JsToolEditorDialogState extends ConsumerState<_JsToolEditorDialog> {
   }
 
   Future<void> _importFromFile() async {
-    final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['js'], withData: true);
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
+    final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['js']);
+    if (picked.isEmpty) return;
+    final file = picked.first;
 
     String? content;
-    if (file.bytes != null) {
-      content = utf8.decode(file.bytes!, allowMalformed: true);
-    } else if (file.path != null) {
-      content = await File(file.path!).readAsString();
+    try {
+      final bytes = await file.readAsBytes();
+      content = utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      if (file.path != null) {
+        content = await File(file.path!).readAsString();
+      }
     }
     if (content == null || content.trim().isEmpty) {
       if (!mounted) return;

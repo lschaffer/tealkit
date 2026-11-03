@@ -13,12 +13,12 @@ class CliPromptReader {
   static final List<String> _history = [];
   static bool _historyLoaded = false;
 
-  /// Loads persistent command history from ~/.thiescoder/command_history.txt
+  /// Loads persistent command history from ~/.tealkitcoder/command_history.txt
   static void _ensureHistoryLoaded() {
     if (_historyLoaded) return;
     _historyLoaded = true;
     try {
-      final file = File(p.join(GlobalConfigLocator.globalDir, 'command_history.txt'));
+      final file = File(p.join(GlobalConfigLocator.effectiveConfigDir, 'command_history.txt'));
       if (file.existsSync()) {
         final lines = file.readAsLinesSync();
         for (final line in lines) {
@@ -31,7 +31,7 @@ class CliPromptReader {
     } catch (_) {}
   }
 
-  /// Appends command to memory and persists to ~/.thiescoder/command_history.txt
+  /// Appends command to memory and persists to ~/.tealkitcoder/command_history.txt
   static void _saveToHistory(String entry) {
     final t = entry.trim();
     if (t.isEmpty) return;
@@ -39,7 +39,7 @@ class CliPromptReader {
     if (_history.isEmpty || _history.last != t) {
       _history.add(t);
       try {
-        final file = File(p.join(GlobalConfigLocator.globalDir, 'command_history.txt'));
+        final file = File(p.join(GlobalConfigLocator.effectiveConfigDir, 'command_history.txt'));
         if (!file.parent.existsSync()) file.parent.createSync(recursive: true);
         final toSave = _history.length > 500
             ? _history.sublist(_history.length - 500)

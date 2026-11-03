@@ -93,7 +93,7 @@ class LlmTaskResyncService {
 
     final defaultGlobalModel = llm.model.isNotEmpty
         ? llm.model
-        : (defaultModels[LlmProvider.gemini]?.first ?? 'gemini-2.5-flash');
+        : (defaultModels[LlmProvider.gemini]?.first ?? 'gemini-3.8-flash');
     int count = 0;
 
     for (final task in tasks) {

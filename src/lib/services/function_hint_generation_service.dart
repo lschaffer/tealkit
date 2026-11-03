@@ -308,7 +308,7 @@ class FunctionHintGenerationService {
 
     // ── Full-model skill ─────────────────────────────────────────────────
     final fullPrompt =
-        'Write a concise MCP tool skill guide (max ${_maxTokensLlm ~/ 4} words) for the tool `${tool.name}`.\n'
+        'Write a concise tool function hint and usage guide (max ${_maxTokensLlm ~/ 4} words) for the tool `${tool.name}`.\n'
         'Tool description: ${tool.description}\n'
         '${paramSummary.isNotEmpty ? 'Parameters: $paramSummary\n' : ''}'
         'Include: when to use this tool, key parameters, example usage pattern.\n'
@@ -316,7 +316,7 @@ class FunctionHintGenerationService {
 
     // ── SLM skill ────────────────────────────────────────────────────────
     final slmPrompt =
-        'Write a 1-sentence MCP skill for `${tool.name}`: ${tool.description}.'
+        'Write a 1-sentence tool function hint for `${tool.name}`: ${tool.description}.'
         '${paramSummary.isNotEmpty ? ' Params: $paramSummary.' : ''}'
         ' Max ${_maxTokensSlm ~/ 3} words. Plain text only.';
 
@@ -348,7 +348,7 @@ class FunctionHintGenerationService {
         ChatMessage(
           id: const Uuid().v4(),
           role: ChatRole.system,
-          content: 'You write concise, practical MCP tool skill guides. Output plain text only — no markdown, no quotes.',
+          content: 'You write concise, practical tool function hints and helper guides. Output plain text only — no markdown, no quotes.',
           timestamp: DateTime.now(),
         ),
         ChatMessage(id: const Uuid().v4(), role: ChatRole.user, content: userPrompt, timestamp: DateTime.now()),

@@ -30,16 +30,16 @@ void openTalkerScreen(BuildContext context) {
   final logColors = isDark
       ? null
       : {
-          TalkerLogType.info.key: const Color(0xFF1D4ED8),
-          TalkerLogType.debug.key: const Color(0xFF475569),
-          TalkerLogType.verbose.key: const Color(0xFF64748B),
-          TalkerLogType.warning.key: const Color(0xFFD97706),
-          TalkerLogType.error.key: const Color(0xFFDC2626),
-          TalkerLogType.critical.key: const Color(0xFF991B1B),
-          TalkerLogType.exception.key: const Color(0xFFDC2626),
-          TalkerLogType.httpError.key: const Color(0xFFDC2626),
-          TalkerLogType.httpRequest.key: const Color(0xFF9333EA),
-          TalkerLogType.httpResponse.key: const Color(0xFF16A34A),
+          TalkerKey.info: const Color(0xFF1D4ED8),
+          TalkerKey.debug: const Color(0xFF475569),
+          TalkerKey.verbose: const Color(0xFF64748B),
+          TalkerKey.warning: const Color(0xFFD97706),
+          TalkerKey.error: const Color(0xFFDC2626),
+          TalkerKey.critical: const Color(0xFF991B1B),
+          TalkerKey.exception: const Color(0xFFDC2626),
+          TalkerKey.httpError: const Color(0xFFDC2626),
+          TalkerKey.httpRequest: const Color(0xFF9333EA),
+          TalkerKey.httpResponse: const Color(0xFF16A34A),
         };
 
   Navigator.of(context).push(

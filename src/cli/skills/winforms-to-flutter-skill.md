@@ -1,8 +1,8 @@
----
+﻿---
 name: winforms-to-flutter-skill
 description: Analyze Visual Studio .NET/C# WinForms project and generate an implementation plan to convert to Flutter Desktop (Windows & Linux) with Riverpod, data_table_2, and REST client.
 version: 1.0.0
-author: TealKit Engineering
+author: TealKitCoder Engineering
 system_prompt: |
   You are an expert Flutter Desktop and .NET/C# migration architect.
   
@@ -75,11 +75,11 @@ An automated AgentSkill to analyze legacy Visual Studio C# WinForms applications
 ## CLI Execution
 ```bash
 # Inspect skill details
-tealkit skill info example_skills/winforms-to-flutter-skill.md
+TealKitCoder skill info example_skills/winforms-to-flutter-skill.md
 
 # Run the complete analysis and planning workflow
-tealkit skill run example_skills/winforms-to-flutter-skill.md
+TealKitCoder skill run example_skills/winforms-to-flutter-skill.md
 
 # Or start interactive coding mode with this skill loaded
-tealkit code --instructions example_skills/winforms-to-flutter-skill.md
+TealKitCoder code --instructions example_skills/winforms-to-flutter-skill.md
 ```

@@ -126,7 +126,7 @@ class DocumentMcpServer extends InternalMcpServer {
     final rawTypes = initParams['fileTypes'] as String? ?? '';
     final requestedTypes = rawTypes.split(',').map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
     _fileTypes = requestedTypes.isNotEmpty ? requestedTypes : _allowedFileTypes;
-    _indexingStrategy = initParams['indexingStrategy'] as String? ?? 'now';
+    _indexingStrategy = initParams['indexingStrategy'] as String? ?? 'before_first_run';
     final maxDocsRaw = initParams['maxDocuments'];
     _maxDocuments = (maxDocsRaw is int ? maxDocsRaw : int.tryParse(maxDocsRaw?.toString() ?? '') ?? _maxFiles).clamp(1, _maxFiles);
 
@@ -319,10 +319,22 @@ class DocumentMcpServer extends InternalMcpServer {
   // Indexing Engine
   // ══════════════════════════════════════════════
 
-  /// Build a SQL IN clause for all root paths.
+  /// Build a SQL IN clause for all root paths (handling Windows/Unix separators and trailing slashes).
   String _rootPathInClause() {
     if (_rootPaths.isEmpty) return "root_path = '__none__'";
-    final escaped = _rootPaths.map((p) => "'${_esc(p)}'").join(', ');
+    final allVariants = <String>{};
+    for (final p in _rootPaths) {
+      allVariants.add(p);
+      allVariants.add(p.replaceAll(r'\', '/'));
+      allVariants.add(p.replaceAll('/', r'\'));
+      final trimmedSlash = p.replaceAll(RegExp(r'[/\\]+$'), '');
+      if (trimmedSlash.isNotEmpty) {
+        allVariants.add(trimmedSlash);
+        allVariants.add(trimmedSlash.replaceAll(r'\', '/'));
+        allVariants.add(trimmedSlash.replaceAll('/', r'\'));
+      }
+    }
+    final escaped = allVariants.map((p) => "'${_esc(p)}'").join(', ');
     return 'root_path IN ($escaped)';
   }
 
@@ -816,7 +828,10 @@ class DocumentMcpServer extends InternalMcpServer {
     // Applied for all search modes — semantic scoring still runs in the isolate,
     // but we avoid loading irrelevant rows that can never match.
     if (words.isNotEmpty) {
-      final likeConditions = words.take(3).map((w) => "LOWER(content_text) LIKE '%${_esc(w)}%'").join(' OR ');
+      final likeConditions = words
+          .take(3)
+          .map((w) => "(LOWER(content_text) LIKE '%${_esc(w)}%' OR LOWER(file_name) LIKE '%${_esc(w)}%')")
+          .join(' OR ');
       conditions.write(' AND ($likeConditions)');
     }
 
@@ -831,12 +846,29 @@ class DocumentMcpServer extends InternalMcpServer {
     ''');
 
     if (rows.isEmpty) {
+      int totalDocs = 0;
+      try {
+        final countRows = await db.query('SELECT COUNT(*) FROM document_index WHERE ${_rootPathInClause()}');
+        if (countRows.isNotEmpty) {
+          totalDocs = int.tryParse(countRows.first.first.toString()) ?? 0;
+        }
+      } catch (_) {}
+
+      final String summary;
+      if (totalDocs == 0) {
+        summary =
+            'No documents found matching "$query". The index is empty or the configured document folders have not been indexed yet. Try clicking "Reindex Documents Now" in Assistant Settings.';
+      } else {
+        summary =
+            'No documents found matching "$query" across the $totalDocs indexed document(s). Try broadening your search terms, searching for individual keywords, or using list_documents.';
+      }
+
       return {
-        'summary':
-            'No documents found matching "$query". The index may be empty or the files have not been indexed yet. Try calling reindex first.',
+        'summary': summary,
         'query': query,
         'searchMode': searchMode,
         'totalResults': 0,
+        'totalIndexedDocuments': totalDocs,
         'results': [],
       };
     }

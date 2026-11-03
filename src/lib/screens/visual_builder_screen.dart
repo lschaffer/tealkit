@@ -294,6 +294,99 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
     );
   }
 
+  Widget _buildSubAgentsBranching(Agent exec) {
+    if (exec.subAgents.isEmpty) return const SizedBox();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141A1E) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.tealAccent.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_tree_outlined,
+                size: 12,
+                color: Colors.teal,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Sub-Agents (${exec.subAgents.length})',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal,
+                ),
+              ),
+              const Spacer(),
+              if (exec.memoryScope == 'workflow_shared')
+                const Tooltip(
+                  message: 'Shared Workflow Memory active',
+                  child: Icon(Icons.memory, size: 12, color: Colors.purpleAccent),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...exec.subAgents.asMap().entries.map((entry) {
+            final isLast = entry.key == exec.subAgents.length - 1;
+            final sub = entry.value;
+            final branchChar = isLast ? '└── ' : '├── ';
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Text(
+                    branchChar,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: Colors.teal[300],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Icon(
+                    sub.key == 'clone' ? Icons.copy_rounded : Icons.smart_toy_outlined,
+                    size: 11,
+                    color: Colors.teal[400],
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      sub.name,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      sub.modelProfileId != null ? 'model' : (sub.key == 'clone' ? 'clone' : '${sub.maxTurns}t'),
+                      style: const TextStyle(fontSize: 8, fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNodeCard(String nodeId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textTheme = Theme.of(context).textTheme;
@@ -495,6 +588,8 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
                   ),
               ],
             ),
+            if (exec.subAgents.isNotEmpty)
+              _buildSubAgentsBranching(exec),
           ],
         ),
       ),

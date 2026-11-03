@@ -1,8 +1,44 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:dart_mcp_core/dart_mcp_core.dart' show McpLocalTool;
 import '../models/mcp_models.dart';
 import '../utils/logger.dart';
+
+/// Adapter that exposes a list of [McpLocalTool] instances as an MCP client for [MultiMCPManager].
+class LocalDartToolsClient {
+  final List<McpLocalTool> tools;
+
+  LocalDartToolsClient(this.tools);
+
+  bool get isConnected => true;
+
+  List<MCPTool> get availableTools => tools.map((t) => MCPTool(
+    name: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema,
+  )).toList();
+
+  Future<MCPToolResult> callTool(String name, Map<String, dynamic> arguments) async {
+    final match = tools.where((t) => t.name == name).toList();
+    if (match.isEmpty) {
+      return MCPToolResult(
+        content: [MCPContent(type: 'text', text: 'Local tool "$name" not found.')],
+        isError: true,
+      );
+    }
+    final res = await match.first.execute(arguments);
+    return MCPToolResult(
+      content: res.content.map((c) => MCPContent(
+        type: c.type,
+        text: c.text,
+        data: c.data,
+        mimeType: c.mimeType,
+      )).toList(),
+      isError: res.isError,
+    );
+  }
+}
 
 /// Interface that defines the MCP functionality needed by ChatService
 abstract class MCPClientInterface extends ChangeNotifier {

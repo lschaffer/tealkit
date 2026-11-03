@@ -394,7 +394,7 @@ class LEn extends L {
   String get model => 'Model';
 
   @override
-  String get modelHint => 'e.g. gpt-4o, gemini-2.5-flash';
+  String get modelHint => 'e.g. gpt-5, gemini-3.8-flash, claude-sonnet-4.5';
 
   @override
   String get apiKey => 'API Key';
@@ -1574,7 +1574,7 @@ class LEn extends L {
   String get llmModelLabel => 'Model';
 
   @override
-  String get llmModelHint => 'e.g. gemini-2.5-flash';
+  String get llmModelHint => 'e.g. gemini-3.8-flash, claude-sonnet-4.5';
 
   @override
   String get llmModelRequired => 'Model name is required';
@@ -3319,4 +3319,260 @@ class LEn extends L {
   String skillRequiresTools(String tools) {
     return 'This skill requires tool(s): $tools. Please install/register if not exists or select from the toolset.';
   }
+
+  @override
+  String get codingAgentModeDisabled => 'Coding Agent Mode disabled.';
+
+  @override
+  String get codingAgentModeActivated =>
+      'Coding Agent Mode activated with workspace tools.';
+
+  @override
+  String get activateCodingAgent => 'Activate Coding Agent';
+
+  @override
+  String get activateCodingAgentMode => 'Activate Coding Agent Mode';
+
+  @override
+  String get disableCodingAgentMode => 'Disable Coding Agent Mode';
+
+  @override
+  String get codingAgentModeActiveTooltip =>
+      'Coding Agent Mode Active (Click to Disable)';
+
+  @override
+  String get codingAgentDescription =>
+      'Enables the full 10-tool autonomous filesystem and terminal execution suite with safe multi-step planning.';
+
+  @override
+  String get activeWorkspaceDirectory => 'Active Workspace Directory:';
+
+  @override
+  String get change => 'Change';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get loadSavedWorkflow => 'Load Saved Workflow';
+
+  @override
+  String get saveCurrentAsWorkflow => 'Save Current as Workflow';
+
+  @override
+  String get noSavedWorkflowsRemote =>
+      'No saved workflows found on remote server.';
+
+  @override
+  String get noSavedWorkflowsLocal =>
+      'No saved workflows found in local database.';
+
+  @override
+  String loadedWorkflow(String name) {
+    return 'Loaded workflow: \"$name\"';
+  }
+
+  @override
+  String get saveWorkflowRemoteDesc =>
+      'Saves current system prompt, active tools, and setup to remote server via REST API.';
+
+  @override
+  String get saveWorkflowLocalDesc =>
+      'Saves current system prompt, active tools, and initial setup to TealKit\'s local database.';
+
+  @override
+  String get saveToServer => 'Save to Server';
+
+  @override
+  String get saveToDatabase => 'Save to Database';
+
+  @override
+  String workflowSavedRemote(String name) {
+    return 'Workflow \"$name\" saved to remote server via REST API.';
+  }
+
+  @override
+  String workflowSavedLocal(String name) {
+    return 'Workflow \"$name\" saved to local database.';
+  }
+
+  @override
+  String appliedSkill(String name) {
+    return 'Applied Skill: \"$name\"';
+  }
+
+  @override
+  String get skillsManager => 'Skills Manager';
+
+  @override
+  String get serverBadge => 'Server';
+
+  @override
+  String get localBadge => 'Local';
+
+  @override
+  String get toggleTealKitMenu => 'Toggle TealKit Menu';
+
+  @override
+  String get workflowName => 'Workflow Name';
+
+  @override
+  String turnsAndTools(int count) {
+    return 'Turns: ∞  •  Tools: $count';
+  }
+
+  @override
+  String get loadWorkflow => 'Load Workflow';
+
+  @override
+  String get toolPermissionsHitl => 'Tool Permissions (Human-in-the-Loop)';
+
+  @override
+  String get toolPermissionsHitlDesc =>
+      'When auto-approval is disabled, TealKit prompts you with interactive Accept / Denied buttons (matching Cline / Roo Code):';
+
+  @override
+  String get autoApproveReadTools =>
+      'Auto-Approve Read Tools (view_file, grep, list_dir)';
+
+  @override
+  String get autoApproveWriteTools =>
+      'Auto-Approve Write Tools (create file, edit code)';
+
+  @override
+  String get autoApproveExecutionTools =>
+      'Auto-Approve Execution Tools (terminal commands)';
+
+  @override
+  String get autoApproveNetworkTools =>
+      'Auto-Approve Network Tools (web search, URL fetch)';
+
+  @override
+  String get operationMode => 'Operation Mode';
+
+  @override
+  String get agentMode => 'Agent Mode';
+
+  @override
+  String get directChat => 'Direct Chat';
+
+  @override
+  String get agentModeDesc =>
+      'Equipped with autonomous tools, memory, and persona guidelines.';
+
+  @override
+  String get directChatDesc =>
+      'Direct LLM conversation without tools or system prompt (fastest for simple queries).';
+
+  @override
+  String get toolsBypassedInDirectChat =>
+      'Tools are bypassed while Direct Chat Mode is active.';
+
+  @override
+  String get maxPagesToBeIndexed => 'Max pages to be indexed';
+
+  @override
+  String get maxPagesCrawledHelper =>
+      'Max pages crawled per website (1 - 1000)';
+
+  @override
+  String resetToDefaultCount(String count) {
+    return 'Reset to default ($count)';
+  }
+
+  @override
+  String get saveAndApplyAgentSettings => 'Save & Apply Agent Settings';
+
+  @override
+  String get agentSettingsApplied => 'Agent settings applied.';
+
+  @override
+  String get systemPromptPersona => 'System Prompt / Persona';
+
+  @override
+  String get assistantSystemPromptHint =>
+      'Enter instructions, persona details, or operational guidelines for the agent...';
+
+  @override
+  String get quickPersonaTemplates => 'Quick Persona Templates:';
+
+  @override
+  String configuredSubAgents(int count) {
+    return 'Configured Sub-Agents ($count)';
+  }
+
+  @override
+  String get addSubAgent => 'Add Sub-Agent';
+
+  @override
+  String get quickAdd => 'Quick Add:';
+
+  @override
+  String get autonomousTaskDelegation => 'Autonomous Task Delegation';
+
+  @override
+  String get autonomousTaskDelegationDesc =>
+      'Allows this agent to invoke `delegate_task` to dispatch isolated sub-tasks to clones or specialized sub-agents.';
+
+  @override
+  String get sharedWorkflowMemoryScope => 'Shared Workflow Memory Scope';
+
+  @override
+  String get workflowShared => 'Workflow Shared';
+
+  @override
+  String get isolatedPerSubAgent => 'Isolated Per Sub-Agent';
+
+  @override
+  String get episodicMemoryArchive => 'Episodic Memory Archive';
+
+  @override
+  String get episodicMemoryArchiveDesc =>
+      'Persists past turns into a searchable long-term archive for retrieval via `retrieve_memory`.';
+
+  @override
+  String get configureSubAgent => 'Configure Sub-Agent';
+
+  @override
+  String get assigneeKey => 'Assignee Key *';
+
+  @override
+  String get displayNameLabel => 'Display Name *';
+
+  @override
+  String get modelAssignment => 'Model Assignment (Heterogeneous Model)';
+
+  @override
+  String get inheritParentModel => 'Inherit Parent Model';
+
+  @override
+  String get specificProfile => 'Specific Profile';
+
+  @override
+  String get roleSystemPrompt => 'Role System Prompt (Optional)';
+
+  @override
+  String get toolGuidance => 'Tool Guidance (Optional)';
+
+  @override
+  String maxTurnsParam(int count) {
+    return 'Max Turns: $count';
+  }
+
+  @override
+  String maxToolCallsParam(int count) {
+    return 'Max Tool Calls/Turn: $count';
+  }
+
+  @override
+  String get saveChanges => 'Save Changes';
+
+  @override
+  String get keyIsRequired => 'Key is required';
+
+  @override
+  String get keyMustBeUnique => 'Key must be unique';
+
+  @override
+  String get nameIsRequired => 'Name is required';
 }

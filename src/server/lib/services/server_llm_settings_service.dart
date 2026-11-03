@@ -77,12 +77,21 @@ enum LlmProvider {
 
 const Map<LlmProvider, List<String>> defaultModels = {
   LlmProvider.gemini: [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-pro',
+    'gemini-3.8-flash',
+    'gemini-3.8-flash-lite',
+    'gemini-3.8-pro',
+    'gemini-3.1-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-3.1-pro',
   ],
-  LlmProvider.openai: ['gpt-5', 'gpt-5-mini'],
-  LlmProvider.claude: ['claude-sonnet-5'],
+  LlmProvider.openai: ['gpt-5', 'gpt-5-mini', 'o3', 'o3-mini'],
+  LlmProvider.claude: [
+    'claude-sonnet-4.5',
+    'claude-haiku-4.5',
+    'claude-opus-4.5',
+    'claude-3-7-sonnet',
+    'claude-3-5-sonnet',
+  ],
   LlmProvider.mistral: [
     'mistral-large-latest',
     'mistral-medium-latest',

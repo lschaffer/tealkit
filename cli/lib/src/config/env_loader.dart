@@ -31,7 +31,7 @@ class EnvLoader {
   }
 
   /// Load key-value pairs from `.env` files:
-  /// 1. Global ~/.tealkit/.env (base defaults)
+  /// 1. Global ~/.tealkitcoder/.env (base defaults)
   /// 2. Config file directory if [startDir] provided
   /// 3. Workspace directory tree walking up from current directory (overrides global)
   static Map<String, String> loadDotEnv([Directory? startDir]) {
@@ -39,10 +39,20 @@ class EnvLoader {
 
     final combinedEnv = <String, String>{};
 
-    // 1. Load global ~/.tealkit/.env if present
+    // 1. Load global ~/.tealkitcoder/.env if present (with fallback to ~/.tealkit/.env)
     try {
-      final globalEnvFile = File(p.join(GlobalConfigLocator.globalDir, '.env'));
-      combinedEnv.addAll(parseEnvFile(globalEnvFile));
+      final globalEnvFile = File(p.join(GlobalConfigLocator.effectiveConfigDir, '.env'));
+      if (globalEnvFile.existsSync()) {
+        combinedEnv.addAll(parseEnvFile(globalEnvFile));
+      } else {
+        final home = Platform.environment['USERPROFILE'] ??
+            Platform.environment['HOME'] ??
+            Directory.current.path;
+        final legacyEnvFile = File(p.join(home, '.tealkit', '.env'));
+        if (legacyEnvFile.existsSync()) {
+          combinedEnv.addAll(parseEnvFile(legacyEnvFile));
+        }
+      }
     } catch (_) {}
 
     // 2. Load startDir .env if specified (e.g. parent of resolved config file)

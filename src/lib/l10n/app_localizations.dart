@@ -832,7 +832,7 @@ abstract class L {
   /// No description provided for @modelHint.
   ///
   /// In en, this message translates to:
-  /// **'e.g. gpt-4o, gemini-2.5-flash'**
+  /// **'e.g. gpt-5, gemini-3.8-flash, claude-sonnet-4.5'**
   String get modelHint;
 
   /// No description provided for @apiKey.
@@ -2967,7 +2967,7 @@ abstract class L {
   /// No description provided for @llmModelHint.
   ///
   /// In en, this message translates to:
-  /// **'e.g. gemini-2.5-flash'**
+  /// **'e.g. gemini-3.8-flash, claude-sonnet-4.5'**
   String get llmModelHint;
 
   /// No description provided for @llmModelRequired.
@@ -6071,6 +6071,444 @@ abstract class L {
   /// In en, this message translates to:
   /// **'This skill requires tool(s): {tools}. Please install/register if not exists or select from the toolset.'**
   String skillRequiresTools(String tools);
+
+  /// No description provided for @codingAgentModeDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding Agent Mode disabled.'**
+  String get codingAgentModeDisabled;
+
+  /// No description provided for @codingAgentModeActivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding Agent Mode activated with workspace tools.'**
+  String get codingAgentModeActivated;
+
+  /// No description provided for @activateCodingAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate Coding Agent'**
+  String get activateCodingAgent;
+
+  /// No description provided for @activateCodingAgentMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate Coding Agent Mode'**
+  String get activateCodingAgentMode;
+
+  /// No description provided for @disableCodingAgentMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable Coding Agent Mode'**
+  String get disableCodingAgentMode;
+
+  /// No description provided for @codingAgentModeActiveTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding Agent Mode Active (Click to Disable)'**
+  String get codingAgentModeActiveTooltip;
+
+  /// No description provided for @codingAgentDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enables the full 10-tool autonomous filesystem and terminal execution suite with safe multi-step planning.'**
+  String get codingAgentDescription;
+
+  /// No description provided for @activeWorkspaceDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Workspace Directory:'**
+  String get activeWorkspaceDirectory;
+
+  /// No description provided for @change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get change;
+
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// No description provided for @loadSavedWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Saved Workflow'**
+  String get loadSavedWorkflow;
+
+  /// No description provided for @saveCurrentAsWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Current as Workflow'**
+  String get saveCurrentAsWorkflow;
+
+  /// No description provided for @noSavedWorkflowsRemote.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved workflows found on remote server.'**
+  String get noSavedWorkflowsRemote;
+
+  /// No description provided for @noSavedWorkflowsLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved workflows found in local database.'**
+  String get noSavedWorkflowsLocal;
+
+  /// No description provided for @loadedWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded workflow: \"{name}\"'**
+  String loadedWorkflow(String name);
+
+  /// No description provided for @saveWorkflowRemoteDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves current system prompt, active tools, and setup to remote server via REST API.'**
+  String get saveWorkflowRemoteDesc;
+
+  /// No description provided for @saveWorkflowLocalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves current system prompt, active tools, and initial setup to TealKit\'s local database.'**
+  String get saveWorkflowLocalDesc;
+
+  /// No description provided for @saveToServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Server'**
+  String get saveToServer;
+
+  /// No description provided for @saveToDatabase.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Database'**
+  String get saveToDatabase;
+
+  /// No description provided for @workflowSavedRemote.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow \"{name}\" saved to remote server via REST API.'**
+  String workflowSavedRemote(String name);
+
+  /// No description provided for @workflowSavedLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow \"{name}\" saved to local database.'**
+  String workflowSavedLocal(String name);
+
+  /// No description provided for @appliedSkill.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied Skill: \"{name}\"'**
+  String appliedSkill(String name);
+
+  /// No description provided for @skillsManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills Manager'**
+  String get skillsManager;
+
+  /// No description provided for @serverBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get serverBadge;
+
+  /// No description provided for @localBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Local'**
+  String get localBadge;
+
+  /// No description provided for @toggleTealKitMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle TealKit Menu'**
+  String get toggleTealKitMenu;
+
+  /// No description provided for @workflowName.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow Name'**
+  String get workflowName;
+
+  /// No description provided for @turnsAndTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Turns: ∞  •  Tools: {count}'**
+  String turnsAndTools(int count);
+
+  /// No description provided for @loadWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Workflow'**
+  String get loadWorkflow;
+
+  /// No description provided for @toolPermissionsHitl.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool Permissions (Human-in-the-Loop)'**
+  String get toolPermissionsHitl;
+
+  /// No description provided for @toolPermissionsHitlDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'When auto-approval is disabled, TealKit prompts you with interactive Accept / Denied buttons (matching Cline / Roo Code):'**
+  String get toolPermissionsHitlDesc;
+
+  /// No description provided for @autoApproveReadTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Approve Read Tools (view_file, grep, list_dir)'**
+  String get autoApproveReadTools;
+
+  /// No description provided for @autoApproveWriteTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Approve Write Tools (create file, edit code)'**
+  String get autoApproveWriteTools;
+
+  /// No description provided for @autoApproveExecutionTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Approve Execution Tools (terminal commands)'**
+  String get autoApproveExecutionTools;
+
+  /// No description provided for @autoApproveNetworkTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Approve Network Tools (web search, URL fetch)'**
+  String get autoApproveNetworkTools;
+
+  /// No description provided for @operationMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation Mode'**
+  String get operationMode;
+
+  /// No description provided for @agentMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent Mode'**
+  String get agentMode;
+
+  /// No description provided for @directChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Chat'**
+  String get directChat;
+
+  /// No description provided for @agentModeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Equipped with autonomous tools, memory, and persona guidelines.'**
+  String get agentModeDesc;
+
+  /// No description provided for @directChatDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct LLM conversation without tools or system prompt (fastest for simple queries).'**
+  String get directChatDesc;
+
+  /// No description provided for @toolsBypassedInDirectChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools are bypassed while Direct Chat Mode is active.'**
+  String get toolsBypassedInDirectChat;
+
+  /// No description provided for @maxPagesToBeIndexed.
+  ///
+  /// In en, this message translates to:
+  /// **'Max pages to be indexed'**
+  String get maxPagesToBeIndexed;
+
+  /// No description provided for @maxPagesCrawledHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Max pages crawled per website (1 - 1000)'**
+  String get maxPagesCrawledHelper;
+
+  /// No description provided for @resetToDefaultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to default ({count})'**
+  String resetToDefaultCount(String count);
+
+  /// No description provided for @saveAndApplyAgentSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Save & Apply Agent Settings'**
+  String get saveAndApplyAgentSettings;
+
+  /// No description provided for @agentSettingsApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent settings applied.'**
+  String get agentSettingsApplied;
+
+  /// No description provided for @systemPromptPersona.
+  ///
+  /// In en, this message translates to:
+  /// **'System Prompt / Persona'**
+  String get systemPromptPersona;
+
+  /// No description provided for @assistantSystemPromptHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter instructions, persona details, or operational guidelines for the agent...'**
+  String get assistantSystemPromptHint;
+
+  /// No description provided for @quickPersonaTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Persona Templates:'**
+  String get quickPersonaTemplates;
+
+  /// No description provided for @configuredSubAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured Sub-Agents ({count})'**
+  String configuredSubAgents(int count);
+
+  /// No description provided for @addSubAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Sub-Agent'**
+  String get addSubAgent;
+
+  /// No description provided for @quickAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Add:'**
+  String get quickAdd;
+
+  /// No description provided for @autonomousTaskDelegation.
+  ///
+  /// In en, this message translates to:
+  /// **'Autonomous Task Delegation'**
+  String get autonomousTaskDelegation;
+
+  /// No description provided for @autonomousTaskDelegationDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Allows this agent to invoke `delegate_task` to dispatch isolated sub-tasks to clones or specialized sub-agents.'**
+  String get autonomousTaskDelegationDesc;
+
+  /// No description provided for @sharedWorkflowMemoryScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared Workflow Memory Scope'**
+  String get sharedWorkflowMemoryScope;
+
+  /// No description provided for @workflowShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow Shared'**
+  String get workflowShared;
+
+  /// No description provided for @isolatedPerSubAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Isolated Per Sub-Agent'**
+  String get isolatedPerSubAgent;
+
+  /// No description provided for @episodicMemoryArchive.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodic Memory Archive'**
+  String get episodicMemoryArchive;
+
+  /// No description provided for @episodicMemoryArchiveDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Persists past turns into a searchable long-term archive for retrieval via `retrieve_memory`.'**
+  String get episodicMemoryArchiveDesc;
+
+  /// No description provided for @configureSubAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure Sub-Agent'**
+  String get configureSubAgent;
+
+  /// No description provided for @assigneeKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignee Key *'**
+  String get assigneeKey;
+
+  /// No description provided for @displayNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Display Name *'**
+  String get displayNameLabel;
+
+  /// No description provided for @modelAssignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Model Assignment (Heterogeneous Model)'**
+  String get modelAssignment;
+
+  /// No description provided for @inheritParentModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Inherit Parent Model'**
+  String get inheritParentModel;
+
+  /// No description provided for @specificProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Specific Profile'**
+  String get specificProfile;
+
+  /// No description provided for @roleSystemPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Role System Prompt (Optional)'**
+  String get roleSystemPrompt;
+
+  /// No description provided for @toolGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool Guidance (Optional)'**
+  String get toolGuidance;
+
+  /// No description provided for @maxTurnsParam.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Turns: {count}'**
+  String maxTurnsParam(int count);
+
+  /// No description provided for @maxToolCallsParam.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Tool Calls/Turn: {count}'**
+  String maxToolCallsParam(int count);
+
+  /// No description provided for @saveChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Changes'**
+  String get saveChanges;
+
+  /// No description provided for @keyIsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Key is required'**
+  String get keyIsRequired;
+
+  /// No description provided for @keyMustBeUnique.
+  ///
+  /// In en, this message translates to:
+  /// **'Key must be unique'**
+  String get keyMustBeUnique;
+
+  /// No description provided for @nameIsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required'**
+  String get nameIsRequired;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {

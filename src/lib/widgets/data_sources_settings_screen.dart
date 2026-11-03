@@ -1461,17 +1461,15 @@ class _DataSourcesSettingsScreenState
         ? _documentFileTypes.toList()
         : ['pdf', 'md', 'docx'];
     final result = await FilePicker.pickFiles(
-      allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: extensions,
-      withData: false, // load via path to avoid OOM with large/many files
     );
-    if (result == null || result.files.isEmpty || !mounted) return;
+    if (result.isEmpty || !mounted) return;
     final appDir = await getApplicationSupportDirectory();
     final destDir = Directory('${appDir.path}/tealkit_indexed_files');
     await destDir.create(recursive: true);
     final int allowedPicks = 100;
-    final filesToCopy = result.files.take(allowedPicks).toList();
+    final filesToCopy = result.take(allowedPicks).toList();
 
     for (final f in filesToCopy) {
       final name = f.name;
@@ -4319,20 +4317,20 @@ class _DataSourcesSettingsScreenState
                                         final result =
                                             await FilePicker.pickFiles(
                                               type: FileType.any,
-                                              allowMultiple: false,
-                                              withData: true,
                                             );
-                                        if (result != null &&
-                                            result.files.single.bytes != null) {
-                                          final content = utf8.decode(
-                                            result.files.single.bytes!,
-                                            allowMalformed: false,
-                                          );
-                                          setState(() {
-                                            _sshPrivateKeyContent = content;
-                                            _sshPrivateKeyFileName =
-                                                result.files.single.name;
-                                          });
+                                        if (result.isNotEmpty) {
+                                          final file = result.first;
+                                          try {
+                                            final bytes = await file.readAsBytes();
+                                            final content = utf8.decode(
+                                              bytes,
+                                              allowMalformed: false,
+                                            );
+                                            setState(() {
+                                              _sshPrivateKeyContent = content;
+                                              _sshPrivateKeyFileName = file.name;
+                                            });
+                                          } catch (_) {}
                                         }
                                       },
                                       icon: const Icon(Icons.key, size: 18),

@@ -7013,13 +7013,13 @@ CRITICAL RULES:
           );
         } else {
           // Desktop: ask the user where to save
-          final pickedPath = await FilePicker.saveFile(
+          final uri = await FilePicker.saveFile(
             dialogTitle: 'Save downloaded file',
             fileName: fileName,
+            bytes: bytes,
           );
-          if (pickedPath != null) {
-            await File(pickedPath).writeAsBytes(bytes, flush: true);
-            savedPath = pickedPath;
+          if (uri != null) {
+            savedPath = uri.toFilePath();
             talker.info(
               'SFTP download saved (desktop): $savedPath (${bytes.length} bytes)',
             );

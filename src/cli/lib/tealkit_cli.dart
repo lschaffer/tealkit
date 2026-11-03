@@ -30,6 +30,7 @@ export 'src/engine/mcp_manager_helper.dart';
 export 'src/engine/session_manager.dart';
 export 'src/engine/skill_runner.dart';
 export 'src/engine/token_usage_tracker.dart';
+export 'src/engine/windows_dll_helper.dart';
 export 'src/formatters/terminal_printer.dart';
 export 'src/mcp/mcp_config_installer.dart';
 export 'src/rag/rag_config.dart';

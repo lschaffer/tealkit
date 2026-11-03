@@ -26,6 +26,7 @@ import 'servers/website_search_mcp_server.dart';
 import 'servers/home_assistant_mcp_server.dart';
 import 'servers/github_mcp_bridge_server.dart';
 import 'servers/coding_tools_mcp_server.dart';
+import 'servers/fetch_mcp_server.dart';
 import '../services/github_mcp_library_service.dart';
 
 /// Registry of all available internal MCP servers.
@@ -53,7 +54,9 @@ class InternalMcpRegistry {
     register('google_calendar', () => GoogleCalendarMcpServer());
     register('imap', () => ImapMcpServer());
     register('website_search', () => WebsiteSearchMcpServer());
+    register('web_crawl', () => WebsiteSearchMcpServer());
     register('web_search', () => WebSearchMcpServer());
+    register('fetch', () => FetchMcpServer());
     register('google_drive', () => GoogleDriveMcpServer());
     register('toolbox', () => ToolboxMcpServer());
     register('pdf', () => PdfMcpServer());
@@ -131,20 +134,26 @@ class InternalMcpRegistry {
 
   /// Get metadata for all available internal MCP servers (for UI display).
   List<InternalMcpInfo> get availableServers {
-    return _factories.entries.map((entry) {
+    final seenTypes = <String>{};
+    final result = <InternalMcpInfo>[];
+    for (final entry in _factories.entries) {
       final server = entry.value();
-      return InternalMcpInfo(
-        type: server.type,
-        displayName: server.displayName,
-        description: server.description,
-        iconName: server.iconName,
-        initParamSchema: server.initParamSchema,
-        defaultInitParams: server.defaultInitParams,
-        defaultSystemPrompt: server.defaultSystemPrompt,
-        toolCount: server.tools.length,
-        toolNames: server.tools.map((t) => t.name).toList(),
+      if (!seenTypes.add(server.type)) continue;
+      result.add(
+        InternalMcpInfo(
+          type: server.type,
+          displayName: server.displayName,
+          description: server.description,
+          iconName: server.iconName,
+          initParamSchema: server.initParamSchema,
+          defaultInitParams: server.defaultInitParams,
+          defaultSystemPrompt: server.defaultSystemPrompt,
+          toolCount: server.tools.length,
+          toolNames: server.tools.map((t) => t.name).toList(),
+        ),
       );
-    }).toList();
+    }
+    return result;
   }
 
   /// Check if a type is registered.

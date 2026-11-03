@@ -29,7 +29,7 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
   String get type => 'website_search';
 
   @override
-  String get displayName => 'Website Search';
+  String get displayName => 'Web-Crawl';
 
   @override
   String get description =>
@@ -899,6 +899,16 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
   }
 
   Future<_FetchedPage?> _fetchPage(Uri url) async {
+    // Skip binary and non-HTML extensions immediately without making an HTTP request
+    final path = url.path.toLowerCase();
+    final dotIdx = path.lastIndexOf('.');
+    if (dotIdx != -1 && dotIdx < path.length - 1) {
+      final ext = path.substring(dotIdx + 1);
+      if (_kSkipExtensions.contains(ext)) {
+        return null;
+      }
+    }
+
     try {
       final response = await http
           .get(
@@ -1050,6 +1060,19 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
     'jsonld',
     'map',
     'wasm',
+    'msi',
+    'exe',
+    'dmg',
+    'pkg',
+    'deb',
+    'rpm',
+    'iso',
+    'bin',
+    'apk',
+    'aab',
+    'tgz',
+    'tbz2',
+    'txz',
   };
 
   List<Uri> _extractLinks(Uri baseUrl, String html) {

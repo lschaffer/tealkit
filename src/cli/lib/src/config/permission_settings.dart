@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:dart_mcp_core/dart_mcp_core.dart';
+import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 import 'env_loader.dart';
+import 'global_config.dart';
 
 /// Configuration managing human-in-the-loop tool approvals.
 class ToolPermissionSettings {
@@ -29,10 +31,7 @@ class ToolPermissionSettings {
 
   /// Path to persistent permissions configuration in user home or workspace.
   static String get defaultStoragePath {
-    final home = Platform.environment['USERPROFILE'] ??
-        Platform.environment['HOME'] ??
-        Directory.current.path;
-    return '$home/.tealkit/permissions.yaml';
+    return p.join(GlobalConfigLocator.effectiveConfigDir, 'permissions.yaml');
   }
 
   /// Load permissions from YAML storage file (or return safe defaults).

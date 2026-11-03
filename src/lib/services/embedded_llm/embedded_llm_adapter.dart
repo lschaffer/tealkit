@@ -44,7 +44,7 @@ class EmbeddedLlmAdapter {
   /// IMPORTANT: We never call [LlamaEngine.dispose] / [LlamaBackend.dispose]
   /// during a model switch because [_backend] is a static singleton that
   /// registers GGML backends globally. Disposing it invalidates native state
-  /// and causes the next [loadModel] call to hang. We only call [unloadModel]
+  /// and causes the next [setModel] call to hang. We only call [unloadModel]
   /// (which frees the native model/context handles) and reuse the same
   /// [LlamaEngine] instance.
   ///
@@ -84,9 +84,9 @@ class EmbeddedLlmAdapter {
 
       // Reuse the single LlamaEngine instance; create it only on first use.
       _engine ??= LlamaEngine(_backend);
-      await _engine!.loadModel(
-        modelPath,
-        modelParams: ModelParams(contextSize: effectiveContextSize, gpuLayers: gpuLayers),
+      await _engine!.setModel(
+        LlamaModel(ModelSource.path(modelPath)),
+        params: ModelParams(contextSize: effectiveContextSize, gpuLayers: gpuLayers),
       );
 
       _loadedModelPath = modelPath;

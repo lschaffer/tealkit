@@ -555,7 +555,7 @@ Future<void> _migrateInvalidTaskModels(
     final tasks = await db.getAllTasks();
     final defaultGlobalModel = llm.model.isNotEmpty
         ? llm.model
-        : (defaultModels[LlmProvider.gemini]?.first ?? 'gemini-2.5-flash');
+        : (defaultModels[LlmProvider.gemini]?.first ?? 'gemini-3.8-flash');
     int count = 0;
 
     final profileModels = llm.profiles
@@ -801,6 +801,11 @@ Future<void> startHttpServer({
   router.delete('/api/v1/skill-defs/<id>', _handleDeleteSkillDef);
 
   // ── Playground Sessions ───────────────────────────────────────
+    // ── Specialized Subagents ─────────────────────────
+  router.get('/api/v1/subagents', _handleGetSubagents);
+  router.post('/api/v1/subagents', _handleSaveSubagent);
+  router.delete('/api/v1/subagents/<key>', _handleDeleteSubagent);
+  router.post('/api/v1/subagents/sample', _handleGenerateSampleSubagents);
   router.get('/api/v1/playground/sessions', _handleListPlaygroundSessions);
   router.post('/api/v1/playground/sessions', _handleSavePlaygroundSession);
   router.delete(
@@ -4891,4 +4896,72 @@ String _normalizeServerId(String id) {
     s = s.replaceFirst('http:/', 'http://');
   }
   return s;
+}
+
+
+// ── Specialized Subagents handlers ─────────────────────────
+
+Future<Response> _handleGetSubagents(Request request) async {
+  try {
+    final list = await _db.getSubagentDefinitions();
+    return Response.ok(
+      jsonEncode({'subagents': list}),
+      headers: {'content-type': 'application/json'},
+    );
+  } catch (e) {
+    log.error('[_handleGetSubagents] $e');
+    return Response.internalServerError(
+      body: jsonEncode({'error': e.toString()}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+}
+
+Future<Response> _handleSaveSubagent(Request request) async {
+  try {
+    final payload = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+    await _db.saveSubagentDefinition(payload);
+    return Response.ok(
+      jsonEncode({'status': 'ok'}),
+      headers: {'content-type': 'application/json'},
+    );
+  } catch (e) {
+    log.error('[_handleSaveSubagent] $e');
+    return Response.internalServerError(
+      body: jsonEncode({'error': e.toString()}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+}
+
+Future<Response> _handleDeleteSubagent(Request request, String key) async {
+  try {
+    await _db.deleteSubagentDefinition(key);
+    return Response.ok(
+      jsonEncode({'status': 'ok'}),
+      headers: {'content-type': 'application/json'},
+    );
+  } catch (e) {
+    log.error('[_handleDeleteSubagent] $e');
+    return Response.internalServerError(
+      body: jsonEncode({'error': e.toString()}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+}
+
+Future<Response> _handleGenerateSampleSubagents(Request request) async {
+  try {
+    final added = await _db.seedSampleSubagents();
+    return Response.ok(
+      jsonEncode({'status': 'ok', 'added': added}),
+      headers: {'content-type': 'application/json'},
+    );
+  } catch (e) {
+    log.error('[_handleGenerateSampleSubagents] $e');
+    return Response.internalServerError(
+      body: jsonEncode({'error': e.toString()}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
 }

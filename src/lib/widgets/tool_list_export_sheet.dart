@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -168,18 +167,14 @@ class _ToolListExportSheetState extends State<ToolListExportSheet> {
                           : 'json';
                       final safeName = widget.serverName.replaceAll(RegExp(r'[^\w\s\-]'), '').trim();
                       final defaultName = '${safeName.isEmpty ? 'tools' : safeName}_tools.$ext';
-                      final isMobile = Platform.isAndroid || Platform.isIOS;
-                      final bytes = utf8.encode(output);
-                      final savePath = await FilePicker.saveFile(
+                      final bytes = Uint8List.fromList(utf8.encode(output));
+                      final uri = await FilePicker.saveFile(
                         dialogTitle: 'Save tool list',
                         fileName: defaultName,
-                        type: FileType.any,
-                        bytes: isMobile ? Uint8List.fromList(bytes) : null,
+                        bytes: bytes,
                       );
-                      if (savePath == null || !context.mounted) return;
-                      if (!isMobile) {
-                        await File(savePath).writeAsString(output);
-                      }
+                      if (uri == null || !context.mounted) return;
+                      final savePath = uri.toFilePath();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Saved to $savePath'),

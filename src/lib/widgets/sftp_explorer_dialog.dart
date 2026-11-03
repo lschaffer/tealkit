@@ -334,11 +334,15 @@ class _SftpExplorerDialogState extends State<SftpExplorerDialog> {
   void _uploadWithFilePicker() {
     () async {
       try {
-        final result = await FilePicker.pickFiles(withData: true);
-        if (result == null || result.files.isEmpty) return;
-        final picked = result.files.first;
-        final bytes = picked.bytes;
-        if (bytes == null) return;
+        final result = await FilePicker.pickFiles();
+        if (result.isEmpty) return;
+        final picked = result.first;
+        final Uint8List bytes;
+        try {
+          bytes = await picked.readAsBytes();
+        } catch (_) {
+          return;
+        }
         if (!context.mounted) return;
         final fileName = picked.name;
         final remotePath = _normalizePath(_currentPath, fileName);
@@ -757,11 +761,13 @@ class _SftpExplorerDialogState extends State<SftpExplorerDialog> {
         // SAF always writes the file even when null is returned; treat as success.
         return fileName;
       } else {
-        // Desktop: show OS save dialog, then write ourselves.
-        final pickedPath = await FilePicker.saveFile(dialogTitle: 'Save $fileName', fileName: fileName);
-        if (pickedPath == null) return null; // user cancelled
-        await File(pickedPath).writeAsBytes(bytes, flush: true);
-        return pickedPath;
+        final uri = await FilePicker.saveFile(
+          dialogTitle: 'Save $fileName',
+          fileName: fileName,
+          bytes: bytes,
+        );
+        if (uri == null) return null; // user cancelled
+        return uri.toFilePath();
       }
     } catch (e) {
       talker.error('SftpExplorer: save failed: $e');

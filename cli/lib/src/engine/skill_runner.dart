@@ -532,6 +532,18 @@ class SkillRunner {
             break;
           case AgentContextCompressedEvent():
             break;
+          case AgentMemoryRetrievedEvent():
+            break;
+          case AgentSubAgentStartedEvent():
+            break;
+          case AgentSubAgentProgressEvent():
+            break;
+          case AgentSubAgentCompletedEvent():
+            break;
+          case AgentSkillsChangedEvent():
+            break;
+          case AgentWorkflowMemoryEvent():
+            break;
           case AgentTextChunkEvent():
             spinner.clear();
             break;
