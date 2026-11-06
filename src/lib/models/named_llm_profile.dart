@@ -124,9 +124,16 @@ class NamedLlmProfile {
   };
 
   factory NamedLlmProfile.fromJson(Map<String, dynamic> json) {
+    final rawId = (json['id'] as String?)?.trim() ?? '';
+    final id = rawId.isNotEmpty
+        ? rawId
+        : 'llm_${DateTime.now().millisecondsSinceEpoch}';
+    final rawName = (json['name'] as String?)?.trim() ?? '';
+    final name = rawName.isNotEmpty ? rawName : id;
+
     return NamedLlmProfile(
-      id: (json['id'] as String?) ?? 'llm_${DateTime.now().millisecondsSinceEpoch}',
-      name: (json['name'] as String?) ?? 'LLM',
+      id: id,
+      name: name,
       provider: LlmProvider.fromConfigKey(json['provider'] as String?),
       model: (json['model'] as String?) ?? '',
       apiKey: (json['api_key'] as String?) ?? '',

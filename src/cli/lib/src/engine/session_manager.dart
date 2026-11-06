@@ -296,4 +296,51 @@ class SessionManager {
     }
     return null;
   }
+
+  /// Searches candidate directories for the most recently modified session file.
+  static File? findLastSessionFile({String? workspaceDir}) {
+    final candidateDirs = <String>{};
+    if (workspaceDir != null && workspaceDir.isNotEmpty) {
+      candidateDirs.add(p.join(workspaceDir, '.tealkit', 'sessions'));
+      candidateDirs.add(p.join(workspaceDir, 'sessions'));
+    }
+    candidateDirs.add(p.join(Directory.current.path, '.tealkit', 'sessions'));
+    candidateDirs.add(p.join(Directory.current.path, 'sessions'));
+
+    final home = Platform.environment['USERPROFILE'] ??
+        Platform.environment['HOME'] ??
+        '';
+    if (home.isNotEmpty) {
+      candidateDirs.add(p.join(home, '.tealkit', 'sessions'));
+    }
+
+    final files = <File>[];
+    for (final d in candidateDirs) {
+      final dir = Directory(d);
+      if (!dir.existsSync()) continue;
+      try {
+        final entries = dir.listSync();
+        for (final entry in entries) {
+          if (entry is File) {
+            final ext = p.extension(entry.path).toLowerCase();
+            if ((ext == '.json' || ext == '.md') && entry.lengthSync() > 10) {
+              files.add(entry);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (files.isEmpty) return null;
+
+    files.sort((a, b) {
+      try {
+        return b.lastModifiedSync().compareTo(a.lastModifiedSync());
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    return files.first;
+  }
 }

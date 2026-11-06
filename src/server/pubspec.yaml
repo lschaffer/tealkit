@@ -1,7 +1,7 @@
 name: tealkit_server
 description: "TealKit Server — headless Docker/Linux daemon with REST API"
 publish_to: 'none'
-version: 1.0.208
+version: 1.0.210
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
@@ -54,7 +54,7 @@ dependencies:
   archive: ^4.0.0
 
   # Embedded GGUF inference via llama.cpp
-  llamadart: ^0.16.2
+  llamadart: ^0.17.5
 
 dependency_overrides:
   dart_duckdb:

@@ -28,10 +28,10 @@ packages:
     dependency: "direct main"
     description:
       name: anthropic_sdk_dart
-      sha256: "87100b2d9f8138a4c74106bd54ca93d914630c39d6edc082e8f13b5ceab55c79"
+      sha256: "6b6b17e1ae153f990569c77fa479ba6f0488f17acf40b77ad7d4b71c3c9ccaab"
       url: "https://pub.dev"
     source: hosted
-    version: "9.0.0"
+    version: "9.0.1"
   archive:
     dependency: "direct main"
     description:
@@ -269,7 +269,7 @@ packages:
       path: "../mcp_playground/dart_mcp_core"
       relative: true
     source: path
-    version: "1.5.3"
+    version: "1.5.7"
   dartssh2:
     dependency: "direct main"
     description:
@@ -314,10 +314,10 @@ packages:
     dependency: transitive
     description:
       name: dinja
-      sha256: fca95d1c75d6aaca8205b55a498ca5fa710c5c69d7ac3fd7f76758ea5da2ada7
+      sha256: a3addbe07ebb562c062256f7c644ac498ab2ab3d97a85d9f95aafac7f53fa808
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.1"
+    version: "1.3.2"
   encrypter_plus:
     dependency: transitive
     description:
@@ -675,21 +675,21 @@ packages:
       path: "../mcp_playground/flutter_ui_mcp"
       relative: true
     source: path
-    version: "1.5.3"
+    version: "1.5.7"
   flutter_ui_mcp_core:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_core"
       relative: true
     source: path
-    version: "1.5.3"
+    version: "1.5.7"
   flutter_ui_mcp_embedded:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_embedded"
       relative: true
     source: path
-    version: "1.5.0"
+    version: "1.5.7"
   flutter_web_auth_2:
     dependency: "direct main"
     description:
@@ -1178,10 +1178,10 @@ packages:
     dependency: "direct main"
     description:
       name: llamadart
-      sha256: "76e53470d1be90eee99948c66f3ebbc821c137e162087646a918cc3cc91f85a3"
+      sha256: "62d8a9081579c2dc176dc509502edb8fc5714be3797a49230a3738d64bfe48ca"
       url: "https://pub.dev"
     source: hosted
-    version: "0.16.2"
+    version: "0.17.5"
   logging:
     dependency: "direct main"
     description:

@@ -14,14 +14,20 @@ import '../database/duckdb_service.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../mcp/servers/document_mcp_server.dart';
 import '../mcp/servers/website_search_mcp_server.dart';
+import '../services/github_mcp_library_service.dart';
+import '../services/external_tools_settings_service.dart';
 import '../providers/llm_settings_provider.dart';
 import '../services/data_sources_settings_service.dart';
 import '../services/llm_settings_service.dart' as tk_llm;
 import '../models/named_llm_profile.dart';
 import '../models/subagent_definition.dart';
 import '../services/subagent_database_service.dart';
+import '../services/session_service.dart';
 import '../utils/storage_permission.dart';
 import 'agent_llm_selector_widget.dart';
+import '../providers/server_mode_provider.dart';
+import '../models/github_mcp_server_definition.dart';
+import '../mcp/servers/py_bridge_mcp_server.dart';
 
 /// Custom settings dialog for TealKit Assistant mode.
 ///
@@ -35,6 +41,7 @@ class TealKitAssistantSettingsDialog extends ConsumerStatefulWidget {
   final VoidCallback? onClose;
   final List<SystemPromptTemplate>? systemPromptTemplates;
   final bool? showSystemPromptTemplates;
+  final bool isCodingMode;
 
   const TealKitAssistantSettingsDialog({
     super.key,
@@ -42,6 +49,7 @@ class TealKitAssistantSettingsDialog extends ConsumerStatefulWidget {
     this.initialTabIndex = 0,
     this.onClose,
     this.systemPromptTemplates,
+    this.isCodingMode = false,
     this.showSystemPromptTemplates,
   });
 
@@ -85,6 +93,70 @@ class _TealKitAssistantSettingsDialogState
 
   final Map<LlmProvider, _FieldCache> _providerCache = {};
   final Set<String> _expandedToolGroups = {};
+  List<GithubMcpServerDefinition> _remoteGithubMcpServers = const [];
+
+  Future<void> _refreshSelectableGithubMcpServers() async {
+    final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
+    if (!isServerMode) {
+      if (mounted) {
+        setState(() => _remoteGithubMcpServers = const []);
+      }
+      return;
+    }
+
+    final client = ref.read(serverApiClientProvider);
+    if (client == null) return;
+
+    try {
+      final raw = await client.listRegistryServers();
+      final defs = _dedupeGithubMcpServers(
+        raw
+            .map(GithubMcpServerDefinition.fromJson)
+            .where((s) => s.isInstalled && s.isActive),
+      );
+      if (mounted) {
+        setState(() => _remoteGithubMcpServers = defs);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  List<GithubMcpServerDefinition> _dedupeGithubMcpServers(
+    Iterable<GithubMcpServerDefinition> servers,
+  ) {
+    final map = <String, GithubMcpServerDefinition>{};
+    for (final s in servers) {
+      final key = s.id.isNotEmpty ? s.id : s.name;
+      map.putIfAbsent(key, () => s);
+    }
+    return map.values.toList();
+  }
+
+  void _disableServerModeHiddenTools() {
+    final isServerMode = ref.read(serverModeProvider).value?.isRemote ?? false;
+    if (!isServerMode) return;
+    final isLightServer = ref.read(serverModeProvider).value?.isLightMode == true;
+    final registry = InternalMcpRegistry();
+    final hiddenTypes = <String>{
+      'ps_bridge',
+      'chart',
+      'gmail',
+      'google_calendar',
+      'google_drive',
+      'pdf',
+      if (isLightServer) ...['website_search', 'document'],
+    };
+    for (final server in registry.availableServers) {
+      if (hiddenTypes.contains(server.type)) {
+        for (final toolName in server.toolNames) {
+          if (widget.controller.enabledToolNames.contains(toolName)) {
+            widget.controller.toggleToolEnabled(toolName, false);
+          }
+        }
+      }
+    }
+  }
 
   // ─── Document indexing state ───
   bool _isIndexingDocuments = false;
@@ -129,6 +201,14 @@ class _TealKitAssistantSettingsDialogState
     );
     _loadWebsiteMaxPages();
     _loadIndexTimestampsFromDb();
+    if (!widget.isCodingMode) {
+      widget.controller.toggleToolEnabled('fetch', false);
+      widget.controller.toggleToolEnabled('fetch_web', false);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshSelectableGithubMcpServers();
+      _disableServerModeHiddenTools();
+    });
     widget.controller.permissions.reload();
     _systemPromptCtrl = TextEditingController(
       text: widget.controller.systemPrompt,
@@ -1735,6 +1815,29 @@ class _TealKitAssistantSettingsDialogState
       'terminal_exec',
     };
 
+    final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
+    final isLightServer = ref.watch(serverModeProvider).value?.isLightMode == true;
+    final serverModeHiddenTypes = <String>{
+      if (isServerMode) ...[
+        'ps_bridge',
+        'chart',
+        'gmail',
+        'google_calendar',
+        'google_drive',
+        'pdf',
+        if (isLightServer) ...['website_search', 'document'],
+      ],
+    };
+    final serverModeHiddenToolNames = <String>{};
+    if (isServerMode) {
+      final reg = InternalMcpRegistry();
+      for (final s in reg.availableServers) {
+        if (serverModeHiddenTypes.contains(s.type)) {
+          serverModeHiddenToolNames.addAll(s.toolNames);
+        }
+      }
+    }
+
     final rawLocalTools = widget.controller.localTools;
     final localTools = isMobile
         ? rawLocalTools.where((t) => !codingToolNames.contains(t.name)).toList()
@@ -1742,7 +1845,9 @@ class _TealKitAssistantSettingsDialogState
 
     final mcpTools = widget.controller.mcpManager.availableTools;
     final allAvailableNames = <String>{
-      ...localTools.map((t) => t.name),
+      ...localTools
+          .where((t) => !serverModeHiddenToolNames.contains(t.name))
+          .map((t) => t.name),
       ...mcpTools.map((t) => t.name),
     };
     final activeCount = widget.controller.enabledToolNames
@@ -2031,6 +2136,8 @@ class _TealKitAssistantSettingsDialogState
           // Tool Permissions Card (Human-in-the-Loop) - Hidden in mobile mode
           _buildToolPermissionsCard(theme, l),
           const SizedBox(height: 12),
+          _buildSessionAutoSaveCard(theme, l),
+          const SizedBox(height: 12),
         ],
 
         // Specialized Sub-Agents Card (DelegateTaskTool) - Shown in mobile mode with web_search
@@ -2074,7 +2181,9 @@ class _TealKitAssistantSettingsDialogState
                       ),
                       onPressed: () {
                         final allNames = <String>{
-                          ...localTools.map((t) => t.name),
+                          ...localTools
+                              .where((t) => !serverModeHiddenToolNames.contains(t.name))
+                              .map((t) => t.name),
                           ...mcpTools.map((t) => t.name),
                         };
                         setState(() {
@@ -2134,39 +2243,119 @@ class _TealKitAssistantSettingsDialogState
             final serverInfos = List<InternalMcpInfo>.from(
               registry.availableServers,
             );
+            if (isServerMode &&
+                !serverInfos.any((server) => server.type == 'py_bridge')) {
+              final pyBridge = PyBridgeMcpServer();
+              serverInfos.add(
+                InternalMcpInfo(
+                  type: pyBridge.type,
+                  displayName: pyBridge.displayName,
+                  description: pyBridge.description,
+                  iconName: pyBridge.iconName,
+                  initParamSchema: pyBridge.initParamSchema,
+                  defaultInitParams: pyBridge.defaultInitParams,
+                  defaultSystemPrompt: pyBridge.defaultSystemPrompt,
+                  toolCount: pyBridge.tools.length,
+                  toolNames: pyBridge.tools.map((tool) => tool.name).toList(),
+                ),
+              );
+            }
+
             final seenMcpTypes = <String>{};
             final available = serverInfos
                 .where(
                   (server) =>
                       seenMcpTypes.add(server.type) &&
+                      server.type != 'toolbox' &&
                       server.type != 'traffic' &&
                       !server.type.startsWith('gh_mcp_') &&
-                      (!isMobile || server.type != 'coding_tools'),
+                      (!isMobile || server.type != 'coding_tools') &&
+                      !serverModeHiddenTypes.contains(server.type),
                 )
-                .toList();
+                .toList()
+              ..sort((a, b) => a.displayName.compareTo(b.displayName));
 
-            final toolboxInfo = available
+            final toolboxInfo = serverInfos
                 .where((s) => s.type == 'toolbox')
                 .firstOrNull;
-            final otherServers =
-                available.where((s) => s.type != 'toolbox').toList()
-                  ..sort((a, b) => a.displayName.compareTo(b.displayName));
-            final sortedServers = [?toolboxInfo, ...otherServers];
 
-            final allClaimedNames = <String>{};
-            for (final s in sortedServers) {
+            final allClaimedNames = <String>{
+              if (toolboxInfo != null) ...toolboxInfo.toolNames,
+            };
+            for (final s in available) {
               allClaimedNames.addAll(s.toolNames);
             }
             final unclaimedLocalTools = localTools
                 .where((t) => !allClaimedNames.contains(t.name))
+                .where((t) => !serverModeHiddenToolNames.contains(t.name))
                 .where((t) => !isMobile || !codingToolNames.contains(t.name))
                 .toList();
+
+            final isToolboxEnabled = toolboxInfo != null &&
+                toolboxInfo.toolNames.any(
+                  (name) => widget.controller.enabledToolNames.contains(name),
+                );
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ── Toolbox (Matching Workflow Agent Editor: dedicated top selector) ──
+                if (toolboxInfo != null)
+                  Card(
+                    key: const ValueKey('group_tile_toolbox'),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: SwitchListTile(
+                      secondary: Icon(
+                        Icons.handyman_outlined,
+                        color: isToolboxEnabled
+                            ? AppTheme.primaryBlue
+                            : Colors.grey,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Toolbox',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: isToolboxEnabled ? null : Colors.grey,
+                              ),
+                            ),
+                          ),
+                          if (isToolboxEnabled) ...[
+                            const SizedBox(width: 4),
+                            Chip(
+                              label: Text(
+                                '${toolboxInfo.toolNames.length} tools',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: AppTheme.primaryBlue
+                                  .withAlpha(25),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: const Text(
+                        'Time, timezone, location, geocoding, calculator — disable to reduce tool count for small models',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: isToolboxEnabled,
+                      activeTrackColor: AppTheme.primaryBlue,
+                      onChanged: (val) {
+                        setState(() {
+                          for (final name in toolboxInfo.toolNames) {
+                            widget.controller.toggleToolEnabled(name, val);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+
                 // 1. Built-in Internal MCP Groups
-                for (final info in sortedServers) ...[
+                for (final info in available) ...[
                   Builder(
                     builder: (ctx) {
                       final groupToolNames = info.toolNames;
@@ -2643,6 +2832,187 @@ class _TealKitAssistantSettingsDialogState
                       );
                     },
                   ),
+
+                  // ── Installed GitHub MCP servers ──
+                  ...() {
+                    final ghServers = _dedupeGithubMcpServers(
+                      isServerMode
+                          ? _remoteGithubMcpServers
+                          : GithubMcpLibraryService.instance.activeServers,
+                    );
+                    if (ghServers.isEmpty) return <Widget>[];
+                    return <Widget>[
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Icon(Icons.hub_outlined, size: 15, color: Colors.teal[700]),
+                          const SizedBox(width: 6),
+                          Text(
+                            'INSTALLED MCP SERVERS',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.teal[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Community MCP servers installed from the registry.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 12),
+                      ...ghServers.map((def) {
+                        final key = 'gh_mcp_${def.id}';
+                        final isAdded = widget.controller.enabledToolNames.contains(key);
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          color: isAdded
+                              ? Colors.teal.withAlpha(18)
+                              : Colors.grey.withAlpha(12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: isAdded
+                                  ? Colors.teal.withAlpha(100)
+                                  : Colors.grey.withAlpha(60),
+                            ),
+                          ),
+                          child: SwitchListTile(
+                            dense: true,
+                            secondary: Icon(
+                              Icons.hub_outlined,
+                              color: isAdded ? Colors.teal[700] : Colors.grey,
+                              size: 20,
+                            ),
+                            title: Text(
+                              def.displayName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: isAdded ? null : Colors.grey,
+                              ),
+                            ),
+                            subtitle: Text(
+                              def.description,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            value: isAdded,
+                            activeTrackColor: Colors.teal[700],
+                            onChanged: (val) {
+                              setState(() {
+                                widget.controller.toggleToolEnabled(key, val);
+                              });
+                            },
+                          ),
+                        );
+                      }),
+                    ];
+                  }(),
+
+                  // ── Global External MCP servers ──
+                  ...() {
+                    final externalServers = ExternalToolsSettingsService.instance.selectedServers;
+                    if (externalServers.isEmpty) return <Widget>[];
+                    return <Widget>[
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Icon(Icons.dns, size: 15, color: Colors.orange[700]),
+                          const SizedBox(width: 6),
+                          Text(
+                            l.externalMcpGlobalTitle,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.orange[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        l.externalMcpGlobalSubtitle,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Up to 100 external MCP servers can be selected per task.',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                      const SizedBox(height: 8),
+                      ...externalServers.map((server) {
+                        final existing = widget.controller.servers.where(
+                          (s) => s.url == server.serverUrl,
+                        ).firstOrNull;
+                        final isSelected = existing != null && existing.enabled;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          color: isSelected
+                              ? Colors.orange.withAlpha(25)
+                              : Colors.grey.withAlpha(12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? Colors.orange.withAlpha(100)
+                                  : Colors.grey.withAlpha(60),
+                            ),
+                          ),
+                          child: SwitchListTile(
+                            dense: true,
+                            secondary: Icon(
+                              Icons.dns,
+                              color: isSelected ? Colors.orange[700] : Colors.grey,
+                              size: 20,
+                            ),
+                            title: Text(
+                              server.name ?? server.serverUrl,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: isSelected ? null : Colors.grey,
+                              ),
+                            ),
+                            subtitle: Text(
+                              server.serverUrl,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            value: isSelected,
+                            activeTrackColor: Colors.orange[700],
+                            onChanged: (val) {
+                              setState(() {
+                                if (val) {
+                                  if (existing != null) {
+                                    widget.controller.toggleServer(existing.id, true);
+                                  } else {
+                                    widget.controller.addServer(
+                                      McpServerConfig(
+                                        id: server.serverUrl,
+                                        name: server.name ?? 'External MCP',
+                                        url: server.serverUrl,
+                                        apiKey: server.apiKey,
+                                        enabled: true,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  if (existing != null) {
+                                    widget.controller.toggleServer(existing.id, false);
+                                  }
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      }),
+                    ];
+                  }(),
                 ],
               ],
             );
@@ -2774,6 +3144,150 @@ class _TealKitAssistantSettingsDialogState
   // ─────────────────────────────────────────────────────────────
   // Specialized Sub-Agents Card (DelegateTaskTool)
   // ─────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────
+  // Session & Auto-Save Card (Desktop Coding Mode)
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildSessionAutoSaveCard(ThemeData theme, L l) {
+    const orangeColor = Color(0xFFFB923C);
+    final sessionService = SessionService.instance;
+
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest.withAlpha(35),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(50)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.history_edu_rounded, color: orangeColor, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Session & Auto-Save (Coding Mode)',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Persist conversation sessions as structured JSON, allow continuation across restarts, and manage session rotation.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Toggle: Auto-Save
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto-save sessions to JSON', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: const Text('Automatically writes active chat and tool transcript on every completed turn', style: TextStyle(fontSize: 11)),
+              value: sessionService.autoSaveEnabled,
+              onChanged: (val) async {
+                await sessionService.updateSettings(
+                  autoSaveEnabled: val,
+                  autoSaveDir: sessionService.autoSaveDir,
+                  autoSavePattern: sessionService.autoSavePattern,
+                  promptContinueLastSession: sessionService.promptContinueLastSession,
+                  maxSessionSizeMb: sessionService.maxSessionSizeMb,
+                  maxSessionTurns: sessionService.maxSessionTurns,
+                );
+                setState(() {});
+              },
+            ),
+
+            // Toggle: Prompt to continue on startup
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Prompt to continue last session on startup', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: const Text('Asks if you want to restore previous context when opening coding mode', style: TextStyle(fontSize: 11)),
+              value: sessionService.promptContinueLastSession,
+              onChanged: (val) async {
+                await sessionService.updateSettings(
+                  autoSaveEnabled: sessionService.autoSaveEnabled,
+                  autoSaveDir: sessionService.autoSaveDir,
+                  autoSavePattern: sessionService.autoSavePattern,
+                  promptContinueLastSession: val,
+                  maxSessionSizeMb: sessionService.maxSessionSizeMb,
+                  maxSessionTurns: sessionService.maxSessionTurns,
+                );
+                setState(() {});
+              },
+            ),
+
+            const SizedBox(height: 8),
+
+            // Directory row
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Auto-Save Directory:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(
+                        sessionService.autoSaveDir.isNotEmpty
+                            ? sessionService.autoSaveDir
+                            : '${sessionService.resolveSessionsDirectory()} (Default)',
+                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Browse...', style: TextStyle(fontSize: 12)),
+                  onPressed: () async {
+                    final selected = await FilePicker.getDirectoryPath(
+                      dialogTitle: 'Select Auto-Save Directory',
+                    );
+                    if (selected != null) {
+                      await sessionService.updateSettings(
+                        autoSaveEnabled: sessionService.autoSaveEnabled,
+                        autoSaveDir: selected,
+                        autoSavePattern: sessionService.autoSavePattern,
+                        promptContinueLastSession: sessionService.promptContinueLastSession,
+                        maxSessionSizeMb: sessionService.maxSessionSizeMb,
+                        maxSessionTurns: sessionService.maxSessionTurns,
+                      );
+                      setState(() {});
+                    }
+                  },
+                ),
+                if (sessionService.autoSaveDir.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Reset to default folder',
+                    icon: const Icon(Icons.refresh, size: 16),
+                    onPressed: () async {
+                      await sessionService.updateSettings(
+                        autoSaveEnabled: sessionService.autoSaveEnabled,
+                        autoSaveDir: '',
+                        autoSavePattern: sessionService.autoSavePattern,
+                        promptContinueLastSession: sessionService.promptContinueLastSession,
+                        maxSessionSizeMb: sessionService.maxSessionSizeMb,
+                        maxSessionTurns: sessionService.maxSessionTurns,
+                      );
+                      setState(() {});
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSpecializedSubAgentsCard(
     ThemeData theme,
@@ -3216,7 +3730,14 @@ class _TealKitAssistantSettingsDialogState
                   prefixIcon: Icon(Icons.auto_awesome, size: 18),
                   border: OutlineInputBorder(),
                   isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 ),
+                selectedItemBuilder: (ctx) => [
+                  const Text('Custom Sub-Agent', overflow: TextOverflow.ellipsis),
+                  ...SubAgentDefinition.predefined.map(
+                    (p) => Text('${p.displayName} (${p.key})', overflow: TextOverflow.ellipsis),
+                  ),
+                ],
                 items: [
                   const DropdownMenuItem(
                     value: null,
@@ -3292,7 +3813,18 @@ class _TealKitAssistantSettingsDialogState
                   prefixIcon: Icon(Icons.psychology_outlined, size: 18),
                   border: OutlineInputBorder(),
                   isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 ),
+                selectedItemBuilder: (ctx) => [
+                  const Text('Default (Active Model)', overflow: TextOverflow.ellipsis),
+                  ...availableProfiles.map((p) {
+                    final dName = p.name.trim().isNotEmpty
+                        ? p.name.trim()
+                        : (p.model.trim().isNotEmpty ? p.model.trim() : p.id);
+                    return Text(dName, overflow: TextOverflow.ellipsis);
+                  }),
+                  const Text('Custom Model Identifier...', overflow: TextOverflow.ellipsis),
+                ],
                 items: [
                   const DropdownMenuItem(
                     value: 'default',
@@ -3301,12 +3833,23 @@ class _TealKitAssistantSettingsDialogState
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  ...availableProfiles.map((p) {
+                  ...availableProfiles
+                      .where((p) => p.name.trim().isNotEmpty || p.model.trim().isNotEmpty || p.id.isNotEmpty)
+                      .map((p) {
                     final val = p.id;
+                    final displayName = p.name.trim().isNotEmpty
+                        ? p.name.trim()
+                        : (p.model.trim().isNotEmpty ? p.model.trim() : p.id);
+                    final modelInfo = p.model.trim().isNotEmpty && p.model.trim() != displayName
+                        ? ' (${p.model.trim()})'
+                        : '';
+                    final provInfo = p.provider != tk_llm.LlmProvider.none
+                        ? ' [${p.provider.name}]'
+                        : '';
                     return DropdownMenuItem(
                       value: val,
                       child: Text(
-                        '${p.name.isNotEmpty ? p.name : (p.model.isNotEmpty ? p.model : p.id)}${p.model.isNotEmpty && p.model != p.name ? ' (${p.model})' : ''} [${p.provider.label}]',
+                        '$displayName$modelInfo$provInfo',
                         overflow: TextOverflow.ellipsis,
                       ),
                     );
@@ -3626,6 +4169,207 @@ class _TealKitAssistantSettingsDialogState
               ),
             );
           }),
+
+          // ── Installed GitHub MCP servers ──
+          ...() {
+            final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
+            final ghServers = _dedupeGithubMcpServers(
+              isServerMode
+                  ? _remoteGithubMcpServers
+                  : GithubMcpLibraryService.instance.activeServers,
+            );
+            if (ghServers.isEmpty) return <Widget>[];
+            return <Widget>[
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Icon(Icons.hub_outlined, size: 16, color: Colors.teal[400]),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'INSTALLED MCP SERVERS',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF2DD4BF),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Community MCP servers installed from the registry.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              ),
+              const SizedBox(height: 8),
+              ...ghServers.map((def) {
+                final key = 'gh_mcp_${def.id}';
+                final isAdded = widget.controller.enabledToolNames.contains(key);
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.hub_outlined, size: 16, color: isAdded ? Colors.teal[400] : Colors.grey),
+                            const SizedBox(width: 8),
+                            Transform.scale(
+                              scale: 0.8,
+                              child: Switch(
+                                value: isAdded,
+                                onChanged: (val) {
+                                  setState(() {
+                                    widget.controller.toggleToolEnabled(key, val);
+                                  });
+                                },
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              def.isInstalled ? 'Installed' : 'Registry',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          def.displayName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          def.description,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ];
+          }(),
+
+          // ── Global External MCP servers ──
+          ...() {
+            final externalServers = ExternalToolsSettingsService.instance.selectedServers;
+            if (externalServers.isEmpty) return <Widget>[];
+            final l = L.of(context);
+            return <Widget>[
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Icon(Icons.dns, size: 16, color: Colors.orange[400]),
+                  const SizedBox(width: 8),
+                  Text(
+                    l.externalMcpGlobalTitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFF97316),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l.externalMcpGlobalSubtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              ),
+              const SizedBox(height: 8),
+              ...externalServers.map((server) {
+                final existing = widget.controller.servers.where(
+                  (s) => s.url == server.serverUrl,
+                ).firstOrNull;
+                final isEnabled = existing != null && existing.enabled;
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.dns, size: 16, color: isEnabled ? Colors.orange[400] : Colors.grey),
+                            const SizedBox(width: 8),
+                            Transform.scale(
+                              scale: 0.8,
+                              child: Switch(
+                                value: isEnabled,
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val) {
+                                      if (existing != null) {
+                                        widget.controller.toggleServer(existing.id, true);
+                                      } else {
+                                        widget.controller.addServer(
+                                          McpServerConfig(
+                                            id: server.serverUrl,
+                                            name: server.name ?? 'External MCP',
+                                            url: server.serverUrl,
+                                            apiKey: server.apiKey,
+                                            enabled: true,
+                                          ),
+                                        );
+                                      }
+                                    } else {
+                                      if (existing != null) {
+                                        widget.controller.toggleServer(existing.id, false);
+                                      }
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.wifi_tethering, size: 20),
+                              tooltip: 'Test Connection',
+                              onPressed: () {
+                                final sc = existing ?? McpServerConfig(
+                                  id: server.serverUrl,
+                                  name: server.name ?? 'External MCP',
+                                  url: server.serverUrl,
+                                  apiKey: server.apiKey,
+                                  enabled: true,
+                                );
+                                _testMcpServerConnection(sc);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          server.name ?? server.serverUrl,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          server.serverUrl,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ];
+          }(),
       ],
     );
   }

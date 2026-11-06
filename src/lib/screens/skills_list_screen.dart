@@ -10,25 +10,35 @@ import 'package:uuid/uuid.dart';
 
 import '../models/skill_def.dart';
 import '../services/external_tools_settings_service.dart';
+
 import '../services/skill_def_database_service.dart';
 import '../widgets/skill_gallery_dialog.dart';
 import '../widgets/skill_wizard_dialog.dart';
 
 class SkillsListScreen extends ConsumerStatefulWidget {
   final bool selectionMode;
+  final bool isCodingMode;
   final void Function(SkillDef skill)? onSkillSelected;
 
   const SkillsListScreen({
     super.key,
     this.selectionMode = false,
+    this.isCodingMode = false,
     this.onSkillSelected,
   });
 
-  static Future<SkillDef?> showPicker(BuildContext context) {
+  static Future<SkillDef?> showPicker(
+    BuildContext context, {
+    bool isCodingMode = false,
+  }) {
     return showDialog<SkillDef>(
       context: context,
-      builder: (_) =>
-          Dialog.fullscreen(child: SkillsListScreen(selectionMode: true)),
+      builder: (_) => Dialog.fullscreen(
+        child: SkillsListScreen(
+          selectionMode: true,
+          isCodingMode: isCodingMode,
+        ),
+      ),
     );
   }
 
@@ -53,12 +63,317 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
     _loadSkills();
   }
 
+
+  bool get _isCodingModeActive => widget.isCodingMode;
+
   Future<void> _loadSkills() async {
     setState(() => _loading = true);
     try {
       _skills = await SkillDefDatabaseService.instance.getAllSkills();
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _generateSampleCodingSkills() async {
+    setState(() => _loading = true);
+    try {
+      final existing = await SkillDefDatabaseService.instance.getAllSkills();
+      final existingKeys = <String>{};
+      for (final s in existing) {
+        existingKeys.add(s.name.trim().toLowerCase());
+        final match = RegExp(r'^name:\s*(.+)$', multiLine: true).firstMatch(s.skillDef);
+        if (match != null) {
+          existingKeys.add(match.group(1)!.trim().toLowerCase());
+        }
+      }
+
+      final samples = _buildSampleCodingSkills();
+      final toAdd = samples.where((sample) {
+        final name = sample['name'] as String;
+        final aliases = sample['aliases'] as List<String>;
+        if (existingKeys.contains(name.trim().toLowerCase())) return false;
+        for (final alias in aliases) {
+          if (existingKeys.contains(alias.trim().toLowerCase())) return false;
+        }
+        return true;
+      }).toList();
+
+      if (toAdd.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sample coding skills already exist (skipped duplicates).'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        final now = DateTime.now();
+        final addedNames = <String>[];
+        for (final item in toAdd) {
+          final skill = SkillDef(
+            id: const Uuid().v4(),
+            name: item['name'] as String,
+            goal: item['goal'] as String,
+            description: item['description'] as String,
+            skillDef: item['skillDef'] as String,
+            toolNames: List<String>.from(item['toolNames'] as List),
+            createdAt: now,
+            updatedAt: now,
+          );
+          await SkillDefDatabaseService.instance.saveSkill(skill);
+          addedNames.add(skill.name);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added ${addedNames.length} sample coding skill(s): ${addedNames.join(", ")}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+      await _loadSkills();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating skills: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _buildSampleCodingSkills() {
+    return [
+      {
+        'name': 'Generic Coding Agent',
+        'aliases': ['coding-agent-skill', 'coding-agent', 'generic coding agent'],
+        'goal': 'Autonomous coding agent for project exploration, architectural planning (tasks.md), surgical edits, and terminal verification.',
+        'description': 'Autonomous coding agent for codebase exploration, task-based planning (tasks.md), surgical edits with fs_replace_text, and terminal verification.',
+        'toolNames': ['fs_find', 'fs_read_file', 'fs_write_file', 'fs_replace_text', 'terminal_exec', 'web_search', 'fetch'],
+        'skillDef': '''---
+name: coding-agent-skill
+description: Autonomous coding agent for project exploration, architectural planning (tasks.md), and verified implementation.
+version: 1.0.0
+author: TealKit Engineering
+system_prompt: |
+  You are an expert autonomous software engineer and architectural planner.
+
+  Operational Workflow:
+  1. EXPLORE FIRST: Discover project structure, build definitions, and source files using `fs_find` and `fs_read_file`.
+  2. RESEARCH & WEB SEARCH: Use the built-in `web_search` and `fetch` tools to look up current documentation, package updates, migration guides, and solve unknown error messages.
+  3. PLAN & TRACK: Create or update `tasks.md` in the workspace root with a Markdown checkbox checklist (`- [ ] item`).
+  4. SURGICAL EDITS: When modifying existing files, use `fs_replace_text` with exact, unique context blocks. Use `fs_write_file` to create new files.
+  5. VERIFY WITH TERMINAL: After editing code, execute build/test commands (`terminal_exec`) to ensure zero broken builds or regressions.
+  6. UPDATE PROGRESS: Check off completed items in `tasks.md` (`- [x]`) as each task is verified.
+  7. HOST OS ENVIRONMENT COMPATIBILITY:
+     - Always respect the host operating system. On Windows, never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes. Use native flags (e.g., `git log -n 20`) or pure-Dart file tools (`fs_read_file`, `fs_find`).
+prompts:
+  - text: |
+      Inspect the project repository in the current workspace.
+      1. Discover project files, build manifests (e.g. *.csproj, pubspec.yaml, package.json), and documentation.
+      2. Summarize the project stack, architecture, and entry points.
+      3. If needed, use `web_search` or `fetch` to verify latest stable package versions or framework documentation.
+    enabledToolNames:
+      - fs_find
+      - fs_read_file
+      - web_search
+      - fetch
+
+  - text: |
+      Based on the project structure:
+      1. Create a `tasks.md` file in the workspace root outlining immediate improvements, upgrades, or requested features as pending checkbox tasks (`- [ ]`).
+      2. If an implementation plan is needed, create `docs/implementation_plan.md` explaining the architectural rationale.
+      3. Use `web_search` or `fetch` if any best practices, breaking changes, or library APIs need verification.
+
+      Previous Findings:
+      \${tool_result}
+    enabledToolNames:
+      - fs_write_file
+      - fs_read_file
+      - web_search
+      - fetch
+
+  - text: |
+      Review `tasks.md` and execute the first pending task using `fs_replace_text` or `fs_write_file`.
+      Verify the change with `terminal_exec` (e.g. running build/test), using `web_search` or `fetch` if unexpected build errors or compiler issues arise, and update `tasks.md` to check off the item (`- [x]`).
+    enabledToolNames:
+      - fs_read_file
+      - fs_replace_text
+      - fs_write_file
+      - terminal_exec
+      - web_search
+      - fetch
+---
+# Generic Coding Agent Skill
+
+Autonomous software engineering, architectural planning, and verified implementation.
+''',
+      },
+      {
+        'name': 'Dart & Flutter Engineer',
+        'aliases': ['dart-flutter-engineer-skill', 'dart-engineer-skill', 'dart & flutter engineer', 'flutter engineer'],
+        'goal': 'Specialized Dart & Flutter engineer for state management, widget architecture, dependencies, analysis, and test verification.',
+        'description': 'Specialized Dart & Flutter engineer for state management (Riverpod/Bloc), widget architecture, dependencies, analysis (dart analyze), and testing (flutter test).',
+        'toolNames': ['fs_find', 'fs_read_file', 'fs_write_file', 'fs_replace_text', 'terminal_exec', 'web_search', 'fetch'],
+        'skillDef': '''---
+name: dart-flutter-engineer-skill
+description: Specialized Dart and Flutter engineering skill for widget architecture, state management (Riverpod/Bloc), package maintenance, and automated analysis and testing.
+version: 1.0.0
+author: TealKit Engineering
+system_prompt: |
+  You are an expert Dart and Flutter software engineer and mobile/desktop application architect.
+  You understand modern Dart 3+ idioms (pattern matching, records, sealed classes), Flutter widgets, state management (Riverpod, Bloc, Provider), routing, and automated testing.
+
+  Engineering Workflow:
+  1. EXPLORE FLUTTER REPOSITORY:
+     - Locate `pubspec.yaml`, `analysis_options.yaml`, `lib/main.dart`, and target platforms.
+     - Inspect existing state management, architecture layers, and asset declarations.
+  2. RESEARCH & COMPATIBILITY:
+     - Use `web_search` and `fetch` to verify latest compatible package releases on pub.dev, migration guidelines, and breaking Flutter deprecations.
+  3. ARCHITECTURE & TASK PLANNING:
+     - Maintain `tasks.md` in the project root with clear checkbox items (`- [ ]`).
+     - Decouple business logic and state notifiers from UI presentation widgets.
+  4. SURGICAL CODING:
+     - Use `fs_replace_text` for targeted updates to widgets, providers, and models.
+     - Use `fs_write_file` for new widget components and unit/widget test files.
+  5. VERIFY WITH FLUTTER & DART CLI:
+     - Run `flutter pub get` via `terminal_exec` after modifying dependencies.
+     - Run `dart analyze` via `terminal_exec` to ensure zero static analysis warnings or errors.
+     - Run `flutter test` via `terminal_exec` to guarantee all test suites pass.
+  6. HOST OS ENVIRONMENT COMPATIBILITY:
+     - On Windows, never use Linux/POSIX commands (`grep`, `cat`, `ls`, `export`) or bash pipes. Use native flags or Dart tools (`fs_read_file`, `fs_find`).
+prompts:
+  - text: |
+      Inspect the Flutter/Dart workspace:
+      1. Use `fs_find` to discover `pubspec.yaml`, `analysis_options.yaml`, and `lib/**/*.dart`.
+      2. Read `pubspec.yaml` using `fs_read_file` to determine Flutter SDK constraints, dependencies, and state management in use.
+      3. Run `flutter --version` and `dart analyze` via `terminal_exec` to inspect the current environment and baseline health.
+    enabledToolNames:
+      - fs_find
+      - fs_read_file
+      - terminal_exec
+      - web_search
+      - fetch
+
+  - text: |
+      Based on the Flutter project architecture:
+      1. Create or update `tasks.md` in the workspace root with pending implementation or refactoring steps (`- [ ]`).
+      2. If third-party packages need updating, use `web_search` or `fetch` to confirm pub.dev compatibility.
+      
+      Previous Findings:
+      \${tool_result}
+    enabledToolNames:
+      - fs_write_file
+      - fs_read_file
+      - web_search
+      - fetch
+
+  - text: |
+      Execute the pending Flutter/Dart task:
+      1. Apply code changes using `fs_replace_text` or `fs_write_file`.
+      2. Run `dart analyze` and `flutter test` via `terminal_exec` to verify clean compilation and passing tests.
+      3. Mark completed items in `tasks.md` (`- [x]`).
+    enabledToolNames:
+      - fs_read_file
+      - fs_replace_text
+      - fs_write_file
+      - terminal_exec
+      - web_search
+      - fetch
+---
+# Dart & Flutter Engineer Skill
+
+Specialized Dart and Flutter engineering skill for widget architecture, state management, and automated test verification.
+''',
+      },
+      {
+        'name': '.NET Engineer',
+        'aliases': ['dotnet-engineer-skill', 'dotnet-engineer', '.net engineer', 'dotnet engineer'],
+        'goal': 'Comprehensive .NET skill for WinForms modernization, backend services refactoring, unit & integration test generation, and automated project upgrades.',
+        'description': 'Comprehensive .NET solutions architect for modern .NET (8/9/10), WinForms modernization, backend services refactoring, unit & integration test generation, and automated project upgrades.',
+        'toolNames': ['fs_find', 'fs_read_file', 'fs_write_file', 'fs_replace_text', 'terminal_exec', 'web_search', 'fetch'],
+        'skillDef': '''---
+name: dotnet-engineer-skill
+description: Comprehensive .NET skill for WinForms modernization, backend services refactoring, unit & integration test generation, and automated project upgrades.
+version: 1.0.0
+author: TealKit Engineering
+system_prompt: |
+  You are an expert .NET solutions architect, desktop application engineer, and test automation specialist.
+  You understand modern .NET (including .NET 8 / 9 / 10), C#, legacy WinForms (.NET Framework and modern Windows Desktop SDK), ASP.NET Core, Background/Worker services, and testing frameworks (xUnit, NUnit, MSTest, Moq, NSubstitute, FluentAssertions).
+
+  Engineering Workflow:
+  1. DISCOVER & CLASSIFY: Inspect solutions (.sln), project files (.csproj), target frameworks, dependencies, and directory layouts.
+  2. RESEARCH & COMPATIBILITY: Use the built-in `web_search` and `fetch` tools to look up breaking changes, NuGet package compatibility, and framework migration guides.
+  3. PLAN & TRACK: Create or update `tasks.md` in the workspace root with a clear phase-by-phase checkbox checklist (`- [ ]`).
+  4. WINFORMS MODERNIZATION:
+     - Upgrade `<TargetFramework>` to modern .NET SDK (e.g. `net8.0-windows` or `net9.0-windows`).
+     - Enable High-DPI support, nullable reference types, and C# latest features.
+     - Decouple business/data logic from form event handlers into testable services (MVP / MVVM pattern).
+  5. SERVICE TESTS GENERATION:
+     - For services, controllers, handlers, and repositories, locate or create dedicated test projects.
+     - Generate robust unit and integration tests covering positive paths, edge cases, error handling, cancellation tokens (`CancellationToken`), and mocked dependencies.
+  6. VERIFY & VALIDATE:
+     - Run `dotnet restore`, `dotnet build`, and `dotnet test` via `terminal_exec`.
+     - Use `web_search` or `fetch` to troubleshoot obsolete API warnings or obscure build failures.
+     - Ensure zero warnings/errors, and check off completed tasks (`- [x]`) in `tasks.md`.
+  7. HOST OS ENVIRONMENT COMPATIBILITY:
+     - Always respect the host operating system. On Windows, never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes. Use native flags or pure-Dart file tools (`fs_read_file`, `fs_find`).
+prompts:
+  - text: |
+      Inspect the .NET workspace and classify all projects:
+      1. Use `fs_find` to discover all `*.sln`, `*.csproj`, `global.json`, `Directory.Build.props`, and configuration files.
+      2. Run `dotnet --list-sdks` and `dotnet --version` via `terminal_exec` to check installed SDKs and runtime environments.
+      3. Read `.csproj` files with `fs_read_file` to determine target frameworks, project types, and test projects.
+      4. Use `web_search` or `fetch` if any legacy package or third-party dependency requires modern alternatives.
+    enabledToolNames:
+      - fs_find
+      - fs_read_file
+      - terminal_exec
+      - web_search
+      - fetch
+
+  - text: |
+      Based on the discovered solution structure, create or update `tasks.md` in the workspace root:
+      1. Upgrade Plan (TargetFramework bump, NuGet package updates, WinForms modern bootstrapping).
+      2. Service Testing Plan (identify services lacking tests, setup test project, implement tests).
+      3. Compilation & Verification (`dotnet build`, `dotnet test`).
+
+      Previous Findings:
+      \${tool_result}
+    enabledToolNames:
+      - fs_write_file
+      - fs_read_file
+      - web_search
+      - fetch
+
+  - text: |
+      Execute the WinForms upgrade and service tests generation:
+      1. Apply project file updates using `fs_replace_text`.
+      2. For each identified business service, generate or update test files using `fs_write_file`.
+      3. Run `dotnet build` and `dotnet test` via `terminal_exec`.
+      4. If any compilation or test failure occurs, inspect errors, use `web_search` or `fetch`, apply surgical fixes with `fs_replace_text`, and re-test.
+      5. Mark completed items in `tasks.md` as done (`- [x]`).
+    enabledToolNames:
+      - fs_read_file
+      - fs_write_file
+      - fs_replace_text
+      - terminal_exec
+      - web_search
+      - fetch
+---
+# .NET Engineer Skill
+
+Comprehensive .NET skill for WinForms modernization, backend services refactoring, unit & integration test generation, and automated project upgrades.
+''',
+      },
+    ];
   }
 
   (Set<String>, Set<String>) _partitionTools(List<String> toolNames) {
@@ -570,6 +885,12 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
       appBar: AppBar(
         title: Text(widget.selectionMode ? 'Select Skill' : 'Skills'),
         actions: [
+          if (_isCodingModeActive)
+            IconButton(
+              icon: const Icon(Icons.code, color: Color(0xFFEA580C)),
+              tooltip: 'Generate Sample Coding Skills',
+              onPressed: _generateSampleCodingSkills,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
@@ -614,6 +935,18 @@ class _SkillsListScreenState extends ConsumerState<SkillsListScreen> {
                       color: Colors.grey[500],
                     ),
                   ),
+                  if (_isCodingModeActive) ...[
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFEA580C),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _generateSampleCodingSkills,
+                      icon: const Icon(Icons.code, size: 18),
+                      label: const Text('Generate Sample Coding Skills'),
+                    ),
+                  ],
                 ],
               ),
             )

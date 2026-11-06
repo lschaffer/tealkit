@@ -183,6 +183,7 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   bool _enabled = true;
   bool _chatMode = false;
   bool _isSaving = false;
+  final Set<String> _revealedPasswords = {};
 
   int get _externalServerSelectionLimit => 100;
 
@@ -2856,17 +2857,27 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
         }
         taskMcpTools = combinedMcpTools;
 
-        final List<InternalMcpEntry> combinedInternalMcps = [];
-        final Set<String> seenTypes = {};
+        final Map<String, InternalMcpEntry> typeMap = {};
         for (final exec in _executors) {
           for (final entry in exec.internalMcps) {
-            if (!seenTypes.contains(entry.mcpType)) {
-              seenTypes.add(entry.mcpType);
-              combinedInternalMcps.add(entry);
+            final existing = typeMap[entry.mcpType];
+            if (existing == null) {
+              typeMap[entry.mcpType] = entry;
+            } else {
+              // Merge initParams so non-empty credentials (like password) are not lost
+              final mergedParams = Map<String, dynamic>.from(existing.initParams);
+              for (final kv in entry.initParams.entries) {
+                if (kv.value != null && (kv.value is! String || (kv.value as String).isNotEmpty)) {
+                  if (mergedParams[kv.key] == null || (mergedParams[kv.key] is String && (mergedParams[kv.key] as String).isEmpty)) {
+                    mergedParams[kv.key] = kv.value;
+                  }
+                }
+              }
+              typeMap[entry.mcpType] = existing.copyWith(initParams: mergedParams);
             }
           }
         }
-        taskInternalMcps = combinedInternalMcps;
+        taskInternalMcps = typeMap.values.toList();
       } else {
         taskMcpTools = firstExec?.mcpTools ?? const [];
         taskInternalMcps = firstExec?.internalMcps ?? const [];
@@ -7637,22 +7648,48 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TextFormField(
-                    key: ValueKey('ssh_pw_${entry.id}'),
-                    initialValue: params['password'] as String? ?? '',
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      hintText: ds.sshPassword.isNotEmpty
-                          ? '••••••'
-                          : 'not set globally',
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
-                      ),
-                    ),
-                    onChanged: (v) => updateParam('password', v),
+                  child: Builder(
+                    builder: (context) {
+                      final pwKey = 'ssh_pw_${entry.id}';
+                      final isRevealed = _revealedPasswords.contains(pwKey);
+                      return TextFormField(
+                        key: ValueKey(pwKey),
+                        initialValue: params['password'] as String? ?? '',
+                        obscureText: !isRevealed,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          hintText: ds.sshPassword.isNotEmpty
+                              ? '••••••'
+                              : 'not set globally',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              isRevealed
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              size: 18,
+                            ),
+                            tooltip: isRevealed
+                                ? 'Hide password'
+                                : 'Show password',
+                            onPressed: () {
+                              setState(() {
+                                if (isRevealed) {
+                                  _revealedPasswords.remove(pwKey);
+                                } else {
+                                  _revealedPasswords.add(pwKey);
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        onChanged: (v) => updateParam('password', v),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -9195,10 +9232,33 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
             },
           ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: _sftpPasswordCtrl,
-            decoration: InputDecoration(labelText: l.sftpPassword),
-            obscureText: true,
+          Builder(
+            builder: (context) {
+              final isRevealed = _revealedPasswords.contains('sftp_pw');
+              return TextFormField(
+                controller: _sftpPasswordCtrl,
+                decoration: InputDecoration(
+                  labelText: l.sftpPassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      isRevealed ? Icons.visibility_off : Icons.visibility,
+                      size: 18,
+                    ),
+                    tooltip: isRevealed ? 'Hide password' : 'Show password',
+                    onPressed: () {
+                      setState(() {
+                        if (isRevealed) {
+                          _revealedPasswords.remove('sftp_pw');
+                        } else {
+                          _revealedPasswords.add('sftp_pw');
+                        }
+                      });
+                    },
+                  ),
+                ),
+                obscureText: !isRevealed,
+              );
+            },
           ),
           const SizedBox(height: 8),
           Row(
@@ -10803,6 +10863,7 @@ class TaskNotificationEditor extends StatefulWidget {
 }
 
 class _TaskNotificationEditorState extends State<TaskNotificationEditor> {
+  final Set<String> _revealedPasswords = {};
   late String _outputType;
   late TextEditingController _emailToCtrl;
   late TextEditingController _emailSubjectCtrl;
@@ -11174,11 +11235,34 @@ class _TaskNotificationEditorState extends State<TaskNotificationEditor> {
               onChanged: (_) => _notifyChanged(),
             ),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _sftpPasswordCtrl,
-              decoration: const InputDecoration(labelText: 'SFTP Password'),
-              obscureText: true,
-              onChanged: (_) => _notifyChanged(),
+            Builder(
+              builder: (context) {
+                final isRevealed = _revealedPasswords.contains('sftp_modal_pw');
+                return TextFormField(
+                  controller: _sftpPasswordCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'SFTP Password',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        isRevealed ? Icons.visibility_off : Icons.visibility,
+                        size: 18,
+                      ),
+                      tooltip: isRevealed ? 'Hide password' : 'Show password',
+                      onPressed: () {
+                        setState(() {
+                          if (isRevealed) {
+                            _revealedPasswords.remove('sftp_modal_pw');
+                          } else {
+                            _revealedPasswords.add('sftp_modal_pw');
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: !isRevealed,
+                  onChanged: (_) => _notifyChanged(),
+                );
+              },
             ),
           ],
           const SizedBox(height: 8),

@@ -58,6 +58,13 @@ class ChatCommand extends Command {
       'load-session',
       help: 'File path (.json or .md) to load and continue a previous session',
     );
+    argParser.addFlag(
+      'continue',
+      abbr: 'c',
+      negatable: false,
+      help:
+          'Continue the most recent saved session from .tealkit/sessions/ or sessions/',
+    );
     argParser.addOption(
       'max-tool-iterations',
       abbr: 't',
@@ -96,6 +103,7 @@ Commands:
   /mcp_reset_fnc [server]    Reset tool filters and restore all MCP functions
   /save-session [path]       Save session transcript to .json or .md file
   /load-session <path>       Load and continue a saved session from .json or .md
+  /continue [path]           Continue the latest saved session (or specified file)
   /clear-session, /clear     Clear conversation history and token statistics
   /estimated_costs, /costs   Display accumulated token usage and estimated API cost
   /session                   Display current session statistics and configuration
@@ -123,7 +131,21 @@ Commands:
     final toolsPath =
         argResults?['tools'] as String? ?? 'extern_mcp_tools.yaml';
     String? autoSavePath = argResults?['save-session'] as String?;
-    final loadSessionPath = argResults?['load-session'] as String?;
+    var loadSessionPath = argResults?['load-session'] as String?;
+    final continueSession = argResults?['continue'] as bool? ?? false;
+    if (loadSessionPath == null && continueSession) {
+      final lastFile = SessionManager.findLastSessionFile();
+      if (lastFile != null) {
+        loadSessionPath = lastFile.path;
+        stdout.writeln(
+          TerminalPrinter.cyan('Found previous session to continue: ${lastFile.path}'),
+        );
+      } else {
+        stdout.writeln(
+          TerminalPrinter.yellow('No saved session found to continue.'),
+        );
+      }
+    }
     final verbose = argResults?['verbose'] as bool? ?? false;
     var compactMode = argResults?['compact'] as bool? ?? true;
 
@@ -1070,15 +1092,33 @@ Commands:
           continue;
         }
 
-        if (input.startsWith('/load-session') || input.startsWith('/load')) {
+        if (input.startsWith('/load-session') ||
+            input.startsWith('/load') ||
+            input == '/continue' ||
+            input.startsWith('/continue ')) {
+          final isContinueCmd =
+              input == '/continue' || input.startsWith('/continue ');
           final parts = input.split(RegExp(r'\s+'));
-          if (parts.length < 2) {
+          String? targetPath;
+          if (parts.length >= 2) {
+            targetPath = parts.sublist(1).join(' ').trim();
+          } else if (isContinueCmd) {
+            final lastFile = SessionManager.findLastSessionFile();
+            if (lastFile != null) {
+              targetPath = lastFile.path;
+            } else {
+              stdout.writeln(
+                TerminalPrinter.yellow('No saved session found to continue.'),
+              );
+              stdout.writeln('');
+              continue;
+            }
+          } else {
             stdout.writeln('Usage: /load-session <path-to-session.json-or-md>');
             stdout.writeln('');
             continue;
           }
 
-          final targetPath = parts.sublist(1).join(' ').trim();
           try {
             final session = await SessionManager.loadSession(targetPath);
             conversation.clear();

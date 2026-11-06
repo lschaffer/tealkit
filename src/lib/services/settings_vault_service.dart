@@ -632,7 +632,8 @@ class SettingsVaultService {
   }
 
   /// Decrypts [CredentialCipher]-encrypted values inside each
-  /// `internal_mcps[].init_params` map so the vault payload is not tied to
+  /// internal_mcps[].init_params map (both at task level and inside each
+  /// agent's internal_mcps) so the vault payload is not tied to
   /// the source device's keychain key.
   Map<String, dynamic> _decryptTaskInitParams(Map<String, dynamic> task) {
     final t = Map<String, dynamic>.from(task);
@@ -644,6 +645,25 @@ class SettingsVaultService {
           entry['init_params'] = CredentialCipher.instance.decryptParams(Map<String, dynamic>.from(entry['init_params'] as Map));
         }
         return entry;
+      }).toList();
+    }
+    if (t['agents'] is List) {
+      t['agents'] = (t['agents'] as List).map((a) {
+        if (a is! Map) return a;
+        final agent = Map<String, dynamic>.from(a as Map<String, dynamic>);
+        if (agent['internal_mcps'] is List) {
+          agent['internal_mcps'] = (agent['internal_mcps'] as List).map((e) {
+            if (e is! Map) return e;
+            final entry = Map<String, dynamic>.from(e as Map<String, dynamic>);
+            if (entry['init_params'] is Map) {
+              entry['init_params'] = CredentialCipher.instance.decryptParams(
+                Map<String, dynamic>.from(entry['init_params'] as Map),
+              );
+            }
+            return entry;
+          }).toList();
+        }
+        return agent;
       }).toList();
     }
     return t;

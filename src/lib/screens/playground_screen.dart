@@ -18,6 +18,8 @@ import '../services/tealkit_database_storage_delegate.dart';
 import '../services/tealkit_tools_builder.dart';
 import '../widgets/tealkit_assistant_settings_dialog.dart';
 import 'skills_list_screen.dart';
+import 'package:path/path.dart' as p;
+import '../services/session_service.dart';
 
 /// Redesigned Assistant / Playground screen for TealKit.
 ///
@@ -50,6 +52,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     'fs_delete',
     'terminal_exec',
     'fetch_web',
+    'fetch',
   ];
 
   static const List<String> _kRagToolNames = [
@@ -93,6 +96,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
     // Sync any external changes from TealKit's settings
     LlmSettingsService.instance.addListener(_onTealKitLlmSettingsChanged);
+    _controller.addListener(_onControllerChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isCodingMode) {
+        _controller.toggleToolEnabled('fetch', false);
+        _controller.toggleToolEnabled('fetch_web', false);
+      }
+      _checkPromptContinueLastSession();
+    });
   }
 
   bool _isDisposed = false;
@@ -101,6 +112,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   void dispose() {
     _isDisposed = true;
     LlmSettingsService.instance.removeListener(_onTealKitLlmSettingsChanged);
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -126,11 +138,215 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _localTools = TealKitToolsBuilder.buildAllTools(
       workspaceDirectory: _workspaceDirectory,
     );
+    try {
+      _controller.updateLocalTools(_localTools);
+    } catch (_) {}
   }
 
   // ─────────────────────────────────────────────────────────────
   // Coding Agent Mode Toggle & Sub-Modes
   // ─────────────────────────────────────────────────────────────
+
+  void _onControllerChanged() {
+    if (_isDisposed || !mounted) return;
+    if (_isCodingMode && _controller.messages.isNotEmpty && !_controller.isGenerating) {
+      final isDesktopPlatform = !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux ||
+              defaultTargetPlatform == TargetPlatform.macOS);
+      if (isDesktopPlatform && SessionService.instance.autoSaveEnabled) {
+        SessionService.instance.autoSaveSession(
+          messages: _controller.messages,
+          mode: 'code',
+          llmModel: _controller.activeLlmConfig.model,
+          workspaceDirectory: _workspaceDirectory,
+        );
+      }
+    }
+  }
+
+  Future<void> _saveSessionDialog() async {
+    final sessionService = SessionService.instance;
+    final messages = _controller.messages;
+    if (messages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No messages to save in current session.')),
+      );
+      return;
+    }
+    final activeConfig = _controller.activeLlmConfig;
+    final sessionData = SessionData(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: p.basename(_workspaceDirectory.isNotEmpty ? _workspaceDirectory : 'TealKit Coder'),
+      mode: 'code',
+      createdAt: messages.first.timestamp,
+      updatedAt: DateTime.now(),
+      llmName: activeConfig.model.isNotEmpty ? activeConfig.model : activeConfig.provider.displayName,
+      llmProvider: activeConfig.provider.name,
+      llmModel: activeConfig.model,
+      messages: List.from(messages),
+    );
+
+    final defaultDir = sessionService.resolveSessionsDirectory(workspaceDirectory: _workspaceDirectory);
+    final defaultFileName = sessionService.generateFilename();
+    final defaultPath = p.join(defaultDir, defaultFileName);
+
+    try {
+      final savedFile = await sessionService.saveSession(sessionData, defaultPath);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Session saved to ${savedFile.path}'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save session: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadSessionDialog() async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: 'Select Saved Session (.json, .md)',
+      type: FileType.custom,
+      allowedExtensions: ['json', 'md'],
+    );
+    if (result.isEmpty) return;
+    final filePath = result.first.path;
+    if (filePath == null) return;
+
+    try {
+      final session = await SessionService.instance.loadSession(filePath);
+      _controller.loadMessages(session.messages, clearExisting: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Restored session (${session.messages.length} messages loaded)'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load session: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _continueLastSession() async {
+    final lastFile = SessionService.instance.findLastSessionFile(workspaceDirectory: _workspaceDirectory);
+    if (lastFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No previous session found to continue.')),
+      );
+      return;
+    }
+
+    try {
+      final session = await SessionService.instance.loadSession(lastFile.path);
+      _controller.loadMessages(session.messages, clearExisting: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Continued session from ${p.basename(lastFile.path)} (${session.messages.length} messages)'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to continue session: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _checkPromptContinueLastSession() async {
+    if (kIsWeb) return;
+    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    if (!isDesktop || !_isCodingMode) return;
+
+    final sessionService = SessionService.instance;
+    await sessionService.init();
+    if (!sessionService.promptContinueLastSession) return;
+    if (_controller.messages.isNotEmpty) return;
+
+    final lastFile = sessionService.findLastSessionFile(workspaceDirectory: _workspaceDirectory);
+    if (lastFile == null || !mounted) return;
+
+    final lastModified = lastFile.lastModifiedSync();
+    final timeStr = '${lastModified.year}-${lastModified.month.toString().padLeft(2, '0')}-${lastModified.day.toString().padLeft(2, '0')} ${lastModified.hour.toString().padLeft(2, '0')}:${lastModified.minute.toString().padLeft(2, '0')}';
+
+    final shouldContinue = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.history_rounded, color: Color(0xFFFB923C)),
+            SizedBox(width: 8),
+            Text('Continue Last Session?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('A previous coding session was found:'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.basename(lastFile.path),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Last updated: $timeStr',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Start New Session'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.play_arrow_rounded, size: 16),
+            label: const Text('Continue Session'),
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldContinue == true && mounted) {
+      await _continueLastSession();
+    }
+  }
 
   Future<void> _toggleCodingAgentMode(BuildContext context) async {
     if (_isCodingMode) {
@@ -145,6 +361,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           }
         }
       }
+      _controller.toggleToolEnabled('fetch', false);
+      _controller.toggleToolEnabled('fetch_web', false);
       setState(() {
         _isCodingMode = false;
       });
@@ -208,6 +426,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   onPressed: () async {
                     final selected = await FilePicker.getDirectoryPath();
                     if (selected != null && ctx.mounted) {
+                      if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+                        try {
+                          final dir = Directory(selected);
+                          if (dir.existsSync()) {
+                            Directory.current = dir;
+                          }
+                        } catch (_) {}
+                      }
                       setState(() {
                         _workspaceDirectory = selected;
                         _controller.workspaceDirectory = selected;
@@ -453,6 +679,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             child: TealKitAssistantSettingsDialog(
               controller: controller,
               initialTabIndex: initialTab,
+              isCodingMode: _isCodingMode,
               onClose: () => Navigator.of(ctx).pop(),
             ),
           );
@@ -533,6 +760,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               onTap: () async {
                 final selected = await FilePicker.getDirectoryPath();
                 if (selected != null && mounted) {
+                  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+                    try {
+                      final dir = Directory(selected);
+                      if (dir.existsSync()) {
+                        Directory.current = dir;
+                      }
+                    } catch (_) {}
+                  }
                   setState(() {
                     _workspaceDirectory = selected;
                     _controller.workspaceDirectory = selected;
@@ -609,6 +844,35 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
 
             const SizedBox(width: 12),
+
+            // Session actions: Save, Load, Continue (desktop only)
+            if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) ...[
+              IconButton(
+                tooltip: 'Save Session (.json)',
+                icon: const Icon(Icons.save_outlined, size: 16, color: Color(0xFF94A3B8)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                onPressed: _saveSessionDialog,
+              ),
+              IconButton(
+                tooltip: 'Load Session (.json, .md)',
+                icon: const Icon(Icons.file_open_outlined, size: 16, color: Color(0xFF94A3B8)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                onPressed: _loadSessionDialog,
+              ),
+              IconButton(
+                tooltip: 'Continue Last Session',
+                icon: const Icon(Icons.history_rounded, size: 16, color: Color(0xFFFB923C)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                onPressed: _continueLastSession,
+              ),
+              const SizedBox(width: 4),
+            ],
 
             // Stats badge: Turns: ∞ • Tools: N
             Container(
@@ -1128,7 +1392,10 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     BuildContext context,
     PlaygroundController controller,
   ) async {
-    final skill = await SkillsListScreen.showPicker(context);
+    final skill = await SkillsListScreen.showPicker(
+      context,
+      isCodingMode: _isCodingMode,
+    );
     if (skill != null && mounted) {
       if (skill.skillDef.isNotEmpty) {
         controller.systemPrompt = skill.skillDef;
@@ -1217,6 +1484,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               child: TealKitAssistantSettingsDialog(
                 controller: ctrl,
                 initialTabIndex: initialTab,
+                isCodingMode: _isCodingMode,
                 onClose: onClose,
               ),
             );
@@ -1235,6 +1503,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 child: TealKitAssistantSettingsDialog(
                   controller: ctrl,
                   initialTabIndex: initialTab,
+                  isCodingMode: _isCodingMode,
                   onClose: onClose,
                 ),
               ),
