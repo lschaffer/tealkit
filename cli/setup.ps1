@@ -88,9 +88,14 @@ if (-not $SkipCompile) {
 Log-Step "Preparing distribution staging directory (excluding all secrets)..."
 
 if (Test-Path $StagingDir) {
-    Remove-Item -Path $StagingDir -Recurse -Force
+    try {
+        Get-ChildItem -Path $StagingDir -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
+    } catch {}
 }
-New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
+if (-not (Test-Path $StagingDir)) {
+    New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
+}
 
 # Copy main binary
 Copy-Item -Path $BundleBin -Destination $StagingDir -Force
@@ -180,7 +185,10 @@ $ZipSizeMb = [math]::Round((Get-Item $ZipPath).Length / 1MB, 2)
 Log-Ok "Created $ZipPath ($ZipSizeMb MB)"
 
 # Clean up temporary staging directory
-Remove-Item -Path $StagingDir -Recurse -Force
+try {
+    Start-Sleep -Milliseconds 500
+    Remove-Item -Path $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
+} catch {}
 
 # ── 4. Upload to tealkit.dev ──────────────────────────────────────────────────
 if (-not $SkipUpload) {

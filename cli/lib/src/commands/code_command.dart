@@ -18,6 +18,7 @@ import '../engine/embedded/cli_embedded_model_manager.dart';
 import '../engine/mcp_manager_helper.dart';
 import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
+import '../engine/rpc_engine.dart';
 import '../engine/subagent_helper.dart';
 import '../engine/token_usage_tracker.dart';
 import '../formatters/terminal_printer.dart';
@@ -118,6 +119,17 @@ class CodeCommand extends Command {
       help:
           'Progressive MCP tool discovery mode (auto, on, off). Auto enables when tool count > 25 or SLM.',
     );
+    argParser.addOption(
+      'workspace',
+      abbr: 'w',
+      help: 'Target workspace root directory (defaults to current directory)',
+    );
+    argParser.addFlag(
+      'rpc',
+      negatable: false,
+      help:
+          'Run in headless JSON-RPC mode over stdio (for IDE plugins / VS Code)',
+    );
   }
 
   static const _helpText = '''
@@ -198,6 +210,26 @@ Commands:
       'ask' => CodingMode.ask,
       _ => CodingMode.code,
     };
+
+    final isRpcMode = argResults?['rpc'] as bool? ?? false;
+    final workspaceOpt = argResults?['workspace'] as String?;
+    final defaultWorkspaceDir = (workspaceOpt != null && Directory(workspaceOpt).existsSync())
+        ? p.canonicalize(workspaceOpt)
+        : Directory.current.path;
+    var workspaceDir = defaultWorkspaceDir;
+
+    if (isRpcMode) {
+      final rpcEngine = TealKitRpcEngine(
+        workspaceDir: workspaceDir,
+        customInstructionsPath: customInstructionsPath,
+        llmPath: llmPath,
+        initialLlmName: explicitLlmName,
+        toolsPath: toolsPath,
+        currentMode: currentMode,
+      );
+      await rpcEngine.run();
+      return;
+    }
 
     final runner = SkillRunner(
       llmConfigPath: llmPath,
@@ -295,8 +327,7 @@ Commands:
       } catch (_) {}
     }
 
-    final defaultWorkspaceDir = Directory.current.path;
-    var workspaceDir = defaultWorkspaceDir;
+    // workspaceDir already initialized from flags or current directory
     final permissions = ToolPermissionSettings.load();
 
     // Load workspace custom instructions (tealkit_agent.md, AGENTS.md, or specified)

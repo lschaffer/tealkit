@@ -161,16 +161,35 @@ class SkillRunner {
   }
 
   /// Connects active MCP servers and registers them with a [MultiMCPManager].
-  Future<MultiMCPManager> connectMcpServers(List<McpServerConfig> servers) async {
+  Future<MultiMCPManager> connectMcpServers(
+    List<McpServerConfig> servers, {
+    bool silent = false,
+  }) async {
     final mcpManager = MultiMCPManager();
     final activeServers = servers.where((s) => s.enabled).toList();
 
+    void out(String msg, {bool newline = true}) {
+      if (silent) {
+        if (newline) {
+          stderr.writeln(msg);
+        } else {
+          stderr.write(msg);
+        }
+      } else {
+        if (newline) {
+          stdout.writeln(msg);
+        } else {
+          stdout.write(msg);
+        }
+      }
+    }
+
     if (activeServers.isEmpty) {
-      stdout.writeln(TerminalPrinter.dim('No enabled MCP servers configured in mcp.yaml.'));
+      if (!silent) out(TerminalPrinter.dim('No enabled MCP servers configured in mcp.yaml.'));
       return mcpManager;
     }
 
-    stdout.writeln(TerminalPrinter.bold('Connecting to ${activeServers.length} configured MCP server(s)...'));
+    if (!silent) out(TerminalPrinter.bold('Connecting to ${activeServers.length} configured MCP server(s)...'));
 
     Set<String>? cachedUvTools;
     try {
@@ -189,7 +208,7 @@ class SkillRunner {
           cachedUvTools: cachedUvTools,
         );
         if (!isInstalled) {
-          stdout.write('  → $label: missing! Auto-installing... ');
+          out(newline: false, '  → $label: missing! Auto-installing... ');
           final installRes = await McpManagerHelper.installServer(
             server,
             onProgress: (msg) {
@@ -197,17 +216,17 @@ class SkillRunner {
             },
           );
           if (installRes.success) {
-            stdout.writeln(TerminalPrinter.green('✔ installed'));
+            out(TerminalPrinter.green('✔ installed'));
             try {
               cachedUvTools = await McpManagerHelper.getInstalledUvTools();
             } catch (_) {}
           } else {
-            stdout.writeln(TerminalPrinter.yellow('✘ install warning: ${installRes.message}'));
+            out(TerminalPrinter.yellow('✘ install warning: ${installRes.message}'));
           }
         }
       }
 
-      stdout.write('  → $label: connecting... ');
+      out(newline: false, '  → $label: connecting... ');
 
       try {
         final MCPClient client;
@@ -224,7 +243,7 @@ class SkillRunner {
                     lower.contains('resolv') ||
                     lower.contains('pull') ||
                     lower.contains('fetch')) {
-                  stdout.write('\n      ($msg)... ');
+                  out(newline: false, '\n      ($msg)... ');
                 }
               }
             },
@@ -259,16 +278,16 @@ class SkillRunner {
 
         final count = client.availableTools.length;
         if (count > 0) {
-          stdout.writeln(TerminalPrinter.green('✔ connected ($count tool${count > 1 ? "s" : ""})'));
+          out(TerminalPrinter.green('✔ connected ($count tool${count > 1 ? "s" : ""})'));
         } else {
-          stdout.writeln(TerminalPrinter.yellow('✔ connected (0 tools reported)'));
+          out(TerminalPrinter.yellow('✔ connected (0 tools reported)'));
         }
       } catch (e) {
         // Auto-install / repair fallback on failure
         bool recovered = false;
         if (server.isLocal) {
           try {
-            stdout.write('\n      Connection failed. Attempting auto-install/repair for ${server.name}... ');
+            out(newline: false, '\n      Connection failed. Attempting auto-install/repair for ${server.name}... ');
             final repairRes = await McpManagerHelper.installServer(server);
             if (repairRes.success) {
               final retryClient = LocalMCPClient(
@@ -287,17 +306,17 @@ class SkillRunner {
               );
               mcpManager.registerClient(retryDef);
               final count = retryClient.availableTools.length;
-              stdout.writeln(TerminalPrinter.green('✔ auto-installed & connected ($count tool${count > 1 ? "s" : ""})'));
+              out(TerminalPrinter.green('✔ auto-installed & connected ($count tool${count > 1 ? "s" : ""})'));
               recovered = true;
             }
           } catch (_) {}
         }
 
         if (!recovered) {
-          stdout.writeln(TerminalPrinter.red('✘ failed'));
-          stdout.writeln(TerminalPrinter.yellow('      $e'));
+          out(TerminalPrinter.red('✘ failed'));
+          out(TerminalPrinter.yellow('      $e'));
           if (!verbose) {
-            stdout.writeln(TerminalPrinter.dim('      (Run with --verbose to view full subprocess logs)'));
+            out(TerminalPrinter.dim('      (Run with --verbose to view full subprocess logs)'));
           }
         }
       }
@@ -305,9 +324,9 @@ class SkillRunner {
 
     final totalTools = mcpManager.availableTools;
     if (totalTools.isNotEmpty) {
-      stdout.writeln(TerminalPrinter.green('\n✔ Total tools available: ${totalTools.length} (${totalTools.map((t) => t.name).join(", ")})'));
+      out(TerminalPrinter.green('\n✔ Total tools available: ${totalTools.length} (${totalTools.map((t) => t.name).join(", ")})'));
     } else {
-      stdout.writeln(TerminalPrinter.yellow('\nNo MCP tools currently available. Run with --verbose for detailed diagnostic logs.'));
+      out(TerminalPrinter.yellow('\nNo MCP tools currently available. Run with --verbose for detailed diagnostic logs.'));
     }
 
     return mcpManager;

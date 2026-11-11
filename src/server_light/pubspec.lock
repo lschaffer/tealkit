@@ -21,10 +21,10 @@ packages:
     dependency: transitive
     description:
       name: anthropic_sdk_dart
-      sha256: "2765bdb3a3970a5cc292b93d48d3a60150382cf8a5c4f2c37e1f844d0c6a39fa"
+      sha256: "6b6b17e1ae153f990569c77fa479ba6f0488f17acf40b77ad7d4b71c3c9ccaab"
       url: "https://pub.dev"
     source: hosted
-    version: "7.0.0"
+    version: "9.0.1"
   archive:
     dependency: transitive
     description:
@@ -132,10 +132,10 @@ packages:
     dependency: transitive
     description:
       name: dartssh2
-      sha256: ce7347d76fd7115994f3785b3b7b7c61e957641faa01a2ce066699609f2b45be
+      sha256: "39359aceafcf5940b868249e3c9c6d86e4e0f989eec7417d033c943157c84c51"
       url: "https://pub.dev"
     source: hosted
-    version: "2.22.5"
+    version: "4.1.0"
   encrypter_plus:
     dependency: transitive
     description:
@@ -212,10 +212,10 @@ packages:
     dependency: transitive
     description:
       name: googleai_dart
-      sha256: "48da83de8f930d2f222834ca4d00b56082184d216721fd999b225b32408e52e2"
+      sha256: "0f706604df04bb316c9cd68f06acef33d3e2be4e17a9fe53f6458415e2e9d1de"
       url: "https://pub.dev"
     source: hosted
-    version: "11.0.0"
+    version: "13.1.0"
   http:
     dependency: transitive
     description:
@@ -355,18 +355,18 @@ packages:
     dependency: transitive
     description:
       name: ollama_dart
-      sha256: "185174c52d626c33187bda1b6cf6cb9f653b40a789a0fef0ca09907ec7ab9a95"
+      sha256: e8c03590c6f751d8b986125e5bde270412174b6cc49a2bdf6a5b9ef2b3c5cf30
       url: "https://pub.dev"
     source: hosted
-    version: "2.5.0"
+    version: "4.1.0"
   openai_dart:
     dependency: transitive
     description:
       name: openai_dart
-      sha256: "5d991631235e79fbda823377760243eb8af82b17ce55f37db0a5f6d269b29a30"
+      sha256: "40bbca48b592f6a0671501caf6082577a6afc7cc72a0af910580f0054609205a"
       url: "https://pub.dev"
     source: hosted
-    version: "8.0.0"
+    version: "11.0.1"
   package_config:
     dependency: transitive
     description:
@@ -548,7 +548,7 @@ packages:
       path: "../server"
       relative: true
     source: path
-    version: "1.0.194"
+    version: "1.0.210"
   term_glyph:
     dependency: transitive
     description:

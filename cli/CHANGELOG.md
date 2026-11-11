@@ -2,6 +2,31 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.4
+
+- **Dynamic Context Compression Scaling**:
+  - Dynamically calculates `effectiveCompressionThreshold`, scaling up to 16,000+ tokens for full cloud models (e.g. Gemma 31B, 262k ctx) instead of hardcoding 4,000 tokens, eliminating single-turn compression loops.
+- **Direct Tool Schema Exposure for IDE / RPC Mode**:
+  - Automatically disables progressive discovery meta-tools (`mcp_list_tools`, `mcp_call_tool`) in RPC mode so AI models directly receive all registered tool schemas for faster and more accurate tool call generation.
+- **RPC Observability & Event Streaming**:
+  - Added real-time broadcasting for `AgentLogEvent` over stdio RPC (`type: 'log'`).
+  - Standardized permission request event payload to include both `requestId`/`id` and `tool`/`toolName` for seamless IDE human-in-the-loop approvals.
+- **Template Compatibility & Safety (dart_mcp_core: ^1.5.10)**:
+  - Sanitized OpenAI-compatible assistant tool calls to serialize `content: ''` (empty string) instead of `null`, preventing Python/vLLM Jinja template `BadRequestException: can only concatenate str (not "NoneType") to str`.
+  - Added threshold safeguards in `ContextCompressor` requiring minimum turn count and split depth.
+
+## 1.4.3
+
+- **Headless JSON-RPC Engine (`TealKitRpcEngine`) for IDE Integrations**:
+  - Added line-delimited JSON-RPC protocol over `stdin`/`stdout` powering IDE extensions (VS Code, Antigravity, Cursor).
+  - New top-level CLI command `tealkit rpc [--workspace <path>] [--mode <code|architect|ask|rag>] [--llm <profile>] [--tools <path>]`.
+  - Added headless flag to coding command: `tealkit code --rpc [--workspace <path>]`.
+  - Stdio streaming events: `ready`, `status`, `models`, `skills`, `mcp_tools`, `start`, `chunk`, `tool_result`, `diff`, `plan`, `subagent_start`, `subagent_done`, `usage`, `error`, `done`.
+  - Interactive actions supported via JSON: `ping`, `get_status`, `list_models`, `set_model`, `set_mode`, `list_skills`, `list_mcp_tools`, `prompt`, `cancel`, `clear_session`, `permission_response`, `exit`.
+  - Non-JSON stdout diagnostics redirected to stderr or silenced via `{bool silent = true}` in MCP runner.
+- **Automated Deployment Pipeline (`cli/deploy.ps1`)**:
+  - Unified deployment script delegating to `setup.ps1` for compilation, staging, packaging `tealkit_cli_setup.zip`, and automatic upload to `https://tealkit.dev/download/tealkit_cli_setup.zip`.
+
 ## 1.4.2
 
 - **Pure Dart Fetch MCP Server Integration (FetchMcpServer)**:

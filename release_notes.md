@@ -2,6 +2,29 @@
 
 This file tracks release changes by version.
 
+## v2.3.0+165 - TealKit Coder VS Code Extension, Native RPC Engine, LLM Hyperparameter Tuning & Chat UI Modernization
+
+### Major Features & Enhancements
+- **TealKit Coder VS Code Extension (`tealkit-vscode` v0.1.1)**:
+  - **Native IDE Workspace Coding Agent**: Embedded webview sidebar extension backed directly by the `tealkit.exe rpc` subprocess for autonomous code generation, multi-turn reasoning, terminal execution, and file system manipulation.
+  - **Modular Tab Navigation**: Clean unified tab panel covering **Chat**, **LLMs**, **MCP Tools**, **Skills**, **Memory**, **Server**, and **Settings** (removed redundant header gear icon).
+  - **Generic CLI Settings Panel**: Full GUI configuration of `config.yaml` options including `max_turns`, `max_tool_iterations`, `planning`, `compact_tools`, `compression_threshold`, and `auto_paste_images`, along with a direct config file launcher.
+  - **Advanced LLM Hyperparameter Tuning**: Profile editor modal now supports full hyperparameter configuration: `temperature`, `max_tokens`, `context_size`, `top_p`, `top_k`, `repeat_penalty`, `is_slm`, `thinking`, and `use_streaming`.
+  - **One-Click Clipboard Copying**: Added intuitive copy buttons with immediate visual feedback (`✓ Copied!`) across user prompts, assistant messages, Markdown code blocks, and tool execution results.
+  - **Chat Layout & Fluid Vertical Scrolling**: Resolved flexbox shrinking defect where messages and tool cards collapsed into thin horizontal bars; established a fluid scrolling container with non-shrinking cards and live activity timers (`Agent thinking... (14s)`).
+  - **Interactive Side-by-Side Diffs**: Integrated Git diff viewer for reviewing proposed workspace file changes before acceptance.
+
+- **TealKit CLI & RPC Engine (`tealkit_cli` v1.4.3, `tealkit.exe rpc`)**:
+  - **Bi-Directional JSON-RPC 2.0 Engine**: Implemented headless stdio RPC server with structured request/response methods (`initialize`, `prompt`, `cancel`, `get_tools`, `get_skills`, `get_llm_profiles`, `save_llm_profile`, `get_config`, `set_config`).
+  - **Direct Tool Schema Exposure**: Configured RPC engine to provide complete tool definitions directly to models in IDE mode, bypassing progressive discovery meta-tools for faster, higher-accuracy tool call decisions.
+  - **Dynamic Context Compression Scaling**: Context compressor now intelligently scales threshold up to 16,000+ tokens for full cloud models (e.g. Gemma 31B, 262k context), eliminating perpetual 1-turn compression loops.
+  - **Real-Time Agent Observability**: Event stream broadcasting `turn_start`, `turn_end`, `message_delta`, `tool_call_start`, `tool_call_result`, `thinking`, `permission_request`, and `log`.
+
+- **Core MCP & Protocol Upgrades (`dart_mcp_core: ^1.5.10`, `flutter_ui_mcp_core: ^1.5.10`)**:
+  - **Jinja Chat Template Compatibility**: Sanitized OpenAI-compatible assistant tool call messages to serialize `content: ''` (empty string) instead of `null`, eliminating server-side template crashes (`BadRequestException: can only concatenate str (not "NoneType") to str`) with models hosted on DeepInfra, vLLM, and Hugging Face TGI.
+  - **Context Compressor Loop Prevention**: Added safety bounds requiring minimum message counts and split depth to prevent single-turn archiving cycles.
+  - **LLM Specs Visibility**: Added rich specification display across `/llm` listings, model cards, and dropdowns showing context window, token pricing, temperature, and max tokens.
+
 ## v2.2.1+160 - Pure Dart Fetch MCP Server, Full-Screen Mobile Sub-Agent Editor & Mobile UI Hardening
 
 ### Major Features & Enhancements
