@@ -116,33 +116,35 @@ if ((Test-Path $Pdfium) -and (-not (Test-Path (Join-Path $StagingDir 'pdfium.dll
     Log-Ok "Copied pdfium.dll"
 }
 
-# Copy skills folder
+# Copy 2 starter skills (coding-agent-skill.md & dotnet-engineer-skill.md)
 $SkillsDir = Join-Path $CliDir 'skills'
 if (Test-Path $SkillsDir) {
-    Copy-Item -Path $SkillsDir -Destination (Join-Path $StagingDir 'skills') -Recurse -Force
-    Log-Ok "Copied skills/"
+    $StagingSkillsDir = Join-Path $StagingDir 'skills'
+    New-Item -ItemType Directory -Path $StagingSkillsDir -Force | Out-Null
+    foreach ($skillFile in @('coding-agent-skill.md', 'dotnet-engineer-skill.md')) {
+        $srcSkill = Join-Path $SkillsDir $skillFile
+        if (Test-Path $srcSkill) {
+            Copy-Item -Path $srcSkill -Destination $StagingSkillsDir -Force
+        }
+    }
+    Log-Ok "Copied 2 starter skills (coding-agent-skill.md, dotnet-engineer-skill.md)"
 }
 
-# Copy YAML configuration templates (NEVER .env or pubspec!)
-$ExcludeYaml = @('pubspec.yaml', 'pubspec_overrides.yaml', 'analysis_options.yaml', 'build.yaml', 'smithery.yaml')
-Get-ChildItem -Path $CliDir -Filter *.yaml | Where-Object { $ExcludeYaml -notcontains $_.Name } | ForEach-Object {
-    Copy-Item -Path $_.FullName -Destination $StagingDir -Force
-}
-$ConfigSubDir = Join-Path $CliDir 'config'
-if (Test-Path $ConfigSubDir) {
-    $StagingConfigDir = Join-Path $StagingDir 'config'
-    New-Item -ItemType Directory -Path $StagingConfigDir -Force | Out-Null
-    Get-ChildItem -Path $ConfigSubDir -Filter *.yaml | ForEach-Object {
-        Copy-Item -Path $_.FullName -Destination $StagingConfigDir -Force
-        Copy-Item -Path $_.FullName -Destination $StagingDir -Force
+# Copy basic YAML configuration templates (empty RAG sources, no personal server workflows, NEVER .env or pubspec!)
+$BasicConfigFiles = @('config.yaml', 'llm.yaml', 'mcp.yaml', 'server.yaml', 'ssh.yaml', 'web_search.yaml')
+$StagingConfigDir = Join-Path $StagingDir 'config'
+New-Item -ItemType Directory -Path $StagingConfigDir -Force | Out-Null
+foreach ($cfgName in $BasicConfigFiles) {
+    $srcCfg = Join-Path $CliDir "config\$cfgName"
+    if (-not (Test-Path $srcCfg)) {
+        $srcCfg = Join-Path $CliDir $cfgName
+    }
+    if (Test-Path $srcCfg) {
+        Copy-Item -Path $srcCfg -Destination $StagingDir -Force
+        Copy-Item -Path $srcCfg -Destination $StagingConfigDir -Force
     }
 }
-Log-Ok "Copied YAML config templates"
-
-# Copy sample files
-Get-ChildItem -Path $CliDir -Filter *.sample | ForEach-Object {
-    Copy-Item -Path $_.FullName -Destination $StagingDir -Force
-}
+Log-Ok "Copied basic YAML config templates (empty RAG sources)"
 
 # Copy .env.example (if exists, but NEVER .env!)
 $EnvExample = Join-Path $CliDir '.env.example'
@@ -151,14 +153,14 @@ if (Test-Path $EnvExample) {
     Log-Ok "Copied .env.example"
 }
 
-# Copy documentation
+# Copy README.md and CHANGELOG.md
 foreach ($doc in @('README.md', 'CHANGELOG.md')) {
     $docPath = Join-Path $CliDir $doc
     if (Test-Path $docPath) {
         Copy-Item -Path $docPath -Destination $StagingDir -Force
     }
 }
-Log-Ok "Copied documentation files"
+Log-Ok "Copied README.md & CHANGELOG.md"
 
 # CRITICAL SECURITY SANITY CHECK: Ensure no secret files slipped into staging
 $BannedPatterns = @('.env', '*.db', '*.key', '*.pem', 'command_history.txt')

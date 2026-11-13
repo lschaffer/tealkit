@@ -1,6 +1,7 @@
 # TealKit CLI Configuration
 prompt:
-  multiline: true
+  multiline: false
+  error_color: "bright_yellow"
   submit_key: "enter"
   auto_paste_images: true
 
@@ -44,6 +45,7 @@ rag:
   embedding:
     provider: "embedded"
     model: "nomic-embed-text-v1.5.Q4_K_M.gguf"
+    gpu_layers: 0
     base_url: "http://localhost:11434"
     api_key: ""
   search:

@@ -1,6 +1,6 @@
-﻿# TealKitCoder MCP Servers Configuration (Auto-discovered)
+# TealKit MCP Servers Configuration
 servers:
-  # ── Local / Community Stdio MCP Servers ──
+  # ── Local / Community Stdio MCP Servers (Disabled by default until configured) ──
   - id: "github"
     name: "mcp-server-github"
     is_local: true
@@ -21,7 +21,7 @@ servers:
     custom_launch_command: "uvx mcp-server-fetch"
     enabled: false
 
-  - id: "puppeteer "
+  - id: "puppeteer"
     name: "mcp-server-puppeteer"
     is_local: true
     local_type: "nodejs"
@@ -29,6 +29,3 @@ servers:
     local_package: "@modelcontextprotocol/server-puppeteer"
     custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-puppeteer"
     enabled: false
-
-
-  

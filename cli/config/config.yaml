@@ -1,4 +1,4 @@
-# TealKitCoder CLI Configuration
+# TealKit CLI Configuration
 prompt:
   multiline: false
   error_color: "bright_yellow"
@@ -43,10 +43,10 @@ rag:
     chunk_size: 1000
     chunk_overlap: 150
   embedding:
-    provider: "openai_compatible"
-    model: "qwen3-embedding-0.6b"
+    provider: "embedded"
+    model: "nomic-embed-text-v1.5.Q4_K_M.gguf"
     gpu_layers: 0
-    base_url: "http://localhost:64000"
+    base_url: "http://localhost:11434"
     api_key: ""
   search:
     mode: "hybrid"

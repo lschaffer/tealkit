@@ -1,36 +1,28 @@
-﻿# TealKitCoder LLM Configuration Sample
+# TealKit LLM Configuration Sample
 # Global parameters applied across all models:
 temperature: 0.2
 max_tokens: 8192
-max_tool_iterations: 150
+max_tool_iterations: 100
 
-# Supported providers: openai, claude, gemini, ollama, mistral, openai_compatible
-# Profile used when the CLI starts (name from the list below).
-# If omitted: an item with `default: true`, otherwise the first entry.
+# Supported providers: openai, claude, gemini, ollama, mistral, openai_compatible, embedded
 default: "deepinfra_qwen3-coder"
 
 llms:
-  - name: "deepseek"
-    provider: "openai_compatible"
-    model: "deepseek-flash"
-    api_key: "${DEEPSEEK_API_KEY}"
-    base_url: "https://api.deepinfra.com/v1/openai"
-    
   - name: "deepinfra_qwen3-coder"
     provider: "openai_compatible"
     model: "Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo"
     api_key: "${DEEPINFRA_API_KEY}"
-    base_url: "https://api.deepinfra.com/v1/openai"    
+    base_url: "https://api.deepinfra.com/v1/openai"
 
-  - name: "deepinfra_gemma4-31b"
+  - name: "deepseek"
     provider: "openai_compatible"
-    model: "google/gemma-4-31B-it"
-    api_key: "${DEEPINFRA_API_KEY}"
-    base_url: "https://api.deepinfra.com/v1/openai"    
+    model: "deepseek-ai/DeepSeek-V3"
+    api_key: "${DEEPSEEK_API_KEY}"
+    base_url: "https://api.deepinfra.com/v1/openai"
 
   - name: "ollama"
     provider: "ollama"
-    model: "llama3"
+    model: "qwen2.5-coder:14b"
     base_url: "http://localhost:11434"
 
   - name: "mistral"
@@ -38,27 +30,17 @@ llms:
     model: "mistral-medium-latest"
     api_key: "${MISTRAL_API_KEY}"
 
-  - name: "hetzner-qwen3.6"
-    model: "Qwen/Qwen3.6-35B-A3B-FP8"
-    api_key: "${HETZNER_API_KEY}"
-    base_url: "https://inference.hetzner.com/api/v1"
-
-  - name: "hetzner-qwen3.8"
-    model: "Qwen3.8-27B"
-    api_key: "${HETZNER_API_KEY}"
-    base_url: "https://inference.hetzner.com/api/v1"
-
   - name: "gemini"
     provider: "gemini"
-    model: "gemini-3.7-flash"
+    model: "gemini-2.5-flash"
     api_key: "${GEMINI_API_KEY}"
 
   - name: "claude"
     provider: "claude"
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-3-7-sonnet-20250219"
     api_key: "${ANTHROPIC_API_KEY}"
 
-  - name: "qwen-coder"
+  - name: "qwen-coder-embedded"
     provider: "embedded"
     repo: "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"
     model: "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
