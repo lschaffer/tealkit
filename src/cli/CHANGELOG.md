@@ -2,6 +2,17 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.6
+
+- **Native `rag_search` Tool & Dedicated `rag` Mode in RPC/CLI**:
+  - Added `CodingMode.rag` support to `tealkit rpc` / `tealkit code` and added `_RagSearchTool` (`rag_search`) to query `rag_index.db` cleanly without opening binary `.docx`/`.pdf` files via `fs_read_file`.
+  - Restricted `CodingMode.rag` tools to RAG & non-filesystem utilities and truncated verbose `AgentLogEvent` prompt dumps before emitting `log` events.
+- **Tool Permission & Model Sync Fixes**:
+  - Synchronized `ToolPermissionSettings.save()` with `config.yaml` and unwrapped `mcp_call_tool` inner tool/risk when handling `Always Allow` in `TealKitRpcEngine`.
+  - Fixed `model_changed` RPC event to report the active profile name so IDE dropdowns keep non-default selections active.
+- **Clean Distribution Package (`tealkit_cli_setup.zip`)**:
+  - Updated starter configs (`config.yaml`, `mcp.yaml`, `server.yaml`, `ssh.yaml`, `web_search.yaml`) to start clean/empty (while preserving starter profiles in `llm.yaml`) and packaged only the 2 starter skills (`coding-agent-skill.md`, `dotnet-engineer-skill.md`) updated with Git commit instructions.
+
 ## 1.4.5
 
 - **Clean Default `config.yaml` & RAG Templates for Distribution**:

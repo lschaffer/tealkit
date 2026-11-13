@@ -11,7 +11,7 @@ import '../config/global_config.dart';
 import '../config/llm_config_manager.dart';
 import '../config/permission_settings.dart';
 import '../config/server_config.dart';
-import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, MCPTool, Agent, ChatRole;
+import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, MCPTool, MCPToolResult, Agent, ChatRole;
 import '../engine/builtin_mcp_servers.dart';
 import '../engine/embedded/cli_embedded_llm_adapter.dart';
 import '../engine/embedded/cli_embedded_model_manager.dart';
@@ -19,6 +19,7 @@ import '../engine/session_manager.dart';
 import '../engine/skill_runner.dart';
 import '../engine/subagent_helper.dart';
 import '../engine/token_usage_tracker.dart';
+import '../rag/rag_config.dart';
 import '../rag/rag_service.dart';
 
 /// Headless JSON-RPC / NDJSON engine for IDE plugins (VS Code, Antigravity).
@@ -144,6 +145,7 @@ class TealKitRpcEngine {
       'search_indexed_websites',
       'get_indexed_page',
       'list_indexed_pages',
+      'rag_search',
       'recall_memory',
       'activate_skills',
       'deactivate_skills',
@@ -277,7 +279,7 @@ class TealKitRpcEngine {
 
     // Send initial ready event
     _sendEvent('ready', {
-      'version': '1.4.5',
+      'version': '1.4.6',
       'workspace': workspaceDir,
       'mode': currentMode.name,
       'ragConfigured': _isRagConfigured(cliConfig),
@@ -1218,7 +1220,17 @@ class TealKitRpcEngine {
 
     // Filter tools for ask/rag mode
     List<McpLocalTool> activeDartTools = dartTools;
-    if (currentMode == CodingMode.ask || currentMode == CodingMode.rag) {
+    if (currentMode == CodingMode.rag) {
+      const ragAllowedTools = {
+        'rag_search',
+        'web_search',
+        'calculate',
+        'sum_numbers',
+        'get_current_time',
+        'get_timezone_info',
+      };
+      activeDartTools = dartTools.where((t) => ragAllowedTools.contains(t.name)).toList();
+    } else if (currentMode == CodingMode.ask) {
       activeDartTools = dartTools.where((t) {
         final isWriteOrExec =
             t.name == "fs_write_file" ||
@@ -1304,6 +1316,9 @@ class TealKitRpcEngine {
     );
 
     final effectiveDartTools = List<McpLocalTool>.from(activeDartTools);
+    if (cliConfig.rag.enabled && _isRagConfigured(cliConfig)) {
+      effectiveDartTools.add(_RagSearchTool(cliConfig.rag));
+    }
     effectiveDartTools.add(activateTool);
     effectiveDartTools.add(deactivateTool);
 
@@ -1344,7 +1359,17 @@ class TealKitRpcEngine {
         try {
           switch (event) {
             case AgentLogEvent(:final message):
-              _sendEvent('log', {'id': turnId, 'message': message});
+              if (message.startsWith('User prompt [') ||
+                  message.contains('[Relevant Knowledge Base Documents]') ||
+                  message.length > 200) {
+                final firstLine = message.split('\n').first.trim();
+                final summary = firstLine.startsWith('User prompt [')
+                    ? 'Agent thinking...'
+                    : (firstLine.length > 140 ? '${firstLine.substring(0, 140)}...' : firstLine);
+                _sendEvent('log', {'id': turnId, 'message': summary});
+              } else {
+                _sendEvent('log', {'id': turnId, 'message': message});
+              }
 
             case AgentTextChunkEvent(:final chunk):
               finalResponse += chunk;
@@ -1897,9 +1922,9 @@ CURRENT MODE: 💬 ASK (Q&A & Exploration Mode)
       case CodingMode.rag:
         buffer.writeln('''
 CURRENT MODE: 📚 RAG (Knowledge & Document Search Mode)
-- Your goal is to synthesize accurate answers grounded in retrieved local documents, indexed websites, and workspace files.
+- Your goal is to answer questions strictly grounded in the local RAG Knowledge Base (`rag_index.db`). Relevant chunks are injected under `[Relevant Knowledge Base Documents]`. For more details or different keywords, ALWAYS call `rag_search` on `rag_index.db`. NEVER call `fs_read_file` on `.docx` or `.pdf` files — their text is already extracted in `rag_index.db`.
 - Always cite the source document or URL when using retrieved RAG context chunks.
-- Combine retrieved RAG knowledge with workspace exploration (`fs_find`, `fs_read_file`) when answering technical or architectural questions.
+- NEVER attempt to read `.docx`, `.pdf`, or indexed workspace files with filesystem tools.
 ''');
         break;
     }
@@ -1914,5 +1939,70 @@ $userInstructions
     }
 
     return buffer.toString();
+  }
+}
+
+
+class _RagSearchTool extends McpLocalTool {
+  final RagConfig ragConfig;
+
+  _RagSearchTool(this.ragConfig);
+
+  @override
+  String get name => 'rag_search';
+
+  @override
+  String get description =>
+      'Search the local indexed RAG knowledge base (rag_index.db) using hybrid keyword + vector search. Use this to look up commands, documentation, PDFs, DOCX files, and crawled websites without reading raw binary files.';
+
+  @override
+  ToolRiskLevel get riskLevel => ToolRiskLevel.read;
+
+  @override
+  Map<String, dynamic> get inputSchema => {
+        'type': 'object',
+        'properties': {
+          'query': {
+            'type': 'string',
+            'description': 'Search query or command/keyword to look up in the indexed knowledge base.',
+          },
+          'max_results': {
+            'type': 'integer',
+            'description': 'Maximum number of matching chunks to return (default 8, max 20).',
+          },
+        },
+        'required': ['query'],
+      };
+
+  @override
+  Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
+    final query = (arguments['query'] as String?)?.trim() ?? '';
+    if (query.isEmpty) {
+      return MCPToolResult.error('Parameter "query" is required.');
+    }
+
+    final maxResults = ((arguments['max_results'] as num?)?.toInt() ?? 8).clamp(1, 20);
+    final service = RagService(ragConfig);
+    try {
+      final hits = await service.search(query, limit: maxResults);
+      if (hits.isEmpty) {
+        return MCPToolResult.text('No matching documents found in rag_index.db for "$query".');
+      }
+      final buf = StringBuffer();
+      buf.writeln('Found ${hits.length} matching chunk(s) in rag_index.db for "$query":\n');
+      for (int i = 0; i < hits.length; i++) {
+        final h = hits[i];
+        final title = h.documentTitle ?? p.basename(h.documentUri);
+        buf.writeln('--- Result [${i + 1}]: $title (${h.locationLabel}, score: ${h.score.toStringAsFixed(3)}) ---');
+        buf.writeln('Location: ${h.terminalLocation}');
+        buf.writeln(h.content.trim());
+        buf.writeln('');
+      }
+      return MCPToolResult.text(buf.toString().trim());
+    } catch (e) {
+      return MCPToolResult.error('RAG search failed: $e');
+    } finally {
+      service.dispose();
+    }
   }
 }

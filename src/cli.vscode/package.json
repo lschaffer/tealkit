@@ -1,0 +1,180 @@
+{
+  "name": "tealkit-vscode",
+  "displayName": "TealKit Coder",
+  "description": "Autonomous AI Coding Agent powered by TealKit CLI with sub-agents, MCP servers, and full workspace control.",
+  "version": "0.1.5",
+  "publisher": "tealkit",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://bitbucket.org/laszloschaffer_team/mobile_ai_agent.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "tealkit",
+    "agent",
+    "coding agent",
+    "mcp",
+    "subagents",
+    "claude",
+    "qwen",
+    "deepseek"
+  ],
+  "activationEvents": [
+    "onView:tealkit.chatView",
+    "onCommand:tealkit.restart",
+    "onCommand:tealkit.startAgent",
+    "onCommand:tealkit.newSession",
+    "onCommand:tealkit.setMode",
+    "onCommand:tealkit.selectModel",
+    "onCommand:tealkit.openTasks"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tealkit-sidebar",
+          "title": "TealKit Coder",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "tealkit-sidebar": [
+        {
+          "type": "webview",
+          "id": "tealkit.chatView",
+          "name": "TealKit Agent",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "tealkit.startAgent",
+        "title": "Start Coding Agent",
+        "category": "TealKit"
+      },
+      {
+        "command": "tealkit.newSession",
+        "title": "New Chat Session",
+        "category": "TealKit",
+        "icon": "$(add)"
+      },
+      {
+        "command": "tealkit.setMode",
+        "title": "Switch Agent Mode",
+        "category": "TealKit"
+      },
+      {
+        "command": "tealkit.selectModel",
+        "title": "Switch LLM Profile",
+        "category": "TealKit"
+      },
+      {
+        "command": "tealkit.openTasks",
+        "title": "Open Workspace tasks.md",
+        "category": "TealKit"
+      },
+      {
+        "command": "tealkit.restart",
+        "title": "Restart Agent Process",
+        "category": "TealKit",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "tealkit.newSession",
+          "when": "view == tealkit.chatView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "tealkit.restart",
+          "when": "view == tealkit.chatView",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "TealKit",
+      "properties": {
+        "tealkit.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom absolute path to the tealkit executable. If blank, looks in workspace, ~/.tealkitcoder/bin, or system PATH."
+        },
+        "tealkit.defaultMode": {
+          "type": "string",
+          "enum": [
+            "code",
+            "architect",
+            "ask",
+            "rag"
+          ],
+          "default": "code",
+          "description": "Default agent mode upon workspace launch."
+        },
+        "tealkit.autoApproveWrite": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically approve file write/replace operations without prompting."
+        },
+        "tealkit.autoApproveExecute": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically approve terminal command execution without prompting."
+        },
+        "tealkit.autoPreviewDiff": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically open VS Code side-by-side diff editor when proposing file modifications."
+        }
+      }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          "config.yaml",
+          ".tealkit/config.yaml"
+        ],
+        "url": "./schemas/tealkit-config.schema.json"
+      },
+      {
+        "fileMatch": [
+          "mcp.yaml",
+          "extern_mcp_tools.yaml",
+          ".tealkit/mcp.yaml"
+        ],
+        "url": "./schemas/tealkit-mcp.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx --yes @vscode/vsce package --baseContentUrl https://tealkit.dev --baseImagesUrl https://tealkit.dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "bundledDependencies": [
+    "yaml"
+  ]
+}

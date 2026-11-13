@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TealKit MCP Configuration Schema",
+  "type": "object",
+  "properties": {
+    "mcpServers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Executable or script command (e.g. npx, uvx, node, python)"
+          },
+          "args": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Arguments passed to the MCP server command"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Environment variables required by the MCP server"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether this server is active"
+          }
+        },
+        "required": ["command"]
+      }
+    }
+  }
+}
+

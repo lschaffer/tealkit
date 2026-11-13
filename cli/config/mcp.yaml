@@ -1,31 +1,3 @@
 # TealKit MCP Servers Configuration
-servers:
-  # ── Local / Community Stdio MCP Servers (Disabled by default until configured) ──
-  - id: "github"
-    name: "mcp-server-github"
-    is_local: true
-    local_type: "nodejs"
-    local_install_method: "npx"
-    local_package: "@modelcontextprotocol/server-github"
-    custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-github"
-    env:
-      GITHUB_PERSONAL_ACCESS_TOKEN: ""
-    enabled: false
-
-  - id: "fetch"
-    name: "mcp-server-fetch"
-    is_local: true
-    local_type: "python"
-    local_install_method: "uvx"
-    local_package: "mcp-server-fetch"
-    custom_launch_command: "uvx mcp-server-fetch"
-    enabled: false
-
-  - id: "puppeteer"
-    name: "mcp-server-puppeteer"
-    is_local: true
-    local_type: "nodejs"
-    local_install_method: "npx"
-    local_package: "@modelcontextprotocol/server-puppeteer"
-    custom_launch_command: "npx.cmd -y @modelcontextprotocol/server-puppeteer"
-    enabled: false
+# Add local stdio or remote HTTP/SSE MCP servers here or via the VS Code MCP Tools tab.
+servers: []

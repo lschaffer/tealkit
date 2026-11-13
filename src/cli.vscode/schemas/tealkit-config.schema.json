@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TealKit Configuration Schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration schema version"
+    },
+    "default_model": {
+      "type": "string",
+      "description": "Default LLM profile name to activate"
+    },
+    "default_mode": {
+      "type": "string",
+      "enum": ["code", "architect", "ask", "rag"],
+      "description": "Default agent operating mode"
+    },
+    "progressive_tools": {
+      "type": "string",
+      "enum": ["auto", "on", "off"],
+      "description": "Progressive on-demand tool discovery mode"
+    },
+    "auto_approve_write": {
+      "type": "boolean",
+      "description": "Automatically approve file write operations without prompting"
+    },
+    "auto_approve_execute": {
+      "type": "boolean",
+      "description": "Automatically approve terminal command execution without prompting"
+    }
+  }
+}
+
