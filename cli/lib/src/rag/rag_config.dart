@@ -15,6 +15,7 @@ class RagConfig {
   String embeddingRepo;
   String embeddingBaseUrl;
   String embeddingApiKey;
+  int embeddingGpuLayers;
   String searchMode; // 'hybrid', 'fts', 'semantic'
   int maxChunks;
   double minScore;
@@ -26,19 +27,20 @@ class RagConfig {
     List<String>? folderSources,
     List<String>? webSources,
     List<String>? fileExtensions,
-    this.chunkSize = 600,
-    this.chunkOverlap = 100,
+    this.chunkSize = 1000,
+    this.chunkOverlap = 150,
     this.embeddingProvider = 'embedded',
     this.embeddingModel = 'nomic-embed-text-v1.5.Q4_K_M.gguf',
     this.embeddingRepo = 'nomic-ai/nomic-embed-text-v1.5-GGUF',
     this.embeddingBaseUrl = 'http://localhost:11434',
     this.embeddingApiKey = '',
+    this.embeddingGpuLayers = 0,
     this.searchMode = 'hybrid',
     this.maxChunks = 5,
-    this.minScore = 0.25,
+    this.minScore = 0.15,
     this.maxPages = 50,
   })  : databasePath = databasePath ?? defaultDatabasePath,
-        folderSources = folderSources ?? ['./docs'],
+        folderSources = folderSources ?? [],
         webSources = webSources ?? [],
         fileExtensions = fileExtensions ??
             ['.txt', '.md', '.docx', '.pdf', '.csv', '.json'];
@@ -145,6 +147,9 @@ class RagConfig {
     final embKey = embedMap != null
         ? (embedMap['api_key'] as String? ?? '').trim()
         : (yaml['embedding_api_key'] as String? ?? '').trim();
+    final embGpu = embedMap != null && embedMap['gpu_layers'] != null
+        ? int.tryParse(embedMap['gpu_layers'].toString()) ?? 0
+        : int.tryParse(yaml['embedding_gpu_layers']?.toString() ?? '0') ?? 0;
 
     final searchMap = yaml['search'] is Map ? yaml['search'] as Map : null;
     final sMode = searchMap != null
@@ -154,8 +159,8 @@ class RagConfig {
         ? int.tryParse(searchMap['max_chunks'].toString()) ?? 5
         : int.tryParse(yaml['max_chunks']?.toString() ?? '5') ?? 5;
     final minS = searchMap != null && searchMap['min_score'] != null
-        ? double.tryParse(searchMap['min_score'].toString()) ?? 0.25
-        : double.tryParse(yaml['min_score']?.toString() ?? '0.25') ?? 0.25;
+        ? double.tryParse(searchMap['min_score'].toString()) ?? 0.15
+        : double.tryParse(yaml['min_score']?.toString() ?? '0.15') ?? 0.15;
 
     final rawMaxPages = yaml['max_pages'] ??
         (sourcesMap != null ? sourcesMap['max_pages'] : null) ??
@@ -170,7 +175,7 @@ class RagConfig {
     return RagConfig(
       enabled: enabled,
       databasePath: dbPath,
-      folderSources: folders.isNotEmpty ? folders : ['./docs'],
+      folderSources: folders,
       webSources: web,
       fileExtensions: extList.isNotEmpty ? extList : null,
       chunkSize: chunkSize,
@@ -180,6 +185,7 @@ class RagConfig {
       embeddingRepo: embRepo,
       embeddingBaseUrl: embBaseUrl,
       embeddingApiKey: embKey,
+      embeddingGpuLayers: embGpu,
       searchMode: sMode,
       maxChunks: maxC,
       minScore: minS,
@@ -206,6 +212,7 @@ class RagConfig {
         'provider': embeddingProvider,
         'model': embeddingModel,
         'repo': embeddingRepo,
+        'gpu_layers': embeddingGpuLayers,
         'base_url': embeddingBaseUrl,
         'api_key': embeddingApiKey,
       },

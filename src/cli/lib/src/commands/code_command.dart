@@ -25,23 +25,25 @@ import '../formatters/terminal_printer.dart';
 import '../formatters/terminal_spinner.dart';
 import '../rag/rag_service.dart';
 
-enum CodingMode { architect, code, ask }
+enum CodingMode { architect, code, ask, rag }
 
 extension CodingModeExt on CodingMode {
   String get name => switch (this) {
     CodingMode.architect => 'architect',
     CodingMode.code => 'code',
     CodingMode.ask => 'ask',
+    CodingMode.rag => 'rag',
   };
 
   String get displayName => switch (this) {
     CodingMode.architect => '📐 ARCHITECT (Planning & Analysis)',
     CodingMode.code => '💻 CODE (Implementation & Execution)',
     CodingMode.ask => '💬 ASK (General Q&A)',
+    CodingMode.rag => '📚 RAG (Knowledge & Document Search)',
   };
 }
 
-/// `tealkit code [--mode <architect|code|ask>]`
+/// `tealkit code [--mode <architect|code|ask|rag>]`
 class CodeCommand extends Command {
   @override
   final String name = 'code';
@@ -53,10 +55,10 @@ class CodeCommand extends Command {
     argParser.addOption(
       'mode',
       abbr: 'm',
-      allowed: ['architect', 'code', 'ask'],
+      allowed: ['architect', 'code', 'ask', 'rag'],
       defaultsTo: 'code',
       help:
-          'Initial agent mode (architect: planning/tasks.md, code: implementation, ask: Q&A)',
+          'Initial agent mode (architect: planning/tasks.md, code: implementation, ask: Q&A, rag: document/web knowledge search)',
     );
     argParser.addOption(
       'instructions',
@@ -93,6 +95,11 @@ class CodeCommand extends Command {
       negatable: false,
       help:
           'Continue the most recent saved session from .tealkit/sessions/ or sessions/',
+    );
+    argParser.addFlag(
+      'auto-save-session',
+      defaultsTo: false,
+      help: 'Automatically save session transcript to .tealkit/sessions/',
     );
     argParser.addOption(
       'max-tool-iterations',
@@ -218,6 +225,8 @@ Commands:
         : Directory.current.path;
     var workspaceDir = defaultWorkspaceDir;
 
+    final autoSaveFlag = argResults?['auto-save-session'] as bool? ?? false;
+
     if (isRpcMode) {
       final rpcEngine = TealKitRpcEngine(
         workspaceDir: workspaceDir,
@@ -226,6 +235,10 @@ Commands:
         initialLlmName: explicitLlmName,
         toolsPath: toolsPath,
         currentMode: currentMode,
+        saveSessionPath: autoSavePath,
+        loadSessionPath: loadSessionPath,
+        continueSession: continueSession,
+        autoSaveSession: autoSaveFlag || true,
       );
       await rpcEngine.run();
       return;
@@ -497,6 +510,7 @@ Commands:
           CodingMode.architect => '[architect$attachBadge] > ',
           CodingMode.code => '[code$attachBadge] > ',
           CodingMode.ask => '[ask$attachBadge] > ',
+          CodingMode.rag => '[rag$attachBadge] > ',
         };
 
         final rawInput = await CliPromptReader.readPrompt(
@@ -2706,6 +2720,14 @@ CURRENT MODE: 💻 CODE (Implementation Mode)
 CURRENT MODE: 💬 ASK (Q&A & Exploration Mode)
 - Your goal is to answer questions, explain concepts, and explore code without making changes.
 - Read-only tools (`fs_find`, `fs_read_file`) and informative commands (`terminal_exec` for git log / status) are preferred.
+''');
+        break;
+      case CodingMode.rag:
+        buffer.writeln('''
+CURRENT MODE: 📚 RAG (Knowledge & Document Search Mode)
+- Your goal is to synthesize accurate answers grounded in retrieved local documents, indexed websites, and workspace files.
+- Always cite the source document or URL when using retrieved RAG context chunks.
+- Combine retrieved RAG knowledge with workspace exploration (`fs_find`, `fs_read_file`) when answering technical or architectural questions.
 ''');
         break;
     }

@@ -1111,6 +1111,34 @@ class LlmSettingsService extends ChangeNotifier {
       try {
         await _storage.write(key: _kProfiles, value: jsonRaw);
         await _storage.write(key: _kSelectedProfileId, value: _selectedProfileId);
+        await _storage.write(key: _kProvider, value: _provider.configKey);
+        await _storage.write(key: _kModel, value: _model);
+        await _storage.write(key: _kApiKey, value: _apiKey);
+        await _storage.write(key: _kBaseUrl, value: _baseUrl);
+        await _storage.write(key: _kTemperature, value: _temperature.toString());
+        await _storage.write(key: _kMaxTokens, value: _maxTokens.toString());
+        await _storage.write(
+          key: _kMaxToolOutputSize,
+          value: _maxToolOutputSize.toString(),
+        );
+        await _storage.write(
+          key: _kTokenWarningThreshold,
+          value: _tokenWarningThreshold.toString(),
+        );
+        await _storage.write(key: _kIsSlm, value: _isSlm.toString());
+        await _storage.write(
+          key: _kIsMultiModal,
+          value: _isMultiModal.toString(),
+        );
+        await _storage.write(key: _kThinking, value: _thinking.toString());
+        await _storage.write(
+          key: _kUseNativeToolCall,
+          value: _useNativeToolCall.toString(),
+        );
+        await _storage.write(
+          key: _kUseSafeToolCall,
+          value: _useSafeToolCall.toString(),
+        );
       } catch (e) {
         log.warning('[LLM Settings] Failed to write profiles to secure storage: $e');
       }
@@ -1120,17 +1148,29 @@ class LlmSettingsService extends ChangeNotifier {
       await prefs.setString(_kShadowPrefix + _kProfiles, jsonRaw);
       await prefs.setString(_kShadowPrefix + _kSelectedProfileId, _selectedProfileId);
     } catch (_) {}
+    await _writeShadowPrefs();
   }
 
   Future<void> _loadProfilesFromStorage() async {
     try {
       String? jsonRaw;
+      String? savedSelectedId;
       if (!_keyringUnavailable) {
         jsonRaw = await _storage.read(key: _kProfiles);
+        savedSelectedId = await _storage.read(key: _kSelectedProfileId);
       }
-      if (jsonRaw == null || jsonRaw.isEmpty) {
+      if (jsonRaw == null || jsonRaw.isEmpty || savedSelectedId == null || savedSelectedId.isEmpty) {
         final prefs = await SharedPreferences.getInstance();
-        jsonRaw = prefs.getString(_kShadowPrefix + _kProfiles);
+        if (jsonRaw == null || jsonRaw.isEmpty) {
+          jsonRaw = prefs.getString(_kShadowPrefix + _kProfiles);
+        }
+        if (savedSelectedId == null || savedSelectedId.isEmpty) {
+          savedSelectedId = prefs.getString(_kShadowPrefix + _kSelectedProfileId);
+        }
+      }
+
+      if (savedSelectedId != null && savedSelectedId.isNotEmpty) {
+        _selectedProfileId = savedSelectedId;
       }
 
       if (jsonRaw != null && jsonRaw.isNotEmpty) {
@@ -1199,6 +1239,11 @@ class LlmSettingsService extends ChangeNotifier {
     if (_selectedProfileId.isEmpty || !_profiles.any((p) => p.id == _selectedProfileId)) {
       _selectedProfileId = _profiles.first.id;
     }
+
+    final activeProfile = selectedProfile;
+    if (activeProfile != null) {
+      _syncFromProfile(activeProfile);
+    }
   }
 
   // ── Load from secure storage ──────────────────
@@ -1216,6 +1261,7 @@ class LlmSettingsService extends ChangeNotifier {
     }
     if (_keyringUnavailable) {
       await _loadFromShadowPrefs();
+      await _loadProfilesFromStorage();
       _loaded = true;
       notifyListeners();
       return;

@@ -119,7 +119,7 @@ packages:
       path: "../../mcp_playground/dart_mcp_core"
       relative: true
     source: path
-    version: "1.5.10"
+    version: "1.5.11"
   dartssh2:
     dependency: "direct main"
     description:

@@ -926,10 +926,10 @@ class TaskExecution {
 
   factory TaskExecution.fromJson(Map<String, dynamic> json) => TaskExecution(
     lastRun: json['last_run'] != null
-        ? DateTime.parse(json['last_run'] as String)
+        ? DateTime.parse(json['last_run'] as String).toLocal()
         : null,
     nextRun: json['next_run'] != null
-        ? DateTime.parse(json['next_run'] as String)
+        ? DateTime.parse(json['next_run'] as String).toLocal()
         : null,
     lastResult: json['last_result'] as String?,
     lastError: json['last_error'] as String?,
@@ -996,7 +996,7 @@ class TaskRunRecord {
   };
 
   factory TaskRunRecord.fromJson(Map<String, dynamic> json) => TaskRunRecord(
-    timestamp: DateTime.parse(json['timestamp'] as String),
+    timestamp: DateTime.parse(json['timestamp'] as String).toLocal(),
     success: json['success'] as bool,
     result: json['result'] as String?,
     error: json['error'] as String?,

@@ -269,7 +269,7 @@ packages:
       path: "../mcp_playground/dart_mcp_core"
       relative: true
     source: path
-    version: "1.5.10"
+    version: "1.5.11"
   dartssh2:
     dependency: "direct main"
     description:
@@ -675,21 +675,21 @@ packages:
       path: "../mcp_playground/flutter_ui_mcp"
       relative: true
     source: path
-    version: "1.5.10"
+    version: "1.5.11"
   flutter_ui_mcp_core:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_core"
       relative: true
     source: path
-    version: "1.5.10"
+    version: "1.5.11"
   flutter_ui_mcp_embedded:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_embedded"
       relative: true
     source: path
-    version: "1.5.10"
+    version: "1.5.11"
   flutter_web_auth_2:
     dependency: "direct main"
     description:
@@ -1226,10 +1226,10 @@ packages:
     dependency: "direct main"
     description:
       name: material_ui
-      sha256: e4031746f96c8316864d9b92bce375f1320a36ed56e166307e1e1bda9d90b4ab
+      sha256: "474c135fd46b56ff1d35ca982155e8863d28fbc6464d1192acf4ee53a738680e"
       url: "https://pub.dev"
     source: hosted
-    version: "1.8.0"
+    version: "1.11.0"
   menu_base:
     dependency: transitive
     description:

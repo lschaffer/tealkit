@@ -34,8 +34,25 @@ class ToolPermissionSettings {
     return p.join(GlobalConfigLocator.effectiveConfigDir, 'permissions.yaml');
   }
 
-  /// Load permissions from YAML storage file (or return safe defaults).
+  /// Load permissions from config.yaml (permissions section) or permissions.yaml fallback.
   static ToolPermissionSettings load([String? customPath]) {
+    try {
+      final cfgFile = GlobalConfigLocator.resolveConfigFile('config.yaml');
+      if (cfgFile.existsSync()) {
+        final rawCfg = cfgFile.readAsStringSync();
+        final doc = loadYaml(rawCfg);
+        if (doc is Map && doc['permissions'] is Map) {
+          final pMap = doc['permissions'] as Map;
+          return ToolPermissionSettings(
+            autoApproveRead: (pMap['auto_approve_read'] as bool?) ?? true,
+            autoApproveWrite: (pMap['auto_approve_write'] as bool?) ?? false,
+            autoApproveExecute: (pMap['auto_approve_execute'] as bool?) ?? false,
+            autoApproveNetwork: (pMap['auto_approve_network'] as bool?) ?? false,
+          );
+        }
+      }
+    } catch (_) {}
+
     final path = customPath ?? defaultStoragePath;
     final file = File(path);
     if (!file.existsSync()) {
@@ -59,7 +76,7 @@ class ToolPermissionSettings {
     }
   }
 
-  /// Save permissions to YAML storage file.
+  /// Save permissions to YAML storage file and sync with config.yaml if present.
   void save([String? customPath]) {
     final path = customPath ?? defaultStoragePath;
     final file = File(path);
@@ -72,5 +89,26 @@ auto_approve_execute: $autoApproveExecute
 auto_approve_network: $autoApproveNetwork
 ''');
     } catch (_) {}
+
+    // Also keep config.yaml permissions section in sync so load() sees updated values
+    try {
+      final cfgFile = GlobalConfigLocator.resolveConfigFile('config.yaml');
+      if (cfgFile.existsSync()) {
+        var content = cfgFile.readAsStringSync();
+        content = _replaceYamlBoolKey(content, 'auto_approve_read', autoApproveRead);
+        content = _replaceYamlBoolKey(content, 'auto_approve_write', autoApproveWrite);
+        content = _replaceYamlBoolKey(content, 'auto_approve_execute', autoApproveExecute);
+        content = _replaceYamlBoolKey(content, 'auto_approve_network', autoApproveNetwork);
+        cfgFile.writeAsStringSync(content);
+      }
+    } catch (_) {}
+  }
+
+  static String _replaceYamlBoolKey(String yamlText, String key, bool value) {
+    final pattern = RegExp('^(\\s*$key\\s*:\\s*)(true|false)', multiLine: true);
+    if (pattern.hasMatch(yamlText)) {
+      return yamlText.replaceFirstMapped(pattern, (m) => '${m.group(1)}$value');
+    }
+    return yamlText;
   }
 }

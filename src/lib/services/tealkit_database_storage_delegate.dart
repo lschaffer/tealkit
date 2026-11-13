@@ -15,12 +15,72 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
   static const _kSetups = 'mcp_playground_saved_setups';
   static const _kWorkflows = 'mcp_playground_workflows_list';
   static const _kEnabledTools = 'mcp_playground_enabled_tools';
+  static const _kDisabledTools = 'mcp_playground_disabled_tools';
   static const _kInitializedClients = 'mcp_playground_initialized_clients';
   static const _kServerCatalog = 'mcp_playground_server_catalog';
   static const _kServerCatalogTimestamp = 'mcp_playground_server_catalog_timestamp';
   static const _kSkillsRoot = 'mcp_playground_skills_root_path';
 
+  static final Set<String> _explicitlyDisabledTools = <String>{};
+  static bool _disabledToolsLoaded = false;
+
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
+
+  static Future<void> _ensureDisabledToolsLoaded() async {
+    if (_disabledToolsLoaded) return;
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList(_kDisabledTools);
+    if (list != null) {
+      _explicitlyDisabledTools.addAll(list);
+    }
+    _disabledToolsLoaded = true;
+  }
+
+  /// Explicitly enables or disables [toolNames] on [controller] and persists
+  /// user intent so background MCP server syncs never re-enable disabled tools.
+  static Future<void> setToolsEnabled(
+    PlaygroundController controller,
+    Iterable<String> toolNames,
+    bool enabled,
+  ) async {
+    await _ensureDisabledToolsLoaded();
+    final p = await SharedPreferences.getInstance();
+    if (enabled) {
+      _explicitlyDisabledTools.removeAll(toolNames);
+      await p.setStringList(_kDisabledTools, _explicitlyDisabledTools.toList());
+      controller.toggleToolsEnabled(toolNames, true);
+    } else {
+      _explicitlyDisabledTools.addAll(toolNames);
+      controller.enabledToolNames.removeAll(toolNames);
+      await p.setStringList(_kDisabledTools, _explicitlyDisabledTools.toList());
+      await p.setStringList(_kEnabledTools, controller.enabledToolNames.toList());
+      // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+      controller.notifyListeners();
+    }
+  }
+
+  /// Replaces the full set of enabled tools on [controller] and records all
+  /// other tools in [allAvailableNames] as explicitly disabled.
+  static Future<void> replaceEnabledTools(
+    PlaygroundController controller,
+    Set<String> enabledNames,
+    Set<String> allAvailableNames,
+  ) async {
+    await _ensureDisabledToolsLoaded();
+    final p = await SharedPreferences.getInstance();
+    _explicitlyDisabledTools
+      ..removeAll(enabledNames)
+      ..addAll(allAvailableNames.difference(enabledNames));
+    await p.setStringList(_kDisabledTools, _explicitlyDisabledTools.toList());
+    if (enabledNames.isEmpty) {
+      controller.enabledToolNames.clear();
+      await p.setStringList(_kEnabledTools, const <String>[]);
+      // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+      controller.notifyListeners();
+    } else {
+      controller.updateEnabledTools(enabledNames);
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────
   // LLM Config (Bridges directly to TealKit LlmSettingsService)
@@ -75,8 +135,14 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
   /// Returns the active LlmConfig derived directly from TealKit's LlmSettingsService.
   LlmConfig? getTealKitLlmConfig() {
     final service = tk_llm.LlmSettingsService.instance;
+    final activeProfile = service.selectedProfile;
+    if (activeProfile != null && activeProfile.isConfigured) {
+      return _profileToPlaygroundConfig(activeProfile);
+    }
     if (!service.isConfigured) return null;
     return LlmConfig(
+      id: activeProfile?.id,
+      name: activeProfile?.name,
       provider: _fromTealKitProvider(service.provider),
       model: service.model,
       apiKey: service.apiKey,
@@ -94,6 +160,30 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
       useSafeToolCall: service.useSafeToolCall,
       maxToolOutputSize: service.maxToolOutputSize,
       tokenWarningThreshold: service.tokenWarningThreshold,
+    );
+  }
+
+  static LlmConfig _profileToPlaygroundConfig(tk_llm.NamedLlmProfile p) {
+    return LlmConfig(
+      id: p.id,
+      name: p.name,
+      provider: _fromTealKitProvider(p.provider),
+      model: p.model,
+      apiKey: p.apiKey,
+      baseUrl: p.baseUrl,
+      temperature: p.temperature,
+      maxTokens: p.maxTokens,
+      isSlm: p.isSlm,
+      isMultiModal: p.isMultiModal,
+      topK: p.topK,
+      topP: p.topP,
+      repeatPenalty: p.repeatPenalty,
+      seed: p.seed,
+      thinking: p.thinking,
+      useNativeToolCall: p.useNativeToolCall,
+      useSafeToolCall: p.useSafeToolCall,
+      maxToolOutputSize: p.maxToolOutputSize,
+      tokenWarningThreshold: p.tokenWarningThreshold,
     );
   }
 
@@ -135,6 +225,18 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
 
   @override
   Future<({List<LlmConfig> configs, String? selectedId})?> loadLlmConfigs() async {
+    final service = tk_llm.LlmSettingsService.instance;
+    if (service.profiles.isNotEmpty) {
+      final tkConfigs = service.profiles
+          .map(_profileToPlaygroundConfig)
+          .toList();
+      final selectedProfile = service.selectedProfile;
+      final selectedId = selectedProfile != null
+          ? _profileToPlaygroundConfig(selectedProfile).profileId
+          : (tkConfigs.isNotEmpty ? tkConfigs.first.profileId : null);
+      return (configs: tkConfigs, selectedId: selectedId);
+    }
+
     final p = await _prefs;
     final raw = p.getString('mcp_playground_llm_profiles');
     final sel = p.getString('mcp_playground_selected_llm_id');
@@ -305,15 +407,24 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
 
   @override
   Future<void> saveEnabledTools(Set<String> tools) async {
+    await _ensureDisabledToolsLoaded();
+    if (_explicitlyDisabledTools.isNotEmpty) {
+      tools.removeAll(_explicitlyDisabledTools);
+    }
     final p = await _prefs;
     await p.setStringList(_kEnabledTools, tools.toList());
   }
 
   @override
   Future<Set<String>> loadEnabledTools() async {
+    await _ensureDisabledToolsLoaded();
     final p = await _prefs;
     final list = p.getStringList(_kEnabledTools);
-    return list?.toSet() ?? {};
+    final result = list?.toSet() ?? <String>{};
+    if (_explicitlyDisabledTools.isNotEmpty) {
+      result.removeAll(_explicitlyDisabledTools);
+    }
+    return result;
   }
 
   @override

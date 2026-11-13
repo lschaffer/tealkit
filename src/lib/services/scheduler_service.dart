@@ -146,10 +146,9 @@ Future<int> _resolveHeartbeatInterval() async {
 /// window for [task], or null if the task is not due (or already ran for
 /// this slot).
 ///
-/// Window:  [now − 2×interval, now + ceil(interval/2)]
+/// Window:  [now − 2×interval, now]
 /// The 2× lookback covers alarm delivery latency up to one full interval
-/// (Android Doze, OEM delay).  The ½ look-ahead lets slightly-early alarms
-/// catch the next cron hit.
+/// (Android Doze, OEM delay). Tasks never fire before their scheduled slot.
 ///
 /// The deduplication guard uses [scheduledTime] as the reference point.
 /// Crucially, [_runDueTasks] pre-marks [lastRun] = scheduledTime in the DB
@@ -158,7 +157,7 @@ Future<int> _resolveHeartbeatInterval() async {
 /// and correctly skip re-execution.
 DateTime? _computeDueScheduledTime(WorkflowTask task, DateTime now, {int intervalMinutes = _kDefaultHeartbeatIntervalMinutes}) {
   final windowStart = now.subtract(Duration(minutes: intervalMinutes * 2));
-  final windowEnd = now.add(Duration(minutes: (intervalMinutes / 2).ceil()));
+  final windowEnd = now;
 
   DateTime? scheduledTime = task.execution.nextRun;
   DateTime? cronWindowSlot;
@@ -207,7 +206,7 @@ DateTime? _computeDueScheduledTime(WorkflowTask task, DateTime now, {int interva
 
 DateTime? _computeExecutorDueScheduledTime(Agent exec, DateTime now, {int intervalMinutes = _kDefaultHeartbeatIntervalMinutes}) {
   final windowStart = now.subtract(Duration(minutes: intervalMinutes * 2));
-  final windowEnd = now.add(Duration(minutes: (intervalMinutes / 2).ceil()));
+  final windowEnd = now;
 
   DateTime? scheduledTime = exec.nextRun;
   DateTime? cronWindowSlot;
@@ -251,6 +250,8 @@ bool _isExecutorCalledByPrevious(WorkflowTask task, Agent exec) {
 }
 
 
+final _inFlightTaskIds = <String>{};
+
 /// Loads all tasks from the DB and runs every enabled task that is due in the
 /// current heartbeat window.  Used by both the alarm and WorkManager dispatchers.
 ///
@@ -272,19 +273,29 @@ Future<void> _runDueTasks(String prefix) async {
   final due = <(WorkflowTask, DateTime, String?)>[];
   for (final t in tasks) {
     if (!t.enabled || t.isSubtask) continue;
-    
+    if (_inFlightTaskIds.contains(t.id)) {
+      log.info('$prefix Skipping "${t.name}" — already in flight in this isolate');
+      continue;
+    }
+
     // Check main task schedule
     final slot = _computeDueScheduledTime(t, now, intervalMinutes: interval);
     if (slot != null) {
       due.add((t, slot, null));
     }
-    
-    // Check individual agents' schedules
-    for (final exec in t.agents) {
+
+    // Check individual agents' schedules.
+    // Note: t.agents.first (index 0) is the entry agent of the main task.
+    // If the main task itself is due or has a main cron schedule, do NOT also
+    // schedule agents[0] separately as that causes duplicate back-to-back runs.
+    final hasMainSchedule = t.executionPlan.cronExpression.trim().isNotEmpty;
+    for (int i = 0; i < t.agents.length; i++) {
+      final exec = t.agents[i];
+      if (i == 0 && (slot != null || hasMainSchedule)) continue;
       if (exec.executionPlan != null && !_isExecutorCalledByPrevious(t, exec)) {
-        final slot = _computeExecutorDueScheduledTime(exec, now, intervalMinutes: interval);
-        if (slot != null) {
-          due.add((t, slot, exec.id));
+        final execSlot = _computeExecutorDueScheduledTime(exec, now, intervalMinutes: interval);
+        if (execSlot != null) {
+          due.add((t, execSlot, exec.id));
         }
       }
     }
@@ -405,10 +416,17 @@ Future<void> _runDueTasks(String prefix) async {
       }
 
       final preMarkTime = now.isAfter(latestSlot) ? now : latestSlot;
+      DateTime? preNextRun = latest.execution.nextRun;
+      try {
+        if (latest.executionPlan.cronExpression.trim().isNotEmpty) {
+          preNextRun = nextCronFire(latest.executionPlan.cronExpression, from: preMarkTime);
+        }
+      } catch (_) {}
+
       if (startExecutorId == null) {
         final preExec = TaskExecution(
           lastRun: preMarkTime,
-          nextRun: latest.execution.nextRun,
+          nextRun: preNextRun,
           lastResult: latest.execution.lastResult,
           lastError: latest.execution.lastError,
           runCount: latest.execution.runCount,
@@ -416,12 +434,26 @@ Future<void> _runDueTasks(String prefix) async {
           history: latest.execution.history,
         );
         await db.updateExecution(task.id, preExec);
+        if (latest.agents.isNotEmpty && latest.agents.first.executionPlan != null) {
+          final updatedExecutors = List<Agent>.from(latest.agents);
+          updatedExecutors[0] = updatedExecutors[0].copyWith(lastRun: preMarkTime, nextRun: preNextRun);
+          await db.saveTask(latest.copyWith(execution: preExec, agents: updatedExecutors));
+        }
       } else {
+        final preExec = TaskExecution(
+          lastRun: preMarkTime,
+          nextRun: preNextRun,
+          lastResult: latest.execution.lastResult,
+          lastError: latest.execution.lastError,
+          runCount: latest.execution.runCount,
+          consecutiveFailures: latest.execution.consecutiveFailures,
+          history: latest.execution.history,
+        );
         final updatedExecutors = latest.agents.map((e) {
           if (e.id == startExecutorId) return e.copyWith(lastRun: preMarkTime);
           return e;
         }).toList();
-        await db.saveTask(latest.copyWith(agents: updatedExecutors));
+        await db.saveTask(latest.copyWith(execution: preExec, agents: updatedExecutors));
       }
 
       log.info('$prefix Pre-marked lastRun=$preMarkTime for "${task.name}" (startExecutorId=$startExecutorId)');
@@ -432,6 +464,8 @@ Future<void> _runDueTasks(String prefix) async {
   }
 
   for (final (task, slot, startExecutorId) in runnableFresh) {
+    if (_inFlightTaskIds.contains(task.id)) continue;
+    _inFlightTaskIds.add(task.id);
     try {
       final latest = await db.getTask(task.id);
       if (latest == null || !latest.enabled || latest.isSubtask) {
@@ -457,40 +491,54 @@ Future<void> _runDueTasks(String prefix) async {
         }
       }
 
-      // ── Post-run lastRun correction ──────────────────────────────────────
+      // ── Post-run lastRun & nextRun correction ─────────────────────────────
       try {
         final refreshed = await db.getTask(latest.id);
         if (refreshed != null) {
-          if (startExecutorId == null) {
-            final lr = refreshed.execution.lastRun;
-            if (lr != null && lr.isBefore(slot)) {
-              final exec = refreshed.execution;
-              await db.updateExecution(
-                latest.id,
-                TaskExecution(
-                  lastRun: slot,
-                  nextRun: exec.nextRun,
-                  lastResult: exec.lastResult,
-                  lastError: exec.lastError,
-                  runCount: exec.runCount,
-                  consecutiveFailures: exec.consecutiveFailures,
-                  history: exec.history,
-                ),
-              );
-              log.info('$prefix Corrected lastRun to slot=$slot for "${latest.name}" (was $lr)');
+          final afterSlot = DateTime.now().isAfter(slot) ? DateTime.now() : slot;
+          DateTime? correctedNextRun = refreshed.execution.nextRun;
+          try {
+            if (refreshed.executionPlan.cronExpression.trim().isNotEmpty) {
+              correctedNextRun = nextCronFire(refreshed.executionPlan.cronExpression, from: afterSlot);
             }
-          } else {
+          } catch (_) {}
+
+          final lr = refreshed.execution.lastRun;
+          final effectiveLastRun = (lr == null || lr.isBefore(slot)) ? slot : lr;
+          final needsMainUpdate = lr == null ||
+              lr.isBefore(slot) ||
+              (correctedNextRun != null && refreshed.execution.nextRun != correctedNextRun);
+
+          if (needsMainUpdate) {
+            final exec = refreshed.execution;
+            await db.updateExecution(
+              latest.id,
+              TaskExecution(
+                lastRun: effectiveLastRun,
+                nextRun: correctedNextRun ?? exec.nextRun,
+                lastResult: exec.lastResult,
+                lastError: exec.lastError,
+                runCount: exec.runCount,
+                consecutiveFailures: exec.consecutiveFailures,
+                history: exec.history,
+              ),
+            );
+            log.info('$prefix Corrected main lastRun=$effectiveLastRun nextRun=$correctedNextRun for "${latest.name}" (was lastRun=$lr)');
+          }
+
+          if (startExecutorId != null) {
             final exec = refreshed.agents.firstWhere((e) => e.id == startExecutorId, orElse: () => refreshed.agents.first);
-            final lr = exec.lastRun;
-            if (lr != null && lr.isBefore(slot)) {
+            final execLr = exec.lastRun;
+            if (execLr == null || execLr.isBefore(slot)) {
               final updatedExecutors = refreshed.agents.map((e) {
                 if (e.id == startExecutorId) {
                   return e.copyWith(lastRun: slot);
                 }
                 return e;
               }).toList();
-              await db.saveTask(refreshed.copyWith(agents: updatedExecutors));
-              log.info('$prefix Corrected lastRun to slot=$slot for executor "${exec.name}" of "${latest.name}" (was $lr)');
+              final latestAfterMain = await db.getTask(latest.id) ?? refreshed;
+              await db.saveTask(latestAfterMain.copyWith(agents: updatedExecutors));
+              log.info('$prefix Corrected lastRun to slot=$slot for executor "${exec.name}" of "${latest.name}" (was $execLr)');
             }
           }
         }
@@ -499,6 +547,8 @@ Future<void> _runDueTasks(String prefix) async {
       }
     } catch (e, st) {
       log.error('$prefix Error running "${task.name}": $e', e, st);
+    } finally {
+      _inFlightTaskIds.remove(task.id);
     }
   }
 
@@ -512,7 +562,7 @@ Future<void> _runDueTasks(String prefix) async {
 Future<void> _runDueIndexJobs(DateTime now, int intervalMinutes) async {
   final ds = DataSourcesSettingsService.instance;
   final windowStart = now.subtract(Duration(minutes: intervalMinutes * 2));
-  final windowEnd = now.add(Duration(minutes: (intervalMinutes / 2).ceil()));
+  final windowEnd = now;
 
   // ── Website index ──────────────────────────────────────────────────────────
   final websiteCron = ds.websiteIndexCron.trim();
@@ -798,12 +848,12 @@ class MobileSchedulerService implements SchedulerService {
     log.info('[Scheduler/Mobile] App-active heartbeat writer started (every ${_kAppActiveWriteIntervalSeconds}s)');
   }
 
-  /// Start the foreground cron timer that calls [_runDueTasks] on the heartbeat
-  /// interval (idempotent — restarts only if the interval changed).
+  /// Start the foreground cron timer that calls [_runDueTasks] every minute
+  /// while the app is open so scheduled tasks fire promptly at their cron slot.
   void _startForegroundCronTimer(int intervalMinutes) {
     if (_foregroundCronTimer?.isActive == true && _heartbeatInterval == intervalMinutes) return;
     _foregroundCronTimer?.cancel();
-    _foregroundCronTimer = Timer.periodic(Duration(minutes: intervalMinutes), (_) async {
+    _foregroundCronTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
       log.info('[Scheduler/Mobile/FG] Foreground cron tick');
       try {
         // Refresh the active-heartbeat timestamp immediately before running so
@@ -815,7 +865,7 @@ class MobileSchedulerService implements SchedulerService {
         log.error('[Scheduler/Mobile/FG] Error: $e', e, st);
       }
     });
-    log.info('[Scheduler/Mobile] Foreground cron timer started (every ${intervalMinutes}m)');
+    log.info('[Scheduler/Mobile] Foreground cron timer started (every 1m, window=${intervalMinutes}m)');
   }
 
   /// Starts (or re-registers) the background heartbeat.

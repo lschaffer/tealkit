@@ -22,9 +22,9 @@ class RpcCommand extends Command {
     argParser.addOption(
       'mode',
       abbr: 'm',
-      allowed: ['architect', 'code', 'ask'],
+      allowed: ['architect', 'code', 'ask', 'rag'],
       defaultsTo: 'code',
-      help: 'Initial agent mode (architect, code, ask)',
+      help: 'Initial agent mode (architect, code, ask, rag)',
     );
     argParser.addOption(
       'llm',
@@ -45,6 +45,25 @@ class RpcCommand extends Command {
       abbr: 'i',
       help: 'Path to custom instructions markdown file',
     );
+    argParser.addOption(
+      'save-session',
+      help: 'File path (.json or .md) to auto-save session transcript',
+    );
+    argParser.addOption(
+      'load-session',
+      help: 'File path (.json or .md) to load and continue a previous session',
+    );
+    argParser.addFlag(
+      'continue',
+      abbr: 'c',
+      negatable: false,
+      help: 'Continue the most recent saved session from .tealkit/sessions/',
+    );
+    argParser.addFlag(
+      'auto-save-session',
+      defaultsTo: true,
+      help: 'Automatically save conversation session after each turn',
+    );
   }
 
   @override
@@ -57,10 +76,15 @@ class RpcCommand extends Command {
     final toolsPath =
         argResults?['tools'] as String? ?? 'extern_mcp_tools.yaml';
     final customInstructionsPath = argResults?['instructions'] as String?;
+    final saveSessionPath = argResults?['save-session'] as String?;
+    final loadSessionPath = argResults?['load-session'] as String?;
+    final continueSession = argResults?['continue'] as bool? ?? false;
+    final autoSaveSession = argResults?['auto-save-session'] as bool? ?? true;
 
     final currentMode = switch (modeStr) {
       'architect' => CodingMode.architect,
       'ask' => CodingMode.ask,
+      'rag' => CodingMode.rag,
       _ => CodingMode.code,
     };
 
@@ -71,6 +95,10 @@ class RpcCommand extends Command {
       initialLlmName: explicitLlmName,
       toolsPath: toolsPath,
       currentMode: currentMode,
+      saveSessionPath: saveSessionPath,
+      loadSessionPath: loadSessionPath,
+      continueSession: continueSession,
+      autoSaveSession: autoSaveSession,
     );
 
     await engine.run();

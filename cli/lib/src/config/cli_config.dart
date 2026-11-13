@@ -96,12 +96,20 @@ class CliConfig {
   /// Token threshold for automatic context window compression (ContextCompressor).
   int contextCompressionThreshold;
 
+  /// Maximum tool iterations per user prompt turn.
+  int maxToolIterations;
+
   /// Whether compact tool output format is enabled.
   bool compactTools;
 
   /// Progressive MCP Tool Discovery mode ('auto', 'on', 'off').
   /// In 'auto' mode, it is automatically enabled if total tools > 25 or using embedded/SLM models.
   String progressiveTools;
+
+  /// Session persistence settings.
+  int maxTurns;
+  int maxSizeMb;
+  bool autoSaveSession;
 
   /// Local RAG (document & web hybrid search) configuration.
   RagConfig rag;
@@ -115,8 +123,12 @@ class CliConfig {
     this.autoPasteImages = true,
     this.enablePlanning = true,
     this.contextCompressionThreshold = 4000,
+    this.maxToolIterations = 100,
     this.compactTools = false,
     this.progressiveTools = 'auto',
+    this.maxTurns = 500,
+    this.maxSizeMb = 10,
+    this.autoSaveSession = true,
     RagConfig? rag,
     List<SubAgentDefinition>? subagents,
   })  : rag = rag ?? RagConfig(),
@@ -169,11 +181,26 @@ class CliConfig {
           ? int.tryParse(agentSection['compression_threshold'].toString()) ?? 4000
           : int.tryParse(doc['compression_threshold']?.toString() ?? '4000') ?? 4000;
 
+      final maxToolIter = agentSection != null && agentSection.containsKey('max_tool_iterations')
+          ? int.tryParse(agentSection['max_tool_iterations'].toString()) ?? 100
+          : int.tryParse(doc['max_tool_iterations']?.toString() ?? '100') ?? 100;
+
       final progressive = agentSection != null && agentSection.containsKey('progressive_tools')
           ? (agentSection['progressive_tools'] as String? ?? 'auto').trim().toLowerCase()
           : (doc['progressive_tools'] as String? ?? 'auto').trim().toLowerCase();
 
       final compact = doc['compact_tools'] == true;
+      final sessionSection = doc['session'] is Map ? doc['session'] as Map : null;
+      final maxSessionTurns = sessionSection != null && sessionSection['max_turns'] != null
+          ? int.tryParse(sessionSection['max_turns'].toString()) ?? 500
+          : int.tryParse(doc['max_turns']?.toString() ?? '500') ?? 500;
+      final maxSessionSizeMb = sessionSection != null && sessionSection['max_size_mb'] != null
+          ? int.tryParse(sessionSection['max_size_mb'].toString()) ?? 10
+          : 10;
+      final sessionAutoSave = sessionSection != null && sessionSection.containsKey('auto_save')
+          ? sessionSection['auto_save'] == true
+          : true;
+
       final ragSection = doc['rag'] is Map ? doc['rag'] as Map : null;
       final ragConfig = RagConfig.fromYaml(ragSection);
 
@@ -211,8 +238,12 @@ class CliConfig {
         autoPasteImages: autoPaste,
         enablePlanning: planning,
         contextCompressionThreshold: compThreshold,
+        maxToolIterations: maxToolIter,
         compactTools: compact,
         progressiveTools: progressive,
+        maxTurns: maxSessionTurns,
+        maxSizeMb: maxSessionSizeMb,
+        autoSaveSession: sessionAutoSave,
         rag: ragConfig,
         subagents: subagentsList,
       );
@@ -234,21 +265,36 @@ class CliConfig {
     yamlBuffer.writeln('agent:');
     yamlBuffer.writeln('  planning: $enablePlanning');
     yamlBuffer.writeln('  compression_threshold: $contextCompressionThreshold');
+    yamlBuffer.writeln('  max_tool_iterations: $maxToolIterations');
     yamlBuffer.writeln('  progressive_tools: "$progressiveTools"');
     yamlBuffer.writeln('');
     yamlBuffer.writeln('compact_tools: $compactTools');
+    yamlBuffer.writeln('');
+    yamlBuffer.writeln('session:');
+    yamlBuffer.writeln('  max_size_mb: $maxSizeMb');
+    yamlBuffer.writeln('  max_turns: $maxTurns');
+    yamlBuffer.writeln('  auto_save: $autoSaveSession');
+    yamlBuffer.writeln('  file_pattern: "tealkitcoder_session_{timestamp}.json"');
     yamlBuffer.writeln('');
     yamlBuffer.writeln('rag:');
     yamlBuffer.writeln('  enabled: ${rag.enabled}');
     yamlBuffer.writeln('  database_path: "${rag.databasePath}"');
     yamlBuffer.writeln('  sources:');
-    yamlBuffer.writeln('    folders:');
-    for (final f in rag.folderSources) {
-      yamlBuffer.writeln('      - "$f"');
+    if (rag.folderSources.isEmpty) {
+      yamlBuffer.writeln('    folders: []');
+    } else {
+      yamlBuffer.writeln('    folders:');
+      for (final f in rag.folderSources) {
+        yamlBuffer.writeln('      - "$f"');
+      }
     }
-    yamlBuffer.writeln('    web:');
-    for (final w in rag.webSources) {
-      yamlBuffer.writeln('      - "$w"');
+    if (rag.webSources.isEmpty) {
+      yamlBuffer.writeln('    web: []');
+    } else {
+      yamlBuffer.writeln('    web:');
+      for (final w in rag.webSources) {
+        yamlBuffer.writeln('      - "$w"');
+      }
     }
     yamlBuffer.writeln('    max_pages: ${rag.maxPages}');
     yamlBuffer.writeln('  file_extensions:');
@@ -261,6 +307,7 @@ class CliConfig {
     yamlBuffer.writeln('  embedding:');
     yamlBuffer.writeln('    provider: "${rag.embeddingProvider}"');
     yamlBuffer.writeln('    model: "${rag.embeddingModel}"');
+    yamlBuffer.writeln('    gpu_layers: ${rag.embeddingGpuLayers}');
     yamlBuffer.writeln('    base_url: "${rag.embeddingBaseUrl}"');
     yamlBuffer.writeln('    api_key: "${rag.embeddingApiKey}"');
     yamlBuffer.writeln('  search:');

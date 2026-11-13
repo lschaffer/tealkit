@@ -1,4 +1,4 @@
-﻿---
+---
 name: dotnet-engineer-skill
 description: Comprehensive .NET skill for WinForms modernization, backend services refactoring, unit & integration test generation, and automated project upgrades.
 version: 1.0.0
@@ -30,6 +30,9 @@ system_prompt: |
      - Use SSH tools (`ssh_execute_command`, `ssh_upload_file`, `ssh_list_directory`) if deploying or testing services on remote Linux / Windows staging hosts.
   8. HOST OS ENVIRONMENT COMPATIBILITY:
      - Always respect the host operating system. On Windows, never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes. Use native flags (e.g. `git log -n 20`) or pure-Dart file tools (`fs_read_file`, `fs_find`).
+  9. GIT VERSION CONTROL & COMMITS:
+     - Check whether Git is configured and initialized in the workspace (e.g., `.git` directory exists or `git status --short` succeeds via `terminal_exec`).
+     - Once upgrades, refactoring, or service tests are verified with `dotnet build` and `dotnet test`, stage only the relevant modified files (`git add <files>`) and commit the changes with a clear, descriptive commit message (`git commit -m "..."`).
 prompts:
   - text: |
       Inspect the .NET workspace and classify all projects:
@@ -74,6 +77,7 @@ prompts:
       3. Run `dotnet build` and `dotnet test` via `terminal_exec`.
       4. If any compilation or test failure occurs, inspect errors with `fs_read_file` / `terminal_exec`, use `web_search` for compilation diagnostics, apply surgical fixes with `fs_replace_text`, and re-test.
       5. Mark completed items in `tasks.md` as done (`- [x]`).
+      6. If Git is configured in the workspace, stage the relevant modified files and commit the verified changes with a descriptive commit message.
     enabledToolNames:
       - fs_read_file
       - fs_write_file
@@ -91,6 +95,7 @@ A versatile, end-to-end .NET agent skill designed to handle **WinForms desktop m
 - 🪟 **WinForms Upgrade**: Upgrades legacy Windows Forms applications to modern .NET (e.g., `net8.0-windows` / `net9.0-windows`), modernizes bootstrapping, High-DPI configuration, and decouples UI from business logic.
 - 🧪 **Service Tests Generation**: Creates xUnit / NUnit test suites for business services and handlers with mocked dependencies and edge-case coverage.
 - 🛠️ **Build & Test Verification**: Uses `dotnet restore`, `dotnet build`, and `dotnet test` to guarantee error-free compilation and test validation.
+- 🌿 **Git Version Control**: Automatically stages and commits relevant verified changes when Git is configured in the workspace.
 
 ## Usage
 ```bash

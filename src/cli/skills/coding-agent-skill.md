@@ -1,4 +1,4 @@
-﻿---
+---
 name: coding-agent-skill
 description: Autonomous coding agent for project exploration, architectural planning (tasks.md), and verified implementation.
 version: 1.0.0
@@ -19,6 +19,9 @@ system_prompt: |
      - Use SSH tools (`ssh_execute_command`, `ssh_list_directory`, `ssh_read_file`, `ssh_upload_file`) for remote server deployment and inspection.
   8. HOST OS ENVIRONMENT COMPATIBILITY:
      - Always respect the host operating system. On Windows, never use Linux/POSIX commands (`head`, `tail`, `cat`, `grep`, `ls`, `export`) or bash pipes. Use native flags (e.g., `git log -n 20`) or pure-Dart file tools (`fs_read_file`, `fs_find`).
+  9. GIT VERSION CONTROL & COMMITS:
+     - Check whether Git is configured and initialized in the workspace (e.g., `.git` directory exists or `git status --short` succeeds via `terminal_exec`).
+     - When a task or logical unit of work is completed and verified, stage only the relevant modified files (`git add <files>`) and commit the changes with a clear, descriptive commit message (`git commit -m "..."`). Do not stage unrelated untracked artifacts or secrets.
 prompts:
   - text: |
       Inspect the project repository in the current workspace.
@@ -46,6 +49,7 @@ prompts:
   - text: |
       Review `tasks.md` and execute the first pending task using `fs_replace_text` or `fs_write_file`.
       Verify the change with `terminal_exec` (e.g. running build/test), using `web_search` if unexpected build errors or compiler issues arise, and update `tasks.md` to check off the item (`- [x]`).
+      If Git is configured in the repository, stage the relevant modified files and commit the verified changes with a clear commit message.
     enabledToolNames:
       - fs_read_file
       - fs_replace_text
@@ -63,6 +67,7 @@ A reusable Hermes / `agentskills.io` compatible skill for **autonomous software 
 - 📐 **Architectural Planning**: Generates and maintains structured `tasks.md` checklists.
 - 💻 **Surgical Implementation**: Applies minimal diffs using `fs_replace_text`.
 - 🧪 **Terminal Verification**: Runs test and build commands to confirm zero regressions.
+- 🌿 **Git Version Control**: Automatically stages and commits relevant verified changes when Git is configured in the workspace.
 
 ## Usage in CLI
 ```bash

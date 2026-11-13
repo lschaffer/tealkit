@@ -1,4 +1,4 @@
-﻿# TealKitCoder CLI Configuration
+# TealKitCoder CLI Configuration
 prompt:
   multiline: false
   error_color: "bright_yellow"
@@ -8,8 +8,16 @@ prompt:
 agent:
   planning: true
   compression_threshold: 4000
+  max_tool_iterations: 100
+  progressive_tools: "auto"
 
 compact_tools: true
+
+permissions:
+  auto_approve_read: true
+  auto_approve_write: false
+  auto_approve_execute: false
+  auto_approve_network: false
 
 session:
   max_size_mb: 10
@@ -19,13 +27,11 @@ session:
 
 rag:
   enabled: true
-  database_path: "c:/Users/Public/TealKitCoder/rag_index.db"
+  database_path: "rag_index.db"
   sources:
-    folders:
-      - "c:/Users/Public/ThiesClimaDocRoot"
-    web:
-      - "https://www.thiesclima.com"
-    max_pages: 100
+    folders: []
+    web: []
+    max_pages: 50
   file_extensions:
     - ".txt"
     - ".md"

@@ -123,9 +123,19 @@ if (Test-Path $SkillsDir) {
     Log-Ok "Copied skills/"
 }
 
-# Copy YAML configuration templates (NEVER .env!)
-Get-ChildItem -Path $CliDir -Filter *.yaml | ForEach-Object {
+# Copy YAML configuration templates (NEVER .env or pubspec!)
+$ExcludeYaml = @('pubspec.yaml', 'pubspec_overrides.yaml', 'analysis_options.yaml', 'build.yaml', 'smithery.yaml')
+Get-ChildItem -Path $CliDir -Filter *.yaml | Where-Object { $ExcludeYaml -notcontains $_.Name } | ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $StagingDir -Force
+}
+$ConfigSubDir = Join-Path $CliDir 'config'
+if (Test-Path $ConfigSubDir) {
+    $StagingConfigDir = Join-Path $StagingDir 'config'
+    New-Item -ItemType Directory -Path $StagingConfigDir -Force | Out-Null
+    Get-ChildItem -Path $ConfigSubDir -Filter *.yaml | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination $StagingConfigDir -Force
+        Copy-Item -Path $_.FullName -Destination $StagingDir -Force
+    }
 }
 Log-Ok "Copied YAML config templates"
 

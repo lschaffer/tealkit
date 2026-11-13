@@ -562,8 +562,15 @@ class TaskRunnerService {
 
     // 8. Persist execution record
     try {
-      final nextRun = nextCronFire(task.executionPlan.cronExpression);
-      final execution = task.execution.recordRun(
+      final latestTask = await TaskDatabaseService().getTask(task.id);
+      final baseExecution = latestTask?.execution ?? task.execution;
+      final nowLocal = DateTime.now();
+      final preMarkedLastRun = baseExecution.lastRun?.toLocal();
+      final effectiveFrom = (preMarkedLastRun != null && preMarkedLastRun.isAfter(nowLocal))
+          ? preMarkedLastRun
+          : nowLocal;
+      final nextRun = nextCronFire(task.executionPlan.cronExpression, from: effectiveFrom);
+      final recorded = baseExecution.recordRun(
         success: result.success,
         result: result.success
             ? (result.resultText.isNotEmpty ? result.resultText : null)
@@ -582,6 +589,20 @@ class TaskRunnerService {
             ?.toDouble(),
         sessionCostUsd: (capturedStats?['sessionCostUsd'] as num?)?.toDouble(),
       );
+      final execution = (preMarkedLastRun != null &&
+              recorded.lastRun != null &&
+              recorded.lastRun!.toLocal().isBefore(preMarkedLastRun))
+          ? TaskExecution(
+              lastRun: preMarkedLastRun.toUtc(),
+              nextRun: recorded.nextRun,
+              lastResult: recorded.lastResult,
+              lastError: recorded.lastError,
+              runCount: recorded.runCount,
+              consecutiveFailures: recorded.consecutiveFailures,
+              isRunning: recorded.isRunning,
+              history: recorded.history,
+            )
+          : recorded;
       await TaskDatabaseService().updateExecution(task.id, execution);
       log.info(
         '[TaskRunner] Execution saved for task "${task.name}" (nextRun=$nextRun)',

@@ -275,64 +275,88 @@ class AgentLlmSelectorWidget extends StatelessWidget {
                     children: [
                       Icon(Icons.lock_outline, size: 15, color: profileColor),
                       const SizedBox(width: 6),
-                      Text(
-                        'Configured in Settings (Read-only)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: profileColor,
+                      Expanded(
+                        child: Text(
+                          'Configured in Settings (Read-only)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: profileColor,
+                          ),
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        activeProfile.name,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: profileColor.withValues(alpha: 0.9),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          activeProfile.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: profileColor.withValues(alpha: 0.9),
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey('ro_provider_${activeProfile.id}'),
-                          readOnly: true,
-                          initialValue: activeProfile.provider.label,
-                          decoration: InputDecoration(
-                            labelText: 'Provider',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                            fillColor: isDark
-                                ? Colors.white.withValues(alpha: 0.04)
-                                : Colors.black.withValues(alpha: 0.02),
-                            filled: true,
-                          ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isMobileLayout =
+                          MediaQuery.sizeOf(context).width < 600 ||
+                          constraints.maxWidth < 460;
+                      final providerField = TextFormField(
+                        key: ValueKey('ro_provider_${activeProfile.id}'),
+                        readOnly: true,
+                        initialValue: activeProfile.provider.label,
+                        decoration: InputDecoration(
+                          labelText: 'Provider',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          fillColor: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : Colors.black.withValues(alpha: 0.02),
+                          filled: true,
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey('ro_model_${activeProfile.id}'),
-                          readOnly: true,
-                          initialValue: activeProfile.model.isNotEmpty
-                              ? activeProfile.model
-                              : '(none)',
-                          decoration: InputDecoration(
-                            labelText: 'Model',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                            fillColor: isDark
-                                ? Colors.white.withValues(alpha: 0.04)
-                                : Colors.black.withValues(alpha: 0.02),
-                            filled: true,
-                          ),
+                      );
+                      final modelField = TextFormField(
+                        key: ValueKey('ro_model_${activeProfile.id}'),
+                        readOnly: true,
+                        initialValue: activeProfile.model.isNotEmpty
+                            ? activeProfile.model
+                            : '(none)',
+                        decoration: InputDecoration(
+                          labelText: 'Model',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          fillColor: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : Colors.black.withValues(alpha: 0.02),
+                          filled: true,
                         ),
-                      ),
-                    ],
+                      );
+                      if (isMobileLayout) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            providerField,
+                            const SizedBox(height: 10),
+                            modelField,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: providerField),
+                          const SizedBox(width: 10),
+                          Expanded(child: modelField),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 6),
                   Row(

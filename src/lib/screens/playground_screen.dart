@@ -98,10 +98,6 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     LlmSettingsService.instance.addListener(_onTealKitLlmSettingsChanged);
     _controller.addListener(_onControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isCodingMode) {
-        _controller.toggleToolEnabled('fetch', false);
-        _controller.toggleToolEnabled('fetch_web', false);
-      }
       _checkPromptContinueLastSession();
     });
   }
@@ -123,14 +119,16 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     if (cfg == null) return;
 
     final active = _controller.activeLlmConfig;
-    final isSame = active.provider == cfg.provider &&
+    final isSame = active.id == cfg.id &&
+        active.provider == cfg.provider &&
         active.model == cfg.model &&
         active.apiKey == cfg.apiKey &&
         active.baseUrl == cfg.baseUrl &&
         (active.temperature - cfg.temperature).abs() < 0.001 &&
         active.maxTokens == cfg.maxTokens;
-    if (isSame) return;
+    if (isSame && _controller.customLlmConfig == null) return;
 
+    _controller.customLlmConfig = null;
     _controller.updateLlmConfig(cfg);
   }
 
@@ -698,6 +696,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               child: TealKitAssistantSettingsDialog(
                 controller: controller,
                 initialTabIndex: initialTab,
+                isCodingMode: _isCodingMode,
                 onClose: () => Navigator.of(ctx).pop(),
               ),
             ),

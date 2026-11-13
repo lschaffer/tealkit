@@ -23,6 +23,7 @@ import '../models/named_llm_profile.dart';
 import '../models/subagent_definition.dart';
 import '../services/subagent_database_service.dart';
 import '../services/session_service.dart';
+import '../services/tealkit_database_storage_delegate.dart';
 import '../utils/storage_permission.dart';
 import 'agent_llm_selector_widget.dart';
 import '../providers/server_mode_provider.dart';
@@ -201,10 +202,6 @@ class _TealKitAssistantSettingsDialogState
     );
     _loadWebsiteMaxPages();
     _loadIndexTimestampsFromDb();
-    if (!widget.isCodingMode) {
-      widget.controller.toggleToolEnabled('fetch', false);
-      widget.controller.toggleToolEnabled('fetch_web', false);
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshSelectableGithubMcpServers();
       _disableServerModeHiddenTools();
@@ -309,6 +306,20 @@ class _TealKitAssistantSettingsDialogState
       }
     }
 
+    // If no explicit custom inline override is active for this session,
+    // default to TealKit's selected/active profile and synchronize the controller.
+    if (matchingProfile == null &&
+        widget.controller.customLlmConfig == null &&
+        llmSettings.selectedProfile != null) {
+      matchingProfile = llmSettings.selectedProfile;
+      final cfg = profileToLlmConfig(matchingProfile!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.controller.updateLlmConfig(cfg);
+        }
+      });
+    }
+
     if (matchingProfile != null) {
       _selectedProfileId = matchingProfile.id;
       _isCustomOverride = false;
@@ -332,12 +343,17 @@ class _TealKitAssistantSettingsDialogState
   }
 
   bool _matchesProfile(LlmConfig config, NamedLlmProfile profile) {
+    if (config.id != null && config.id!.isNotEmpty && config.id == profile.id) {
+      return true;
+    }
     return _toTealKitProvider(config.provider) == profile.provider &&
         config.model == profile.model;
   }
 
   static LlmConfig profileToLlmConfig(NamedLlmProfile profile) {
     return LlmConfig(
+      id: profile.id,
+      name: profile.name,
       provider: _fromTealKitProvider(profile.provider),
       model: profile.model,
       apiKey: profile.apiKey,
@@ -2187,7 +2203,11 @@ class _TealKitAssistantSettingsDialogState
                           ...mcpTools.map((t) => t.name),
                         };
                         setState(() {
-                          widget.controller.updateEnabledTools(allNames);
+                          TealKitDatabaseStorageDelegate.replaceEnabledTools(
+                            widget.controller,
+                            allNames,
+                            allAvailableNames,
+                          );
                         });
                       },
                       child: const Text(
@@ -2207,7 +2227,11 @@ class _TealKitAssistantSettingsDialogState
                       ),
                       onPressed: () {
                         setState(() {
-                          widget.controller.updateEnabledTools({});
+                          TealKitDatabaseStorageDelegate.replaceEnabledTools(
+                            widget.controller,
+                            <String>{},
+                            allAvailableNames,
+                          );
                         });
                       },
                       child: const Text(
@@ -2346,9 +2370,11 @@ class _TealKitAssistantSettingsDialogState
                       activeTrackColor: AppTheme.primaryBlue,
                       onChanged: (val) {
                         setState(() {
-                          for (final name in toolboxInfo.toolNames) {
-                            widget.controller.toggleToolEnabled(name, val);
-                          }
+                          TealKitDatabaseStorageDelegate.setToolsEnabled(
+                            widget.controller,
+                            toolboxInfo.toolNames,
+                            val,
+                          );
                         });
                       },
                     ),
@@ -2445,12 +2471,11 @@ class _TealKitAssistantSettingsDialogState
                               activeTrackColor: AppTheme.primaryBlue,
                               onChanged: (val) {
                                 setState(() {
-                                  for (final toolName in groupToolNames) {
-                                    widget.controller.toggleToolEnabled(
-                                      toolName,
-                                      val,
-                                    );
-                                  }
+                                  TealKitDatabaseStorageDelegate.setToolsEnabled(
+                                    widget.controller,
+                                    groupToolNames,
+                                    val,
+                                  );
                                 });
                               },
                             ),
@@ -2508,9 +2533,10 @@ class _TealKitAssistantSettingsDialogState
                                                 .contains(toolName),
                                             onChanged: (val) {
                                               setState(() {
-                                                widget.controller
-                                                    .toggleToolEnabled(
-                                                      toolName,
+                                                TealKitDatabaseStorageDelegate
+                                                    .setToolsEnabled(
+                                                      widget.controller,
+                                                      [toolName],
                                                       val ?? false,
                                                     );
                                               });
@@ -2619,12 +2645,11 @@ class _TealKitAssistantSettingsDialogState
                               activeTrackColor: AppTheme.primaryBlue,
                               onChanged: (val) {
                                 setState(() {
-                                  for (final t in unclaimedLocalTools) {
-                                    widget.controller.toggleToolEnabled(
-                                      t.name,
-                                      val,
-                                    );
-                                  }
+                                  TealKitDatabaseStorageDelegate.setToolsEnabled(
+                                    widget.controller,
+                                    unclaimedLocalTools.map((t) => t.name),
+                                    val,
+                                  );
                                 });
                               },
                             ),
@@ -2662,10 +2687,12 @@ class _TealKitAssistantSettingsDialogState
                                             .contains(tool.name),
                                         onChanged: (val) {
                                           setState(() {
-                                            widget.controller.toggleToolEnabled(
-                                              tool.name,
-                                              val ?? false,
-                                            );
+                                            TealKitDatabaseStorageDelegate
+                                                .setToolsEnabled(
+                                                  widget.controller,
+                                                  [tool.name],
+                                                  val ?? false,
+                                                );
                                           });
                                         },
                                       ),
@@ -2769,12 +2796,11 @@ class _TealKitAssistantSettingsDialogState
                               activeTrackColor: AppTheme.primaryBlue,
                               onChanged: (val) {
                                 setState(() {
-                                  for (final t in mcpTools) {
-                                    widget.controller.toggleToolEnabled(
-                                      t.name,
-                                      val,
-                                    );
-                                  }
+                                  TealKitDatabaseStorageDelegate.setToolsEnabled(
+                                    widget.controller,
+                                    mcpTools.map((t) => t.name),
+                                    val,
+                                  );
                                 });
                               },
                             ),
@@ -2816,10 +2842,12 @@ class _TealKitAssistantSettingsDialogState
                                             .contains(tool.name),
                                         onChanged: (val) {
                                           setState(() {
-                                            widget.controller.toggleToolEnabled(
-                                              tool.name,
-                                              val ?? false,
-                                            );
+                                            TealKitDatabaseStorageDelegate
+                                                .setToolsEnabled(
+                                                  widget.controller,
+                                                  [tool.name],
+                                                  val ?? false,
+                                                );
                                           });
                                         },
                                       ),
@@ -4258,9 +4286,30 @@ class _TealKitAssistantSettingsDialogState
             ];
           }(),
 
-          // ── Global External MCP servers ──
+          // ── Global External MCP servers (not already in CONFIGURED MCP SERVERS) ──
           ...() {
-            final externalServers = ExternalToolsSettingsService.instance.selectedServers;
+            String normUrl(String u) => u
+                .trim()
+                .toLowerCase()
+                .replaceAll(RegExp(r'/+$'), '')
+                .replaceAll(RegExp(r'/mcp$'), '');
+            final configuredNormUrls = widget.controller.servers
+                .map((s) => normUrl(s.url))
+                .toSet();
+            final configuredNames = widget.controller.servers
+                .map((s) => s.name.trim().toLowerCase())
+                .where((n) => n.isNotEmpty)
+                .toSet();
+            final externalServers = ExternalToolsSettingsService
+                .instance
+                .selectedServers
+                .where((server) {
+                  final nUrl = normUrl(server.serverUrl);
+                  final nName = (server.name ?? '').trim().toLowerCase();
+                  return !configuredNormUrls.contains(nUrl) &&
+                      (nName.isEmpty || !configuredNames.contains(nName));
+                })
+                .toList();
             if (externalServers.isEmpty) return <Widget>[];
             final l = L.of(context);
             return <Widget>[

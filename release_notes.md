@@ -2,10 +2,31 @@
 
 This file tracks release changes by version.
 
-## v2.3.0+165 - TealKit Coder VS Code Extension, Native RPC Engine, LLM Hyperparameter Tuning & Chat UI Modernization
+## v2.3.0+166 - TealKit Coder VS Code Extension, Native RPC Engine, Assistant Settings & Mobile Scheduler Fixes
 
 ### Major Features & Enhancements
-- **TealKit Coder VS Code Extension (`tealkit-vscode` v0.1.1)**:
+- **TealKit Assistant & Mobile Scheduler Fixes (`tealkit` v2.1.4+166)**:
+  - **Persistent MCP Tool Deactivation (`Web Page Fetcher`, `MCP Server Tools`)**: Added explicit disabled-tool tracking (`_explicitlyDisabledTools`) in `TealKitDatabaseStorageDelegate` and removed forced initialization resets so deactivated built-in and MCP tools never jump back to ON when `_syncMcpServers()` runs.
+  - **Mobile / Local Scheduled Workflow Deduplication**:
+    - Removed the `+ ceil(interval/2)` look-ahead window in `SchedulerService` (`windowEnd = now`) so scheduled workflows never fire minutes before their cron slot, and updated the foreground cron timer on mobile to check every 1 minute.
+    - Prevented `agents[0]` from being scheduled as a duplicate due item alongside the main workflow schedule, added an in-flight execution guard (`_inFlightTaskIds`), and ensured post-run `lastRun` and `nextRun` updates in `SchedulerService` and `TaskRunnerService` never regress before the scheduled slot.
+    - Normalized `TaskExecution.fromJson` and `TaskRunRecord.fromJson` timestamps with `.toLocal()` to align with local cron evaluation.
+  - **Mobile Assistant LLM Settings Layout & Active Profile Sync**:
+    - Fixed right layout overflow (`RIGHT OVERFLOWED BY 12 PIXELS`) in `AgentLlmSelectorWidget` and stacked the read-only `Model` field vertically under `Provider` on mobile screens.
+    - Fixed `LlmSettingsService` and `TealKitDatabaseStorageDelegate` so the active LLM profile (`selectedProfileId`, e.g. `Mac mini hypura`) is loaded from storage on startup and accurately shown as selected in Assistant LLM Settings instead of falling back to legacy inline Mistral settings.
+
+- **TealKit Coder VS Code Extension (`tealkit-vscode` v0.1.4)**:
+  - **Webview State Persistence & Session History (`retainContextWhenHidden`)**:
+    - Enabled `retainContextWhenHidden: true` and webview state caching (`vscode.getState` / `setState`) so switching to other VS Code views (e.g. Source Control, Explorer) and back preserves active streaming prompts and chat history without resetting the view.
+    - Added **📜 Session History** drawer and auto-started `tealkit.exe rpc` with `--auto-save-session` to automatically persist, browse, and reload previous coding sessions.
+    - Routed remote workflow execution notifications to the **Server** tab status banner instead of polluting the main coding chat window.
+  - **Editable LLM & Server Profile Names**: Profile names in `llm.yaml`, `mcp.yaml`, and `server.yaml` can now be renamed directly in the Edit modal with automatic default/active reference updates.
+  - **MCP Server Test & Tool Inspector**: Added **🔍 Test / Show Tools** on MCP Server cards and in the Edit modal to launch stdio MCP servers and inspect their exposed tools (`name` and `description`).
+  - **Two-Way `config.yaml` Synchronization & RAG Settings UI**: Added `agent.max_tool_iterations`, all prompt/session/permission checkboxes, and the full **RAG Configuration** section (`enabled`, `database_path`, `folders`, `web`, `max_pages`, `file_extensions`, `chunking`, `embedding`, `search`) to the Settings tab with instant auto-save and RPC reload.
+  - **TealKit Server Connection Testing & Workflow Logs**: Added **Edit** and **🔌 Test** actions for server profiles, live workflow execution status polling (`RUNNING` / `COMPLETED` / `FAILED`), **⏹ Stop**, and **📋 Fetch Logs** viewer for remote workflows.
+  - **Tool Approval & Human-in-the-Loop Fixes**: Fixed permission request/response parameter alignment (`id`/`requestId`, `approved`/`allowed`) and added interactive `.approval-card` UI with Approve, Always Allow, and Reject actions.
+  - **Sequential Chat Rendering**: Ensured assistant responses stream cleanly into fresh message bubbles following tool executions rather than collapsing or rendering above completed tools.
+  - **Uncompressed Scrollable Chat**: Enhanced chat container with dedicated vertical scrollbar and smooth scrolling.
   - **Native IDE Workspace Coding Agent**: Embedded webview sidebar extension backed directly by the `tealkit.exe rpc` subprocess for autonomous code generation, multi-turn reasoning, terminal execution, and file system manipulation.
   - **Modular Tab Navigation**: Clean unified tab panel covering **Chat**, **LLMs**, **MCP Tools**, **Skills**, **Memory**, **Server**, and **Settings** (removed redundant header gear icon).
   - **Generic CLI Settings Panel**: Full GUI configuration of `config.yaml` options including `max_turns`, `max_tool_iterations`, `planning`, `compact_tools`, `compression_threshold`, and `auto_paste_images`, along with a direct config file launcher.
@@ -14,8 +35,13 @@ This file tracks release changes by version.
   - **Chat Layout & Fluid Vertical Scrolling**: Resolved flexbox shrinking defect where messages and tool cards collapsed into thin horizontal bars; established a fluid scrolling container with non-shrinking cards and live activity timers (`Agent thinking... (14s)`).
   - **Interactive Side-by-Side Diffs**: Integrated Git diff viewer for reviewing proposed workspace file changes before acceptance.
 
-- **TealKit CLI & RPC Engine (`tealkit_cli` v1.4.3, `tealkit.exe rpc`)**:
-  - **Bi-Directional JSON-RPC 2.0 Engine**: Implemented headless stdio RPC server with structured request/response methods (`initialize`, `prompt`, `cancel`, `get_tools`, `get_skills`, `get_llm_profiles`, `save_llm_profile`, `get_config`, `set_config`).
+- **TealKit CLI & RPC Engine (`tealkit_cli` v1.4.5, `tealkit.exe rpc`)**:
+  - **Non-Blocking Asynchronous RPC Dispatch & Session Persistence (`--auto-save-session`)**:
+    - Decoupled long-running `prompt` turns from the `stdin` line listener in `TealKitRpcEngine` using `unawaited(...)` so `ping`, `cancel`, `permission_response`, and status queries are processed immediately while a turn is active.
+    - Added `--auto-save-session` and `--resume-session` flags to `tealkit rpc` / `tealkit code --rpc`, plus RPC actions `list_sessions`, `load_session`, and `delete_session` with full transcript reconstruction (`history` event).
+    - Replaced `Process.run` with streaming `Process.start` + timeout and `taskkill /F /T` cleanup in `TerminalExecTool` so long-running or interactive shell commands never hang the RPC process indefinitely.
+  - **Clean Default `config.yaml` & RAG Templates**: Removed predefined organization-specific folder/web paths from default `config.yaml` templates and `RagConfig` defaults (`folders: []`, `web: []`).
+  - **Bi-Directional JSON-RPC 2.0 Engine**: Implemented headless stdio RPC server with structured request/response methods (`initialize`, `prompt`, `cancel`, `get_tools`, `get_skills`, `get_llm_profiles`, `save_llm_profile`, `get_config`, `set_config`, `reload_config`, `reload_mcp`, `get_workflow_status`, `get_workflow_logs`, `cancel_workflow`).
   - **Direct Tool Schema Exposure**: Configured RPC engine to provide complete tool definitions directly to models in IDE mode, bypassing progressive discovery meta-tools for faster, higher-accuracy tool call decisions.
   - **Dynamic Context Compression Scaling**: Context compressor now intelligently scales threshold up to 16,000+ tokens for full cloud models (e.g. Gemma 31B, 262k context), eliminating perpetual 1-turn compression loops.
   - **Real-Time Agent Observability**: Event stream broadcasting `turn_start`, `turn_end`, `message_delta`, `tool_call_start`, `tool_call_result`, `thinking`, `permission_request`, and `log`.

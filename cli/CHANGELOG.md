@@ -2,6 +2,15 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.5
+
+- **Clean Default `config.yaml` & RAG Templates for Distribution**:
+  - Removed all predefined organization-specific folder/web paths from default `config.yaml` templates and `RagConfig` defaults (`folders: []`, `web: []`, `database_path: "rag_index.db"`).
+  - Added `agent.max_tool_iterations` (default `100`) and `permissions` section to `config.yaml` and `CliConfig`.
+- **RPC Engine Live Configuration & Workflow Management**:
+  - Added `reload_config` and `reload_mcp` RPC actions for live configuration and MCP tool reloading without restarting the session.
+  - Added `get_workflow_status`, `get_workflow_logs`, and `cancel_workflow` RPC actions backed by `ServerApiClient` (`getTaskRunStatus`, `getTaskExecutionLogs`, `getTaskOutput`, `cancelTask`).
+
 ## 1.4.4
 
 - **Dynamic Context Compression Scaling**:
