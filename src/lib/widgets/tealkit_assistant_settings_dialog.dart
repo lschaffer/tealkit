@@ -40,6 +40,7 @@ class TealKitAssistantSettingsDialog extends ConsumerStatefulWidget {
   final PlaygroundController controller;
   final int initialTabIndex;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onSessionLlmChanged;
   final List<SystemPromptTemplate>? systemPromptTemplates;
   final bool? showSystemPromptTemplates;
   final bool isCodingMode;
@@ -49,6 +50,7 @@ class TealKitAssistantSettingsDialog extends ConsumerStatefulWidget {
     required this.controller,
     this.initialTabIndex = 0,
     this.onClose,
+    this.onSessionLlmChanged,
     this.systemPromptTemplates,
     this.isCodingMode = false,
     this.showSystemPromptTemplates,
@@ -292,16 +294,26 @@ class _TealKitAssistantSettingsDialogState
     final llmSettings = ref.read(llmSettingsProvider);
     final activeConfig = widget.controller.activeLlmConfig;
 
-    // Check if active matches any configured TealKit profile
+    // Check if active matches any configured TealKit profile (unless explicitly custom)
     NamedLlmProfile? matchingProfile;
-    if (llmSettings.selectedProfile != null &&
-        _matchesProfile(activeConfig, llmSettings.selectedProfile!)) {
-      matchingProfile = llmSettings.selectedProfile;
-    } else {
-      for (final p in llmSettings.profiles) {
-        if (_matchesProfile(activeConfig, p)) {
-          matchingProfile = p;
-          break;
+    final isExplicitCustom =
+        activeConfig.id == '__session_custom__' ||
+        widget.controller.customLlmConfig != null;
+
+    if (!isExplicitCustom) {
+      if (activeConfig.id != null &&
+          activeConfig.id!.isNotEmpty &&
+          llmSettings.profiles.any((p) => p.id == activeConfig.id)) {
+        matchingProfile = llmSettings.getProfile(activeConfig.id!);
+      } else if (llmSettings.selectedProfile != null &&
+          _matchesProfile(activeConfig, llmSettings.selectedProfile!)) {
+        matchingProfile = llmSettings.selectedProfile;
+      } else {
+        for (final p in llmSettings.profiles) {
+          if (_matchesProfile(activeConfig, p)) {
+            matchingProfile = p;
+            break;
+          }
         }
       }
     }
@@ -326,13 +338,20 @@ class _TealKitAssistantSettingsDialogState
     } else {
       _selectedProfileId = null;
       _isCustomOverride = true;
-      _selectedProviderKey = activeConfig.provider.name;
+      _selectedProviderKey = _toTealKitProvider(activeConfig.provider).configKey;
       _customProvider = activeConfig.provider;
       _modelCtrl.text = activeConfig.model;
       _apiKeyCtrl.text = activeConfig.apiKey;
       _baseUrlCtrl.text = activeConfig.baseUrl;
       _tempCtrl.text = activeConfig.temperature.toString();
       _maxTokensCtrl.text = activeConfig.maxTokens.toString();
+      _maxToolOutputSizeCtrl.text = activeConfig.maxToolOutputSize.toString();
+      _tokenWarningThresholdCtrl.text =
+          activeConfig.tokenWarningThreshold.toString();
+      _topKCtrl.text = activeConfig.topK?.toString() ?? '';
+      _topPCtrl.text = activeConfig.topP?.toString() ?? '';
+      _repeatPenaltyCtrl.text = activeConfig.repeatPenalty?.toString() ?? '';
+      _seedCtrl.text = activeConfig.seed?.toString() ?? '';
       _isSlm = activeConfig.isSlm;
       _isMultiModal = activeConfig.isMultiModal;
       _thinking = activeConfig.thinking;
@@ -343,11 +362,13 @@ class _TealKitAssistantSettingsDialogState
   }
 
   bool _matchesProfile(LlmConfig config, NamedLlmProfile profile) {
+    if (config.id == '__session_custom__') return false;
     if (config.id != null && config.id!.isNotEmpty && config.id == profile.id) {
       return true;
     }
     return _toTealKitProvider(config.provider) == profile.provider &&
-        config.model == profile.model;
+        config.model == profile.model &&
+        (profile.baseUrl.isEmpty || config.baseUrl == profile.baseUrl);
   }
 
   static LlmConfig profileToLlmConfig(NamedLlmProfile profile) {
@@ -442,10 +463,18 @@ class _TealKitAssistantSettingsDialogState
     final profile = llmSettings.getProfile(profileId);
     if (profile == null) return;
 
-    llmSettings.selectProfile(profileId);
+    // Session-scoped only: NEVER call llmSettings.selectProfile(profileId) here!
     final cfg = profileToLlmConfig(profile);
-    widget.controller.updateLlmConfig(cfg);
     widget.controller.customLlmConfig = null;
+    widget.controller.updateLlmConfig(cfg);
+    if (widget.controller.llmConfigs.any(
+      (c) => c.id == profile.id || c.profileId == profile.id,
+    )) {
+      widget.controller.selectLlm(profile.id);
+    }
+    widget.onSessionLlmChanged?.call(
+      profileId != llmSettings.selectedProfileId,
+    );
 
     setState(() {
       _selectedProfileId = profileId;
@@ -454,12 +483,52 @@ class _TealKitAssistantSettingsDialogState
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Switched to "${profile.name}" (${profile.model})'),
+        content: Text(
+          'Switched session LLM to "${profile.name}" (${profile.model})',
+        ),
       ),
     );
   }
 
-  Future<void> _saveCustomLlmSettings() async {
+  void _switchCustomProvider(LlmProvider nextProvider) {
+    final llmSettings = ref.read(llmSettingsProvider);
+    if (_isCustomOverride) {
+      _providerCache[_customProvider] = _FieldCache(
+        model: _modelCtrl.text,
+        apiKey: _apiKeyCtrl.text,
+        baseUrl: _baseUrlCtrl.text,
+      );
+    }
+
+    final cached = _providerCache[nextProvider];
+    if (cached != null) {
+      _modelCtrl.text = cached.model;
+      _apiKeyCtrl.text = cached.apiKey;
+      _baseUrlCtrl.text = cached.baseUrl;
+    } else {
+      final tkProv = _toTealKitProvider(nextProvider);
+      _modelCtrl.text = llmSettings.getModelForProvider(tkProv);
+      _apiKeyCtrl.text = nextProvider == LlmProvider.embedded
+          ? ''
+          : llmSettings.getApiKeyForProvider(tkProv);
+      var baseUrl = nextProvider == LlmProvider.embedded
+          ? ''
+          : llmSettings.getBaseUrlForProvider(tkProv);
+      if (nextProvider == LlmProvider.ollama && baseUrl.isEmpty) {
+        baseUrl = 'http://localhost:11434/api';
+      }
+      _baseUrlCtrl.text = baseUrl;
+    }
+
+    setState(() {
+      _isCustomOverride = true;
+      _selectedProfileId = null;
+      _customProvider = nextProvider;
+      _selectedProviderKey = _toTealKitProvider(nextProvider).configKey;
+    });
+  }
+
+  LlmConfig _buildCustomLlmConfigFromFields() {
     final tempVal = double.tryParse(_tempCtrl.text.trim()) ?? 0.2;
     final maxTokensVal = int.tryParse(_maxTokensCtrl.text.trim()) ?? 0;
     final maxToolSizeVal =
@@ -467,7 +536,9 @@ class _TealKitAssistantSettingsDialogState
     final tokenWarningVal =
         int.tryParse(_tokenWarningThresholdCtrl.text.trim()) ?? 1500000;
 
-    final customConfig = LlmConfig(
+    return LlmConfig(
+      id: '__session_custom__',
+      name: 'Session (${_customProvider.displayName})',
       provider: _customProvider,
       model: _modelCtrl.text.trim(),
       apiKey: _apiKeyCtrl.text.trim(),
@@ -487,14 +558,29 @@ class _TealKitAssistantSettingsDialogState
       useSafeToolCall: _useSafeToolCall,
       useStreaming: _useStreaming,
     );
+  }
 
-    await widget.controller.updateLlmConfig(customConfig);
+  Future<void> _saveCustomLlmSettings({bool showFeedback = true}) async {
+    final customConfig = _buildCustomLlmConfigFromFields();
+
     widget.controller.customLlmConfig = customConfig;
+    await widget.controller.updateLlmConfig(customConfig);
+    widget.onSessionLlmChanged?.call(true);
 
-    if (mounted) {
+    if (showFeedback && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Custom LLM override applied.')),
+        const SnackBar(
+          content: Text('Session LLM override applied (temporal to this session).'),
+        ),
       );
+    }
+  }
+
+  Future<void> _applyPendingCustomLlmIfConfigured() async {
+    if (!_isCustomOverride || _customProvider == LlmProvider.none) return;
+    final candidate = _buildCustomLlmConfigFromFields();
+    if (candidate.isConfigured && candidate.model.trim().isNotEmpty) {
+      await _saveCustomLlmSettings(showFeedback: false);
     }
   }
 
@@ -576,7 +662,9 @@ class _TealKitAssistantSettingsDialogState
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () {
+                      onPressed: () async {
+                        await _applyPendingCustomLlmIfConfigured();
+                        if (!context.mounted) return;
                         if (widget.onClose != null) {
                           widget.onClose!();
                         } else if (Navigator.of(context).canPop()) {
@@ -665,12 +753,7 @@ class _TealKitAssistantSettingsDialogState
               }
             },
             onProviderSelected: (providerKey) {
-              setState(() {
-                _isCustomOverride = true;
-                _selectedProfileId = null;
-                _selectedProviderKey = providerKey;
-                _customProvider = _providerKeyToLlmProvider(providerKey);
-              });
+              _switchCustomProvider(_providerKeyToLlmProvider(providerKey));
             },
             editablePanel: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -683,7 +766,7 @@ class _TealKitAssistantSettingsDialogState
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Custom / Inline LLM Override',
+                          'Session-Only Custom LLM Override',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -692,25 +775,7 @@ class _TealKitAssistantSettingsDialogState
                         LlmConfigForm(
                           provider: _customProvider,
                           onProviderChanged: (val) {
-                            _providerCache[_customProvider] = _FieldCache(
-                              model: _modelCtrl.text,
-                              apiKey: _apiKeyCtrl.text,
-                              baseUrl: _baseUrlCtrl.text,
-                            );
-                            final cached = _providerCache[val];
-                            if (cached != null) {
-                              _modelCtrl.text = cached.model;
-                              _apiKeyCtrl.text = cached.apiKey;
-                              _baseUrlCtrl.text = cached.baseUrl;
-                            } else {
-                              _modelCtrl.clear();
-                              _apiKeyCtrl.clear();
-                              _baseUrlCtrl.clear();
-                            }
-                            setState(() {
-                              _customProvider = val;
-                              _selectedProviderKey = val.name;
-                            });
+                            _switchCustomProvider(val);
                           },
                           modelCtrl: _modelCtrl,
                           apiKeyCtrl: _apiKeyCtrl,
@@ -3048,7 +3113,9 @@ class _TealKitAssistantSettingsDialogState
         ),
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: () {
+          onPressed: () async {
+            await _applyPendingCustomLlmIfConfigured();
+            if (!context.mounted) return;
             widget.controller.systemPrompt = _systemPromptCtrl.text.trim();
             widget.controller.chatMode = _chatMode;
             if (widget.onClose != null) {

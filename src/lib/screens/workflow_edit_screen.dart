@@ -761,10 +761,11 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           final prov = LlmProvider.fromConfigKey(initialLlm.provider);
           final known = defaultModels[prov] ?? const <String>[];
           String modelVal = initialLlm.model;
-          if (known.isNotEmpty && !known.contains(modelVal)) {
-            modelVal = known.first;
-          } else if (modelVal.isEmpty) {
+          if (modelVal.isEmpty) {
             modelVal = llmSettings.getModelForProvider(prov);
+            if (modelVal.isEmpty && known.isNotEmpty) {
+              modelVal = known.first;
+            }
           }
           initialModel = modelVal;
           initialApiKey = initialLlm.apiKey ?? '';
@@ -1042,7 +1043,17 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           (s) => _selectedGlobalServerUrls.contains(s.serverUrl),
         ),
       ],
-      internalMcps: List.from(_internalMcps),
+      internalMcps: [
+        ..._internalMcps.where((m) => m.mcpType != 'toolbox'),
+        if (!_toolboxEnabled)
+          InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: 'toolbox',
+            label: 'Toolbox',
+            enabled: false,
+            initParams: const {},
+          ),
+      ],
       notification: _buildNotificationFromUi(),
     );
     _executors[index] = updated;
@@ -1105,10 +1116,11 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
           final prov = LlmProvider.fromConfigKey(llm.provider);
           final known = defaultModels[prov] ?? const <String>[];
           String modelVal = llm.model;
-          if (known.isNotEmpty && !known.contains(modelVal)) {
-            modelVal = known.first;
-          } else if (modelVal.isEmpty) {
+          if (modelVal.isEmpty) {
             modelVal = llmSettings.getModelForProvider(prov);
+            if (modelVal.isEmpty && known.isNotEmpty) {
+              modelVal = known.first;
+            }
           }
           _llmModelCtrl.text = modelVal;
           _temperatureCtrl.text = llm.temperature.toString();
@@ -1174,7 +1186,12 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
 
     // Tools
     _mcpServers = List.from(exec.mcpTools);
-    _internalMcps = List.from(exec.internalMcps);
+    _toolboxEnabled = !exec.internalMcps.any(
+      (m) => m.mcpType == 'toolbox' && !m.enabled,
+    );
+    _internalMcps = exec.internalMcps
+        .where((m) => m.mcpType != 'toolbox')
+        .toList();
 
     // Selected global servers
     final globalUrls = ExternalToolsSettingsService.instance.selectedServers

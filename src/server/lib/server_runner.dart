@@ -1133,13 +1133,15 @@ Map<String, dynamic> _taskTransportJson(AgenticTask task) {
   json['internal_mcps'] = task.internalMcps
       .map(_internalMcpTransportJson)
       .toList();
-  json['executors'] = task.executors.map((exec) {
+  final transportExecutors = task.executors.map((exec) {
     final execJson = exec.toJson();
     execJson['internal_mcps'] = exec.internalMcps
         .map(_internalMcpTransportJson)
         .toList();
     return execJson;
   }).toList();
+  json['agents'] = transportExecutors;
+  json['executors'] = transportExecutors;
   return json;
 }
 

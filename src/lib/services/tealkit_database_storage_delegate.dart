@@ -83,67 +83,62 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LLM Config (Bridges directly to TealKit LlmSettingsService)
+  // LLM Config (Read-only bridge from TealKit LlmSettingsService;
+  // Assistant LLM changes are strictly session-scoped)
   // ─────────────────────────────────────────────────────────────
 
   @override
   Future<void> saveLlmConfig(LlmConfig config) async {
-    final service = tk_llm.LlmSettingsService.instance;
-    final tkProvider = _toTealKitProvider(config.provider);
-
-    final targetModel = config.model.isNotEmpty ? config.model : service.model;
-    final targetApiKey = config.apiKey.isNotEmpty ? config.apiKey : service.apiKey;
-    final targetBaseUrl = config.baseUrl.isNotEmpty ? config.baseUrl : service.baseUrl;
-
-    final isSame = service.provider == tkProvider &&
-        service.model == targetModel &&
-        service.apiKey == targetApiKey &&
-        service.baseUrl == targetBaseUrl &&
-        (service.temperature - config.temperature).abs() < 0.001 &&
-        service.maxTokens == config.maxTokens;
-
-    if (!isSame) {
-      await service.save(
-        provider: tkProvider,
-        model: targetModel,
-        apiKey: targetApiKey,
-        baseUrl: targetBaseUrl,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-        maxToolOutputSize: service.maxToolOutputSize,
-        tokenWarningThreshold: service.tokenWarningThreshold,
-        isSlm: service.isSlm,
-        isMultiModal: service.isMultiModal,
-        topK: service.topK,
-        topP: service.topP,
-        repeatPenalty: service.repeatPenalty,
-        seed: service.seed,
-        thinking: service.thinking,
-        useNativeToolCall: service.useNativeToolCall,
-        useSafeToolCall: service.useSafeToolCall,
-        enableToolParameterAutoRecovery: service.enableToolParameterAutoRecovery,
-        injectToolCallingRules: service.injectToolCallingRules,
-      );
-      log.info('[TealKitStorage] Persisted active LLM config to TealKit DB/Prefs (${config.provider.name} / ${config.model})');
-    }
-
-    // Also persist as JSON in SharedPreferences for seamless McpPlayground reloads
+    // Intentionally session-only: selecting or overriding an LLM inside
+    // Assistant must NOT mutate global LlmSettingsService profiles/defaults
+    // nor persist a sticky Assistant-specific LLM override across sessions.
     final p = await _prefs;
-    await p.setString('mcp_playground_llm_config', jsonEncode(config.toJson()));
+    if (p.containsKey('mcp_playground_llm_config')) {
+      await p.remove('mcp_playground_llm_config');
+    }
+    log.verbose(
+      '[TealKitStorage] Applied session-only LLM config (${config.provider.name} / ${config.model})',
+    );
   }
 
-  /// Returns the active LlmConfig derived directly from TealKit's LlmSettingsService.
+  /// Converts a TealKit [tk_llm.NamedLlmProfile] to a Playground [LlmConfig]
+  /// while preserving its profile [id] and [name].
+  static LlmConfig fromNamedProfile(tk_llm.NamedLlmProfile profile) {
+    return LlmConfig(
+      id: profile.id,
+      name: profile.name,
+      provider: fromTealKitProvider(profile.provider),
+      model: profile.model,
+      apiKey: profile.apiKey,
+      baseUrl: profile.baseUrl,
+      temperature: profile.temperature,
+      maxTokens: profile.maxTokens,
+      isSlm: profile.isSlm,
+      isMultiModal: profile.isMultiModal,
+      topK: profile.topK,
+      topP: profile.topP,
+      repeatPenalty: profile.repeatPenalty,
+      seed: profile.seed,
+      thinking: profile.thinking,
+      useNativeToolCall: profile.useNativeToolCall,
+      useSafeToolCall: profile.useSafeToolCall,
+      maxToolOutputSize: profile.maxToolOutputSize,
+      tokenWarningThreshold: profile.tokenWarningThreshold,
+    );
+  }
+
+  /// Returns the default LlmConfig derived directly from TealKit's LlmSettingsService.
   LlmConfig? getTealKitLlmConfig() {
     final service = tk_llm.LlmSettingsService.instance;
-    final activeProfile = service.selectedProfile;
-    if (activeProfile != null && activeProfile.isConfigured) {
-      return _profileToPlaygroundConfig(activeProfile);
+    final selected = service.selectedProfile;
+    if (selected != null && selected.isConfigured) {
+      return fromNamedProfile(selected);
     }
     if (!service.isConfigured) return null;
     return LlmConfig(
-      id: activeProfile?.id,
-      name: activeProfile?.name,
-      provider: _fromTealKitProvider(service.provider),
+      id: selected?.id,
+      name: selected?.name,
+      provider: fromTealKitProvider(service.provider),
       model: service.model,
       apiKey: service.apiKey,
       baseUrl: service.baseUrl,
@@ -163,51 +158,13 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
     );
   }
 
-  static LlmConfig _profileToPlaygroundConfig(tk_llm.NamedLlmProfile p) {
-    return LlmConfig(
-      id: p.id,
-      name: p.name,
-      provider: _fromTealKitProvider(p.provider),
-      model: p.model,
-      apiKey: p.apiKey,
-      baseUrl: p.baseUrl,
-      temperature: p.temperature,
-      maxTokens: p.maxTokens,
-      isSlm: p.isSlm,
-      isMultiModal: p.isMultiModal,
-      topK: p.topK,
-      topP: p.topP,
-      repeatPenalty: p.repeatPenalty,
-      seed: p.seed,
-      thinking: p.thinking,
-      useNativeToolCall: p.useNativeToolCall,
-      useSafeToolCall: p.useSafeToolCall,
-      maxToolOutputSize: p.maxToolOutputSize,
-      tokenWarningThreshold: p.tokenWarningThreshold,
-    );
-  }
-
   @override
   Future<LlmConfig?> loadLlmConfig() async {
-    // 1. Always prioritize TealKit's native LlmSettingsService if configured!
-    final tkConfig = getTealKitLlmConfig();
-    if (tkConfig != null) {
-      return tkConfig;
-    }
-
-    // 2. Fall back to cached JSON if any
     final p = await _prefs;
-    final raw = p.getString('mcp_playground_llm_config');
-    if (raw != null) {
-      try {
-        final cfg = LlmConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-        if (cfg.isConfigured) return cfg;
-      } catch (e) {
-        log.warning('[TealKitStorage] Error decoding cached LLM config: $e');
-      }
+    if (p.containsKey('mcp_playground_llm_config')) {
+      await p.remove('mcp_playground_llm_config');
     }
-
-    return null;
+    return getTealKitLlmConfig();
   }
 
   @override
@@ -215,41 +172,35 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
     List<LlmConfig> configs, {
     String? selectedId,
   }) async {
+    // Session-scoped only: never persist Assistant session LLM switches back
+    // to SharedPreferences or LlmSettingsService.
     final p = await _prefs;
-    final list = configs.map((c) => c.toJson()).toList();
-    await p.setString('mcp_playground_llm_profiles', jsonEncode(list));
-    if (selectedId != null) {
-      await p.setString('mcp_playground_selected_llm_id', selectedId);
+    if (p.containsKey('mcp_playground_llm_profiles')) {
+      await p.remove('mcp_playground_llm_profiles');
+    }
+    if (p.containsKey('mcp_playground_selected_llm_id')) {
+      await p.remove('mcp_playground_selected_llm_id');
     }
   }
 
   @override
   Future<({List<LlmConfig> configs, String? selectedId})?> loadLlmConfigs() async {
-    final service = tk_llm.LlmSettingsService.instance;
-    if (service.profiles.isNotEmpty) {
-      final tkConfigs = service.profiles
-          .map(_profileToPlaygroundConfig)
-          .toList();
-      final selectedProfile = service.selectedProfile;
-      final selectedId = selectedProfile != null
-          ? _profileToPlaygroundConfig(selectedProfile).profileId
-          : (tkConfigs.isNotEmpty ? tkConfigs.first.profileId : null);
-      return (configs: tkConfigs, selectedId: selectedId);
+    final p = await _prefs;
+    if (p.containsKey('mcp_playground_llm_profiles')) {
+      await p.remove('mcp_playground_llm_profiles');
+    }
+    if (p.containsKey('mcp_playground_selected_llm_id')) {
+      await p.remove('mcp_playground_selected_llm_id');
     }
 
-    final p = await _prefs;
-    final raw = p.getString('mcp_playground_llm_profiles');
-    final sel = p.getString('mcp_playground_selected_llm_id');
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final list = jsonDecode(raw) as List;
-      final configs = list
-          .map((item) => LlmConfig.fromJson(item as Map<String, dynamic>))
-          .toList();
-      return (configs: configs, selectedId: sel);
-    } catch (_) {
-      return null;
-    }
+    final service = tk_llm.LlmSettingsService.instance;
+    if (service.profiles.isEmpty) return null;
+    final configs = service.profiles.map(fromNamedProfile).toList();
+    final selectedProfile = service.selectedProfile;
+    final selectedId = selectedProfile != null
+        ? fromNamedProfile(selectedProfile).profileId
+        : (configs.isNotEmpty ? configs.first.profileId : null);
+    return (configs: configs, selectedId: selectedId);
   }
 
   @override
@@ -502,7 +453,7 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
   // Helper Provider Converters
   // ─────────────────────────────────────────────────────────────
 
-  static tk_llm.LlmProvider _toTealKitProvider(LlmProvider p) {
+  static tk_llm.LlmProvider toTealKitProvider(LlmProvider p) {
     switch (p) {
       case LlmProvider.gemini:
         return tk_llm.LlmProvider.gemini;
@@ -523,7 +474,7 @@ class TealKitDatabaseStorageDelegate implements McpPlaygroundStorageDelegate {
     }
   }
 
-  static LlmProvider _fromTealKitProvider(tk_llm.LlmProvider p) {
+  static LlmProvider fromTealKitProvider(tk_llm.LlmProvider p) {
     switch (p) {
       case tk_llm.LlmProvider.gemini:
         return LlmProvider.gemini;

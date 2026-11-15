@@ -74,13 +74,15 @@ class ServerApiClient {
         .toList();
     final rawExecutors = json['agents'];
     if (rawExecutors is List) {
-      json['agents'] = task.agents.map((exec) {
+      final transportAgents = task.agents.map((exec) {
         final execJson = exec.toJson();
         execJson['internal_mcps'] = exec.internalMcps
             .map(_internalMcpTransportJson)
             .toList();
         return execJson;
       }).toList();
+      json['agents'] = transportAgents;
+      json['executors'] = transportAgents;
     }
     return json;
   }
@@ -88,6 +90,12 @@ class ServerApiClient {
   Map<String, dynamic> _normalizeTaskTransportJson(
     Map<String, dynamic> taskJson,
   ) {
+    final executors = taskJson['executors'];
+    if (executors is List && executors.isNotEmpty) {
+      final normalized = Map<String, dynamic>.from(taskJson);
+      normalized['agents'] = executors;
+      return normalized;
+    }
     return taskJson;
   }
 

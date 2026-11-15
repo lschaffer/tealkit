@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,11 +9,15 @@ import 'package:uuid/uuid.dart';
 
 import '../config/app_theme.dart';
 import '../l10n/app_localizations.dart';
-import '../models/workflow_task.dart';
+import '../mcp/internal_mcp_registry.dart';
+import '../models/workflow_task.dart' hide ChatRole;
 import '../providers/database_providers.dart';
 import '../providers/server_mode_provider.dart';
 import '../providers/sidebar_provider.dart';
-import '../services/llm_settings_service.dart';
+import '../services/data_sources_settings_service.dart';
+import '../services/external_tools_settings_service.dart';
+import '../services/github_mcp_library_service.dart';
+import '../services/llm_settings_service.dart' as tk_llm;
 import '../services/skill_def_database_service.dart';
 import '../services/tealkit_database_storage_delegate.dart';
 import '../services/tealkit_tools_builder.dart';
@@ -73,6 +78,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   String _codingSubMode = '/code';
   String? _previousSystemPrompt;
   Set<String>? _previousEnabledTools;
+  bool _hasSessionLlmOverride = false;
+  bool _pendingInitialTaskApply = false;
 
   @override
   void initState() {
@@ -91,15 +98,25 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _controller.permissions.reload();
 
     if (widget.task != null) {
-      _applyWorkflowTask(widget.task!, _controller);
+      _pendingInitialTaskApply = true;
+      unawaited(_applyInitialTaskWhenReady(widget.task!));
     }
 
     // Sync any external changes from TealKit's settings
-    LlmSettingsService.instance.addListener(_onTealKitLlmSettingsChanged);
+    tk_llm.LlmSettingsService.instance.addListener(_onTealKitLlmSettingsChanged);
     _controller.addListener(_onControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPromptContinueLastSession();
     });
+  }
+
+  Future<void> _applyInitialTaskWhenReady(WorkflowTask task) async {
+    while (_controller.isLoading && !_isDisposed && mounted) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+    if (_isDisposed || !mounted || !_pendingInitialTaskApply) return;
+    _pendingInitialTaskApply = false;
+    await _applyWorkflowTask(task, _controller);
   }
 
   bool _isDisposed = false;
@@ -107,17 +124,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   @override
   void dispose() {
     _isDisposed = true;
-    LlmSettingsService.instance.removeListener(_onTealKitLlmSettingsChanged);
+    tk_llm.LlmSettingsService.instance.removeListener(_onTealKitLlmSettingsChanged);
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
   }
 
-  void _onTealKitLlmSettingsChanged() {
+  void _syncDefaultLlmFromSettings() {
     if (_isDisposed || !mounted) return;
     final cfg = _storageDelegate.getTealKitLlmConfig();
     if (cfg == null) return;
 
+    _controller.customLlmConfig = null;
     final active = _controller.activeLlmConfig;
     final isSame = active.id == cfg.id &&
         active.provider == cfg.provider &&
@@ -130,6 +148,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
     _controller.customLlmConfig = null;
     _controller.updateLlmConfig(cfg);
+  }
+
+  void _onTealKitLlmSettingsChanged() {
+    if (_isDisposed || !mounted) return;
+    // Do not clobber a temporal LLM override chosen for this Assistant session.
+    if (_hasSessionLlmOverride) return;
+    _syncDefaultLlmFromSettings();
   }
 
   void _refreshTools() {
@@ -147,6 +172,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   void _onControllerChanged() {
     if (_isDisposed || !mounted) return;
+    if (!_controller.isLoading && !_hasSessionLlmOverride) {
+      final active = _controller.activeLlmConfig;
+      final defaultProfileId = tk_llm.LlmSettingsService.instance.selectedProfile?.id;
+      if (_controller.customLlmConfig != null ||
+          active.id == '__session_custom__' ||
+          (active.id != null &&
+              active.id!.isNotEmpty &&
+              defaultProfileId != null &&
+              active.id != defaultProfileId)) {
+        _hasSessionLlmOverride = true;
+      }
+    }
     if (_isCodingMode && _controller.messages.isNotEmpty && !_controller.isGenerating) {
       final isDesktopPlatform = !kIsWeb &&
           (defaultTargetPlatform == TargetPlatform.windows ||
@@ -678,6 +715,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               controller: controller,
               initialTabIndex: initialTab,
               isCodingMode: _isCodingMode,
+              onSessionLlmChanged: (isOverride) {
+                _hasSessionLlmOverride = isOverride;
+              },
               onClose: () => Navigator.of(ctx).pop(),
             ),
           );
@@ -697,6 +737,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 controller: controller,
                 initialTabIndex: initialTab,
                 isCodingMode: _isCodingMode,
+                onSessionLlmChanged: (isOverride) {
+                  _hasSessionLlmOverride = isOverride;
+                },
                 onClose: () => Navigator.of(ctx).pop(),
               ),
             ),
@@ -971,10 +1014,32 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (ctx, index) {
                   final task = filteredTasks[index];
-                  final promptText = task.systemPrompt?.isNotEmpty == true
+                  final firstAgent = task.agents.firstOrNull;
+                  final effectivePrompt = task.prompt.isNotEmpty
+                      ? task.prompt
+                      : (firstAgent?.prompt ?? '');
+                  final effectiveSysPrompt = task.systemPrompt?.isNotEmpty == true
                       ? task.systemPrompt!
-                      : '${l.initialPrompt}: ${task.prompt}';
-                  final toolCount = task.internalMcps.length + task.mcpTools.length;
+                      : (firstAgent?.systemPrompt ?? '');
+                  final promptText = effectivePrompt.isNotEmpty
+                      ? '${l.initialPrompt}: $effectivePrompt'
+                      : effectiveSysPrompt;
+                  final effectiveInternalMcps =
+                      firstAgent != null && firstAgent.internalMcps.isNotEmpty
+                          ? firstAgent.internalMcps
+                          : task.internalMcps;
+                  final effectiveMcpTools =
+                      firstAgent != null && firstAgent.mcpTools.isNotEmpty
+                          ? firstAgent.mcpTools
+                          : task.mcpTools;
+                  final hasToolboxEnabled = !effectiveInternalMcps.any(
+                    (m) => m.mcpType == 'toolbox' && !m.enabled,
+                  );
+                  final toolCount = effectiveInternalMcps
+                          .where((m) => m.enabled && m.mcpType != 'toolbox')
+                          .length +
+                      effectiveMcpTools.length +
+                      (hasToolboxEnabled ? 1 : 0);
                   final subtitleText = toolCount > 0
                       ? '${l.toolsSelected(toolCount)} • $promptText'
                       : promptText;
@@ -1169,33 +1234,207 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     WorkflowTask task,
     PlaygroundController controller,
   ) async {
-    // 1. System Prompt
-    if (task.systemPrompt?.isNotEmpty == true) {
-      controller.systemPrompt = task.systemPrompt!;
-    }
+    final firstAgent = task.agents.firstOrNull;
+
+    // 1. System Prompt & Execution Flags
+    final sysPrompt = (firstAgent?.systemPrompt?.isNotEmpty == true)
+        ? firstAgent!.systemPrompt!
+        : (task.systemPrompt ?? '');
+    controller.systemPrompt = sysPrompt;
+    controller.chatMode = firstAgent?.chatMode ?? task.chatMode;
+    controller.stopAfterToolCall =
+        firstAgent?.stopAfterToolCall ?? task.stopAfterToolCall;
 
     // 2. Chat Prompt
-    final promptText = task.prompt.isNotEmpty
-        ? task.prompt
-        : (task.agents.isNotEmpty ? task.agents.first.prompt : '');
+    final promptText = (firstAgent?.prompt.isNotEmpty == true)
+        ? firstAgent!.prompt
+        : task.prompt;
     if (promptText.isNotEmpty) {
       controller.setInputPrompt(promptText);
     }
 
-    // 3. MCP & Internal Tools
-    if (task.mcpTools.isNotEmpty) {
-      for (final m in task.mcpTools) {
-        final name = m.name;
-        if (name != null && name.isNotEmpty) {
-          controller.toggleToolEnabled(name, true);
-        }
+    // 3. LLM Configuration (session-only override, never mutates LlmSettingsService)
+    final llm = firstAgent?.llmConfig ?? task.llmConfig;
+    if (llm != null && llm.provider.isNotEmpty && llm.provider != 'none') {
+      _hasSessionLlmOverride = true;
+      final llmService = tk_llm.LlmSettingsService.instance;
+      final pid = llm.extraParams['profile_id'] as String?;
+      final matchedProfile = (pid != null
+              ? llmService.getProfile(pid)
+              : null) ??
+          llmService.profiles
+              .where(
+                (p) =>
+                    p.provider.configKey == llm.provider &&
+                    p.model == llm.model,
+              )
+              .firstOrNull;
+
+      if (matchedProfile != null) {
+        final cfg = TealKitDatabaseStorageDelegate.fromNamedProfile(
+          matchedProfile,
+        );
+        controller.customLlmConfig = null;
+        await controller.updateLlmConfig(cfg);
+      } else {
+        final tkProv = tk_llm.LlmProvider.fromConfigKey(llm.provider);
+        final pgProv = TealKitDatabaseStorageDelegate.fromTealKitProvider(
+          tkProv,
+        );
+        final label = llm.model.isNotEmpty ? llm.model : tkProv.label;
+        final cfg = LlmConfig(
+          id: '__session_custom__',
+          name: 'Session ($label)',
+          provider: pgProv,
+          model: llm.model,
+          apiKey: llm.apiKey ?? '',
+          baseUrl: llm.baseUrl ?? '',
+          temperature: llm.temperature,
+          maxTokens: llm.maxTokens,
+          isSlm: (llm.extraParams['is_slm'] as bool?) ?? false,
+          isMultiModal: (llm.extraParams['is_multi_modal'] as bool?) ?? true,
+          thinking: (llm.extraParams['thinking'] as bool?) ?? false,
+          useNativeToolCall:
+              (llm.extraParams['use_native_tool_call'] as bool?) ?? true,
+          useSafeToolCall:
+              (llm.extraParams['use_safe_tool_call'] as bool?) ?? false,
+          maxToolOutputSize:
+              (llm.extraParams['max_tool_output_size'] as num?)?.toInt() ??
+                  2560000,
+          tokenWarningThreshold:
+              (llm.extraParams['token_warning_threshold'] as num?)?.toInt() ??
+                  1500000,
+          topK: (llm.extraParams['top_k'] as num?)?.toInt(),
+          topP: (llm.extraParams['top_p'] as num?)?.toDouble(),
+          repeatPenalty:
+              (llm.extraParams['repeat_penalty'] as num?)?.toDouble(),
+          seed: (llm.extraParams['seed'] as num?)?.toInt(),
+        );
+        controller.customLlmConfig = cfg;
+        await controller.updateLlmConfig(cfg);
       }
     }
-    for (final mcp in task.internalMcps) {
-      controller.toggleToolEnabled(mcp.mcpType, true);
+
+    // 4. Internal & External MCP Tools
+    final effectiveInternalMcps =
+        (firstAgent != null &&
+                (firstAgent.internalMcps.isNotEmpty ||
+                    task.internalMcps.isEmpty))
+            ? firstAgent.internalMcps
+            : task.internalMcps;
+    final effectiveMcpTools =
+        (firstAgent != null &&
+                (firstAgent.mcpTools.isNotEmpty || task.mcpTools.isEmpty))
+            ? firstAgent.mcpTools
+            : task.mcpTools;
+
+    final registry = InternalMcpRegistry();
+    registry.registerGithubMcpServers();
+    final availableByType = {
+      for (final s in registry.availableServers) s.type: s,
+    };
+
+    final nextEnabledTools = <String>{};
+    final hasKnownServerType = effectiveInternalMcps.any(
+      (m) =>
+          m.mcpType == 'toolbox' ||
+          m.mcpType.startsWith('gh_mcp_') ||
+          availableByType.containsKey(m.mcpType),
+    );
+    final toolboxExplicitlyDisabled = effectiveInternalMcps.any(
+      (m) => m.mcpType == 'toolbox' && !m.enabled,
+    );
+    if (!toolboxExplicitlyDisabled &&
+        (hasKnownServerType ||
+            (effectiveInternalMcps.isEmpty && effectiveMcpTools.isNotEmpty))) {
+      final tb = availableByType['toolbox'];
+      if (tb != null) {
+        nextEnabledTools.addAll(tb.toolNames);
+      }
     }
 
-    // 4. Resolve & Set Active Skill
+    for (final mcp in effectiveInternalMcps) {
+      if (!mcp.enabled || mcp.mcpType == 'toolbox') continue;
+      if (mcp.mcpType.startsWith('gh_mcp_')) {
+        nextEnabledTools.add(mcp.mcpType);
+        final serverInfo = availableByType[mcp.mcpType];
+        if (serverInfo != null) {
+          final subset = (mcp.initParams['enabledTools'] as List?)
+              ?.map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList();
+          nextEnabledTools.addAll(
+            subset != null && subset.isNotEmpty ? subset : serverInfo.toolNames,
+          );
+        }
+      } else if (availableByType.containsKey(mcp.mcpType)) {
+        final serverInfo = availableByType[mcp.mcpType]!;
+        final subset = (mcp.initParams['enabledTools'] as List?)
+            ?.map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        nextEnabledTools.addAll(
+          subset != null && subset.isNotEmpty ? subset : serverInfo.toolNames,
+        );
+      } else {
+        // Legacy fallback when individual tool names were stored directly
+        nextEnabledTools.add(mcp.mcpType);
+      }
+    }
+
+    controller.updateEnabledTools(nextEnabledTools);
+
+    final wantedUrls = effectiveMcpTools.map((m) => m.serverUrl).toSet();
+    for (final srv in List<McpServerConfig>.from(controller.servers)) {
+      if (srv.enabled && !wantedUrls.contains(srv.url)) {
+        await controller.toggleServer(srv.id, false);
+      }
+    }
+    for (final m in effectiveMcpTools) {
+      final existing = controller.servers
+          .where((s) => s.url == m.serverUrl)
+          .firstOrNull;
+      final serverId = existing?.id ?? m.serverUrl;
+      if (existing != null) {
+        if (!existing.enabled) {
+          await controller.toggleServer(existing.id, true);
+        }
+      } else {
+        await controller.addServer(
+          McpServerConfig(
+            id: serverId,
+            name: m.name ?? m.serverUrl,
+            url: m.serverUrl,
+            mcpEndpoint: m.mcpEndpoint ?? '/mcp',
+            apiKey: m.apiKey,
+            apiPassword: m.apiPassword,
+            enabled: true,
+            description: m.description,
+            isOnline: m.isOnline,
+          ),
+        );
+      }
+
+      if (m.enabledTools != null && m.enabledTools!.isNotEmpty) {
+        final clientDef = controller.mcpClients
+            .where((c) => c.name == serverId)
+            .firstOrNull;
+        final cached = await _storageDelegate.loadCachedServerTools(serverId);
+        final knownForServer = <String>{
+          ...m.discoveredTools,
+          ...cached.map((t) => t.name),
+          if (clientDef != null) ...clientDef.availableTools.map((t) => t.name),
+        };
+        final allowed = m.enabledTools!.toSet();
+        for (final toolName in knownForServer) {
+          controller.toggleToolEnabled(toolName, allowed.contains(toolName));
+        }
+      } else if (m.discoveredTools.isNotEmpty) {
+        controller.toggleToolsEnabled(m.discoveredTools, true);
+      }
+    }
+
+    // 5. Resolve & Set Active Skill
     final skillId = task.agents
         .map((a) => a.skillDefId)
         .firstWhere((id) => id != null && id.isNotEmpty, orElse: () => null);
@@ -1239,146 +1478,352 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     PlaygroundController controller,
   ) async {
     final l = L.of(context);
-    final nameCtrl = TextEditingController(text: l.newTask);
+
+    String initialPrompt = controller.currentInputPrompt.trim();
+    if (initialPrompt.isEmpty) {
+      final lastUserMsg = controller.messages
+          .where((m) => m.role.name == 'user' && m.content.trim().isNotEmpty)
+          .lastOrNull;
+      if (lastUserMsg != null) {
+        initialPrompt = lastUserMsg.content.trim();
+      }
+    }
+
     final isMobile = MediaQuery.sizeOf(context).width < 700;
     final isRemote = ref.read(serverModeProvider).value?.isRemote ?? false;
 
-    Widget buildSaveForm(BuildContext ctx) {
-      final l = L.of(ctx);
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isRemote
-                ? l.saveWorkflowRemoteDesc
-                : l.saveWorkflowLocalDesc,
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: nameCtrl,
-            decoration: InputDecoration(
-              labelText: l.workflowName,
-              border: const OutlineInputBorder(),
-            ),
-            autofocus: true,
-          ),
-        ],
-      );
-    }
-
-    final shouldSave = await showDialog<bool>(
+    final savedResult = await showDialog<({String name, String prompt})>(
       context: context,
-      builder: (ctx) {
-        final l = L.of(ctx);
-        if (isMobile) {
-          return Dialog.fullscreen(
-            child: Scaffold(
-              appBar: AppBar(
-                title: Text(l.saveAsTask),
-                leading: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx, false),
-                ),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12.0),
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: Text(l.save),
-                    ),
-                  ),
-                ],
-              ),
-              body: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: buildSaveForm(ctx),
-                ),
-              ),
-            ),
-          );
-        }
-
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.bookmark_add_outlined, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  l.saveCurrentAsWorkflow,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: buildSaveForm(ctx),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(isRemote ? l.saveToServer : l.saveToDatabase),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _SaveWorkflowDialog(
+        initialName: l.newTask,
+        initialPrompt: initialPrompt,
+        isMobile: isMobile,
+        isRemote: isRemote,
+      ),
     );
 
-    if (shouldSave == true && mounted) {
-      final name = nameCtrl.text.trim();
-      if (name.isEmpty) return;
+    if (savedResult != null && mounted) {
+      final name = savedResult.name;
+      final savedPrompt = savedResult.prompt;
+      if (name.isEmpty || savedPrompt.isEmpty) return;
 
-      final activeTools = controller.enabledToolNames;
-      final currentPrompt = controller.currentInputPrompt.trim();
+      final activeTools = Set<String>.from(controller.enabledToolNames);
       final activeSkillId = controller.activeSkill?.id;
+
+      // 1. Convert enabled tools into InternalMcpEntry servers (matching WorkflowEditScreen)
+      final registry = InternalMcpRegistry();
+      registry.registerGithubMcpServers();
+      final availableServers = registry.availableServers;
+      final ds = DataSourcesSettingsService.instance;
+      final internalMcps = <InternalMcpEntry>[];
+
+      final toolboxServer = availableServers
+          .where((s) => s.type == 'toolbox')
+          .firstOrNull;
+      final isToolboxActive = activeTools.contains('toolbox') ||
+          (toolboxServer != null &&
+              toolboxServer.toolNames.any(activeTools.contains));
+      if (!isToolboxActive) {
+        internalMcps.add(
+          InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: 'toolbox',
+            label: 'Toolbox',
+            enabled: false,
+            initParams: const {},
+          ),
+        );
+      }
+
+      for (final server in availableServers) {
+        if (server.type == 'toolbox' || server.type.startsWith('gh_mcp_')) {
+          continue;
+        }
+        final bool isGroupActive;
+        if (server.type == 'coding_tools') {
+          isGroupActive = _isCodingMode ||
+              activeTools.contains('coding_tools') ||
+              server.toolNames
+                  .where((n) => n != 'fetch' && n != 'fetch_web')
+                  .any(activeTools.contains);
+        } else {
+          isGroupActive = activeTools.contains(server.type) ||
+              server.toolNames.any(activeTools.contains);
+        }
+        if (!isGroupActive) continue;
+
+        final initParams = Map<String, dynamic>.from(server.defaultInitParams);
+        if (server.type == 'document' &&
+            ds.documentRootPaths.trim().isNotEmpty) {
+          initParams['rootPath'] = ds.documentRootPaths.trim();
+        } else if (server.type == 'website_search') {
+          if (ds.websiteIndexUrls.trim().isNotEmpty) {
+            initParams['websiteUrls'] = ds.websiteIndexUrls
+                .split(RegExp(r'[\r\n,]+'))
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          }
+          initParams['maxPages'] = ds.websiteIndexMaxPages;
+        } else if (server.type == 'coding_tools' &&
+            _workspaceDirectory.trim().isNotEmpty) {
+          initParams['workspace'] = _workspaceDirectory.trim();
+        }
+
+        final selectedInGroup = server.toolNames
+            .where(activeTools.contains)
+            .toList();
+        if (selectedInGroup.isNotEmpty &&
+            selectedInGroup.length < server.toolNames.length) {
+          initParams['enabledTools'] = selectedInGroup;
+        }
+
+        internalMcps.add(
+          InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: server.type,
+            label: server.displayName,
+            enabled: true,
+            initParams: initParams,
+          ),
+        );
+      }
+
+      // Community / GitHub MCP servers (local & server mode)
+      final ghTypes = <String>{
+        ...activeTools.where((t) => t.startsWith('gh_mcp_')),
+        ...availableServers
+            .where(
+              (s) =>
+                  s.type.startsWith('gh_mcp_') &&
+                  s.toolNames.any(activeTools.contains),
+            )
+            .map((s) => s.type),
+      };
+      for (final ghType in ghTypes) {
+        final serverId = ghType.substring('gh_mcp_'.length);
+        final localDef = GithubMcpLibraryService.instance.findById(serverId);
+        final regInfo = availableServers
+            .where((s) => s.type == ghType)
+            .firstOrNull;
+        internalMcps.add(
+          InternalMcpEntry(
+            id: const Uuid().v4(),
+            mcpType: ghType,
+            label: localDef?.displayName ?? regInfo?.displayName ?? serverId,
+            enabled: true,
+            initParams: const {},
+          ),
+        );
+      }
+
+      // 2. External HTTP MCP servers (custom + global ExternalToolsSettingsService)
+      final globalServers = ExternalToolsSettingsService.instance.selectedServers;
+      final mcpTools = <McpToolConfig>[];
+      for (final srv in controller.servers) {
+        if (!srv.enabled || srv.url.trim().isEmpty) continue;
+        final globalMatch = globalServers
+            .where((g) => g.serverUrl == srv.url)
+            .firstOrNull;
+        final clientDef = controller.mcpClients
+            .where((c) => c.name == srv.id)
+            .firstOrNull;
+        final cached = await _storageDelegate.loadCachedServerTools(srv.id);
+        final discoveredNames = <String>{
+          if (globalMatch != null) ...globalMatch.discoveredTools,
+          ...cached.map((t) => t.name),
+          if (clientDef != null) ...clientDef.availableTools.map((t) => t.name),
+        }.toList();
+
+        final selectedExternalTools = discoveredNames
+            .where(activeTools.contains)
+            .toList();
+        final enabledSubset = (selectedExternalTools.isNotEmpty &&
+                selectedExternalTools.length < discoveredNames.length)
+            ? selectedExternalTools
+            : null;
+
+        mcpTools.add(
+          McpToolConfig(
+            serverUrl: srv.url,
+            name: srv.name.isNotEmpty ? srv.name : globalMatch?.name,
+            description: srv.description ?? globalMatch?.description,
+            isOnline: srv.isOnline ?? globalMatch?.isOnline,
+            mcpEndpoint: srv.mcpEndpoint.isNotEmpty
+                ? srv.mcpEndpoint
+                : (globalMatch?.mcpEndpoint ?? '/mcp'),
+            specificationUrl: globalMatch?.specificationUrl,
+            catalogPageUrl: globalMatch?.catalogPageUrl,
+            apiKey: srv.apiKey ?? globalMatch?.apiKey,
+            apiPassword: srv.apiPassword ?? globalMatch?.apiPassword,
+            enabledTools: enabledSubset,
+            discoveredTools: discoveredNames,
+            discoveredPrompts: globalMatch?.discoveredPrompts ?? const [],
+            discoveredResources: globalMatch?.discoveredResources ?? const [],
+            discoveredToolSchemas:
+                globalMatch?.discoveredToolSchemas ?? const [],
+          ),
+        );
+      }
+
+      // 3. Auto-derived Data Source Providers (matching WorkflowEditScreen._save)
+      final hasGoogleTool = internalMcps.any(
+        (m) =>
+            m.enabled &&
+            const {
+              'gmail',
+              'google_drive',
+              'google_calendar',
+            }.contains(m.mcpType),
+      );
+      EmailProviderConfig? emailProvider;
+      if (hasGoogleTool && ds.isEmailConfigured) {
+        emailProvider = EmailProviderConfig(
+          type: 'google',
+          authData: EmailAuthData(
+            data: {
+              'client_id': ds.gmailClientId,
+              'client_secret': ds.gmailClientSecret,
+              'access_token': ds.gmailAccessToken,
+              'refresh_token': ds.gmailRefreshToken,
+              if (ds.gmailTokenExpiry != null)
+                'expires_at': ds.gmailTokenExpiry!.toIso8601String(),
+              if (ds.gmailAccountEmail.isNotEmpty)
+                'email': ds.gmailAccountEmail,
+            },
+          ),
+        );
+      }
+      final hasWebSearch = internalMcps.any(
+        (m) => m.enabled && m.mcpType == 'web_search',
+      );
+      WebSearchConfig? webSearch;
+      if (hasWebSearch && ds.isWebSearchConfigured) {
+        webSearch = WebSearchConfig(
+          type: switch (ds.webSearchProvider) {
+            WebSearchProvider.serpapi => 'serpapi',
+            WebSearchProvider.serper => 'serper',
+            WebSearchProvider.custom => 'custom',
+            _ => 'duckduckgo',
+          },
+          apiKey: ds.webSearchApiKey.isNotEmpty ? ds.webSearchApiKey : null,
+          maxResults: ds.webSearchMaxResults,
+        );
+      }
+
+      // 4. Active Session LLM Configuration
+      final activeLlm = controller.activeLlmConfig;
+      final tkProv = TealKitDatabaseStorageDelegate.toTealKitProvider(
+        activeLlm.provider,
+      );
+      final llmService = tk_llm.LlmSettingsService.instance;
+      tk_llm.NamedLlmProfile? matchedProfile;
+      if (activeLlm.id != null &&
+          activeLlm.id!.isNotEmpty &&
+          activeLlm.id != '__session_custom__') {
+        matchedProfile = llmService.getProfile(activeLlm.id!);
+      }
+      matchedProfile ??= (activeLlm.id == '__session_custom__')
+          ? null
+          : llmService.profiles
+                .where(
+                  (p) =>
+                      p.provider == tkProv &&
+                      p.model == activeLlm.model &&
+                      p.baseUrl == activeLlm.baseUrl,
+                )
+                .firstOrNull;
+
+      TaskLlmConfig? taskLlmConfig;
+      if (tkProv != tk_llm.LlmProvider.none &&
+          (activeLlm.model.trim().isNotEmpty ||
+              tkProv == tk_llm.LlmProvider.embedded)) {
+        taskLlmConfig = TaskLlmConfig(
+          provider: tkProv.configKey,
+          baseUrl: activeLlm.baseUrl.trim().isNotEmpty
+              ? activeLlm.baseUrl.trim()
+              : null,
+          apiKey: activeLlm.apiKey.trim().isNotEmpty
+              ? activeLlm.apiKey.trim()
+              : null,
+          model: activeLlm.model.trim(),
+          temperature: activeLlm.temperature,
+          maxTokens: activeLlm.maxTokens,
+          extraParams: {
+            if (matchedProfile != null) 'profile_id': matchedProfile.id,
+            'is_slm': activeLlm.isSlm,
+            'is_multi_modal': activeLlm.isMultiModal,
+            'thinking': activeLlm.thinking,
+            'use_native_tool_call': activeLlm.useNativeToolCall,
+            'use_safe_tool_call': activeLlm.useSafeToolCall,
+            'max_tool_output_size': activeLlm.maxToolOutputSize,
+            'token_warning_threshold': activeLlm.tokenWarningThreshold,
+            if (activeLlm.topK != null) 'top_k': activeLlm.topK,
+            if (activeLlm.topP != null) 'top_p': activeLlm.topP,
+            if (activeLlm.repeatPenalty != null)
+              'repeat_penalty': activeLlm.repeatPenalty,
+            if (activeLlm.seed != null) 'seed': activeLlm.seed,
+          },
+        );
+      }
+
+      final sysPrompt = controller.systemPrompt.trim().isNotEmpty
+          ? controller.systemPrompt.trim()
+          : null;
+
+      final agent = Agent(
+        id: const Uuid().v4(),
+        name: name,
+        prompt: savedPrompt,
+        systemPrompt: sysPrompt,
+        llmConfig: taskLlmConfig,
+        mcpTools: mcpTools,
+        internalMcps: internalMcps,
+        chatMode: controller.chatMode,
+        stopAfterToolCall: controller.stopAfterToolCall,
+        skillDefId: activeSkillId,
+      );
+
       final task = WorkflowTask(
         id: const Uuid().v4(),
         name: name,
-        systemPrompt: controller.systemPrompt,
-        prompt: currentPrompt,
-        agents: [
-          Agent(
-            id: const Uuid().v4(),
-            name: name,
-            prompt: currentPrompt,
-            systemPrompt: controller.systemPrompt,
-            skillDefId: activeSkillId,
-          ),
-        ],
-        internalMcps: activeTools
-            .map((t) => InternalMcpEntry(
-                  id: const Uuid().v4(),
-                  mcpType: t,
-                  enabled: true,
-                ))
-            .toList(),
+        systemPrompt: sysPrompt,
+        prompt: savedPrompt,
+        llmConfig: taskLlmConfig,
+        chatMode: controller.chatMode,
+        stopAfterToolCall: controller.stopAfterToolCall,
+        agents: [agent],
+        mcpTools: mcpTools,
+        internalMcps: internalMcps,
+        providers: TaskProviders(email: emailProvider, webSearch: webSearch),
         enabled: true,
         executionPlan: const ExecutionPlan(cronExpression: ''),
       );
 
-      final repo = ref.read(taskRepositoryProvider);
-      await repo.saveTask(task);
-      ref.invalidate(taskListProvider);
-
-      if (mounted) {
-        final l = L.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isRemote
-                  ? '✔ ${l.workflowSavedRemote(name)}'
-                  : '✔ ${l.workflowSavedLocal(name)}',
+      try {
+        await ref.read(taskListProvider.notifier).saveTask(task);
+        if (mounted) {
+          final l = L.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isRemote
+                    ? '✔ ${l.workflowSavedRemote(name)}'
+                    : '✔ ${l.workflowSavedLocal(name)}',
+              ),
             ),
-          ),
-        );
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          final l = L.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l.failedToSave(e.toString())),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -1421,6 +1866,18 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<ServerModeState>>(serverModeProvider, (prev, next) {
+      final prevVal = prev?.value;
+      final nextVal = next.value;
+      if (prevVal != null &&
+          nextVal != null &&
+          (prevVal.mode != nextVal.mode ||
+              prevVal.serverUrl != nextVal.serverUrl)) {
+        _hasSessionLlmOverride = false;
+        _syncDefaultLlmFromSettings();
+      }
+    });
+
     final isDesktopPlatform = !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.linux ||
@@ -1484,6 +1941,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 controller: ctrl,
                 initialTabIndex: initialTab,
                 isCodingMode: _isCodingMode,
+                onSessionLlmChanged: (isOverride) {
+                  _hasSessionLlmOverride = isOverride;
+                },
                 onClose: onClose,
               ),
             );
@@ -1503,6 +1963,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   controller: ctrl,
                   initialTabIndex: initialTab,
                   isCodingMode: _isCodingMode,
+                  onSessionLlmChanged: (isOverride) {
+                    _hasSessionLlmOverride = isOverride;
+                  },
                   onClose: onClose,
                 ),
               ),
@@ -1605,6 +2068,181 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Dialog widget for saving the current Assistant session as a workflow.
+/// Owns its [TextEditingController] instances so they are disposed only after
+/// the route's exit transition finishes and the widget unmounts.
+class _SaveWorkflowDialog extends StatefulWidget {
+  final String initialName;
+  final String initialPrompt;
+  final bool isMobile;
+  final bool isRemote;
+
+  const _SaveWorkflowDialog({
+    required this.initialName,
+    required this.initialPrompt,
+    required this.isMobile,
+    required this.isRemote,
+  });
+
+  @override
+  State<_SaveWorkflowDialog> createState() => _SaveWorkflowDialogState();
+}
+
+class _SaveWorkflowDialogState extends State<_SaveWorkflowDialog> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _promptCtrl;
+  String? _nameError;
+  String? _promptError;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.initialName);
+    _promptCtrl = TextEditingController(text: widget.initialPrompt);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _promptCtrl.dispose();
+    super.dispose();
+  }
+
+  void _validateAndClose(BuildContext context) {
+    final l = L.of(context);
+    final name = _nameCtrl.text.trim();
+    final prompt = _promptCtrl.text.trim();
+    final nErr = name.isEmpty ? l.nameRequired : null;
+    final pErr = prompt.isEmpty ? l.promptRequired : null;
+    if (nErr != null || pErr != null) {
+      setState(() {
+        _nameError = nErr;
+        _promptError = pErr;
+      });
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    Navigator.pop(context, (name: name, prompt: prompt));
+  }
+
+  void _cancel(BuildContext context) {
+    FocusScope.of(context).unfocus();
+    Navigator.pop(context);
+  }
+
+  Widget _buildSaveForm(BuildContext context) {
+    final l = L.of(context);
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.isRemote ? l.saveWorkflowRemoteDesc : l.saveWorkflowLocalDesc,
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameCtrl,
+            decoration: InputDecoration(
+              labelText: l.workflowName,
+              errorText: _nameError,
+              border: const OutlineInputBorder(),
+            ),
+            autofocus: widget.initialPrompt.isNotEmpty,
+            onChanged: (_) {
+              if (_nameError != null) {
+                setState(() => _nameError = null);
+              }
+            },
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _promptCtrl,
+            minLines: 3,
+            maxLines: 6,
+            autofocus: widget.initialPrompt.isEmpty,
+            decoration: InputDecoration(
+              labelText: l.taskPrompt,
+              hintText: l.taskPromptHint,
+              errorText: _promptError,
+              alignLabelWithHint: true,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) {
+              if (_promptError != null) {
+                setState(() => _promptError = null);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    if (widget.isMobile) {
+      return Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(l.saveAsTask),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => _cancel(context),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: FilledButton(
+                  onPressed: () => _validateAndClose(context),
+                  child: Text(l.save),
+                ),
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildSaveForm(context),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.bookmark_add_outlined, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l.saveCurrentAsWorkflow,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: _buildSaveForm(context),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => _cancel(context),
+          child: Text(l.cancel),
+        ),
+        FilledButton(
+          onPressed: () => _validateAndClose(context),
+          child: Text(widget.isRemote ? l.saveToServer : l.saveToDatabase),
+        ),
+      ],
     );
   }
 }
