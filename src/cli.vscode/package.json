@@ -2,7 +2,7 @@
   "name": "tealkit-vscode",
   "displayName": "TealKit Coder",
   "description": "Autonomous AI Coding Agent powered by TealKit CLI with sub-agents, MCP servers, and full workspace control.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "tealkit",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -161,10 +161,11 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run prepare-bundle && npm run compile",
+    "prepare-bundle": "node ./scripts/prepare-bundle.js",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "npx --yes @vscode/vsce package --baseContentUrl https://tealkit.dev --baseImagesUrl https://tealkit.dev"
+    "package": "npm run prepare-bundle && npm run compile && npx --yes @vscode/vsce package --baseContentUrl https://tealkit.dev --baseImagesUrl https://tealkit.dev"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

@@ -15,39 +15,96 @@ export class TealKitAgentProcess extends EventEmitter {
   private process: cp.ChildProcessWithoutNullStreams | null = null;
   private rl: readline.Interface | null = null;
   private isRunning = false;
+  private spawnFailed = false;
+  private missingCliNotified = false;
   private outputChannel: vscode.OutputChannel;
+  private extensionPath: string;
   private lastWorkspaceDir: string = process.cwd();
   private lastMode: string = 'code';
 
-  constructor(outputChannel: vscode.OutputChannel) {
+  constructor(outputChannel: vscode.OutputChannel, extensionPath: string = path.join(__dirname, '..')) {
     super();
     this.outputChannel = outputChannel;
+    this.extensionPath = extensionPath;
   }
 
   public get active(): boolean {
     return this.isRunning;
   }
 
+  private resolveOnPath(binBase: string): string | null {
+    const pathEnv = process.env.PATH || '';
+    const sep = process.platform === 'win32' ? ';' : ':';
+    const dirs = pathEnv.split(sep).filter(Boolean);
+    const exts = process.platform === 'win32'
+      ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';').filter(Boolean)
+      : [''];
+
+    for (const dir of dirs) {
+      if (process.platform === 'win32') {
+        for (const ext of exts) {
+          const candidate = path.join(dir, `${binBase}${ext.toLowerCase()}`);
+          const candidateUpper = path.join(dir, `${binBase}${ext}`);
+          if (fs.existsSync(candidate)) return candidate;
+          if (fs.existsSync(candidateUpper)) return candidateUpper;
+        }
+      } else {
+        const candidate = path.join(dir, binBase);
+        if (fs.existsSync(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  private notifyMissingCli(detail?: string): void {
+    if (this.missingCliNotified) return;
+    this.missingCliNotified = true;
+    const extra = detail ? ` (${detail})` : '';
+    const msg = `TealKit CLI binary (${process.platform === 'win32' ? 'tealkit.exe' : 'tealkit'}) was not found${extra}. Please install TealKit CLI or set "tealkit.cliPath" in Settings.`;
+    vscode.window
+      .showErrorMessage(msg, 'Open Settings', 'Download CLI', 'Retry')
+      .then((choice) => {
+        if (choice === 'Open Settings') {
+          vscode.commands.executeCommand('workbench.action.openSettings', 'tealkit.cliPath');
+        } else if (choice === 'Download CLI') {
+          vscode.env.openExternal(vscode.Uri.parse('https://tealkit.dev/#cli-download'));
+        } else if (choice === 'Retry') {
+          this.missingCliNotified = false;
+          this.spawnFailed = false;
+          vscode.commands.executeCommand('tealkit.restart');
+        }
+      });
+  }
+
   /**
    * Resolves the best available tealkit executable.
    */
   public findCliPath(): string | null {
-    const configPath = vscode.workspace.getConfiguration('tealkit').get<string>('cliPath');
+    const configPath = (vscode.workspace.getConfiguration('tealkit').get<string>('cliPath') || '').trim();
     if (configPath && fs.existsSync(configPath)) {
       return configPath;
     }
 
     const homeDir = os.homedir();
-    const candidatePaths = [
-      // Standard user installation
-      path.join(homeDir, '.tealkitcoder', 'bin', 'tealkit.exe'),
-      path.join(homeDir, '.tealkitcoder', 'bin', 'tealkit'),
-      // Local repo builds
-      path.join(__dirname, '..', '..', 'cli', 'build', 'cli', 'bundle', 'bin', 'tealkit.exe'),
-      path.join(__dirname, '..', '..', 'cli', 'tealkit.exe'),
-      path.join('c:', 'projects', 'ls', 'mobile_ai_agent', 'cli', 'build', 'cli', 'bundle', 'bin', 'tealkit.exe'),
-      path.join('c:', 'projects', 'ls', 'mobile_ai_agent', 'cli', 'tealkit.exe'),
-    ];
+    const isWin = process.platform === 'win32';
+    const candidatePaths = isWin
+      ? [
+          // Bundled inside VSIX extension
+          path.join(this.extensionPath, 'bin', 'tealkit.exe'),
+          // Standard user installation
+          path.join(homeDir, '.tealkitcoder', 'bin', 'tealkit.exe'),
+          // Local repo builds
+          path.join(__dirname, '..', '..', 'cli', 'build', 'cli', 'bundle', 'bin', 'tealkit.exe'),
+          path.join(__dirname, '..', '..', 'cli', 'tealkit.exe'),
+          path.join('c:', 'projects', 'ls', 'mobile_ai_agent', 'cli', 'build', 'cli', 'bundle', 'bin', 'tealkit.exe'),
+          path.join('c:', 'projects', 'ls', 'mobile_ai_agent', 'cli', 'tealkit.exe'),
+        ]
+      : [
+          path.join(this.extensionPath, 'bin', 'tealkit'),
+          path.join(homeDir, '.tealkitcoder', 'bin', 'tealkit'),
+          path.join(__dirname, '..', '..', 'cli', 'build', 'cli', 'bundle', 'bin', 'tealkit'),
+          path.join(__dirname, '..', '..', 'cli', 'tealkit'),
+        ];
 
     for (const p of candidatePaths) {
       if (fs.existsSync(p)) {
@@ -55,7 +112,7 @@ export class TealKitAgentProcess extends EventEmitter {
       }
     }
 
-    return 'tealkit'; // fallback to PATH lookup
+    return this.resolveOnPath('tealkit');
   }
 
   /**
@@ -68,10 +125,16 @@ export class TealKitAgentProcess extends EventEmitter {
 
     this.lastWorkspaceDir = workspaceDir;
     this.lastMode = initialMode;
+    this.spawnFailed = false;
 
     const cliPath = this.findCliPath();
     if (!cliPath) {
-      vscode.window.showErrorMessage('TealKit CLI binary not found. Please configure "tealkit.cliPath" in settings.');
+      this.isRunning = false;
+      this.spawnFailed = true;
+      const errMsg = `TealKit CLI binary (${process.platform === 'win32' ? 'tealkit.exe' : 'tealkit'}) not found.`;
+      this.outputChannel.appendLine(`[TealKit ERROR] ${errMsg}`);
+      this.emit('rpc_event', { event: 'error', code: 'ENOENT', message: errMsg });
+      this.notifyMissingCli();
       return;
     }
 
@@ -122,21 +185,43 @@ export class TealKitAgentProcess extends EventEmitter {
         this.emit('rpc_event', { event: 'process_closed', code });
       });
 
-      this.process.on('error', (err: Error) => {
+      this.process.on('error', (err: any) => {
         this.isRunning = false;
+        this.spawnFailed = true;
+        const isEnoent = err && (err.code === 'ENOENT' || String(err.message).includes('ENOENT'));
         this.outputChannel.appendLine(`[TealKit ERROR] Process failure: ${err.message}`);
         this.emit('error', err);
-        this.emit('rpc_event', { event: 'error', message: `Process failure: ${err.message}` });
+        this.emit('rpc_event', {
+          event: 'error',
+          code: isEnoent ? 'ENOENT' : (err?.code || 'SPAWN_ERROR'),
+          message: isEnoent
+            ? `TealKit CLI binary not found (${err.message}).`
+            : `Process failure: ${err.message}`,
+        });
+        if (isEnoent) {
+          this.notifyMissingCli(err.message);
+        } else {
+          vscode.window.showErrorMessage(`Failed to start TealKit agent: ${err.message}`);
+        }
       });
 
     } catch (e: any) {
       this.isRunning = false;
+      this.spawnFailed = true;
       vscode.window.showErrorMessage(`Failed to start TealKit agent: ${e.message}`);
     }
   }
 
+  public resetSpawnFailure(): void {
+    this.spawnFailed = false;
+    this.missingCliNotified = false;
+  }
+
   public sendCommand(action: string, payload: Record<string, any> = {}): void {
     if (!this.process || !this.isRunning) {
+      if (this.spawnFailed) {
+        return;
+      }
       // Auto-restart if process had stopped
       this.outputChannel.appendLine('[TealKit] Restarting agent on new command...');
       this.start(this.lastWorkspaceDir, this.lastMode);
@@ -152,8 +237,21 @@ export class TealKitAgentProcess extends EventEmitter {
     this.process.stdin.write(message);
   }
 
-  public sendPrompt(text: string, images: string[] = []): void {
-    this.sendCommand('prompt', { text, prompt: text, images });
+  public sendPrompt(
+    text: string,
+    imagesOrOptions: any[] | { images?: any[]; attachments?: any[]; contextFiles?: string[] } = []
+  ): void {
+    if (Array.isArray(imagesOrOptions)) {
+      this.sendCommand('prompt', { text, prompt: text, images: imagesOrOptions });
+    } else {
+      this.sendCommand('prompt', {
+        text,
+        prompt: text,
+        images: imagesOrOptions.images || [],
+        attachments: imagesOrOptions.attachments || [],
+        contextFiles: imagesOrOptions.contextFiles || [],
+      });
+    }
   }
 
   public cancel(): void {

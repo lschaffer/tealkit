@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:path/path.dart' as p;
@@ -11,8 +12,9 @@ import '../config/global_config.dart';
 import '../config/llm_config_manager.dart';
 import '../config/permission_settings.dart';
 import '../config/server_config.dart';
-import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, MCPTool, MCPToolResult, Agent, ChatRole;
+import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, MCPTool, MCPToolResult, Agent, ChatRole, MessageAttachment;
 import '../engine/builtin_mcp_servers.dart';
+import '../engine/cli_attachment_helper.dart';
 import '../engine/embedded/cli_embedded_llm_adapter.dart';
 import '../engine/embedded/cli_embedded_model_manager.dart';
 import '../engine/session_manager.dart';
@@ -957,6 +959,8 @@ class TealKitRpcEngine {
                     ?.map((e) => e.toString())
                     .toList() ??
                 const <String>[];
+            final rawImages = (request['images'] as List?) ?? const [];
+            final rawAttachments = (request['attachments'] as List?) ?? const [];
             final overrideMode = request['mode'] as String?;
             if (overrideMode != null) {
               currentMode = switch (overrideMode) {
@@ -1120,6 +1124,8 @@ class TealKitRpcEngine {
             unawaited(_executePromptTurn(
               promptText: promptText,
               contextFiles: contextFiles,
+              rawImages: rawImages,
+              rawAttachments: rawAttachments,
               turnId:
                   requestId ?? 'turn_${DateTime.now().millisecondsSinceEpoch}',
               runner: runner,
@@ -1159,6 +1165,8 @@ class TealKitRpcEngine {
   Future<void> _executePromptTurn({
     required String promptText,
     required List<String> contextFiles,
+    List<dynamic> rawImages = const [],
+    List<dynamic> rawAttachments = const [],
     required String turnId,
     required SkillRunner runner,
     required LlmConfig activeLlmConfig,
@@ -1175,20 +1183,153 @@ class TealKitRpcEngine {
   }) async {
     _sendEvent('start', {'id': turnId, 'prompt': promptText});
 
-    // Build effective prompt with context files if supplied
+    // Build effective prompt with staged attachments & @contextFiles
     final effectivePromptBuffer = StringBuffer();
-    if (contextFiles.isNotEmpty) {
-      effectivePromptBuffer.writeln('Active Context Files:');
-      for (final filePath in contextFiles) {
-        final absPath = p.isAbsolute(filePath)
-            ? filePath
-            : p.join(workspaceDir, filePath);
-        final f = File(absPath);
-        if (f.existsSync()) {
-          final content = f.readAsStringSync();
-          effectivePromptBuffer.writeln('--- $filePath ---');
+    final stagedAttachments = <CliAttachment>[];
+    final seenPaths = <String>{};
+
+    Future<void> tryAddFileAttachment(String filePath) async {
+      final trimmed = filePath.trim();
+      if (trimmed.isEmpty) return;
+      final absPath = p.normalize(
+        p.isAbsolute(trimmed) ? trimmed : p.join(workspaceDir, trimmed),
+      );
+      if (!seenPaths.add(absPath.toLowerCase())) return;
+      try {
+        final att = await CliAttachmentHelper.fromFile(
+          trimmed,
+          workspaceDir: workspaceDir,
+        );
+        stagedAttachments.add(att);
+      } catch (e) {
+        _log('Attachment file note ($trimmed): $e');
+      }
+    }
+
+    CliAttachment? tryDecodeInlineAttachment({
+      required String rawData,
+      String? name,
+      String? mimeType,
+    }) {
+      var b64 = rawData.trim();
+      var resolvedMime = (mimeType ?? '').trim();
+      if (b64.startsWith('data:')) {
+        final commaIdx = b64.indexOf(',');
+        if (commaIdx > 0) {
+          final header = b64.substring(5, commaIdx);
+          final semiIdx = header.indexOf(';');
+          final hdrMime = (semiIdx >= 0 ? header.substring(0, semiIdx) : header).trim();
+          if (hdrMime.isNotEmpty) resolvedMime = hdrMime;
+          b64 = b64.substring(commaIdx + 1);
+        }
+      }
+      if (b64.isEmpty) return null;
+      try {
+        final bytes = base64Decode(b64);
+        if (resolvedMime.isEmpty) resolvedMime = 'image/png';
+        final ext = resolvedMime.contains('jpeg') || resolvedMime.contains('jpg')
+            ? '.jpg'
+            : (resolvedMime.contains('webp') ? '.webp' : '.png');
+        final fileName = (name != null && name.trim().isNotEmpty)
+            ? name.trim()
+            : 'pasted_${DateTime.now().millisecondsSinceEpoch}$ext';
+        return CliAttachmentHelper.fromBytes(
+          bytes: bytes,
+          name: fileName,
+          path: fileName,
+          mimeType: resolvedMime,
+        );
+      } catch (e) {
+        _log('Failed to decode inline attachment ($name): $e');
+        return null;
+      }
+    }
+
+    for (final item in rawAttachments) {
+      if (item is String) {
+        await tryAddFileAttachment(item);
+      } else if (item is Map) {
+        final map = Map<String, dynamic>.from(item);
+        final itemPath = map['path']?.toString();
+        final dataRaw = (map['dataBase64'] ?? map['dataUrl'] ?? map['base64'])?.toString();
+        final textContent = map['content']?.toString();
+        final name = map['name']?.toString();
+        final mimeType = map['mimeType']?.toString();
+
+        if (itemPath != null &&
+            itemPath.trim().isNotEmpty &&
+            (dataRaw == null || dataRaw.trim().isEmpty)) {
+          await tryAddFileAttachment(itemPath);
+        } else if (dataRaw != null && dataRaw.trim().isNotEmpty) {
+          final att = tryDecodeInlineAttachment(
+            rawData: dataRaw,
+            name: name,
+            mimeType: mimeType,
+          );
+          if (att != null) stagedAttachments.add(att);
+        } else if (textContent != null && textContent.isNotEmpty) {
+          final bytes = utf8.encode(textContent);
+          stagedAttachments.add(CliAttachmentHelper.fromBytes(
+            bytes: Uint8List.fromList(bytes),
+            name: (name != null && name.isNotEmpty) ? name : 'pasted.txt',
+            path: itemPath ?? (name ?? 'pasted.txt'),
+            mimeType: (mimeType != null && mimeType.isNotEmpty) ? mimeType : 'text/plain',
+            textContent: textContent,
+          ));
+        }
+      }
+    }
+
+    for (final imgItem in rawImages) {
+      if (imgItem is String) {
+        if (imgItem.trim().startsWith('data:')) {
+          final att = tryDecodeInlineAttachment(rawData: imgItem);
+          if (att != null) stagedAttachments.add(att);
+        } else {
+          await tryAddFileAttachment(imgItem);
+        }
+      } else if (imgItem is Map) {
+        final map = Map<String, dynamic>.from(imgItem);
+        final itemPath = map['path']?.toString();
+        final dataRaw = (map['dataBase64'] ?? map['dataUrl'] ?? map['base64'])?.toString();
+        if (dataRaw != null && dataRaw.trim().isNotEmpty) {
+          final att = tryDecodeInlineAttachment(
+            rawData: dataRaw,
+            name: map['name']?.toString(),
+            mimeType: map['mimeType']?.toString(),
+          );
+          if (att != null) stagedAttachments.add(att);
+        } else if (itemPath != null && itemPath.trim().isNotEmpty) {
+          await tryAddFileAttachment(itemPath);
+        }
+      }
+    }
+
+    for (final filePath in contextFiles) {
+      await tryAddFileAttachment(filePath);
+    }
+
+    final messageAttachments = <MessageAttachment>[];
+    if (stagedAttachments.isNotEmpty) {
+      effectivePromptBuffer.writeln('User Attachments:');
+      for (final att in stagedAttachments) {
+        if (att.isImage) {
+          effectivePromptBuffer.writeln(
+            '- [Image Attachment: ${att.name}] (${att.mimeType}, ${att.sizeLabel})',
+          );
+          messageAttachments.add(att.toMessageAttachment());
+        } else {
+          const maxInlineChars = 120000;
+          var content = att.extractedText ??
+              '[Binary/unreadable file content: ${att.sizeLabel}]';
+          if (content.length > maxInlineChars) {
+            content =
+                '${content.substring(0, maxInlineChars)}\n... [truncated after $maxInlineChars chars]';
+          }
+          effectivePromptBuffer.writeln('\n[Attached File: ${att.path}]');
+          effectivePromptBuffer.writeln('--- CONTENT START ---');
           effectivePromptBuffer.writeln(content);
-          effectivePromptBuffer.writeln('--- end $filePath ---');
+          effectivePromptBuffer.writeln('--- CONTENT END ---\n');
         }
       }
       effectivePromptBuffer.writeln('');
@@ -1282,6 +1423,17 @@ class TealKitRpcEngine {
     );
 
     final initialTurnMessages = <ChatMessage>[...history];
+    if (messageAttachments.isNotEmpty) {
+      initialTurnMessages.add(
+        ChatMessage(
+          id: 'turn_att_${DateTime.now().millisecondsSinceEpoch}',
+          content: effectivePromptText,
+          role: ChatRole.user,
+          timestamp: DateTime.now(),
+          attachments: messageAttachments,
+        ),
+      );
+    }
 
     // In IDE / RPC mode, coding agents expose native workspace tools directly so models
     // can invoke fs_read_file, fs_list_dir, terminal_exec without mcp_call_tool wrapping.
@@ -1337,7 +1489,9 @@ class TealKitRpcEngine {
             : (activeLlmConfig.isSlm ? 12000 : 32000),
         memoryStore: episodicMemoryStore,
       ),
-      prompts: [SubPromptStep(text: effectivePromptText)],
+      prompts: messageAttachments.isNotEmpty
+          ? const [SubPromptStep(text: '')]
+          : [SubPromptStep(text: effectivePromptText)],
       dartTools: effectiveDartTools,
       localServers: localServers.where((s) => s.isLocal).toList(),
       remoteServers: localServers.where((s) => !s.isLocal).toList(),
@@ -1412,7 +1566,12 @@ class TealKitRpcEngine {
               }
 
             case AgentPlanEvent(:final plan):
-              _sendEvent('plan', {'id': turnId, 'plan': plan});
+              _syncPlanToTasksMd(plan);
+              _sendEvent('plan', {
+                'id': turnId,
+                'plan': plan.toJson(),
+                'tasksFile': 'tasks.md',
+              });
 
             case AgentSubAgentStartedEvent(:final subAgentKey, :final task):
               _sendEvent('subagent_start', {
@@ -1833,9 +1992,11 @@ class TealKitRpcEngine {
     }
 
     final result = <Map<String, dynamic>>[];
+    final seenNames = <String>{};
     for (final file in skillFiles) {
       try {
         final manifest = runner.parseSkillFile(file.path);
+        if (!seenNames.add(manifest.name)) continue;
         result.add({
           'name': manifest.name,
           'description': manifest.description,
@@ -1847,6 +2008,26 @@ class TealKitRpcEngine {
       } catch (_) {}
     }
     return result;
+  }
+
+  void _syncPlanToTasksMd(PlanState plan) {
+    if (plan.steps.isEmpty) return;
+    try {
+      final tasksFile = File(p.join(workspaceDir, 'tasks.md'));
+      final sb = StringBuffer('# Project Tasks\n\n');
+      for (final step in plan.steps) {
+        final box = switch (step.status) {
+          PlanStepStatus.completed => '[x]',
+          PlanStepStatus.inProgress => '[-]',
+          PlanStepStatus.cancelled => '[~]',
+          PlanStepStatus.pending => '[ ]',
+        };
+        sb.writeln('- $box ${step.description}');
+      }
+      tasksFile.writeAsStringSync(sb.toString());
+    } catch (e) {
+      _log('Failed to sync plan to tasks.md: $e');
+    }
   }
 
   String _loadWorkspaceInstructions() {
@@ -1898,7 +2079,7 @@ Operating Principles:
 CURRENT MODE: 📐 ARCHITECT (Planning & Analysis Mode)
 - Your goal is to inspect the codebase, perform architectural review, design systems, and draft implementation plans.
 - DO NOT modify production source code in this mode.
-- ALWAYS create or update `tasks.md` in the workspace root with a Markdown checkbox checklist (`- [ ] task description`).
+- ALWAYS call `write_todos` to create/update the step-by-step todo list (which automatically updates `tasks.md` in the workspace root) and/or update `tasks.md` with a Markdown checkbox checklist (`- [ ] task description`).
 - When asked for an implementation plan, create or update `implementation_plan.md` or a requested document with clear rationale, affected files, and verification steps.
 - Conclude by asking the user if they approve the plan and want to switch to `/code` mode to begin execution.
 ''');
@@ -1907,8 +2088,8 @@ CURRENT MODE: 📐 ARCHITECT (Planning & Analysis Mode)
         buffer.writeln('''
 CURRENT MODE: 💻 CODE (Implementation Mode)
 - Your goal is to implement, refactor, and fix code according to specifications.
-- If `tasks.md` exists in the workspace, check it for pending tasks `- [ ]`.
-- As you complete and verify each task with `terminal_exec`, update `tasks.md` using `fs_replace_text` to check off the completed item (`- [x]`).
+- For multi-step work, call `write_todos` right after inspecting relevant files to track pending `[ ]`, active `[-]` (`in_progress`), and completed `[x]` steps — this automatically keeps `tasks.md` in the workspace root up to date.
+- If `tasks.md` already exists in the workspace, check it for pending tasks `- [ ]` and mark items completed (`- [x]`) via `write_todos` or `fs_replace_text` as you verify them.
 - Always run the relevant build or test command after editing code to ensure you did not introduce syntax errors or broken imports.
 ''');
         break;

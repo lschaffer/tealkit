@@ -1,4 +1,6 @@
 import * as cp from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { TealKitAgentProcess, RpcEvent } from './agentProcess';
@@ -66,8 +68,40 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (message: any) => {
       switch (message.type) {
         case 'prompt':
-          this._agent.sendPrompt(message.text, message.images || []);
+          this._agent.sendPrompt(message.text, {
+            images: Array.isArray(message.images) ? message.images : [],
+            attachments: Array.isArray(message.attachments) ? message.attachments : [],
+            contextFiles: Array.isArray(message.contextFiles) ? message.contextFiles : [],
+          });
           break;
+        case 'pick_attachments': {
+          const picked = await this.pickAttachmentFiles();
+          if (picked.length > 0) {
+            this._view?.webview.postMessage({
+              type: 'attachments_picked',
+              items: picked,
+            });
+          }
+          break;
+        }
+        case 'search_workspace_files': {
+          const files = await this.searchWorkspaceFiles(String(message.query || ''));
+          this._view?.webview.postMessage({
+            type: 'workspace_files_result',
+            requestId: message.requestId,
+            query: String(message.query || ''),
+            files,
+          });
+          break;
+        }
+        case 'paste_from_clipboard': {
+          const items = await this.readOsClipboardItems();
+          this._view?.webview.postMessage({
+            type: 'clipboard_attachments',
+            items,
+          });
+          break;
+        }
         case 'cancel':
           this._agent.cancel();
           break;
@@ -526,6 +560,189 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage(msg);
   }
 
+  private getImageMime(ext: string): string | null {
+    switch (ext.toLowerCase()) {
+      case '.png': return 'image/png';
+      case '.jpg':
+      case '.jpeg': return 'image/jpeg';
+      case '.webp': return 'image/webp';
+      case '.gif': return 'image/gif';
+      case '.bmp': return 'image/bmp';
+      default: return null;
+    }
+  }
+
+  private toAttachmentDescriptor(fsPath: string): any | null {
+    try {
+      if (!fs.existsSync(fsPath)) return null;
+      const stat = fs.statSync(fsPath);
+      if (!stat.isFile()) return null;
+      const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      let rel = fsPath;
+      if (wsRoot) {
+        const candidate = path.relative(wsRoot, fsPath);
+        if (!candidate.startsWith('..') && !path.isAbsolute(candidate)) {
+          rel = candidate.replace(/\\/g, '/');
+        }
+      }
+      const ext = path.extname(fsPath);
+      const imgMime = this.getImageMime(ext);
+      let previewDataUrl: string | undefined;
+      if (imgMime && stat.size <= 10 * 1024 * 1024) {
+        const b64 = fs.readFileSync(fsPath).toString('base64');
+        previewDataUrl = `data:${imgMime};base64,${b64}`;
+      }
+      return {
+        name: path.basename(fsPath),
+        path: fsPath,
+        relativePath: rel,
+        isImage: !!imgMime,
+        mimeType: imgMime || 'application/octet-stream',
+        sizeBytes: stat.size,
+        previewDataUrl,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private async pickAttachmentFiles(): Promise<any[]> {
+    const uris = await vscode.window.showOpenDialog({
+      canSelectMany: true,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+      openLabel: 'Attach to TealKit Prompt',
+      filters: {
+        'Images & Workspace Files': ['png', 'jpg', 'jpeg', 'webp', 'gif', 'txt', 'md', 'dart', 'ts', 'tsx', 'js', 'jsx', 'json', 'yaml', 'yml', 'py', 'cs', 'html', 'css', 'sql', 'xml', 'pdf', 'csv'],
+        'Images': ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+        'All Files': ['*'],
+      },
+    });
+    if (!uris || uris.length === 0) return [];
+    const results: any[] = [];
+    for (const uri of uris) {
+      const desc = this.toAttachmentDescriptor(uri.fsPath);
+      if (desc) results.push(desc);
+    }
+    return results;
+  }
+
+  private async searchWorkspaceFiles(query: string): Promise<Array<{ name: string; relativePath: string; path: string; isImage: boolean }>> {
+    const wsFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!wsFolder) return [];
+    const uris = await vscode.workspace.findFiles(
+      '**/*',
+      '{**/node_modules/**,**/.git/**,**/build/**,**/.dart_tool/**,**/dist/**,**/out/**,**/.idea/**}',
+      600
+    );
+    const q = query.trim().toLowerCase().replace(/\\/g, '/');
+    const items = uris.map((u) => {
+      const rel = path.relative(wsFolder.uri.fsPath, u.fsPath).replace(/\\/g, '/');
+      const name = path.basename(rel);
+      const isImage = !!this.getImageMime(path.extname(rel));
+      return { name, relativePath: rel, path: u.fsPath, isImage };
+    });
+
+    const filtered = q
+      ? items.filter((it) => it.relativePath.toLowerCase().includes(q) || it.name.toLowerCase().includes(q))
+      : items;
+
+    filtered.sort((a, b) => {
+      if (q) {
+        const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        const aNameHit = a.name.toLowerCase().includes(q) ? 0 : 1;
+        const bNameHit = b.name.toLowerCase().includes(q) ? 0 : 1;
+        if (aNameHit !== bNameHit) return aNameHit - bNameHit;
+      }
+      return a.relativePath.localeCompare(b.relativePath);
+    });
+
+    return filtered.slice(0, 30);
+  }
+
+  private async readOsClipboardItems(): Promise<any[]> {
+    const results: any[] = [];
+    if (process.platform === 'win32') {
+      const tmpDir = path.join(os.homedir(), '.tealkitcoder', 'temp');
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
+      const imgOut = path.join(tmpDir, `clip_${Date.now()}.png`);
+      const escapedOut = imgOut.replace(/'/g, "''");
+      const psScript = [
+        'Add-Type -AssemblyName System.Windows.Forms;',
+        '$img = [System.Windows.Forms.Clipboard]::GetImage();',
+        'if ($img) {',
+        `  $img.Save('${escapedOut}', [System.Drawing.Imaging.ImageFormat]::Png);`,
+        `  Write-Output "CLIP_IMAGE:${escapedOut}";`,
+        '  exit 0;',
+        '}',
+        '$files = [System.Windows.Forms.Clipboard]::GetFileDropList();',
+        'if ($files -and $files.Count -gt 0) {',
+        '  foreach ($f in $files) { Write-Output ("CLIP_FILE:" + $f) }',
+        '  exit 0;',
+        '}',
+      ].join('\n');
+
+      await new Promise<void>((resolve) => {
+        cp.execFile(
+          'powershell.exe',
+          ['-NoProfile', '-NonInteractive', '-Command', psScript],
+          { timeout: 5000 },
+          (_err, stdout) => {
+            const lines = String(stdout || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+            for (const line of lines) {
+              if (line.startsWith('CLIP_IMAGE:')) {
+                const p = line.substring('CLIP_IMAGE:'.length);
+                const desc = this.toAttachmentDescriptor(p);
+                if (desc) results.push(desc);
+              } else if (line.startsWith('CLIP_FILE:')) {
+                const p = line.substring('CLIP_FILE:'.length);
+                const desc = this.toAttachmentDescriptor(p);
+                if (desc) results.push(desc);
+              }
+            }
+            resolve();
+          }
+        );
+      });
+    } else if (process.platform === 'darwin') {
+      const tmpDir = path.join(os.homedir(), '.tealkitcoder', 'temp');
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+      const imgOut = path.join(tmpDir, `clip_${Date.now()}.png`);
+      await new Promise<void>((resolve) => {
+        cp.execFile('pngpaste', [imgOut], { timeout: 3000 }, (err) => {
+          if (!err) {
+            const desc = this.toAttachmentDescriptor(imgOut);
+            if (desc) results.push(desc);
+          }
+          resolve();
+        });
+      });
+    } else {
+      const tmpDir = path.join(os.homedir(), '.tealkitcoder', 'temp');
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+      const imgOut = path.join(tmpDir, `clip_${Date.now()}.png`);
+      await new Promise<void>((resolve) => {
+        cp.exec(
+          `(wl-paste --type image/png > "${imgOut}" 2>/dev/null) || (xclip -selection clipboard -t image/png -o > "${imgOut}" 2>/dev/null)`,
+          { timeout: 3000 },
+          (err) => {
+            if (!err && fs.existsSync(imgOut) && fs.statSync(imgOut).size > 0) {
+              const desc = this.toAttachmentDescriptor(imgOut);
+              if (desc) results.push(desc);
+            }
+            resolve();
+          }
+        );
+      });
+    }
+    return results;
+  }
+
   private async testLlmApiConnection(
     provider?: string,
     model?: string,
@@ -948,11 +1165,15 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
 
       <!-- Input Footer -->
       <div class="input-area">
+        <div id="at-mention-popup" class="at-mention-popup hidden"></div>
+        <div id="attachments-bar" class="attachments-bar hidden"></div>
         <div class="textarea-container">
-          <textarea id="prompt-input" rows="2" placeholder="Ask TealKit or use /plan, /rag, /skills... (Ctrl+Enter to send)"></textarea>
+          <textarea id="prompt-input" rows="2" placeholder="Ask TealKit, type @ for files, Ctrl+V to paste image, or /plan... (Ctrl+Enter to send)"></textarea>
         </div>
         <div class="input-actions">
           <div class="input-left">
+            <button id="attach-file-btn" class="icon-btn" title="Attach File or Image">📎</button>
+            <button id="at-file-btn" class="icon-btn" title="Mention Workspace File (@)">@</button>
             <button id="new-session-btn" class="icon-btn" title="New Session (Start fresh chat)">➕</button>
             <button id="history-btn" class="icon-btn" title="Session History (Load / Continue saved sessions)">🕒</button>
             <button id="clear-btn" class="icon-btn" title="Clear Session">🧹</button>

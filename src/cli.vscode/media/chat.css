@@ -1800,3 +1800,200 @@ input:checked + .slider:before {
   white-space: nowrap;
   max-width: 100%;
 }
+
+.badge.error {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.input-area {
+  position: relative;
+}
+
+/* Attachments Bar & Chips */
+.attachments-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+  max-height: 92px;
+  overflow-y: auto;
+}
+
+.att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--vscode-foreground, #e5e7eb);
+  max-width: 220px;
+}
+
+.att-thumb {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.att-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.att-remove {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground, #9ca3af);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.att-remove:hover {
+  color: #f87171;
+}
+
+/* User message attached preview */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.msg-att-thumb {
+  max-width: 180px;
+  max-height: 120px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  object-fit: contain;
+}
+
+.msg-att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* @ Workspace File Lookup Popup */
+.at-mention-popup {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 100%;
+  margin-bottom: 4px;
+  background: var(--vscode-editorWidget-background, #1e1e2e);
+  border: 1px solid var(--vscode-focusBorder, #38bdf8);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.at-mention-header {
+  font-size: 10.5px;
+  padding: 4px 8px;
+  color: var(--vscode-descriptionForeground, #9ca3af);
+  border-bottom: 1px solid var(--vscode-widget-border, #333);
+  display: flex;
+  justify-content: space-between;
+}
+
+.at-mention-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--vscode-foreground, #e5e7eb);
+}
+
+.at-mention-item:hover,
+.at-mention-item.active {
+  background: var(--vscode-list-activeSelectionBackground, rgba(56, 189, 248, 0.22));
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+.at-mention-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Todo / tasks.md live card */
+.todo-card {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  background: rgba(16, 185, 129, 0.06) !important;
+}
+
+.todo-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11.5px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.35;
+}
+
+.todo-box {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.todo-item.todo-completed .todo-box,
+.todo-item.todo-completed .todo-text {
+  color: #34d399;
+}
+
+.todo-item.todo-in_progress .todo-box {
+  color: #38bdf8;
+}
+
+.todo-item.todo-in_progress .todo-text {
+  color: #e0f2fe;
+  font-weight: 500;
+}
+
+.todo-item.todo-pending .todo-box {
+  color: var(--vscode-descriptionForeground, #9ca3af);
+}
+
+.todo-item.todo-cancelled .todo-text {
+  text-decoration: line-through;
+  color: var(--vscode-descriptionForeground, #9ca3af);
+}
+
+.todo-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 8px 6px 8px;
+}

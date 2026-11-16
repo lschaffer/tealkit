@@ -541,6 +541,42 @@ export class TealKitYamlConfigManager {
   // ─────────────────────────────────────────────────────────────
   // Skills Management (~/.tealkitcoder/skills & workspace skills/)
   // ─────────────────────────────────────────────────────────────
+  private static bundledSkillsDir: string | null = null;
+
+  public static ensureStarterSkills(extensionPath?: string): number {
+    if (extensionPath) {
+      const candidate = path.join(extensionPath, 'skills');
+      if (fs.existsSync(candidate)) {
+        this.bundledSkillsDir = candidate;
+      }
+    }
+    const sourceDirs: string[] = [];
+    if (this.bundledSkillsDir && fs.existsSync(this.bundledSkillsDir)) {
+      sourceDirs.push(this.bundledSkillsDir);
+    }
+    const devCliSkills = path.join(__dirname, '..', '..', 'cli', 'skills');
+    if (fs.existsSync(devCliSkills) && !sourceDirs.includes(devCliSkills)) {
+      sourceDirs.push(devCliSkills);
+    }
+
+    const globalSkills = this.getSkillsDirectory();
+    let copied = 0;
+    for (const srcDir of sourceDirs) {
+      try {
+        for (const entry of fs.readdirSync(srcDir)) {
+          if (!entry.toLowerCase().endsWith('.md')) continue;
+          const srcFile = path.join(srcDir, entry);
+          const destFile = path.join(globalSkills, entry);
+          if (fs.statSync(srcFile).isFile() && !fs.existsSync(destFile)) {
+            fs.copyFileSync(srcFile, destFile);
+            copied++;
+          }
+        }
+      } catch (_) {}
+    }
+    return copied;
+  }
+
   public static getSkillsDirectory(): string {
     const globalSkills = path.join(os.homedir(), '.tealkitcoder', 'skills');
     if (!fs.existsSync(globalSkills)) {
@@ -550,6 +586,7 @@ export class TealKitYamlConfigManager {
   }
 
   public static loadSkillsList(attachedSkills: string[] = []): { directory: string; skills: SkillItem[] } {
+    this.ensureStarterSkills();
     const globalDir = this.getSkillsDirectory();
     const searchDirs = [globalDir];
 
@@ -559,6 +596,9 @@ export class TealKitYamlConfigManager {
       if (fs.existsSync(wsSkills)) searchDirs.push(wsSkills);
       const wsTkSkills = path.join(workspaceFolders[0].uri.fsPath, '.tealkit', 'skills');
       if (fs.existsSync(wsTkSkills)) searchDirs.push(wsTkSkills);
+    }
+    if (this.bundledSkillsDir && fs.existsSync(this.bundledSkillsDir)) {
+      searchDirs.push(this.bundledSkillsDir);
     }
 
     const skills: SkillItem[] = [];

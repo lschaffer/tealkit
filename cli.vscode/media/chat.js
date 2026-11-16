@@ -22,6 +22,10 @@
   const sendBtn = document.getElementById('send-btn');
   const clearBtn = document.getElementById('clear-btn');
   const tasksBtn = document.getElementById('tasks-btn');
+  const attachFileBtn = document.getElementById('attach-file-btn');
+  const atFileBtn = document.getElementById('at-file-btn');
+  const attachmentsBar = document.getElementById('attachments-bar');
+  const atMentionPopup = document.getElementById('at-mention-popup');
   const gearBtn = document.getElementById('gear-btn');
   const cancelBtn = document.getElementById('cancel-btn');
   const modeSelect = document.getElementById('mode-select');
@@ -199,7 +203,10 @@
 
 
   let currentAssistantBubble = null;
+  let activeTurnTodoCard = null;
   let isGenerating = false;
+  let stagedAttachments = [];
+  let atMentionState = { open: false, startIdx: -1, query: '', items: [], activeIdx: 0, timer: null, reqSeq: 0 };
   let diffCounter = 0;
   let activeLlmFilePath = '';
   let activeMcpFilePath = '';
@@ -443,7 +450,237 @@
 
   // --- Chat Event Listeners ---
   sendBtn.addEventListener('click', submitPrompt);
+
+  function addStagedAttachments(newItems) {
+    if (!Array.isArray(newItems) || newItems.length === 0) return;
+    newItems.forEach((item) => {
+      if (!item) return;
+      const key = item.path || item.relativePath || item.name || item.previewDataUrl;
+      if (key && stagedAttachments.some((a) => (a.path || a.relativePath || a.name || a.previewDataUrl) === key)) {
+        return;
+      }
+      stagedAttachments.push({
+        id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        name: item.name || 'attachment',
+        path: item.path || '',
+        relativePath: item.relativePath || item.path || item.name || '',
+        isImage: !!item.isImage,
+        mimeType: item.mimeType || 'application/octet-stream',
+        sizeBytes: item.sizeBytes || 0,
+        previewDataUrl: item.previewDataUrl || item.dataUrl || '',
+      });
+    });
+    renderAttachmentsBar();
+  }
+
+  function renderAttachmentsBar() {
+    if (!attachmentsBar) return;
+    if (stagedAttachments.length === 0) {
+      attachmentsBar.innerHTML = '';
+      attachmentsBar.classList.add('hidden');
+      return;
+    }
+    attachmentsBar.classList.remove('hidden');
+    attachmentsBar.innerHTML = '';
+    stagedAttachments.forEach((att, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'att-chip';
+      chip.title = att.path || att.relativePath || att.name;
+      if (att.isImage && att.previewDataUrl) {
+        chip.innerHTML = `<img class="att-thumb" src="${att.previewDataUrl}" alt="" /><span class="att-name">${escapeHtml(att.name)}</span>`;
+      } else {
+        const icon = att.isImage ? '🖼️' : '📄';
+        chip.innerHTML = `<span>${icon}</span><span class="att-name">${escapeHtml(att.relativePath || att.name)}</span>`;
+      }
+      const rmBtn = document.createElement('button');
+      rmBtn.className = 'att-remove';
+      rmBtn.type = 'button';
+      rmBtn.title = 'Remove attachment';
+      rmBtn.textContent = '×';
+      rmBtn.addEventListener('click', () => {
+        stagedAttachments.splice(idx, 1);
+        renderAttachmentsBar();
+      });
+      chip.appendChild(rmBtn);
+      attachmentsBar.appendChild(chip);
+    });
+  }
+
+  function hideAtMentionPopup() {
+    atMentionState.open = false;
+    atMentionState.items = [];
+    atMentionState.activeIdx = 0;
+    if (atMentionPopup) {
+      atMentionPopup.classList.add('hidden');
+      atMentionPopup.innerHTML = '';
+    }
+  }
+
+  function renderAtMentionPopup() {
+    if (!atMentionPopup) return;
+    const items = atMentionState.items;
+    if (!atMentionState.open) {
+      atMentionPopup.classList.add('hidden');
+      return;
+    }
+    atMentionPopup.classList.remove('hidden');
+    if (items.length === 0) {
+      atMentionPopup.innerHTML = `<div class="at-mention-header"><span>Workspace Files (@${escapeHtml(atMentionState.query)})</span><span>Esc to close</span></div><div class="at-mention-item"><em>No matching workspace files — keep typing path manually</em></div>`;
+      return;
+    }
+    let html = `<div class="at-mention-header"><span>Workspace Files (${items.length})</span><span>↑↓ Enter / Click</span></div>`;
+    items.forEach((item, idx) => {
+      const activeCls = idx === atMentionState.activeIdx ? ' active' : '';
+      const icon = item.isImage ? '🖼️' : '📄';
+      html += `<div class="at-mention-item${activeCls}" data-idx="${idx}"><span>${icon}</span><span class="at-mention-path" title="${escapeHtml(item.relativePath)}">${escapeHtml(item.relativePath)}</span></div>`;
+    });
+    atMentionPopup.innerHTML = html;
+    atMentionPopup.querySelectorAll('.at-mention-item[data-idx]').forEach((el) => {
+      el.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        const i = Number(el.getAttribute('data-idx'));
+        if (!Number.isNaN(i) && atMentionState.items[i]) {
+          selectAtMentionItem(atMentionState.items[i]);
+        }
+      });
+    });
+  }
+
+  function selectAtMentionItem(item) {
+    const val = promptInput.value;
+    const cursor = promptInput.selectionStart ?? val.length;
+    const before = val.slice(0, atMentionState.startIdx);
+    const after = val.slice(cursor);
+    const insertion = `@${item.relativePath} `;
+    promptInput.value = before + insertion + after;
+    const newPos = before.length + insertion.length;
+    promptInput.setSelectionRange(newPos, newPos);
+    addStagedAttachments([item]);
+    hideAtMentionPopup();
+    promptInput.focus();
+  }
+
+  function checkAtMentionTrigger() {
+    const val = promptInput.value;
+    const cursor = promptInput.selectionStart ?? val.length;
+    const beforeCursor = val.slice(0, cursor);
+    const match = beforeCursor.match(/(^|\s)@([^\s@]*)$/);
+    if (!match) {
+      hideAtMentionPopup();
+      return;
+    }
+    const query = match[2] || '';
+    const startIdx = beforeCursor.length - query.length - 1;
+    atMentionState.open = true;
+    atMentionState.startIdx = startIdx;
+    atMentionState.query = query;
+    if (atMentionState.timer) clearTimeout(atMentionState.timer);
+    atMentionState.timer = setTimeout(() => {
+      const reqId = ++atMentionState.reqSeq;
+      vscode.postMessage({ type: 'search_workspace_files', requestId: reqId, query });
+    }, 100);
+  }
+
+  if (attachFileBtn) {
+    attachFileBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'pick_attachments' });
+    });
+  }
+
+  if (atFileBtn) {
+    atFileBtn.addEventListener('click', () => {
+      const val = promptInput.value;
+      const pos = promptInput.selectionStart ?? val.length;
+      const needSpace = pos > 0 && !/\s$/.test(val.slice(0, pos));
+      const ins = (needSpace ? ' ' : '') + '@';
+      promptInput.value = val.slice(0, pos) + ins + val.slice(pos);
+      const nextPos = pos + ins.length;
+      promptInput.setSelectionRange(nextPos, nextPos);
+      promptInput.focus();
+      checkAtMentionTrigger();
+    });
+  }
+
+  promptInput.addEventListener('input', checkAtMentionTrigger);
+
+  promptInput.addEventListener('paste', (e) => {
+    const dt = e.clipboardData;
+    if (dt) {
+      const pastedFiles = [];
+      if (dt.items && dt.items.length > 0) {
+        for (let i = 0; i < dt.items.length; i++) {
+          const it = dt.items[i];
+          if (it.kind === 'file') {
+            const f = it.getAsFile();
+            if (f) pastedFiles.push(f);
+          }
+        }
+      } else if (dt.files && dt.files.length > 0) {
+        for (let i = 0; i < dt.files.length; i++) {
+          pastedFiles.push(dt.files[i]);
+        }
+      }
+
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        pastedFiles.forEach((f) => {
+          const isImg = (f.type && f.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name || '');
+          const reader = new FileReader();
+          reader.onload = () => {
+            addStagedAttachments([{
+              name: f.name || `pasted_${Date.now()}.png`,
+              relativePath: f.name || `pasted_${Date.now()}.png`,
+              isImage: isImg,
+              mimeType: f.type || (isImg ? 'image/png' : 'application/octet-stream'),
+              sizeBytes: f.size || 0,
+              previewDataUrl: typeof reader.result === 'string' ? reader.result : '',
+            }]);
+          };
+          reader.readAsDataURL(f);
+        });
+        return;
+      }
+
+      const plainText = dt.getData('text/plain');
+      if (!plainText) {
+        // On Windows/VS Code webview, Explorer-copied files or OS clipboard images may omit clipboardData text/files.
+        vscode.postMessage({ type: 'paste_from_clipboard' });
+      }
+    } else {
+      vscode.postMessage({ type: 'paste_from_clipboard' });
+    }
+  });
+
   promptInput.addEventListener('keydown', (e) => {
+    if (atMentionState.open && atMentionState.items.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        atMentionState.activeIdx = (atMentionState.activeIdx + 1) % atMentionState.items.length;
+        renderAtMentionPopup();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        atMentionState.activeIdx = (atMentionState.activeIdx - 1 + atMentionState.items.length) % atMentionState.items.length;
+        renderAtMentionPopup();
+        return;
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.ctrlKey && !e.metaKey)) {
+        e.preventDefault();
+        selectAtMentionItem(atMentionState.items[atMentionState.activeIdx]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        hideAtMentionPopup();
+        return;
+      }
+    } else if (atMentionState.open && e.key === 'Escape') {
+      e.preventDefault();
+      hideAtMentionPopup();
+      return;
+    }
+
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       submitPrompt();
@@ -641,7 +878,8 @@
 
   function submitPrompt() {
     const raw = promptInput.value.trim();
-    if (!raw) return;
+    if (!raw && stagedAttachments.length === 0) return;
+    hideAtMentionPopup();
 
     if (isGenerating) {
       vscode.postMessage({ type: 'cancel' });
@@ -678,9 +916,56 @@
       return;
     }
 
-    appendUserMessage(raw);
+    const promptText = raw || 'Please analyze the attached item(s).';
+    const sentAttachments = stagedAttachments.slice();
+    const images = [];
+    const attachmentsPayload = [];
+    const contextFilesSet = new Set();
+
+    sentAttachments.forEach((att) => {
+      if (att.isImage) {
+        if (att.previewDataUrl) {
+          images.push({
+            name: att.name,
+            mimeType: att.mimeType || 'image/png',
+            dataUrl: att.previewDataUrl,
+            path: att.path || undefined,
+          });
+        } else if (att.path) {
+          images.push(att.path);
+        }
+      } else {
+        if (att.path) {
+          attachmentsPayload.push({ name: att.name, path: att.path, mimeType: att.mimeType });
+          contextFilesSet.add(att.path);
+        } else if (att.previewDataUrl) {
+          attachmentsPayload.push({
+            name: att.name,
+            mimeType: att.mimeType || 'text/plain',
+            dataUrl: att.previewDataUrl,
+          });
+        }
+      }
+    });
+
+    // Also include manual @path tokens typed in the prompt
+    const atMatches = promptText.matchAll(/(?:^|\s)@([^\s@]+)/g);
+    for (const m of atMatches) {
+      if (m[1]) contextFilesSet.add(m[1]);
+    }
+
+    appendUserMessage(promptText, sentAttachments);
     promptInput.value = '';
-    vscode.postMessage({ type: 'prompt', text: raw });
+    stagedAttachments = [];
+    renderAttachmentsBar();
+    activeTurnTodoCard = null;
+    vscode.postMessage({
+      type: 'prompt',
+      text: promptText,
+      images,
+      attachments: attachmentsPayload,
+      contextFiles: Array.from(contextFilesSet),
+    });
     setActivity(true, 'Agent thinking...');
   }
 
@@ -759,12 +1044,34 @@
     return btn;
   }
 
-  function appendUserMessage(text) {
+  function appendUserMessage(text, attachedItems = []) {
     const msgDiv = document.createElement('div');
     msgDiv.className = 'message user';
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.innerHTML = escapeHtml(text);
+
+    if (Array.isArray(attachedItems) && attachedItems.length > 0) {
+      const attWrap = document.createElement('div');
+      attWrap.className = 'msg-attachments';
+      attachedItems.forEach((att) => {
+        if (att.isImage && att.previewDataUrl) {
+          const img = document.createElement('img');
+          img.className = 'msg-att-thumb';
+          img.src = att.previewDataUrl;
+          img.alt = att.name || 'image';
+          img.title = att.name || 'image';
+          attWrap.appendChild(img);
+        } else {
+          const chip = document.createElement('span');
+          chip.className = 'msg-att-chip';
+          chip.textContent = `${att.isImage ? '🖼️' : '📄'} ${att.relativePath || att.name}`;
+          attWrap.appendChild(chip);
+        }
+      });
+      bubble.appendChild(attWrap);
+    }
+
     msgDiv.appendChild(bubble);
 
     const footer = document.createElement('div');
@@ -1931,6 +2238,21 @@ system_prompt: |
       return;
     }
 
+    if (message.type === 'attachments_picked' || message.type === 'clipboard_attachments') {
+      addStagedAttachments(message.items || []);
+      promptInput.focus();
+      return;
+    }
+
+    if (message.type === 'workspace_files_result') {
+      if (atMentionState.open && message.requestId === atMentionState.reqSeq) {
+        atMentionState.items = Array.isArray(message.files) ? message.files : [];
+        atMentionState.activeIdx = 0;
+        renderAtMentionPopup();
+      }
+      return;
+    }
+
     if (message.type !== 'agent_event') return;
     const ev = message.event;
 
@@ -2098,6 +2420,12 @@ system_prompt: |
       case 'start':
         setActivity(true, 'Agent thinking...');
         currentAssistantBubble = null;
+        activeTurnTodoCard = null;
+        break;
+
+      case 'plan':
+        renderTodoPlanCard(ev.plan, ev.tasksFile || 'tasks.md');
+        currentAssistantBubble = null;
         break;
 
       case 'chunk':
@@ -2133,10 +2461,20 @@ system_prompt: |
         const errBubble = getOrCreateAssistantBubble();
         const msg = ev.message || 'Unknown error occurred.';
         const isAuthError = msg.includes('AuthenticationException') || msg.includes('API key') || msg.includes('401') || msg.includes('Unauthorized');
+        const isCliMissing = ev.code === 'ENOENT' || msg.includes('ENOENT') || msg.includes('not found');
+        if (isCliMissing && statusBadge) {
+          statusBadge.textContent = 'CLI Not Found';
+          statusBadge.className = 'badge error';
+        }
         
         let errorHtml = `
           <div class="error-card">
             <div><strong>⚠️ Agent Error:</strong> ${escapeHtml(msg)}</div>
+            ${isCliMissing ? `
+              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                <button class="error-action-btn" onclick="vscodeOpenCliSettings()">⚙ Set tealkit.cliPath</button>
+                <button class="error-action-btn" onclick="vscodeRestartAgent()">🔄 Retry</button>
+              </div>` : ''}
             ${isAuthError ? `<button class="error-action-btn" onclick="window.switchTab('llms')">⚙ Open LLM Settings to configure API Key</button>` : ''}
           </div>
         `;
@@ -2167,6 +2505,55 @@ system_prompt: |
         break;
     }
   });
+
+  window.vscodeOpenCliSettings = function () {
+    vscode.postMessage({ type: 'open_settings' });
+  };
+
+  window.vscodeRestartAgent = function () {
+    if (statusBadge) {
+      statusBadge.textContent = 'Restarting...';
+      statusBadge.className = 'badge';
+    }
+    vscode.postMessage({ type: 'restart_agent' });
+  };
+
+  function renderTodoPlanCard(plan, tasksFileName) {
+    const steps = Array.isArray(plan?.steps) ? plan.steps : [];
+    if (steps.length === 0) return;
+
+    const doneCount = steps.filter((s) => s.status === 'completed').length;
+    const card = activeTurnTodoCard || document.createElement('details');
+    const isNew = !activeTurnTodoCard;
+    if (isNew) {
+      card.className = 'tool-card todo-card';
+      card.open = true;
+      activeTurnTodoCard = card;
+    }
+
+    const itemsHtml = steps.map((s) => {
+      const st = String(s.status || 'pending');
+      const box = st === 'completed' ? '[x]' : st === 'in_progress' ? '[-]' : st === 'cancelled' ? '[~]' : '[ ]';
+      return `<div class="todo-item todo-${escapeHtml(st)}"><span class="todo-box">${box}</span><span class="todo-text">${escapeHtml(s.description || s.id || '')}</span></div>`;
+    }).join('');
+
+    card.innerHTML = `
+      <summary class="tool-summary">
+        <span>📋</span>
+        <span class="tool-name">write_todos (${escapeHtml(tasksFileName || 'tasks.md')})</span>
+        <span class="tool-duration">${doneCount}/${steps.length} done</span>
+      </summary>
+      <div class="todo-list">${itemsHtml}</div>
+      <div class="todo-footer">
+        <button type="button" class="mini-chip-btn" onclick="openTasksFile()">📄 Open ${escapeHtml(tasksFileName || 'tasks.md')}</button>
+      </div>
+    `;
+
+    if (isNew) {
+      messagesContainer.appendChild(card);
+    }
+    scrollToBottom();
+  }
 
   function renderToolCard(ev) {
     const card = document.createElement('details');

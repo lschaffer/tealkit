@@ -10,66 +10,7 @@ TealKit Coder brings full repository exploration, surgical file editing, automat
 
 Instead of relying on a single stateless chat loop inside the extension host, `tealkit.vscode` runs a persistent headless **TealKit RPC Engine** (`tealkit rpc --workspace <dir> --mode <mode> --auto-save-session --continue`) over newline-delimited JSON-RPC (`stdio`) and synchronizes all settings with `~/.tealkitcoder/`.
 
-```mermaid
-flowchart TB
-    subgraph VSCode["VS Code / Antigravity IDE"]
-        direction TB
-        subgraph Webview["TealKit Sidebar Webview (7 Tabs)"]
-            TabChat["💬 Chat & Diff Review"]
-            TabLLMs["🤖 LLMs Manager"]
-            TabMCP["🔌 MCP Tools & Tester"]
-            TabSkills["🧩 Agent Skills"]
-            TabMemory["🧠 Memory & Sessions"]
-            TabServer["☁️ Remote Server & Workflows"]
-            TabSettings["⚙️ Generic & RAG Settings"]
-        end
-
-        subgraph ExtHost["Extension Host (TypeScript)"]
-            ChatProvider["TealKitChatViewProvider"]
-            YamlMgr["TealKitYamlConfigManager\n(FileWatchers + YAML Sync)"]
-            DiffMgr["TealKitDiffManager\n(VS Code Diff & Inline Review)"]
-            AgentProc["TealKitAgentProcess\n(JSON-RPC Client over stdio)"]
-        end
-    end
-
-    subgraph ConfigDir["Shared User Configuration (~/.tealkitcoder)"]
-        CfgYaml["config.yaml & permissions.yaml"]
-        LlmYaml["llm.yaml (Profiles & API Keys)"]
-        McpYaml["mcp.yaml (External MCP Servers)"]
-        SrvYaml["server.yaml (Remote Server Profiles)"]
-        SkillsDir["skills/*.md (Agent Skills)"]
-        RagDb["rag_index.db (SQLite / FTS5 + Vector Index)"]
-    end
-
-    subgraph CliEngine["TealKit Native CLI Engine (tealkit.exe rpc)"]
-        RpcLoop["RPC Command Dispatcher & Turn Orchestrator"]
-        ModeRouter["Mode Router\n(Code | Architect | Ask | RAG)"]
-        NativeTools["Built-in Coding & OS Tools\n(fs_*, terminal_exec, web_search, ssh_*)"]
-        McpClient["External MCP Client\n(stdio / SSE / Streamable HTTP)"]
-        RagEngine["Local RAG Service\n(Folder + Web Crawler + Hybrid Search)"]
-        SessionStore["Session & Episodic Memory Store\n(.tealkit/sessions & .tealkit/memory)"]
-    end
-
-    subgraph External["External Providers & Infrastructure"]
-        LLMProviders["Cloud & Local LLMs\n(OpenAI, Anthropic, Gemini, Mistral,\nDeepInfra, OpenRouter, Ollama, GGUF)"]
-        TealKitServer["Remote TealKit Server\n(Scheduled & On-Demand Workflows)"]
-    end
-
-    Webview <-->|postMessage| ChatProvider
-    ChatProvider <--> YamlMgr
-    ChatProvider <--> DiffMgr
-    ChatProvider <--> AgentProc
-    YamlMgr <-->|Live Read/Write & Watch| ConfigDir
-    AgentProc <-->|JSON-RPC (stdin/stdout)| RpcLoop
-    RpcLoop --> ModeRouter
-    RpcLoop <--> NativeTools
-    RpcLoop <--> McpClient
-    RpcLoop <--> RagEngine
-    RpcLoop <--> SessionStore
-    RagEngine <--> RagDb
-    RpcLoop <--> LLMProviders
-    RpcLoop <--> TealKitServer
-```
+![TealKit Coder Architecture](https://lschaffer.github.io/tealkit/cli.vscode/media/architecture.png)
 
 ---
 

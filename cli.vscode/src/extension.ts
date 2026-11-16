@@ -5,6 +5,7 @@ import { TealKitAgentProcess } from './agentProcess';
 import { TealKitChatViewProvider } from './chatViewProvider';
 import { TealKitDiffManager } from './diffManager';
 import { TealKitConfigWatcher } from './configWatcher';
+import { TealKitYamlConfigManager } from './yamlConfigManager';
 
 let agentProcess: TealKitAgentProcess | null = null;
 let statusBarItem: vscode.StatusBarItem;
@@ -20,8 +21,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.registerTextDocumentContentProvider(TealKitDiffManager.scheme, diffManager)
   );
 
+  // Ensure starter coding skills are seeded into ~/.tealkitcoder/skills
+  TealKitYamlConfigManager.ensureStarterSkills(context.extensionPath);
+
   // Create Agent Process
-  agentProcess = new TealKitAgentProcess(outputChannel);
+  agentProcess = new TealKitAgentProcess(outputChannel, context.extensionPath);
 
   // Status Bar Item
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -58,6 +62,22 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBarItem.text = `$(hubot) TealKit: ${e.mode || 'code'} [${e.model}]`;
   });
 
+  agentProcess.on('rpc_event', (e: any) => {
+    if (e.event === 'error' && e.code === 'ENOENT') {
+      statusBarItem.text = '$(error) TealKit: CLI Not Found';
+      statusBarItem.tooltip = 'Click to configure or install TealKit CLI';
+    }
+  });
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((ev) => {
+      if (ev.affectsConfiguration('tealkit.cliPath')) {
+        agentProcess?.resetSpawnFailure();
+        vscode.commands.executeCommand('tealkit.restart');
+      }
+    })
+  );
+
   // Register Webview View Provider (retainContextWhenHidden keeps active chat & streaming alive when switching sidebars)
   const chatProvider = new TealKitChatViewProvider(context.extensionUri, agentProcess);
   context.subscriptions.push(
@@ -89,6 +109,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('tealkit.restart', () => {
       outputChannel.appendLine('[TealKit] Restarting agent process...');
       statusBarItem.text = '$(sync~spin) TealKit: Restarting...';
+      agentProcess?.resetSpawnFailure();
       agentProcess?.dispose();
       setTimeout(() => {
         agentProcess?.start(workspaceRoot, defaultMode);

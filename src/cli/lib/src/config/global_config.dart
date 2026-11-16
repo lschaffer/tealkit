@@ -95,25 +95,31 @@ class GlobalConfigLocator {
     return File(p.join(effectiveConfigDir, filename));
   }
 
-  /// Returns all skill directories to scan (effective skills dir, local ./skills/, and legacy fallbacks).
+  /// Returns all skill directories to scan (effective skills dir, executable skills dir, local ./skills/, and legacy fallbacks).
   static List<Directory> resolveSkillDirectories() {
     final dirs = <Directory>[];
+    final seen = <String>{};
 
-    final effSkills = Directory(effectiveSkillsDir);
-    if (effSkills.existsSync()) {
-      dirs.add(effSkills);
-      return dirs;
+    void addIfExists(Directory d) {
+      if (d.existsSync()) {
+        final norm = p.normalize(d.absolute.path).toLowerCase();
+        if (seen.add(norm)) {
+          dirs.add(d);
+        }
+      }
     }
 
-    final localSkills = Directory(p.join(Directory.current.path, 'skills'));
-    if (localSkills.existsSync()) {
-      dirs.add(localSkills);
-    }
+    addIfExists(Directory(effectiveSkillsDir));
+    addIfExists(Directory(globalSkillsDir));
 
-    final parentSkills = Directory(p.join(Directory.current.path, '..', 'skills'));
-    if (parentSkills.existsSync()) {
-      dirs.add(parentSkills);
-    }
+    try {
+      final exeDir = p.dirname(Platform.resolvedExecutable);
+      addIfExists(Directory(p.join(exeDir, 'skills')));
+      addIfExists(Directory(p.join(exeDir, '..', 'skills')));
+    } catch (_) {}
+
+    addIfExists(Directory(p.join(Directory.current.path, 'skills')));
+    addIfExists(Directory(p.join(Directory.current.path, '..', 'skills')));
 
     final legacySkills = Directory(p.join(
       Platform.environment['USERPROFILE'] ??
@@ -122,9 +128,7 @@ class GlobalConfigLocator {
       '.tealkit',
       'skills',
     ));
-    if (legacySkills.existsSync()) {
-      dirs.add(legacySkills);
-    }
+    addIfExists(legacySkills);
 
     return dirs;
   }
