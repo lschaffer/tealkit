@@ -269,7 +269,7 @@ packages:
       path: "../mcp_playground/dart_mcp_core"
       relative: true
     source: path
-    version: "1.5.11"
+    version: "1.5.12"
   dartssh2:
     dependency: "direct main"
     description:
@@ -675,21 +675,21 @@ packages:
       path: "../mcp_playground/flutter_ui_mcp"
       relative: true
     source: path
-    version: "1.5.11"
+    version: "1.5.12"
   flutter_ui_mcp_core:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_core"
       relative: true
     source: path
-    version: "1.5.11"
+    version: "1.5.12"
   flutter_ui_mcp_embedded:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_embedded"
       relative: true
     source: path
-    version: "1.5.11"
+    version: "1.5.12"
   flutter_web_auth_2:
     dependency: "direct main"
     description:
@@ -1186,10 +1186,10 @@ packages:
     dependency: "direct main"
     description:
       name: llamadart
-      sha256: "62d8a9081579c2dc176dc509502edb8fc5714be3797a49230a3738d64bfe48ca"
+      sha256: "2d77bece119cfecc5bdea58d146d60659d33f4482712953703999993eaadf267"
       url: "https://pub.dev"
     source: hosted
-    version: "0.17.5"
+    version: "0.19.11"
   logging:
     dependency: "direct main"
     description:

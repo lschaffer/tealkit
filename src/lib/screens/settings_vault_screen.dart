@@ -33,6 +33,8 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
   @override
   void dispose() => super.dispose();
 
+  bool get _isMobileDialogLayout => MediaQuery.sizeOf(context).width < 700;
+
   // ─── Password dialog ───────────────────────────────────────────────────────
 
   Future<String?> _askPassword({required String title, bool withConfirm = false}) async {
@@ -41,67 +43,132 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
     bool obscure = true;
     bool obscureConfirm = true;
     String? error;
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: pwCtrl,
-                obscureText: obscure,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: L.of(context).vaultDialogPassword,
-                  hintText: withConfirm ? L.of(context).vaultDialogPasswordMin : L.of(context).vaultDialogPasswordHint,
-                  errorText: error,
-                  suffixIcon: IconButton(
-                    icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, size: 20),
-                    onPressed: () => setS(() => obscure = !obscure),
-                  ),
-                ),
+    final isMobile = _isMobileDialogLayout;
+
+    Widget buildFields(BuildContext ctx, StateSetter setS) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: pwCtrl,
+          obscureText: obscure,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: L.of(context).vaultDialogPassword,
+            hintText: withConfirm
+                ? L.of(context).vaultDialogPasswordMin
+                : L.of(context).vaultDialogPasswordHint,
+            errorText: error,
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscure ? Icons.visibility_off : Icons.visibility,
+                size: 20,
               ),
-              if (withConfirm) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: confirmCtrl,
-                  obscureText: obscureConfirm,
-                  decoration: InputDecoration(
-                    labelText: L.of(context).vaultDialogConfirmPassword,
-                    suffixIcon: IconButton(
-                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setS(() => obscureConfirm = !obscureConfirm),
+              onPressed: () => setS(() => obscure = !obscure),
+            ),
+          ),
+        ),
+        if (withConfirm) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: confirmCtrl,
+            obscureText: obscureConfirm,
+            decoration: InputDecoration(
+              labelText: L.of(context).vaultDialogConfirmPassword,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                  size: 20,
+                ),
+                onPressed: () => setS(() => obscureConfirm = !obscureConfirm),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    void submit(BuildContext ctx, StateSetter setS) {
+      final pw = pwCtrl.text.trim();
+      if (pw.length < 8) {
+        setS(() => error = L.of(context).vaultDialogPasswordShort);
+        return;
+      }
+      if (withConfirm && pw != confirmCtrl.text.trim()) {
+        setS(() => error = L.of(context).vaultPasswordMismatch);
+        return;
+      }
+      Navigator.pop(ctx, pw);
+    }
+
+    try {
+      return await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setS) {
+            if (isMobile) {
+              return Dialog.fullscreen(
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: Text(title),
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                  body: SafeArea(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [buildFields(ctx, setS)],
+                    ),
+                  ),
+                  bottomNavigationBar: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: Text(L.of(context).cancel),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => submit(ctx, setS),
+                              child: Text(L.of(context).ok),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
+              );
+            }
+            return AlertDialog(
+              title: Text(title),
+              content: buildFields(ctx, setS),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(L.of(context).cancel),
+                ),
+                FilledButton(
+                  onPressed: () => submit(ctx, setS),
+                  child: Text(L.of(context).ok),
+                ),
               ],
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L.of(context).cancel)),
-            FilledButton(
-              onPressed: () {
-                final pw = pwCtrl.text.trim();
-                if (pw.length < 8) {
-                  setS(() => error = L.of(context).vaultDialogPasswordShort);
-                  return;
-                }
-                if (withConfirm && pw != confirmCtrl.text.trim()) {
-                  setS(() => error = L.of(context).vaultPasswordMismatch);
-                  return;
-                }
-                Navigator.pop(ctx, pw);
-              },
-              child: Text(L.of(context).ok),
-            ),
-          ],
+            );
+          },
         ),
-      ),
-    );
-    return result;
+      );
+    } finally {
+      pwCtrl.dispose();
+      confirmCtrl.dispose();
+    }
   }
 
   // ─── Export ───────────────────────────────────────────────────────────────
@@ -168,138 +235,189 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
     bool obscure = true;
     bool obscureConfirm = true;
     String? error;
+    final isMobile = _isMobileDialogLayout;
 
-    final result = await showDialog<(String, String, VaultOptions)>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: Text(L.of(context).vaultDialogExportTitle),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(labelText: L.of(context).vaultDialogFilenameLabel),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: pwCtrl,
-                  obscureText: obscure,
-                  decoration: InputDecoration(
-                    labelText: L.of(context).vaultDialogPasswordLabel,
-                    errorText: error,
-                    suffixIcon: IconButton(
-                      icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setS(() => obscure = !obscure),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: confirmCtrl,
-                  obscureText: obscureConfirm,
-                  decoration: InputDecoration(
-                    labelText: L.of(context).vaultDialogConfirmPassword,
-                    suffixIcon: IconButton(
-                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setS(() => obscureConfirm = !obscureConfirm),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(L.of(context).vaultDialogIncludeLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionConfiguration),
-                  subtitle: Text(L.of(context).vaultSectionConfigurationDesc, style: const TextStyle(fontSize: 11)),
-                  value: incConfig,
-                  onChanged: (v) => setS(() => incConfig = v ?? true),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionServerConnections),
-                  subtitle: Text(L.of(context).vaultSectionServerConnectionsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incServerConns,
-                  onChanged: (v) => setS(() => incServerConns = v ?? true),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionScripts),
-                  subtitle: Text(L.of(context).vaultSectionScriptsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incScripts,
-                  onChanged: (v) => setS(() => incScripts = v ?? true),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionTasks),
-                  subtitle: Text(L.of(context).vaultSectionTasksDesc, style: const TextStyle(fontSize: 11)),
-                  value: incTasks,
-                  onChanged: (v) => setS(() => incTasks = v ?? true),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionSessions),
-                  subtitle: Text(L.of(context).vaultSectionSessionsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incSessions,
-                  onChanged: (v) => setS(() => incSessions = v ?? true),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionSkills),
-                  subtitle: Text(L.of(context).vaultSectionSkillsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incSkills,
-                  onChanged: (v) => setS(() => incSkills = v ?? true),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ],
+    Widget buildContent(StateSetter setS) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: nameCtrl,
+          decoration: InputDecoration(labelText: L.of(context).vaultDialogFilenameLabel),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: pwCtrl,
+          obscureText: obscure,
+          decoration: InputDecoration(
+            labelText: L.of(context).vaultDialogPasswordLabel,
+            errorText: error,
+            suffixIcon: IconButton(
+              icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, size: 20),
+              onPressed: () => setS(() => obscure = !obscure),
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L.of(context).cancel)),
-            FilledButton(
-              onPressed: () {
-                final name = nameCtrl.text.trim();
-                final pw = pwCtrl.text;
-                if (name.isEmpty) {
-                  setS(() => error = L.of(context).vaultDialogEnterFilename);
-                  return;
-                }
-                if (pw.length < 8) {
-                  setS(() => error = L.of(context).vaultDialogPasswordShort);
-                  return;
-                }
-                if (pw != confirmCtrl.text) {
-                  setS(() => error = L.of(context).vaultPasswordMismatch);
-                  return;
-                }
-                Navigator.pop(ctx, (
-                  name,
-                  pw,
-                  VaultOptions(
-                    includeConfiguration: incConfig,
-                    includeScripts: incScripts,
-                    includeTasks: incTasks,
-                    includePlaygroundSessions: incSessions,
-                    includeSkills: incSkills,
-                    includeServerConnections: incServerConns,
-                  ),
-                ));
-              },
-              child: Text(L.of(context).vaultExportButton),
-            ),
-          ],
         ),
-      ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: confirmCtrl,
+          obscureText: obscureConfirm,
+          decoration: InputDecoration(
+            labelText: L.of(context).vaultDialogConfirmPassword,
+            suffixIcon: IconButton(
+              icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
+              onPressed: () => setS(() => obscureConfirm = !obscureConfirm),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(L.of(context).vaultDialogIncludeLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionConfiguration),
+          subtitle: Text(L.of(context).vaultSectionConfigurationDesc, style: const TextStyle(fontSize: 11)),
+          value: incConfig,
+          onChanged: (v) => setS(() => incConfig = v ?? true),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionServerConnections),
+          subtitle: Text(L.of(context).vaultSectionServerConnectionsDesc, style: const TextStyle(fontSize: 11)),
+          value: incServerConns,
+          onChanged: (v) => setS(() => incServerConns = v ?? true),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionScripts),
+          subtitle: Text(L.of(context).vaultSectionScriptsDesc, style: const TextStyle(fontSize: 11)),
+          value: incScripts,
+          onChanged: (v) => setS(() => incScripts = v ?? true),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionTasks),
+          subtitle: Text(L.of(context).vaultSectionTasksDesc, style: const TextStyle(fontSize: 11)),
+          value: incTasks,
+          onChanged: (v) => setS(() => incTasks = v ?? true),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionSessions),
+          subtitle: Text(L.of(context).vaultSectionSessionsDesc, style: const TextStyle(fontSize: 11)),
+          value: incSessions,
+          onChanged: (v) => setS(() => incSessions = v ?? true),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionSkills),
+          subtitle: Text(L.of(context).vaultSectionSkillsDesc, style: const TextStyle(fontSize: 11)),
+          value: incSkills,
+          onChanged: (v) => setS(() => incSkills = v ?? true),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+      ],
     );
-    return result;
+
+    void submit(BuildContext ctx, StateSetter setS) {
+      final name = nameCtrl.text.trim();
+      final pw = pwCtrl.text;
+      if (name.isEmpty) {
+        setS(() => error = L.of(context).vaultDialogEnterFilename);
+        return;
+      }
+      if (pw.length < 8) {
+        setS(() => error = L.of(context).vaultDialogPasswordShort);
+        return;
+      }
+      if (pw != confirmCtrl.text) {
+        setS(() => error = L.of(context).vaultPasswordMismatch);
+        return;
+      }
+      Navigator.pop(ctx, (
+        name,
+        pw,
+        VaultOptions(
+          includeConfiguration: incConfig,
+          includeScripts: incScripts,
+          includeTasks: incTasks,
+          includePlaygroundSessions: incSessions,
+          includeSkills: incSkills,
+          includeServerConnections: incServerConns,
+        ),
+      ));
+    }
+
+    try {
+      return await showDialog<(String, String, VaultOptions)>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setS) {
+            if (isMobile) {
+              return Dialog.fullscreen(
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: Text(L.of(context).vaultDialogExportTitle),
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                  body: SafeArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: buildContent(setS),
+                    ),
+                  ),
+                  bottomNavigationBar: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: Text(L.of(context).cancel),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => submit(ctx, setS),
+                              child: Text(L.of(context).vaultExportButton),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+            return AlertDialog(
+              title: Text(L.of(context).vaultDialogExportTitle),
+              content: SingleChildScrollView(child: buildContent(setS)),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L.of(context).cancel)),
+                FilledButton(
+                  onPressed: () => submit(ctx, setS),
+                  child: Text(L.of(context).vaultExportButton),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    } finally {
+      nameCtrl.dispose();
+      pwCtrl.dispose();
+      confirmCtrl.dispose();
+    }
   }
 
   // ─── Import ───────────────────────────────────────────────────────────────
@@ -381,99 +499,143 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
     bool incSessions = availableSections.contains('playground_sessions');
     bool incSkills = availableSections.contains('skills');
     bool incServerConns = availableSections.contains('server_connections');
-    final isMobile = Platform.isAndroid || Platform.isIOS;
+    final isMobilePlatform = Platform.isAndroid || Platform.isIOS;
+    final isMobileDialog = _isMobileDialogLayout;
+
+    Widget buildContent(StateSetter setS) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(L.of(context).vaultDialogFrom(vaultFileName), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 12),
+        Text(L.of(context).vaultDialogSelectRestore, style: const TextStyle(fontWeight: FontWeight.w600)),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionConfiguration),
+          subtitle: Text(L.of(context).vaultSectionConfigurationDesc, style: const TextStyle(fontSize: 11)),
+          value: incConfig,
+          onChanged: availableSections.contains('configuration') ? (v) => setS(() => incConfig = v ?? true) : null,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionServerConnections),
+          subtitle: Text(L.of(context).vaultSectionServerConnectionsDesc, style: const TextStyle(fontSize: 11)),
+          value: incServerConns,
+          onChanged: availableSections.contains('server_connections') ? (v) => setS(() => incServerConns = v ?? true) : null,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionScripts),
+          subtitle: Text(
+            isMobilePlatform ? L.of(context).vaultSectionScriptsMobileDesc : L.of(context).vaultSectionScriptsDesc,
+            style: const TextStyle(fontSize: 11),
+          ),
+          value: incScripts,
+          onChanged: availableSections.contains('scripts') ? (v) => setS(() => incScripts = v ?? true) : null,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionTasks),
+          subtitle: Text(L.of(context).vaultSectionTasksDesc, style: const TextStyle(fontSize: 11)),
+          value: incTasks,
+          onChanged: availableSections.contains('tasks') ? (v) => setS(() => incTasks = v ?? true) : null,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionSessions),
+          subtitle: Text(L.of(context).vaultSectionSessionsDesc, style: const TextStyle(fontSize: 11)),
+          value: incSessions,
+          onChanged: availableSections.contains('playground_sessions') ? (v) => setS(() => incSessions = v ?? true) : null,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        CheckboxListTile(
+          title: Text(L.of(context).vaultSectionSkills),
+          subtitle: Text(L.of(context).vaultSectionSkillsDesc, style: const TextStyle(fontSize: 11)),
+          value: incSkills,
+          onChanged: availableSections.contains('skills') ? (v) => setS(() => incSkills = v ?? true) : null,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        if (!availableSections.contains('scripts') || !availableSections.contains('tasks')) ...[
+          const SizedBox(height: 8),
+          Text(L.of(context).vaultGreyedNotice, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      ],
+    );
+
+    VaultOptions buildOptions() => VaultOptions(
+      includeConfiguration: incConfig,
+      includeScripts: incScripts,
+      includeTasks: incTasks,
+      includePlaygroundSessions: incSessions,
+      includeSkills: incSkills,
+      includeServerConnections: incServerConns,
+    );
 
     return showDialog<VaultOptions>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: Text(L.of(context).vaultDialogImportTitle),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(L.of(context).vaultDialogFrom(vaultFileName), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 12),
-                Text(L.of(context).vaultDialogSelectRestore, style: const TextStyle(fontWeight: FontWeight.w600)),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionConfiguration),
-                  subtitle: Text(L.of(context).vaultSectionConfigurationDesc, style: const TextStyle(fontSize: 11)),
-                  value: incConfig,
-                  onChanged: availableSections.contains('configuration') ? (v) => setS(() => incConfig = v ?? true) : null,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionServerConnections),
-                  subtitle: Text(L.of(context).vaultSectionServerConnectionsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incServerConns,
-                  onChanged: availableSections.contains('server_connections') ? (v) => setS(() => incServerConns = v ?? true) : null,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionScripts),
-                  subtitle: Text(
-                    isMobile ? L.of(context).vaultSectionScriptsMobileDesc : L.of(context).vaultSectionScriptsDesc,
-                    style: const TextStyle(fontSize: 11),
+        builder: (ctx, setS) {
+          if (isMobileDialog) {
+            return Dialog.fullscreen(
+              child: Scaffold(
+                appBar: AppBar(
+                  title: Text(L.of(context).vaultDialogImportTitle),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
                   ),
-                  value: incScripts,
-                  onChanged: availableSections.contains('scripts') ? (v) => setS(() => incScripts = v ?? true) : null,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
                 ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionTasks),
-                  subtitle: Text(L.of(context).vaultSectionTasksDesc, style: const TextStyle(fontSize: 11)),
-                  value: incTasks,
-                  onChanged: availableSections.contains('tasks') ? (v) => setS(() => incTasks = v ?? true) : null,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
+                body: SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: buildContent(setS),
+                  ),
                 ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionSessions),
-                  subtitle: Text(L.of(context).vaultSectionSessionsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incSessions,
-                  onChanged: availableSections.contains('playground_sessions') ? (v) => setS(() => incSessions = v ?? true) : null,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: Text(L.of(context).vaultSectionSkills),
-                  subtitle: Text(L.of(context).vaultSectionSkillsDesc, style: const TextStyle(fontSize: 11)),
-                  value: incSkills,
-                  onChanged: availableSections.contains('skills') ? (v) => setS(() => incSkills = v ?? true) : null,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                if (!availableSections.contains('scripts') || !availableSections.contains('tasks')) ...[
-                  const SizedBox(height: 8),
-                  Text(L.of(context).vaultGreyedNotice, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L.of(context).cancel)),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: AppTheme.warning),
-              onPressed: () => Navigator.pop(
-                ctx,
-                VaultOptions(
-                  includeConfiguration: incConfig,
-                  includeScripts: incScripts,
-                  includeTasks: incTasks,
-                  includePlaygroundSessions: incSessions,
-                  includeSkills: incSkills,
-                  includeServerConnections: incServerConns,
+                bottomNavigationBar: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(L.of(context).cancel),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(backgroundColor: AppTheme.warning),
+                            onPressed: () => Navigator.pop(ctx, buildOptions()),
+                            child: Text(L.of(context).vaultRestoreButton),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              child: Text(L.of(context).vaultRestoreButton),
-            ),
-          ],
-        ),
+            );
+          }
+          return AlertDialog(
+            title: Text(L.of(context).vaultDialogImportTitle),
+            content: SingleChildScrollView(child: buildContent(setS)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L.of(context).cancel)),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.warning),
+                onPressed: () => Navigator.pop(ctx, buildOptions()),
+                child: Text(L.of(context).vaultRestoreButton),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

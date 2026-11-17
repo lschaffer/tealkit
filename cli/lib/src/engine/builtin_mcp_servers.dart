@@ -12,6 +12,7 @@ import 'package:yaml/yaml.dart';
 
 import '../config/env_loader.dart';
 import '../config/global_config.dart';
+import '../rag/extractors/web_extractor.dart';
 
 MCPToolResult _toolResultError(String message) => MCPToolResult(
   isError: true,
@@ -30,11 +31,15 @@ MCPToolResult _toolResultJson(Object data, {bool isError = false}) =>
 /// 3. `toolbox` (`get_current_time`, `get_timezone_info`, `calculate`, `sum_numbers`, `geocode_city`)
 /// 4. `ssh` (`execute_command`, `list_directory`, `read_file`, `upload_file`, `download_file`, `make_directory`, `remove_directory`, configured via `ssh.yaml`)
 class BuiltinMcpServers {
-  // ── Web Search ───────────────────────────────────────────────
+  // ── Web Search & Web Fetch ───────────────────────────────────
   static McpLocalTool createWebSearchTool({
     String configPath = 'web_search.yaml',
   }) {
     return _WebSearchTool(configPath: configPath);
+  }
+
+  static McpLocalTool createWebFetchTool() {
+    return _WebFetchTool();
   }
 
   // ── Mermaid Diagram Tool ─────────────────────────────────────
@@ -111,6 +116,7 @@ class BuiltinMcpServers {
   static List<McpLocalTool> createAll() {
     return [
       createWebSearchTool(),
+      createWebFetchTool(),
       createMermaidTool(),
       ...createToolboxTools(),
       ...createSshTools(),
@@ -406,6 +412,136 @@ class _WebSearchTool extends McpLocalTool {
     return _toolResultError(
       'No search provider succeeded for query: "$query".',
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 1b. Built-in Web Fetch Tool (HTML -> readable text with pagination)
+// ═══════════════════════════════════════════════════════════════
+
+class _WebFetchTool extends McpLocalTool {
+  @override
+  String get name => 'web_fetch';
+
+  @override
+  String get description =>
+      'Fetch a public HTTP/HTTPS web page and extract clean readable text (stripping HTML scripts/styles) or raw JSON/text, with pagination via start_index and max_length.';
+
+  @override
+  ToolRiskLevel get riskLevel => ToolRiskLevel.network;
+
+  @override
+  Map<String, dynamic> get inputSchema => {
+    'type': 'object',
+    'properties': {
+      'url': {
+        'type': 'string',
+        'description': 'Full http:// or https:// URL to fetch.',
+      },
+      'max_length': {
+        'type': 'integer',
+        'description':
+            'Maximum number of characters to return (default 8000, max 100000).',
+      },
+      'start_index': {
+        'type': 'integer',
+        'description':
+            'Character offset to start reading from (default 0, used to paginate long pages).',
+      },
+      'raw': {
+        'type': 'boolean',
+        'description':
+            'If true, return raw response text without stripping HTML tags (default false).',
+      },
+    },
+    'required': ['url'],
+  };
+
+  @override
+  Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
+    final rawUrl = (arguments['url'] as String? ?? '').trim();
+    if (rawUrl.isEmpty) {
+      return _toolResultError('URL parameter is required.');
+    }
+
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+      return _toolResultError(
+        'Invalid URL scheme. Only http:// and https:// URLs are supported.',
+      );
+    }
+
+    final startIndex = ((arguments['start_index'] as num?)?.toInt() ?? 0).clamp(0, 10000000);
+    final maxLength = ((arguments['max_length'] as num?)?.toInt() ?? 8000).clamp(200, 100000);
+    final rawMode = arguments['raw'] == true;
+
+    try {
+      final resp = await http
+          .get(
+            uri,
+            headers: const {
+              'Accept': 'text/html,application/xhtml+xml,text/plain,text/markdown,application/json,*/*;q=0.5',
+              'Accept-Language': 'en-US,en;q=0.9,de;q=0.8',
+              'User-Agent': 'Mozilla/5.0 (compatible; TealKit-WebFetch/1.0)',
+            },
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        return _toolResultError(
+          'HTTP ${resp.statusCode} (${resp.reasonPhrase ?? 'Error'}) fetching $rawUrl',
+        );
+      }
+
+      final ct = (resp.headers['content-type'] ?? '').toLowerCase();
+      if (ct.startsWith('image/') ||
+          ct.startsWith('audio/') ||
+          ct.startsWith('video/') ||
+          ct.contains('application/pdf') ||
+          ct.contains('application/octet-stream')) {
+        return _toolResultError(
+          'Unsupported binary content-type "$ct" for $rawUrl.',
+        );
+      }
+
+      final body = utf8.decode(resp.bodyBytes, allowMalformed: true);
+      final looksHtml = ct.contains('text/html') ||
+          ct.contains('application/xhtml+xml') ||
+          body.trimLeft().toLowerCase().startsWith('<!doctype') ||
+          body.trimLeft().toLowerCase().startsWith('<html');
+
+      final content = (!rawMode && looksHtml)
+          ? WebExtractor.extractReadableText(body)
+          : body;
+
+      final totalLen = content.length;
+      final clampedStart = startIndex.clamp(0, totalLen);
+      final clampedEnd = (clampedStart + maxLength).clamp(clampedStart, totalLen);
+      final slice = content.substring(clampedStart, clampedEnd);
+      final hasMore = clampedEnd < totalLen;
+
+      final sb = StringBuffer('Contents of $rawUrl:\n\n');
+      sb.write(slice);
+      if (hasMore) {
+        sb.write(
+          '\n\n[Truncated: showing chars $clampedStart..$clampedEnd of $totalLen. Call web_fetch with start_index: $clampedEnd to read more.]',
+        );
+      }
+
+      return _toolResultJson({
+        'url': rawUrl,
+        'status': resp.statusCode,
+        'content_type': ct,
+        'start_index': clampedStart,
+        'end_index': clampedEnd,
+        'total_length': totalLen,
+        'has_more': hasMore,
+        if (hasMore) 'next_start_index': clampedEnd,
+        'text': sb.toString(),
+      });
+    } catch (e) {
+      return _toolResultError('Failed to fetch "$rawUrl": $e');
+    }
   }
 }
 

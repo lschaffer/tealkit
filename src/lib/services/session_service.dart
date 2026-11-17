@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -89,8 +90,12 @@ class SessionService extends ChangeNotifier {
   int _maxSessionTurns = 200;
 
   String? _activeSessionFilePath;
+  String? _appDocumentsSessionsDir;
   bool _isSaving = false;
   bool _pendingSave = false;
+
+  static bool get _isMobilePlatform =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   bool get autoSaveEnabled => _autoSaveEnabled;
   String get autoSaveDir => _autoSaveDir;
@@ -110,6 +115,12 @@ class SessionService extends ChangeNotifier {
       _promptContinueLastSession = prefs.getBool(_keyPromptContinue) ?? true;
       _maxSessionSizeMb = prefs.getInt(_keyMaxSessionSizeMb) ?? 10;
       _maxSessionTurns = prefs.getInt(_keyMaxSessionTurns) ?? 200;
+      if (!kIsWeb) {
+        try {
+          final docs = await getApplicationDocumentsDirectory();
+          _appDocumentsSessionsDir = p.join(docs.path, 'tealkit', 'sessions');
+        } catch (_) {}
+      }
       _initialized = true;
       notifyListeners();
     } catch (e) {
@@ -191,10 +202,20 @@ class SessionService extends ChangeNotifier {
     if (_autoSaveDir.isNotEmpty && Directory(_autoSaveDir).existsSync()) {
       return _autoSaveDir;
     }
+    if (_isMobilePlatform && _appDocumentsSessionsDir != null) {
+      return _appDocumentsSessionsDir!;
+    }
     if (workspaceDirectory != null && workspaceDirectory.isNotEmpty) {
       return p.join(workspaceDirectory, '.tealkit', 'sessions');
     }
-    final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? Directory.current.path;
+    final home = Platform.environment['USERPROFILE'] ??
+        Platform.environment['HOME'] ??
+        _appDocumentsSessionsDir ??
+        Directory.current.path;
+    if (_appDocumentsSessionsDir != null &&
+        (home == _appDocumentsSessionsDir || home == '/')) {
+      return _appDocumentsSessionsDir!;
+    }
     return p.join(home, '.tealkit', 'sessions');
   }
 
@@ -215,16 +236,21 @@ class SessionService extends ChangeNotifier {
     if (_autoSaveDir.isNotEmpty) {
       candidateDirs.add(_autoSaveDir);
     }
-    if (workspaceDirectory != null && workspaceDirectory.isNotEmpty) {
-      candidateDirs.add(p.join(workspaceDirectory, '.tealkit', 'sessions'));
-      candidateDirs.add(p.join(workspaceDirectory, 'sessions'));
+    if (_appDocumentsSessionsDir != null && _appDocumentsSessionsDir!.isNotEmpty) {
+      candidateDirs.add(_appDocumentsSessionsDir!);
     }
-    candidateDirs.add(p.join(Directory.current.path, '.tealkit', 'sessions'));
-    candidateDirs.add(p.join(Directory.current.path, 'sessions'));
+    if (!_isMobilePlatform) {
+      if (workspaceDirectory != null && workspaceDirectory.isNotEmpty) {
+        candidateDirs.add(p.join(workspaceDirectory, '.tealkit', 'sessions'));
+        candidateDirs.add(p.join(workspaceDirectory, 'sessions'));
+      }
+      candidateDirs.add(p.join(Directory.current.path, '.tealkit', 'sessions'));
+      candidateDirs.add(p.join(Directory.current.path, 'sessions'));
 
-    final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
-    if (home.isNotEmpty) {
-      candidateDirs.add(p.join(home, '.tealkit', 'sessions'));
+      final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
+      if (home.isNotEmpty) {
+        candidateDirs.add(p.join(home, '.tealkit', 'sessions'));
+      }
     }
 
     final files = <File>[];
@@ -264,6 +290,7 @@ class SessionService extends ChangeNotifier {
     required String? llmModel,
     String? workspaceDirectory,
   }) async {
+    await init();
     if (!_autoSaveEnabled || messages.isEmpty) return;
     if (_isSaving) {
       _pendingSave = true;
@@ -302,7 +329,7 @@ class SessionService extends ChangeNotifier {
 
       final session = SessionData(
         id: const Uuid().v4(),
-        title: 'TealKit Coding Session',
+        title: mode == 'code' ? 'TealKit Coding Session' : 'TealKit Assistant Session',
         mode: mode,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),

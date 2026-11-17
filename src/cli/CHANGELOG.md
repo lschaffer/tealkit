@@ -4,6 +4,10 @@ All notable changes to the TealKit CLI package will be documented in this file.
 
 ## 1.4.6
 
+- **Configurable Request Timeouts & Dynamic Streaming (`dart_mcp_core: ^1.5.12`, `llamadart: ^0.19.11`)**:
+  - Added per-profile `timeout_seconds` configuration (defaulting to `600` seconds) in `LlmConfigManager` (`llm.yaml`) and `TealKitRpcEngine`, synchronized with the TealKit Coder VS Code extension (`llm.yaml` editor and RPC profile payloads).
+  - Upgraded to `dart_mcp_core: ^1.5.12` so `LLMService._streamOpenAIWithClient`, `McpAgentEngine`, and `ContextCompressor` honor `config.timeout` dynamically instead of hardcoded `40s`/`45s`/`75s` timeouts on long local `llama.cpp` / vLLM / SLM prefills.
+  - Updated `llamadart` dependency to `^0.19.11` and rebuilt `tealkit.exe` and `cli/setup/tealkit_cli_setup.zip`.
 - **Native `rag_search` Tool & Dedicated `rag` Mode in RPC/CLI**:
   - Added `CodingMode.rag` support to `tealkit rpc` / `tealkit code` and added `_RagSearchTool` (`rag_search`) to query `rag_index.db` cleanly without opening binary `.docx`/`.pdf` files via `fs_read_file`.
   - Restricted `CodingMode.rag` tools to RAG & non-filesystem utilities and truncated verbose `AgentLogEvent` prompt dumps before emitting `log` events.

@@ -197,20 +197,22 @@ class TealKitRpcEngine {
     );
 
     final allProfiles = LlmConfigManager.loadAllProfiles(configPath: llmPath);
-    String activeLlmName = initialLlmName ?? 'default';
-    LlmConfig activeLlmConfig = runner.loadLlmConfig(
-      targetName: initialLlmName,
-    );
-
     NamedLlmProfile? activeProfile;
-    for (final p in allProfiles) {
-      if (p.config.model == activeLlmConfig.model &&
-          p.config.provider == activeLlmConfig.provider) {
-        activeLlmName = p.name;
-        activeProfile = p;
-        break;
+    if (initialLlmName != null && initialLlmName!.trim().isNotEmpty) {
+      final q = initialLlmName!.trim().toLowerCase();
+      for (final p in allProfiles) {
+        if (p.name.toLowerCase() == q) {
+          activeProfile = p;
+          break;
+        }
       }
     }
+    activeProfile ??= allProfiles.isNotEmpty
+        ? allProfiles.firstWhere((p) => p.isDefault, orElse: () => allProfiles.first)
+        : null;
+    String activeLlmName = activeProfile?.name ?? (initialLlmName ?? 'default');
+    LlmConfig activeLlmConfig = activeProfile?.config ??
+        runner.loadLlmConfig(targetName: initialLlmName);
 
     if (activeProfile != null &&
         activeProfile.config.provider == LlmProvider.embedded) {
@@ -437,14 +439,27 @@ class TealKitRpcEngine {
             }
 
           case 'list_models':
+            var switchedToNewDefault = false;
             try {
               allProfiles.clear();
               allProfiles.addAll(LlmConfigManager.loadAllProfiles(configPath: llmPath));
+              NamedLlmProfile? matched;
               for (final p in allProfiles) {
                 if (p.name == activeLlmName) {
-                  activeLlmConfig = p.config;
+                  matched = p;
                   break;
                 }
+              }
+              if (matched != null) {
+                activeLlmConfig = matched.config;
+              } else if (allProfiles.isNotEmpty) {
+                final def = allProfiles.firstWhere(
+                  (p) => p.isDefault,
+                  orElse: () => allProfiles.first,
+                );
+                activeLlmName = def.name;
+                activeLlmConfig = def.config;
+                switchedToNewDefault = true;
               }
             } catch (_) {}
 
@@ -470,6 +485,7 @@ class TealKitRpcEngine {
                 'isDefault': isCurrent,
                 'temperature': p.config.temperature,
                 'maxTokens': p.config.maxTokens,
+                'timeoutSeconds': p.config.timeoutSeconds,
                 'contextWindow': rates?.contextWindow != null ? TokenUsageTracker.formatContextWindow(rates!.contextWindow) : null,
                 'pricing': (rates != null && rates.inputPerM == 0.0 && rates.outputPerM == 0.0)
                     ? 'Free'
@@ -478,11 +494,22 @@ class TealKitRpcEngine {
               };
             }));
             _sendEvent('models', {'id': ?requestId, 'models': profilesList});
+            if (switchedToNewDefault) {
+              _sendEvent('model_changed', {
+                'id': ?requestId,
+                'profile': activeLlmName,
+                'model': activeLlmName,
+                'modelId': activeLlmConfig.model,
+                'provider': activeLlmConfig.provider.displayName,
+              });
+            }
 
           case 'set_model':
             final profileName = (request['model'] as String? ?? request['profile'] as String? ?? '').trim();
             if (profileName.isEmpty) break;
             try {
+              allProfiles.clear();
+              allProfiles.addAll(LlmConfigManager.loadAllProfiles(configPath: llmPath));
               final newConfig = runner.loadLlmConfig(targetName: profileName);
               activeLlmConfig = newConfig;
               activeLlmName = profileName;
@@ -1183,6 +1210,27 @@ class TealKitRpcEngine {
   }) async {
     _sendEvent('start', {'id': turnId, 'prompt': promptText});
 
+    // Always pick up latest edited credentials/profiles from llm.yaml before executing a turn
+    try {
+      allProfiles.clear();
+      allProfiles.addAll(LlmConfigManager.loadAllProfiles(configPath: llmPath));
+      if (allProfiles.isNotEmpty) {
+        final current = allProfiles.cast<NamedLlmProfile?>().firstWhere(
+          (p) => p!.name == activeLlmName,
+          orElse: () => null,
+        );
+        if (current != null) {
+          activeLlmConfig = current.config;
+        } else {
+          final def = allProfiles.firstWhere(
+            (p) => p.isDefault,
+            orElse: () => allProfiles.first,
+          );
+          activeLlmConfig = def.config;
+        }
+      }
+    } catch (_) {}
+
     // Build effective prompt with staged attachments & @contextFiles
     final effectivePromptBuffer = StringBuffer();
     final stagedAttachments = <CliAttachment>[];
@@ -1335,9 +1383,8 @@ class TealKitRpcEngine {
       effectivePromptBuffer.writeln('');
     }
 
-    // Inject local RAG context when in RAG mode or when RAG is enabled and configured
-    if ((currentMode == CodingMode.rag || cliConfig.rag.enabled) &&
-        _isRagConfigured(cliConfig)) {
+    // Inject local RAG context only when in RAG mode (never block Architect/Code/Ask on RAG endpoints)
+    if (currentMode == CodingMode.rag && _isRagConfigured(cliConfig)) {
       final ragService = RagService(cliConfig.rag);
       try {
         final ragContext = await ragService.buildPromptContext(promptText);

@@ -30,7 +30,7 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage({ type: 'clear' });
   }
 
-  public refreshConfigsFromDisk(kind?: 'config' | 'llm' | 'mcp' | 'server'): void {
+  public refreshConfigsFromDisk(kind?: 'config' | 'llm' | 'mcp' | 'server' | 'websearch'): void {
     if (!this._view) return;
     if (!kind || kind === 'config') {
       const config = TealKitYamlConfigManager.loadCliConfig();
@@ -42,7 +42,15 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
     }
     if (!kind || kind === 'mcp') {
       const mcpConfig = TealKitYamlConfigManager.loadMcpConfig();
-      this._view.webview.postMessage({ type: 'mcp_config_data', ...mcpConfig });
+      this._view.webview.postMessage({
+        type: 'mcp_config_data',
+        ...mcpConfig,
+        preconfiguredTools: TealKitYamlConfigManager.getPreconfiguredTools(),
+      });
+    }
+    if (!kind || kind === 'websearch') {
+      const wsConfig = TealKitYamlConfigManager.loadWebSearchConfig();
+      this._view.webview.postMessage({ type: 'web_search_config_data', ...wsConfig });
     }
     if (!kind || kind === 'server') {
       const serverConfig = TealKitYamlConfigManager.loadServerConfig();
@@ -230,11 +238,11 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         case 'save_llm_profile': {
           if (message.profile) {
             TealKitYamlConfigManager.saveLlmProfile(message.profile, message.isDefault, message.originalName);
+            const config = TealKitYamlConfigManager.loadLlmConfig();
             this._agent.listModels();
-            if (message.isDefault) {
+            if (message.isDefault || config.defaultModel === message.profile.name || config.profiles.length === 1) {
               this._agent.setModel(message.profile.name);
             }
-            const config = TealKitYamlConfigManager.loadLlmConfig();
             this._view?.webview.postMessage({
               type: 'llm_config_data',
               ...config,
@@ -278,6 +286,7 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
           if (message.name) {
             TealKitYamlConfigManager.setDefaultLlmProfile(message.name);
             this._agent.listModels();
+            this._agent.setModel(message.name);
             const config = TealKitYamlConfigManager.loadLlmConfig();
             this._view?.webview.postMessage({
               type: 'llm_config_data',
@@ -293,7 +302,41 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
           this._view?.webview.postMessage({
             type: 'mcp_config_data',
             ...config,
+            preconfiguredTools: TealKitYamlConfigManager.getPreconfiguredTools(),
           });
+          break;
+        }
+        case 'get_web_search_config': {
+          const wsConfig = TealKitYamlConfigManager.loadWebSearchConfig();
+          this._view?.webview.postMessage({
+            type: 'web_search_config_data',
+            ...wsConfig,
+          });
+          break;
+        }
+        case 'save_web_search_config': {
+          if (message.config) {
+            const saved = TealKitYamlConfigManager.saveWebSearchConfig(message.config);
+            this._view?.webview.postMessage({
+              type: 'web_search_config_data',
+              ...saved,
+              savedAt: new Date().toLocaleTimeString(),
+            });
+            vscode.window.showInformationMessage(`Saved Web Search settings (${saved.provider}).`);
+          }
+          break;
+        }
+        case 'open_web_search_file': {
+          const wsPath = TealKitYamlConfigManager.getWebSearchConfigPath();
+          if (!fs.existsSync(wsPath)) {
+            TealKitYamlConfigManager.saveWebSearchConfig({ provider: 'duckduckgo', apiKey: '', maxResults: 15 });
+          }
+          try {
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(wsPath));
+            await vscode.window.showTextDocument(doc);
+          } catch (e: any) {
+            vscode.window.showErrorMessage(`Could not open web_search.yaml: ${e.message}`);
+          }
           break;
         }
         case 'save_mcp_server': {
@@ -1113,6 +1156,7 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         <button id="tab-btn-chat" class="tab-btn active" data-tab="chat">💬 Chat</button>
         <button id="tab-btn-llms" class="tab-btn" data-tab="llms">🤖 LLMs</button>
         <button id="tab-btn-mcp" class="tab-btn" data-tab="mcp">🔌 MCP Tools</button>
+        <button id="tab-btn-websearch" class="tab-btn" data-tab="websearch">🔍 Web Search</button>
         <button id="tab-btn-skills" class="tab-btn" data-tab="skills">🧩 Skills</button>
         <button id="tab-btn-memory" class="tab-btn" data-tab="memory">🧠 Memory</button>
         <button id="tab-btn-server" class="tab-btn" data-tab="server">☁️ Server</button>
@@ -1227,6 +1271,58 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
 
       <div id="mcp-list" class="cards-list">
         <div class="loading-state">Loading MCP servers...</div>
+      </div>
+
+      <div class="panel-actions-bar" style="margin-top: 14px;">
+        <span class="panel-section-title">Preconfigured Built-in Tools</span>
+      </div>
+      <div id="preconfigured-tools-list" class="cards-list">
+        <div class="loading-state">Loading built-in tools...</div>
+      </div>
+    </div>
+
+    <!-- TAB: Web Search Configuration (web_search.yaml) -->
+    <div id="panel-websearch" class="tab-panel hidden">
+      <div class="config-banner">
+        <div class="config-path-box">
+          <span class="config-label">web_search.yaml:</span>
+          <span id="ws-file-path" class="config-path" title="web_search.yaml path">loading...</span>
+        </div>
+        <button id="open-ws-file-btn" class="mini-btn" title="Open web_search.yaml in VS Code Editor">📄 Open</button>
+      </div>
+
+      <div class="settings-form-container">
+        <div id="ws-save-status" class="hint-status" style="margin-bottom: 4px;"></div>
+
+        <div class="settings-section-card">
+          <div class="section-card-title">Search Provider (<code>web_search.yaml</code>)</div>
+          <p class="memory-desc" style="margin-bottom: 10px;">
+            Configures the built-in <code>web_search</code> tool. Supports <code>\${ENV_VAR}</code> placeholders from <code>~/.tealkitcoder/.env</code> (or system environment). DuckDuckGo works without an API key.
+          </p>
+          <div class="form-group">
+            <label for="ws-provider">Provider</label>
+            <select id="ws-provider">
+              <option value="duckduckgo">duckduckgo (Free, no key required)</option>
+              <option value="serpapi">serpapi (Google Search via SerpApi)</option>
+              <option value="serper">serper (Google Search via Serper.dev)</option>
+              <option value="auto">auto (Use API key if set, else DuckDuckGo)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="ws-api-key">API Key (or <code>\${SERP_API_KEY}</code>)</label>
+            <div class="input-with-eye">
+              <input type="password" id="ws-api-key" placeholder="\${SERP_API_KEY} or paste key" />
+              <button type="button" id="toggle-ws-apikey-visibility" class="eye-btn" title="Toggle visibility">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="ws-max-results">Max Results (1 - 20)</label>
+            <input type="number" id="ws-max-results" min="1" max="20" value="15" />
+          </div>
+          <div style="padding-top: 6px;">
+            <button id="btn-save-websearch" class="primary-btn" style="width: 100%;">💾 Save Web Search Config</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1608,9 +1704,15 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
             <input type="number" id="llm-input-topk" step="1" min="1" max="200" placeholder="40" />
           </div>
         </div>
-        <div class="form-group">
-          <label for="llm-input-repeat-penalty">Repeat Penalty</label>
-          <input type="number" id="llm-input-repeat-penalty" step="0.05" min="0" max="2" placeholder="1.0" />
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="llm-input-repeat-penalty">Repeat Penalty</label>
+            <input type="number" id="llm-input-repeat-penalty" step="0.05" min="0" max="2" placeholder="1.0" />
+          </div>
+          <div class="form-group">
+            <label for="llm-input-timeout">Request Timeout (sec)</label>
+            <input type="number" id="llm-input-timeout" step="30" min="10" max="7200" placeholder="600" />
+          </div>
         </div>
         <div class="form-group checkbox-group">
           <input type="checkbox" id="llm-input-isslm" />

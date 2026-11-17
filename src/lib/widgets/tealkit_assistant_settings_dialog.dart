@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -55,6 +56,9 @@ class TealKitAssistantSettingsDialog extends ConsumerStatefulWidget {
     this.isCodingMode = false,
     this.showSystemPromptTemplates,
   });
+
+  static LlmConfig profileToLlmConfig(NamedLlmProfile profile) =>
+      _TealKitAssistantSettingsDialogState.profileToLlmConfig(profile);
 
   @override
   ConsumerState<TealKitAssistantSettingsDialog> createState() =>
@@ -204,6 +208,11 @@ class _TealKitAssistantSettingsDialogState
     );
     _loadWebsiteMaxPages();
     _loadIndexTimestampsFromDb();
+    unawaited(
+      SessionService.instance.init().then((_) {
+        if (mounted) setState(() {});
+      }),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshSelectableGithubMcpServers();
       _disableServerModeHiddenTools();
@@ -2217,9 +2226,11 @@ class _TealKitAssistantSettingsDialogState
           // Tool Permissions Card (Human-in-the-Loop) - Hidden in mobile mode
           _buildToolPermissionsCard(theme, l),
           const SizedBox(height: 12),
-          _buildSessionAutoSaveCard(theme, l),
-          const SizedBox(height: 12),
         ],
+
+        // Session & Auto-Save Card - Shown in all modes (desktop & mobile)
+        _buildSessionAutoSaveCard(theme, l, isMobile: isMobile),
+        const SizedBox(height: 12),
 
         // Specialized Sub-Agents Card (DelegateTaskTool) - Shown in mobile mode with web_search
         _buildSpecializedSubAgentsCard(theme, l, isMobile: isMobile),
@@ -3241,12 +3252,74 @@ class _TealKitAssistantSettingsDialogState
   // ─────────────────────────────────────────────────────────────
 
   // ─────────────────────────────────────────────────────────────
-  // Session & Auto-Save Card (Desktop Coding Mode)
+  // Session & Auto-Save Card (All Modes — Desktop & Mobile)
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildSessionAutoSaveCard(ThemeData theme, L l) {
+  Widget _buildSessionAutoSaveCard(
+    ThemeData theme,
+    L l, {
+    bool isMobile = false,
+  }) {
     const orangeColor = Color(0xFFFB923C);
     final sessionService = SessionService.instance;
+    final resolvedDir = sessionService.autoSaveDir.isNotEmpty
+        ? sessionService.autoSaveDir
+        : '${sessionService.resolveSessionsDirectory()} (Default)';
+
+    Widget buildDirectoryActions() => Wrap(
+      spacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        TextButton.icon(
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          icon: const Icon(Icons.folder_open, size: 16),
+          label: const Text('Browse...', style: TextStyle(fontSize: 12)),
+          onPressed: () async {
+            try {
+              final selected = await FilePicker.getDirectoryPath(
+                dialogTitle: 'Select Auto-Save Directory',
+              );
+              if (selected != null) {
+                await sessionService.updateSettings(
+                  autoSaveEnabled: sessionService.autoSaveEnabled,
+                  autoSaveDir: selected,
+                  autoSavePattern: sessionService.autoSavePattern,
+                  promptContinueLastSession:
+                      sessionService.promptContinueLastSession,
+                  maxSessionSizeMb: sessionService.maxSessionSizeMb,
+                  maxSessionTurns: sessionService.maxSessionTurns,
+                );
+                if (mounted) setState(() {});
+              }
+            } catch (_) {}
+          },
+        ),
+        if (sessionService.autoSaveDir.isNotEmpty)
+          IconButton(
+            tooltip: 'Reset to default folder',
+            icon: const Icon(Icons.refresh, size: 16),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            onPressed: () async {
+              await sessionService.updateSettings(
+                autoSaveEnabled: sessionService.autoSaveEnabled,
+                autoSaveDir: '',
+                autoSavePattern: sessionService.autoSavePattern,
+                promptContinueLastSession:
+                    sessionService.promptContinueLastSession,
+                maxSessionSizeMb: sessionService.maxSessionSizeMb,
+                maxSessionTurns: sessionService.maxSessionTurns,
+              );
+              if (mounted) setState(() {});
+            },
+          ),
+      ],
+    );
 
     return Card(
       elevation: 0,
@@ -3256,25 +3329,33 @@ class _TealKitAssistantSettingsDialogState
         side: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(50)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isMobile ? 12 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.history_edu_rounded, color: orangeColor, size: 20),
+                const Icon(
+                  Icons.history_edu_rounded,
+                  color: orangeColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
-                Text(
-                  'Session & Auto-Save (Coding Mode)',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Session & Auto-Save',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Text(
-              'Persist conversation sessions as structured JSON, allow continuation across restarts, and manage session rotation.',
+              'Save sessions as JSON, continue after restart, and rotate long logs.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -3284,27 +3365,40 @@ class _TealKitAssistantSettingsDialogState
             // Toggle: Auto-Save
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Auto-save sessions to JSON', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              subtitle: const Text('Automatically writes active chat and tool transcript on every completed turn', style: TextStyle(fontSize: 11)),
+              title: const Text(
+                'Auto-save sessions to JSON',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Automatically writes active chat and tool transcript on each turn',
+                style: TextStyle(fontSize: 11),
+              ),
               value: sessionService.autoSaveEnabled,
               onChanged: (val) async {
                 await sessionService.updateSettings(
                   autoSaveEnabled: val,
                   autoSaveDir: sessionService.autoSaveDir,
                   autoSavePattern: sessionService.autoSavePattern,
-                  promptContinueLastSession: sessionService.promptContinueLastSession,
+                  promptContinueLastSession:
+                      sessionService.promptContinueLastSession,
                   maxSessionSizeMb: sessionService.maxSessionSizeMb,
                   maxSessionTurns: sessionService.maxSessionTurns,
                 );
-                setState(() {});
+                if (mounted) setState(() {});
               },
             ),
 
             // Toggle: Prompt to continue on startup
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Prompt to continue last session on startup', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              subtitle: const Text('Asks if you want to restore previous context when opening coding mode', style: TextStyle(fontSize: 11)),
+              title: const Text(
+                'Continue last session on startup',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Asks to restore previous context when opening Assistant',
+                style: TextStyle(fontSize: 11),
+              ),
               value: sessionService.promptContinueLastSession,
               onChanged: (val) async {
                 await sessionService.updateSettings(
@@ -3315,69 +3409,63 @@ class _TealKitAssistantSettingsDialogState
                   maxSessionSizeMb: sessionService.maxSessionSizeMb,
                   maxSessionTurns: sessionService.maxSessionTurns,
                 );
-                setState(() {});
+                if (mounted) setState(() {});
               },
             ),
 
             const SizedBox(height: 8),
 
-            // Directory row
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Auto-Save Directory:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 2),
-                      Text(
-                        sessionService.autoSaveDir.isNotEmpty
-                            ? sessionService.autoSaveDir
-                            : '${sessionService.resolveSessionsDirectory()} (Default)',
-                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+            // Directory layout (stacks cleanly on narrow mobile to avoid overflow)
+            if (isMobile) ...[
+              const Text(
+                'Auto-Save Directory:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                resolvedDir,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                TextButton.icon(
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('Browse...', style: TextStyle(fontSize: 12)),
-                  onPressed: () async {
-                    final selected = await FilePicker.getDirectoryPath(
-                      dialogTitle: 'Select Auto-Save Directory',
-                    );
-                    if (selected != null) {
-                      await sessionService.updateSettings(
-                        autoSaveEnabled: sessionService.autoSaveEnabled,
-                        autoSaveDir: selected,
-                        autoSavePattern: sessionService.autoSavePattern,
-                        promptContinueLastSession: sessionService.promptContinueLastSession,
-                        maxSessionSizeMb: sessionService.maxSessionSizeMb,
-                        maxSessionTurns: sessionService.maxSessionTurns,
-                      );
-                      setState(() {});
-                    }
-                  },
-                ),
-                if (sessionService.autoSaveDir.isNotEmpty)
-                  IconButton(
-                    tooltip: 'Reset to default folder',
-                    icon: const Icon(Icons.refresh, size: 16),
-                    onPressed: () async {
-                      await sessionService.updateSettings(
-                        autoSaveEnabled: sessionService.autoSaveEnabled,
-                        autoSaveDir: '',
-                        autoSavePattern: sessionService.autoSavePattern,
-                        promptContinueLastSession: sessionService.promptContinueLastSession,
-                        maxSessionSizeMb: sessionService.maxSessionSizeMb,
-                        maxSessionTurns: sessionService.maxSessionTurns,
-                      );
-                      setState(() {});
-                    },
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: buildDirectoryActions(),
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Auto-Save Directory:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          resolvedDir,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  buildDirectoryActions(),
+                ],
+              ),
           ],
         ),
       ),

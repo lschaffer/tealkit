@@ -17,6 +17,7 @@ export interface LlmProfileItem {
   topK?: number;
   repeatPenalty?: number;
   contextSize?: number;
+  timeoutSeconds?: number;
   isSlm?: boolean;
   thinking?: boolean;
   useStreaming?: boolean;
@@ -95,6 +96,21 @@ export interface CliGenericConfig {
   autoSave: boolean;
   permissions: CliPermissionsConfig;
   rag: CliRagConfig;
+}
+
+export interface WebSearchConfig {
+  filePath: string;
+  provider: string;
+  apiKey: string;
+  maxResults: number;
+}
+
+export interface PreconfiguredToolItem {
+  name: string;
+  category: string;
+  description: string;
+  risk: 'read' | 'write' | 'execute' | 'network';
+  configurableTab?: string;
 }
 
 export class TealKitYamlConfigManager {
@@ -203,6 +219,9 @@ export class TealKitYamlConfigManager {
           topK: item.top_k !== undefined ? Number(item.top_k) : undefined,
           repeatPenalty: item.repeat_penalty !== undefined ? Number(item.repeat_penalty) : undefined,
           contextSize: item.context_size !== undefined ? Number(item.context_size) : undefined,
+          timeoutSeconds: (item.timeout_seconds ?? item.timeoutSeconds ?? doc.timeout_seconds ?? doc.timeoutSeconds) !== undefined
+            ? Number(item.timeout_seconds ?? item.timeoutSeconds ?? doc.timeout_seconds ?? doc.timeoutSeconds)
+            : undefined,
           isSlm: item.is_slm !== undefined ? !!item.is_slm : undefined,
           thinking: item.thinking !== undefined ? !!item.thinking : undefined,
           useStreaming: item.use_streaming !== undefined ? !!item.use_streaming : undefined,
@@ -246,6 +265,7 @@ export class TealKitYamlConfigManager {
     if (profile.topK !== undefined) newEntry.top_k = profile.topK;
     if (profile.repeatPenalty !== undefined) newEntry.repeat_penalty = profile.repeatPenalty;
     if (profile.contextSize !== undefined) newEntry.context_size = profile.contextSize;
+    if (profile.timeoutSeconds !== undefined) newEntry.timeout_seconds = profile.timeoutSeconds;
     if (profile.isSlm !== undefined) newEntry.is_slm = profile.isSlm;
     if (profile.thinking !== undefined) newEntry.thinking = profile.thinking;
     if (profile.useStreaming !== undefined) newEntry.use_streaming = profile.useStreaming;
@@ -258,6 +278,10 @@ export class TealKitYamlConfigManager {
       if (profile.topK === undefined) delete merged.top_k;
       if (profile.repeatPenalty === undefined) delete merged.repeat_penalty;
       if (profile.contextSize === undefined) delete merged.context_size;
+      if (profile.timeoutSeconds === undefined) {
+        delete merged.timeout_seconds;
+        delete merged.timeoutSeconds;
+      }
       doc.llms[existingIdx] = merged;
     } else {
       doc.llms.push(newEntry);
@@ -960,5 +984,122 @@ export class TealKitYamlConfigManager {
     const dir = path.dirname(configPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(configPath, YAML.stringify(doc), 'utf-8');
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Web Search Config (web_search.yaml) & Preconfigured Built-in Tools
+  // ─────────────────────────────────────────────────────────────
+  public static getWebSearchConfigPath(): string {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0) {
+      const localPath = path.join(workspaceFolders[0].uri.fsPath, 'web_search.yaml');
+      if (fs.existsSync(localPath)) return localPath;
+      const wsTkPath = path.join(workspaceFolders[0].uri.fsPath, '.tealkit', 'web_search.yaml');
+      if (fs.existsSync(wsTkPath)) return wsTkPath;
+    }
+    const globalPath = path.join(os.homedir(), '.tealkitcoder', 'web_search.yaml');
+    const dir = path.dirname(globalPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return globalPath;
+  }
+
+  public static loadWebSearchConfig(): WebSearchConfig {
+    const filePath = this.getWebSearchConfigPath();
+    const defaults: WebSearchConfig = {
+      filePath,
+      provider: 'duckduckgo',
+      apiKey: '',
+      maxResults: 15,
+    };
+    if (!fs.existsSync(filePath)) return defaults;
+
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const doc = YAML.parse(raw) || {};
+      const provider = typeof doc.provider === 'string' && doc.provider.trim()
+        ? doc.provider.trim().toLowerCase()
+        : 'duckduckgo';
+      const apiKey = doc.api_key !== undefined && doc.api_key !== null ? String(doc.api_key).trim() : '';
+      const maxResults = typeof doc.max_results === 'number'
+        ? doc.max_results
+        : (parseInt(String(doc.max_results || '15'), 10) || 15);
+      return { filePath, provider, apiKey, maxResults };
+    } catch (_) {
+      return defaults;
+    }
+  }
+
+  public static saveWebSearchConfig(cfg: { provider?: string; apiKey?: string; maxResults?: number }): WebSearchConfig {
+    const filePath = this.getWebSearchConfigPath();
+    const provider = (cfg.provider || 'duckduckgo').trim().toLowerCase();
+    const apiKey = (cfg.apiKey ?? '').trim();
+    const maxResults = Math.max(1, Math.min(20, Number(cfg.maxResults) || 15));
+
+    const lines = [
+      '# TealKitCoder Web Search Configuration',
+      '# Providers: serpapi, serper, duckduckgo, auto',
+      `provider: ${provider}`,
+      `api_key: ${apiKey ? (/[\s:#'"$]/.test(apiKey) && !apiKey.startsWith('${') ? JSON.stringify(apiKey) : apiKey) : "''"}`,
+      `max_results: ${maxResults}`,
+      '',
+    ];
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    return { filePath, provider, apiKey, maxResults };
+  }
+
+  public static getPreconfiguredTools(): PreconfiguredToolItem[] {
+    return [
+      {
+        name: 'web_fetch',
+        category: 'Built-in Web',
+        description: 'Fetches public HTTP/HTTPS web pages and extracts clean readable text (with pagination via start_index & max_length). Zero external dependencies.',
+        risk: 'network',
+      },
+      {
+        name: 'web_search',
+        category: 'Built-in Web',
+        description: 'Searches the web via SerpApi, Serper.dev, or DuckDuckGo (configured in web_search.yaml).',
+        risk: 'network',
+        configurableTab: 'websearch',
+      },
+      {
+        name: 'fetch_web',
+        category: 'Built-in Web',
+        description: 'Raw HTTP GET fetcher for JSON APIs, plain text, or raw responses.',
+        risk: 'network',
+      },
+      {
+        name: 'fs_find / fs_list_dir / fs_read_file / fs_write_file / fs_replace_text',
+        category: 'Built-in Coding',
+        description: 'Workspace file discovery, reading, creation, and surgical editing.',
+        risk: 'write',
+      },
+      {
+        name: 'terminal_exec',
+        category: 'Built-in Coding',
+        description: 'Executes build, test, and CLI shell commands inside the workspace.',
+        risk: 'execute',
+      },
+      {
+        name: 'write_todos',
+        category: 'Built-in Planning',
+        description: 'Maintains live step-by-step todo checklists and syncs workspace tasks.md.',
+        risk: 'read',
+      },
+      {
+        name: 'create_mermaid_png',
+        category: 'Built-in Diagrams',
+        description: 'Renders Mermaid architecture and sequence diagrams to PNG.',
+        risk: 'write',
+      },
+      {
+        name: 'ssh_* (7 tools)',
+        category: 'Built-in Remote',
+        description: 'Remote directory listing, file read/upload/download, and command execution via ssh.yaml.',
+        risk: 'execute',
+      },
+    ];
   }
 }

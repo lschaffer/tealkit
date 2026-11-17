@@ -44,6 +44,8 @@ export class TealKitConfigWatcher {
       this.agent.listModels();
       this.agent.getStatus();
       this.chatProvider?.refreshConfigsFromDisk('llm');
+    } else if (fileName.includes('web_search')) {
+      this.chatProvider?.refreshConfigsFromDisk('websearch');
     } else if (fileName.includes('mcp') || fileName.includes('tools')) {
       this.agent.sendCommand('reload_mcp');
       this.agent.listMcpTools();

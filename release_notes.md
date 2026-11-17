@@ -2,6 +2,21 @@
 
 This file tracks release changes by version.
 
+## v2.3.1+169 - Unified Assistant Modes, Cross-Platform Sessions, Mobile Vault Fullscreen & Dynamic LLM Timeouts
+
+### Major Features & Enhancements
+- **Unified Assistant Header & Cross-Platform Session Management (`tealkit` v2.1.5+169)**:
+  - **Markant Mode Dropdown in Assistant Header**: Replaced the separate coding toggle icon and static mode pill with a unified dropdown next to **Assistant** featuring distinct styles for **Coding** (desktop-only, amber/orange highlight with active sub-mode tag), **Agent** (cyan/blue with tool count), and **Chat** (indigo/slate direct chat). Compacted mobile AppBar workflow/skills actions into a single menu for overflow-free layout on small screens.
+  - **Quick Model Selector & Session Controls Everywhere**: Enabled the Quick Model Selector (`🤖 <model> ▾` popup switcher over configured `LlmSettingsService` profiles plus quick access to Model & Provider Settings) and **Save / Load / Continue Last Session** controls across **Coding**, **Agent**, and **Chat** modes on both **Desktop and Mobile**.
+  - **Cross-Platform Session Storage & Mobile File Picker**: Updated `SessionService` to resolve `<appDocuments>/tealkit/sessions` via `path_provider` on mobile platforms and switched session file picking to `FileType.any` on Android/iOS.
+  - **Session & Auto-Save Settings Across All Modes**: Enabled the **Session & Auto-Save** card (renamed from `Session & Auto-Save (Coding Mode)`) across all modes and viewports with mobile-safe layout stacking to prevent horizontal overflow.
+  - **Full-Screen Mobile Settings Vault (Tresor) Dialogs**: Updated Export ("Save Tresor"), Import ("Restore Tresor"), and Password prompt dialogs in `SettingsVaultScreen` to use `Dialog.fullscreen` on mobile viewports (`width < 700`).
+
+- **Dynamic LLM Timeouts & Streaming Upgrades (`tealkit_cli` v1.4.6, `tealkit-vscode`, `dart_mcp_core` 1.5.12)**:
+  - **Configurable `timeout_seconds` (600s Default)**: Wired `timeout_seconds` across `LlmProfile`, `llm.yaml`, `TealKitRpcEngine`, and the VS Code extension's LLM profile editor (`yamlConfigManager.ts`, `chatViewProvider.ts`, `chat.js`).
+  - **Dynamic Streaming & Summarization Timeouts (`dart_mcp_core` / `flutter_ui_mcp*` `^1.5.12`)**: Upgraded core packages so SSE chunk streaming, non-streaming fallbacks (`LLMService._streamOpenAIWithClient`), `McpAgentEngine`, and `ContextCompressor` use `config.timeout` dynamically instead of hardcoded `40s`/`45s`/`75s` timeouts—preventing premature aborts during long local `llama.cpp` / vLLM / SLM prompt prefills.
+  - **`llamadart` Dependency Upgrade (`server/`, `cli/`, App)**: Updated `server/pubspec.yaml` to `llamadart: ^0.19.11`.
+
 ## v2.3.0+166 - TealKit Coder VS Code Extension, Native RPC Engine, Assistant Settings & Mobile Scheduler Fixes
 
 ### Major Features & Enhancements

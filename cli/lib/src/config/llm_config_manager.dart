@@ -65,10 +65,20 @@ class LlmConfigManager {
     final globalUseStreaming = yaml['use_streaming'] as bool? ?? false;
     final globalThinking = yaml['thinking'] as bool? ?? false;
     final globalUseNativeToolCall = yaml['use_native_tool_call'] as bool? ?? true;
+    final rawGlobalTimeout = yaml['timeout_seconds'] ?? yaml['timeoutSeconds'];
+    final parsedGlobalTimeout = rawGlobalTimeout is int
+        ? rawGlobalTimeout
+        : int.tryParse(rawGlobalTimeout?.toString() ?? '');
+    final globalTimeoutSeconds =
+        (parsedGlobalTimeout != null && parsedGlobalTimeout > 0)
+            ? parsedGlobalTimeout
+            : 600;
 
     final profiles = <NamedLlmProfile>[];
 
     // 2. Check for multi-model array: `llms:`, `models:`, or `llm:`
+    final defaultName = (yaml['default'] as String?)?.trim() ??
+        (yaml['default_llm'] as String?)?.trim();
     final modelsList = (yaml['llms'] ?? yaml['models'] ?? yaml['llm']) as YamlList?;
 
     if (modelsList != null && modelsList.isNotEmpty) {
@@ -93,6 +103,15 @@ class LlmConfigManager {
             (item['max_tool_iteration'] as int?) ??
             globalMaxToolIterations;
 
+        final rawItemTimeout = item['timeout_seconds'] ?? item['timeoutSeconds'];
+        final parsedItemTimeout = rawItemTimeout is int
+            ? rawItemTimeout
+            : int.tryParse(rawItemTimeout?.toString() ?? '');
+        final itemTimeoutSeconds =
+            (parsedItemTimeout != null && parsedItemTimeout > 0)
+                ? parsedItemTimeout
+                : globalTimeoutSeconds;
+
         final config = LlmConfig(
           provider: provider,
           model: model,
@@ -109,18 +128,38 @@ class LlmConfigManager {
           thinking: (item['thinking'] as bool?) ?? globalThinking,
           useNativeToolCall: (item['use_native_tool_call'] as bool?) ?? globalUseNativeToolCall,
           isSlm: (item['is_slm'] as bool?) ?? (provider == LlmProvider.ollama || provider == LlmProvider.embedded),
+          timeoutSeconds: itemTimeoutSeconds,
         );
+
+        final matchesExplicitDefault = defaultName != null &&
+            defaultName.isNotEmpty &&
+            name.toLowerCase() == defaultName.toLowerCase();
 
         profiles.add(
           NamedLlmProfile(
             name: name,
             config: config,
-            isDefault: i == 0,
+            isDefault: (defaultName != null && defaultName.isNotEmpty)
+                ? matchesExplicitDefault
+                : (i == 0),
             repo: (item['repo'] as String?)?.trim(),
             mmproj: (item['mmproj'] as String?)?.trim(),
             gpuLayers: (item['gpu_layers'] as int?) ?? (item['gpuLayers'] as int?),
             contextSize: (item['context_size'] as int?) ?? (item['contextSize'] as int?),
           ),
+        );
+      }
+
+      if (profiles.isNotEmpty && !profiles.any((p) => p.isDefault)) {
+        final first = profiles.first;
+        profiles[0] = NamedLlmProfile(
+          name: first.name,
+          config: first.config,
+          isDefault: true,
+          repo: first.repo,
+          mmproj: first.mmproj,
+          gpuLayers: first.gpuLayers,
+          contextSize: first.contextSize,
         );
       }
     }
@@ -149,6 +188,7 @@ class LlmConfigManager {
         thinking: globalThinking,
         useNativeToolCall: globalUseNativeToolCall,
         isSlm: yaml['is_slm'] as bool? ?? (provider == LlmProvider.ollama),
+        timeoutSeconds: globalTimeoutSeconds,
       );
 
       profiles.add(
@@ -187,8 +227,13 @@ class LlmConfigManager {
       return _buildEnvFallbackProfile().config;
     }
 
+    final defaultProfile = profiles.firstWhere(
+      (p) => p.isDefault,
+      orElse: () => profiles.first,
+    );
+
     if (nameOrPath == null || nameOrPath.trim().isEmpty) {
-      return profiles.first.config;
+      return defaultProfile.config;
     }
 
     final query = nameOrPath.trim().toLowerCase();
@@ -214,7 +259,7 @@ class LlmConfigManager {
     }
 
     // Fallback: return default
-    return profiles.first.config;
+    return defaultProfile.config;
   }
 
   static LlmProvider _parseProvider(String str) {

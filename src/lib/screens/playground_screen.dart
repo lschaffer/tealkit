@@ -45,6 +45,8 @@ class PlaygroundScreen extends ConsumerStatefulWidget {
   ConsumerState<PlaygroundScreen> createState() => _PlaygroundScreenState();
 }
 
+enum _AssistantMode { coding, agent, chat }
+
 class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   static const List<String> _kCodingToolNames = [
     'fs_read_file',
@@ -184,17 +186,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         _hasSessionLlmOverride = true;
       }
     }
-    if (_isCodingMode && _controller.messages.isNotEmpty && !_controller.isGenerating) {
-      final isDesktopPlatform = !kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.windows ||
-              defaultTargetPlatform == TargetPlatform.linux ||
-              defaultTargetPlatform == TargetPlatform.macOS);
-      if (isDesktopPlatform && SessionService.instance.autoSaveEnabled) {
+    if (_controller.messages.isNotEmpty && !_controller.isGenerating) {
+      if (SessionService.instance.autoSaveEnabled) {
         SessionService.instance.autoSaveSession(
           messages: _controller.messages,
-          mode: 'code',
+          mode: _isCodingMode ? 'code' : (_controller.chatMode ? 'chat' : 'agent'),
           llmModel: _controller.activeLlmConfig.model,
-          workspaceDirectory: _workspaceDirectory,
+          workspaceDirectory: _isCodingMode ? _workspaceDirectory : null,
         );
       }
     }
@@ -202,18 +200,26 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   Future<void> _saveSessionDialog() async {
     final sessionService = SessionService.instance;
+    await sessionService.init();
     final messages = _controller.messages;
     if (messages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No messages to save in current session.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No messages to save in current session.')),
+        );
+      }
       return;
     }
     final activeConfig = _controller.activeLlmConfig;
+    final activeMode = _isCodingMode
+        ? 'code'
+        : (_controller.chatMode ? 'chat' : 'agent');
     final sessionData = SessionData(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: p.basename(_workspaceDirectory.isNotEmpty ? _workspaceDirectory : 'TealKit Coder'),
-      mode: 'code',
+      title: _isCodingMode
+          ? p.basename(_workspaceDirectory.isNotEmpty ? _workspaceDirectory : 'TealKit Coder')
+          : 'TealKit Assistant Session',
+      mode: activeMode,
       createdAt: messages.first.timestamp,
       updatedAt: DateTime.now(),
       llmName: activeConfig.model.isNotEmpty ? activeConfig.model : activeConfig.provider.displayName,
@@ -222,7 +228,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       messages: List.from(messages),
     );
 
-    final defaultDir = sessionService.resolveSessionsDirectory(workspaceDirectory: _workspaceDirectory);
+    final defaultDir = sessionService.resolveSessionsDirectory(
+      workspaceDirectory: _isCodingMode ? _workspaceDirectory : null,
+    );
     final defaultFileName = sessionService.generateFilename();
     final defaultPath = p.join(defaultDir, defaultFileName);
 
@@ -246,10 +254,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   }
 
   Future<void> _loadSessionDialog() async {
+    final useCustom = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     final result = await FilePicker.pickFiles(
       dialogTitle: 'Select Saved Session (.json, .md)',
-      type: FileType.custom,
-      allowedExtensions: ['json', 'md'],
+      type: useCustom ? FileType.custom : FileType.any,
+      allowedExtensions: useCustom ? ['json', 'md'] : null,
     );
     if (result.isEmpty) return;
     final filePath = result.first.path;
@@ -276,16 +286,22 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   }
 
   Future<void> _continueLastSession() async {
-    final lastFile = SessionService.instance.findLastSessionFile(workspaceDirectory: _workspaceDirectory);
+    final sessionService = SessionService.instance;
+    await sessionService.init();
+    final lastFile = sessionService.findLastSessionFile(
+      workspaceDirectory: _isCodingMode ? _workspaceDirectory : null,
+    );
     if (lastFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No previous session found to continue.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No previous session found to continue.')),
+        );
+      }
       return;
     }
 
     try {
-      final session = await SessionService.instance.loadSession(lastFile.path);
+      final session = await sessionService.loadSession(lastFile.path);
       _controller.loadMessages(session.messages, clearExisting: true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,17 +322,15 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
   Future<void> _checkPromptContinueLastSession() async {
     if (kIsWeb) return;
-    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux ||
-        defaultTargetPlatform == TargetPlatform.macOS;
-    if (!isDesktop || !_isCodingMode) return;
 
     final sessionService = SessionService.instance;
     await sessionService.init();
     if (!sessionService.promptContinueLastSession) return;
     if (_controller.messages.isNotEmpty) return;
 
-    final lastFile = sessionService.findLastSessionFile(workspaceDirectory: _workspaceDirectory);
+    final lastFile = sessionService.findLastSessionFile(
+      workspaceDirectory: _isCodingMode ? _workspaceDirectory : null,
+    );
     if (lastFile == null || !mounted) return;
 
     final lastModified = lastFile.lastModifiedSync();
@@ -329,16 +343,22 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           children: [
             Icon(Icons.history_rounded, color: Color(0xFFFB923C)),
             SizedBox(width: 8),
-            Text('Continue Last Session?'),
+            Expanded(
+              child: Text(
+                'Continue Last Session?',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('A previous coding session was found:'),
+            const Text('A previous session was found:'),
             const SizedBox(height: 8),
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
@@ -350,6 +370,8 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   Text(
                     p.basename(lastFile.path),
                     style: const TextStyle(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -383,190 +405,54 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     }
   }
 
-  Future<void> _toggleCodingAgentMode(BuildContext context) async {
-    if (_isCodingMode) {
-      // ── Disable Coding Agent Mode ──
-      if (_previousSystemPrompt != null) {
-        _controller.systemPrompt = _previousSystemPrompt!;
-      }
-      if (_previousEnabledTools != null) {
-        for (final tool in _kCodingToolNames) {
-          if (!_previousEnabledTools!.contains(tool)) {
-            _controller.toggleToolEnabled(tool, false);
-          }
+  _AssistantMode get _currentAssistantMode {
+    if (_isCodingMode) return _AssistantMode.coding;
+    return _controller.chatMode ? _AssistantMode.chat : _AssistantMode.agent;
+  }
+
+  void _exitCodingMode(BuildContext context, {bool showSnackbar = true}) {
+    if (!_isCodingMode) return;
+    if (_previousSystemPrompt != null) {
+      _controller.systemPrompt = _previousSystemPrompt!;
+    }
+    if (_previousEnabledTools != null) {
+      for (final tool in _kCodingToolNames) {
+        if (!_previousEnabledTools!.contains(tool)) {
+          _controller.toggleToolEnabled(tool, false);
         }
       }
-      _controller.toggleToolEnabled('fetch', false);
-      _controller.toggleToolEnabled('fetch_web', false);
-      setState(() {
-        _isCodingMode = false;
-      });
-      if (mounted) {
-        final l = L.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('💻 ${l.codingAgentModeDisabled}'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-      return;
     }
-
-    // ── Enable Coding Agent Mode ──
-    final theme = Theme.of(context);
-    final isMobile = MediaQuery.sizeOf(context).width < 700;
-
-    Widget buildActivationContent(BuildContext ctx) {
-      final l = L.of(ctx);
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.codingAgentDescription,
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l.activeWorkspaceDirectory,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.folder_outlined, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _workspaceDirectory,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final selected = await FilePicker.getDirectoryPath();
-                    if (selected != null && ctx.mounted) {
-                      if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-                        try {
-                          final dir = Directory(selected);
-                          if (dir.existsSync()) {
-                            Directory.current = dir;
-                          }
-                        } catch (_) {}
-                      }
-                      setState(() {
-                        _workspaceDirectory = selected;
-                        _controller.workspaceDirectory = selected;
-                        _refreshTools();
-                      });
-                      Navigator.pop(ctx, true);
-                    }
-                  },
-                  child: Text(l.change),
-                ),
-              ],
-            ),
-          ),
-        ],
+    _controller.toggleToolEnabled('fetch', false);
+    _controller.toggleToolEnabled('fetch_web', false);
+    setState(() {
+      _isCodingMode = false;
+    });
+    if (showSnackbar && mounted) {
+      final l = L.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('💻 ${l.codingAgentModeDisabled}'),
+          duration: const Duration(seconds: 2),
+        ),
       );
     }
+  }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final l = L.of(ctx);
-        if (isMobile) {
-          return Dialog.fullscreen(
-            child: Scaffold(
-              appBar: AppBar(
-                title: Text(l.activateCodingAgent),
-                leading: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx, false),
-                ),
-              ),
-              body: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      buildActivationContent(ctx),
-                      const Spacer(),
-                      FilledButton.icon(
-                        icon: const Icon(Icons.check, size: 16),
-                        label: Text(l.activateCodingAgent),
-                        onPressed: () => Navigator.pop(ctx, true),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
+  void _enterCodingMode(BuildContext context, {bool showSnackbar = true}) {
+    if (_isCodingMode) return;
+    _previousSystemPrompt = _controller.systemPrompt;
+    _previousEnabledTools = Set<String>.from(_controller.enabledToolNames);
 
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.terminal_rounded, color: Color(0xFF2DD4BF), size: 24),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  l.activateCodingAgentMode,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: buildActivationContent(ctx),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l.cancel),
-            ),
-            FilledButton.icon(
-              icon: const Icon(Icons.check, size: 16),
-              label: Text(l.activateCodingAgent),
-              onPressed: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        );
-      },
-    );
+    _controller.chatMode = false;
+    for (final t in _kCodingToolNames) {
+      _controller.toggleToolEnabled(t, true);
+    }
+    _applyCodingSubMode(_codingSubMode);
 
-    if (confirmed == true && mounted) {
-      _previousSystemPrompt = _controller.systemPrompt;
-      _previousEnabledTools = Set<String>.from(_controller.enabledToolNames);
-
-      for (final t in _kCodingToolNames) {
-        _controller.toggleToolEnabled(t, true);
-      }
-
-      _applyCodingSubMode(_codingSubMode);
-
-      setState(() {
-        _isCodingMode = true;
-      });
-
+    setState(() {
+      _isCodingMode = true;
+    });
+    if (showSnackbar && mounted) {
       final l = L.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -574,6 +460,27 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  void _selectAssistantMode(BuildContext context, _AssistantMode mode) {
+    if (mode == _currentAssistantMode) return;
+    switch (mode) {
+      case _AssistantMode.coding:
+        _enterCodingMode(context);
+        break;
+      case _AssistantMode.agent:
+        _exitCodingMode(context, showSnackbar: false);
+        setState(() {
+          _controller.chatMode = false;
+        });
+        break;
+      case _AssistantMode.chat:
+        _exitCodingMode(context, showSnackbar: false);
+        setState(() {
+          _controller.chatMode = true;
+        });
+        break;
     }
   }
 
@@ -749,17 +656,401 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     );
   }
 
+  Widget _buildAssistantModeDropdown(
+    BuildContext context,
+    PlaygroundController controller, {
+    required bool isDesktop,
+    required bool isCompact,
+  }) {
+    final mode = _currentAssistantMode;
+    final toolCount = controller.enabledToolNames.length;
+
+    final ({
+      String label,
+      IconData icon,
+      Color accent,
+      Color textColor,
+      Gradient? gradient,
+      Color? bgColor,
+      Color borderColor,
+      double borderWidth,
+      List<BoxShadow>? shadows,
+    }) style = switch (mode) {
+      _AssistantMode.coding => (
+        label: isCompact ? 'Coding' : 'Coding $_codingSubMode',
+        icon: Icons.terminal_rounded,
+        accent: const Color(0xFFFB923C),
+        textColor: const Color(0xFFFFEDD5),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFEA580C).withValues(alpha: 0.34),
+            const Color(0xFFF59E0B).withValues(alpha: 0.18),
+          ],
+        ),
+        bgColor: null,
+        borderColor: const Color(0xFFFB923C),
+        borderWidth: 1.5,
+        shadows: [
+          BoxShadow(
+            color: const Color(0xFFEA580C).withValues(alpha: 0.28),
+            blurRadius: 8,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      _AssistantMode.agent => (
+        label: isCompact ? 'Agent ($toolCount)' : 'Agent ($toolCount Tools)',
+        icon: Icons.smart_toy_outlined,
+        accent: const Color(0xFF38BDF8),
+        textColor: const Color(0xFFBAE6FD),
+        gradient: null,
+        bgColor: const Color(0xFF0EA5E9).withValues(alpha: 0.16),
+        borderColor: const Color(0xFF38BDF8).withValues(alpha: 0.55),
+        borderWidth: 1.1,
+        shadows: null,
+      ),
+      _AssistantMode.chat => (
+        label: 'Chat',
+        icon: Icons.chat_bubble_outline_rounded,
+        accent: const Color(0xFFA5B4FC),
+        textColor: const Color(0xFFE0E7FF),
+        gradient: null,
+        bgColor: const Color(0xFF6366F1).withValues(alpha: 0.14),
+        borderColor: const Color(0xFF818CF8).withValues(alpha: 0.45),
+        borderWidth: 1.0,
+        shadows: null,
+      ),
+    };
+
+    PopupMenuItem<_AssistantMode> buildMenuItem({
+      required _AssistantMode value,
+      required IconData icon,
+      required Color color,
+      required String title,
+      required String subtitle,
+    }) {
+      final selected = mode == value;
+      return PopupMenuItem<_AssistantMode>(
+        value: value,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          decoration: selected
+              ? BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                )
+              : null,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: color.withValues(alpha: selected ? 0.8 : 0.35),
+                  ),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? color : Colors.white,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected) Icon(Icons.check_rounded, size: 16, color: color),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return PopupMenuButton<_AssistantMode>(
+      tooltip: 'Switch Assistant Mode',
+      onSelected: (selected) => _selectAssistantMode(context, selected),
+      position: PopupMenuPosition.under,
+      itemBuilder: (ctx) => [
+        if (isDesktop)
+          buildMenuItem(
+            value: _AssistantMode.coding,
+            icon: Icons.terminal_rounded,
+            color: const Color(0xFFFB923C),
+            title: 'Coding Mode',
+            subtitle: 'Workspace files, terminal & /code /plan /ask /rag',
+          ),
+        buildMenuItem(
+          value: _AssistantMode.agent,
+          icon: Icons.smart_toy_outlined,
+          color: const Color(0xFF38BDF8),
+          title: 'Agent Mode',
+          subtitle: 'Autonomous tool execution ($toolCount tools)',
+        ),
+        buildMenuItem(
+          value: _AssistantMode.chat,
+          icon: Icons.chat_bubble_outline_rounded,
+          color: const Color(0xFFA5B4FC),
+          title: 'Chat Mode',
+          subtitle: 'Direct LLM conversation without tools',
+        ),
+      ],
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 8 : 11,
+          vertical: isCompact ? 4 : 5,
+        ),
+        decoration: BoxDecoration(
+          gradient: style.gradient,
+          color: style.bgColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: style.borderColor, width: style.borderWidth),
+          boxShadow: style.shadows,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(style.icon, size: 14, color: style.accent),
+            const SizedBox(width: 5),
+            Text(
+              style.label,
+              style: TextStyle(
+                fontSize: isCompact ? 11.5 : 12.5,
+                fontWeight: mode == _AssistantMode.coding
+                    ? FontWeight.w700
+                    : FontWeight.w600,
+                color: style.textColor,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down_rounded, size: 16, color: style.accent),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickModelSelector(
+    BuildContext context,
+    PlaygroundController controller, {
+    double maxWidth = 150,
+  }) {
+    final activeConfig = controller.activeLlmConfig;
+    final modelName = activeConfig.model.isNotEmpty
+        ? activeConfig.model
+        : (activeConfig.isConfigured ? activeConfig.provider.displayName : 'Select Model');
+
+    final profiles = tk_llm.LlmSettingsService.instance.profiles;
+
+    return PopupMenuButton<String>(
+      tooltip: 'Quick Model Selector',
+      position: PopupMenuPosition.over,
+      onSelected: (value) {
+        if (value == '__settings__') {
+          _openAssistantSettingsDialog(context, controller, initialTab: 1);
+          return;
+        }
+        final profile = tk_llm.LlmSettingsService.instance.getProfile(value);
+        if (profile == null) return;
+        final cfg = TealKitAssistantSettingsDialog.profileToLlmConfig(profile);
+        controller.customLlmConfig = null;
+        controller.updateLlmConfig(cfg);
+        if (controller.llmConfigs.any(
+          (c) => c.id == profile.id || c.profileId == profile.id,
+        )) {
+          controller.selectLlm(profile.id);
+        }
+        final defaultId = tk_llm.LlmSettingsService.instance.selectedProfileId;
+        _hasSessionLlmOverride = profile.id != defaultId;
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Switched model to "${profile.name}" (${profile.model})'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+      itemBuilder: (ctx) => [
+        for (final p in profiles)
+          PopupMenuItem<String>(
+            value: p.id,
+            child: Row(
+              children: [
+                Icon(
+                  (activeConfig.id == p.id ||
+                          (activeConfig.model == p.model &&
+                              activeConfig.provider.name == p.provider.configKey))
+                      ? Icons.check_circle_rounded
+                      : Icons.smart_toy_outlined,
+                  size: 16,
+                  color: (activeConfig.id == p.id ||
+                          (activeConfig.model == p.model &&
+                              activeConfig.provider.name == p.provider.configKey))
+                      ? const Color(0xFF38BDF8)
+                      : const Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        p.name,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${p.provider.label} • ${p.model}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (profiles.isNotEmpty) const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: '__settings__',
+          child: Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 16, color: Color(0xFF2DD4BF)),
+              SizedBox(width: 10),
+              Text('Model & Provider Settings...'),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF334155), width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.smart_toy_outlined, size: 14, color: Color(0xFF94A3B8)),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Text(
+                modelName,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFFE2E8F0),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, size: 14, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildSessionActionButtons() => [
+    IconButton(
+      tooltip: 'Save Session (.json)',
+      icon: const Icon(Icons.save_outlined, size: 17, color: Color(0xFF94A3B8)),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      onPressed: _saveSessionDialog,
+    ),
+    IconButton(
+      tooltip: 'Load Session (.json, .md)',
+      icon: const Icon(Icons.file_open_outlined, size: 17, color: Color(0xFF94A3B8)),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      onPressed: _loadSessionDialog,
+    ),
+    IconButton(
+      tooltip: 'Continue Last Session',
+      icon: const Icon(Icons.history_rounded, size: 17, color: Color(0xFFFB923C)),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      onPressed: _continueLastSession,
+    ),
+  ];
+
+  Widget _buildBottomUtilityBar(
+    BuildContext context,
+    PlaygroundController controller, {
+    required bool isDesktop,
+  }) {
+    if (isDesktop && _isCodingMode) {
+      return _buildCodingModeBar(context, controller);
+    }
+
+    final width = MediaQuery.sizeOf(context).width;
+    final modelMaxWidth = width < 420 ? 155.0 : 220.0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+        border: Border(
+          top: BorderSide(
+            color: const Color(0xFF222B45).withValues(alpha: 0.8),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Flexible(
+            child: _buildQuickModelSelector(
+              context,
+              controller,
+              maxWidth: modelMaxWidth,
+            ),
+          ),
+          const SizedBox(width: 8),
+          ..._buildSessionActionButtons(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCodingModeBar(BuildContext context, PlaygroundController controller) {
     final wsParts = _workspaceDirectory
         .split(Platform.pathSeparator)
         .where((s) => s.isNotEmpty)
         .toList();
     final wsName = wsParts.isNotEmpty ? wsParts.last : 'workspace';
-
-    final activeConfig = controller.activeLlmConfig;
-    final modelName = activeConfig.model.isNotEmpty
-        ? activeConfig.model
-        : (activeConfig.isConfigured ? activeConfig.provider.displayName : 'deepseek');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -850,71 +1141,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             ),
             const SizedBox(width: 8),
 
-            // Active model badge: 🤖 <model> ▾ (Click to open LLM configuration)
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => _openAssistantSettingsDialog(context, controller, initialTab: 1),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF334155), width: 0.8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.smart_toy_outlined, size: 14, color: Color(0xFF94A3B8)),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 120),
-                      child: Text(
-                        modelName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFFE2E8F0),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, size: 14, color: Color(0xFF94A3B8)),
-                  ],
-                ),
-              ),
-            ),
+            // Active model quick selector pill: 🤖 <model> ▾
+            _buildQuickModelSelector(context, controller, maxWidth: 130),
 
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
 
-            // Session actions: Save, Load, Continue (desktop only)
-            if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) ...[
-              IconButton(
-                tooltip: 'Save Session (.json)',
-                icon: const Icon(Icons.save_outlined, size: 16, color: Color(0xFF94A3B8)),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                onPressed: _saveSessionDialog,
-              ),
-              IconButton(
-                tooltip: 'Load Session (.json, .md)',
-                icon: const Icon(Icons.file_open_outlined, size: 16, color: Color(0xFF94A3B8)),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                onPressed: _loadSessionDialog,
-              ),
-              IconButton(
-                tooltip: 'Continue Last Session',
-                icon: const Icon(Icons.history_rounded, size: 16, color: Color(0xFFFB923C)),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                onPressed: _continueLastSession,
-              ),
-              const SizedBox(width: 4),
-            ],
+            // Session actions: Save, Load, Continue
+            ..._buildSessionActionButtons(),
+            const SizedBox(width: 4),
 
             // Stats badge: Turns: ∞ • Tools: N
             Container(
@@ -941,7 +1175,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-              onPressed: () => _toggleCodingAgentMode(context),
+              onPressed: () => _exitCodingMode(context),
             ),
           ],
         ),
@@ -1973,12 +2207,14 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           );
         },
         inputTopWidgetBuilder: (ctx, ctrl) {
-          if (!isDesktop || !_isCodingMode) return const SizedBox.shrink();
-          return _buildCodingModeBar(ctx, ctrl);
+          return _buildBottomUtilityBar(ctx, ctrl, isDesktop: isDesktop);
         },
         topBarBuilder: (ctx, controller, actions) {
           final l = L.of(ctx);
+          final width = MediaQuery.sizeOf(ctx).width;
+          final isCompactHeader = width < 600;
           return AppBar(
+            titleSpacing: isCompactHeader ? 4 : null,
             // Reconnected leading hamburger button to toggle TealKit's sidebar
             leading: Builder(
               builder: (navCtx) {
@@ -2006,63 +2242,97 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                 );
               },
             ),
-            title: actions.defaultTitleWidget,
-            actions: [
-              // 1. Dedicated Coding Agent Button (Toggleable on Desktop)
-              if (isDesktop)
-                IconButton(
-                  tooltip: _isCodingMode
-                      ? l.codingAgentModeActiveTooltip
-                      : l.activateCodingAgentMode,
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(
-                        Icons.terminal_rounded,
-                        color: _isCodingMode
-                            ? const Color(0xFFEA580C)
-                            : const Color(0xFF2DD4BF),
-                      ),
-                      if (_isCodingMode)
-                        Positioned(
-                          right: -2,
-                          top: -2,
-                          child: Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEA580C),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
+            title: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l.playground,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  onPressed: () => _toggleCodingAgentMode(ctx),
+                  SizedBox(width: isCompactHeader ? 8 : 10),
+                  _buildAssistantModeDropdown(
+                    ctx,
+                    controller,
+                    isDesktop: isDesktop,
+                    isCompact: isCompactHeader,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              if (isCompactHeader)
+                PopupMenuButton<String>(
+                  tooltip: '${l.loadSavedWorkflow} / ${l.skillsManager}',
+                  icon: const Icon(Icons.bookmarks_outlined),
+                  onSelected: (val) {
+                    if (val == 'load') {
+                      _showLoadWorkflowDialog(ctx, controller);
+                    } else if (val == 'save') {
+                      _showSaveWorkflowDialog(ctx, controller);
+                    } else if (val == 'skills') {
+                      _openSkillsPicker(ctx, controller);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'load',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.folder_open_outlined, size: 18),
+                          const SizedBox(width: 10),
+                          Text(l.loadSavedWorkflow),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'save',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.bookmark_add_outlined, size: 18),
+                          const SizedBox(width: 10),
+                          Text(l.saveCurrentAsWorkflow),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'skills',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.bolt_outlined, size: 18),
+                          const SizedBox(width: 10),
+                          Text(l.skillsManager),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                // 1. Load Saved Workflow
+                IconButton(
+                  tooltip: l.loadSavedWorkflow,
+                  icon: const Icon(Icons.folder_open_outlined),
+                  onPressed: () => _showLoadWorkflowDialog(ctx, controller),
                 ),
 
-              // 2. Load Saved Workflow
-              IconButton(
-                tooltip: l.loadSavedWorkflow,
-                icon: const Icon(Icons.folder_open_outlined),
-                onPressed: () => _showLoadWorkflowDialog(ctx, controller),
-              ),
+                // 2. Save as Workflow
+                IconButton(
+                  tooltip: l.saveCurrentAsWorkflow,
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                  onPressed: () => _showSaveWorkflowDialog(ctx, controller),
+                ),
 
-              // 3. Save as Workflow
-              IconButton(
-                tooltip: l.saveCurrentAsWorkflow,
-                icon: const Icon(Icons.bookmark_add_outlined),
-                onPressed: () => _showSaveWorkflowDialog(ctx, controller),
-              ),
+                // 3. Skills Manager
+                IconButton(
+                  tooltip: l.skillsManager,
+                  icon: const Icon(Icons.bolt_outlined),
+                  onPressed: () => _openSkillsPicker(ctx, controller),
+                ),
+              ],
 
-              // 4. Skills Manager
-              IconButton(
-                tooltip: l.skillsManager,
-                icon: const Icon(Icons.bolt_outlined),
-                onPressed: () => _openSkillsPicker(ctx, controller),
-              ),
-
-              // 5. Default Playground actions (Clear, Settings, Inspector toggle)
+              // 4. Default Playground actions (Clear, Settings, Inspector toggle)
               ...actions.defaultActionWidgets,
             ],
           );

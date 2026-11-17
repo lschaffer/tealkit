@@ -5,6 +5,7 @@
   const tabBtnChat = document.getElementById('tab-btn-chat');
   const tabBtnLlms = document.getElementById('tab-btn-llms');
   const tabBtnMcp = document.getElementById('tab-btn-mcp');
+  const tabBtnWebSearch = document.getElementById('tab-btn-websearch');
   const tabBtnSkills = document.getElementById('tab-btn-skills');
   const tabBtnMemory = document.getElementById('tab-btn-memory');
   const tabBtnServer = document.getElementById('tab-btn-server');
@@ -12,6 +13,7 @@
   const panelChat = document.getElementById('panel-chat');
   const panelLlms = document.getElementById('panel-llms');
   const panelMcp = document.getElementById('panel-mcp');
+  const panelWebSearch = document.getElementById('panel-websearch');
   const panelSkills = document.getElementById('panel-skills');
   const panelMemory = document.getElementById('panel-memory');
   const panelServer = document.getElementById('panel-server');
@@ -60,6 +62,7 @@
   const llmInputTopP = document.getElementById('llm-input-topp');
   const llmInputTopK = document.getElementById('llm-input-topk');
   const llmInputRepeatPenalty = document.getElementById('llm-input-repeat-penalty');
+  const llmInputTimeout = document.getElementById('llm-input-timeout');
   const llmInputIsSlm = document.getElementById('llm-input-isslm');
   const llmInputThinking = document.getElementById('llm-input-thinking');
   const llmInputStreaming = document.getElementById('llm-input-streaming');
@@ -99,6 +102,17 @@
   const mcpInputEnabled = document.getElementById('mcp-input-enabled');
   const mcpBtnTest = document.getElementById('mcp-btn-test');
   const mcpModalToolsResult = document.getElementById('mcp-modal-tools-result');
+  const preconfiguredToolsListEl = document.getElementById('preconfigured-tools-list');
+
+  // Web Search Panel Elements
+  const wsFilePathEl = document.getElementById('ws-file-path');
+  const openWsFileBtn = document.getElementById('open-ws-file-btn');
+  const wsProviderSelect = document.getElementById('ws-provider');
+  const wsApiKeyInput = document.getElementById('ws-api-key');
+  const toggleWsApiKeyBtn = document.getElementById('toggle-ws-apikey-visibility');
+  const wsMaxResultsInput = document.getElementById('ws-max-results');
+  const btnSaveWebSearch = document.getElementById('btn-save-websearch');
+  const wsSaveStatus = document.getElementById('ws-save-status');
 
   // Skills Panel Elements
   const skillsDirPathEl = document.getElementById('skills-dir-path');
@@ -230,8 +244,8 @@
 
   // Tab Switching Function
   window.switchTab = function (tabName) {
-    const tabs = [tabBtnChat, tabBtnLlms, tabBtnMcp, tabBtnSkills, tabBtnMemory, tabBtnServer, tabBtnSettings];
-    const panels = [panelChat, panelLlms, panelMcp, panelSkills, panelMemory, panelServer, panelSettings];
+    const tabs = [tabBtnChat, tabBtnLlms, tabBtnMcp, tabBtnWebSearch, tabBtnSkills, tabBtnMemory, tabBtnServer, tabBtnSettings];
+    const panels = [panelChat, panelLlms, panelMcp, panelWebSearch, panelSkills, panelMemory, panelServer, panelSettings];
 
     tabs.forEach((b) => b && b.classList.remove('active'));
     panels.forEach((p) => p && p.classList.add('hidden'));
@@ -247,6 +261,10 @@
       tabBtnMcp.classList.add('active');
       panelMcp.classList.remove('hidden');
       vscode.postMessage({ type: 'get_mcp_config' });
+    } else if (tabName === 'websearch' && tabBtnWebSearch && panelWebSearch) {
+      tabBtnWebSearch.classList.add('active');
+      panelWebSearch.classList.remove('hidden');
+      vscode.postMessage({ type: 'get_web_search_config' });
     } else if (tabName === 'skills' && tabBtnSkills && panelSkills) {
       tabBtnSkills.classList.add('active');
       panelSkills.classList.remove('hidden');
@@ -270,7 +288,58 @@
   if (tabBtnChat) tabBtnChat.addEventListener('click', () => window.switchTab('chat'));
   if (tabBtnLlms) tabBtnLlms.addEventListener('click', () => window.switchTab('llms'));
   if (tabBtnMcp) tabBtnMcp.addEventListener('click', () => window.switchTab('mcp'));
+  if (tabBtnWebSearch) tabBtnWebSearch.addEventListener('click', () => window.switchTab('websearch'));
   if (tabBtnSkills) tabBtnSkills.addEventListener('click', () => window.switchTab('skills'));
+
+  if (openWsFileBtn) {
+    openWsFileBtn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'open_web_search_file' });
+    });
+  }
+
+  if (toggleWsApiKeyBtn && wsApiKeyInput) {
+    toggleWsApiKeyBtn.addEventListener('click', () => {
+      wsApiKeyInput.type = wsApiKeyInput.type === 'password' ? 'text' : 'password';
+    });
+  }
+
+  if (btnSaveWebSearch) {
+    btnSaveWebSearch.addEventListener('click', () => {
+      if (wsSaveStatus) {
+        wsSaveStatus.textContent = '💾 Saving web_search.yaml...';
+        wsSaveStatus.className = 'hint-status loading';
+      }
+      vscode.postMessage({
+        type: 'save_web_search_config',
+        config: {
+          provider: wsProviderSelect ? wsProviderSelect.value : 'duckduckgo',
+          apiKey: wsApiKeyInput ? wsApiKeyInput.value.trim() : '',
+          maxResults: wsMaxResultsInput ? parseInt(wsMaxResultsInput.value, 10) || 15 : 15,
+        },
+      });
+    });
+  }
+
+  function populateWebSearchForm(data) {
+    if (!data) return;
+    if (wsFilePathEl && data.filePath) {
+      wsFilePathEl.textContent = data.filePath;
+      wsFilePathEl.title = data.filePath;
+    }
+    if (wsProviderSelect && data.provider) {
+      wsProviderSelect.value = data.provider;
+    }
+    if (wsApiKeyInput && typeof data.apiKey === 'string') {
+      wsApiKeyInput.value = data.apiKey;
+    }
+    if (wsMaxResultsInput && typeof data.maxResults === 'number') {
+      wsMaxResultsInput.value = String(data.maxResults);
+    }
+    if (wsSaveStatus && data.savedAt) {
+      wsSaveStatus.textContent = `✔ Saved to web_search.yaml at ${data.savedAt}`;
+      wsSaveStatus.className = 'hint-status success';
+    }
+  }
   if (tabBtnMemory) tabBtnMemory.addEventListener('click', () => window.switchTab('memory'));
   if (tabBtnServer) tabBtnServer.addEventListener('click', () => window.switchTab('server'));
 
@@ -1172,6 +1241,7 @@
     if (llmInputTopP) llmInputTopP.value = '';
     if (llmInputTopK) llmInputTopK.value = '';
     if (llmInputRepeatPenalty) llmInputRepeatPenalty.value = '';
+    if (llmInputTimeout) llmInputTimeout.value = '';
     if (llmInputIsSlm) llmInputIsSlm.checked = false;
     if (llmInputThinking) llmInputThinking.checked = false;
     if (llmInputStreaming) llmInputStreaming.checked = false;
@@ -1238,6 +1308,7 @@
     const topPVal = llmInputTopP && llmInputTopP.value ? parseFloat(llmInputTopP.value) : undefined;
     const topKVal = llmInputTopK && llmInputTopK.value ? parseInt(llmInputTopK.value, 10) : undefined;
     const repeatVal = llmInputRepeatPenalty && llmInputRepeatPenalty.value ? parseFloat(llmInputRepeatPenalty.value) : undefined;
+    const timeoutVal = llmInputTimeout && llmInputTimeout.value ? parseInt(llmInputTimeout.value, 10) : undefined;
     const isSlmVal = llmInputIsSlm ? !!llmInputIsSlm.checked : undefined;
     const thinkingVal = llmInputThinking ? !!llmInputThinking.checked : undefined;
     const streamingVal = llmInputStreaming ? !!llmInputStreaming.checked : undefined;
@@ -1257,6 +1328,7 @@
         topP: topPVal,
         topK: topKVal,
         repeatPenalty: repeatVal,
+        timeoutSeconds: timeoutVal,
         isSlm: isSlmVal,
         thinking: thinkingVal,
         useStreaming: streamingVal,
@@ -1322,7 +1394,7 @@
           <div class="card-row"><span class="card-label">Model:</span><span class="card-val">${escapeHtml(p.model)}</span></div>
           ${p.baseUrl ? `<div class="card-row"><span class="card-label">Base URL:</span><span class="card-val">${escapeHtml(p.baseUrl)}</span></div>` : ''}
           <div class="card-row"><span class="card-label">API Key:</span><span class="card-val">${escapeHtml(keyDisplay)}</span></div>
-          <div class="card-row"><span class="card-label">Specs:</span><span class="card-val">${p.ctxAndPricing ? `<strong>[${escapeHtml(p.ctxAndPricing)}]</strong> ` : ''}(temp: ${p.temperature ?? 0.2}, max_tokens: ${p.maxTokens ?? 8192}${p.contextSize ? `, ctx: ${p.contextSize}` : ''}${p.isSlm ? ', SLM' : ''}${p.thinking ? ', Thinking' : ''}${p.useStreaming ? ', Stream' : ''})</span></div>
+          <div class="card-row"><span class="card-label">Specs:</span><span class="card-val">${p.ctxAndPricing ? `<strong>[${escapeHtml(p.ctxAndPricing)}]</strong> ` : ''}(temp: ${p.temperature ?? 0.2}, max_tokens: ${p.maxTokens ?? 8192}${p.contextSize ? `, ctx: ${p.contextSize}` : ''}${p.timeoutSeconds ? `, timeout: ${p.timeoutSeconds}s` : ''}${p.isSlm ? ', SLM' : ''}${p.thinking ? ', Thinking' : ''}${p.useStreaming ? ', Stream' : ''})</span></div>
         </div>
         <div class="card-actions">
           ${!isDef ? `<button class="card-action-btn set-default-btn" data-name="${escapeHtml(p.name)}">Set Default</button>` : ''}
@@ -1355,6 +1427,7 @@
         if (llmInputTopP) llmInputTopP.value = p.topP !== undefined ? p.topP : '';
         if (llmInputTopK) llmInputTopK.value = p.topK !== undefined ? p.topK : '';
         if (llmInputRepeatPenalty) llmInputRepeatPenalty.value = p.repeatPenalty !== undefined ? p.repeatPenalty : '';
+        if (llmInputTimeout) llmInputTimeout.value = p.timeoutSeconds !== undefined ? p.timeoutSeconds : '';
         if (llmInputIsSlm) llmInputIsSlm.checked = !!p.isSlm;
         if (llmInputThinking) llmInputThinking.checked = !!p.thinking;
         if (llmInputStreaming) llmInputStreaming.checked = !!p.useStreaming;
@@ -1378,6 +1451,7 @@
         if (llmInputTopP) llmInputTopP.value = p.topP !== undefined ? p.topP : '';
         if (llmInputTopK) llmInputTopK.value = p.topK !== undefined ? p.topK : '';
         if (llmInputRepeatPenalty) llmInputRepeatPenalty.value = p.repeatPenalty !== undefined ? p.repeatPenalty : '';
+        if (llmInputTimeout) llmInputTimeout.value = p.timeoutSeconds !== undefined ? p.timeoutSeconds : '';
         if (llmInputIsSlm) llmInputIsSlm.checked = !!p.isSlm;
         if (llmInputThinking) llmInputThinking.checked = !!p.thinking;
         if (llmInputStreaming) llmInputStreaming.checked = !!p.useStreaming;
@@ -1507,10 +1581,44 @@
     mcpModal.classList.add('hidden');
   });
 
+  function renderPreconfiguredToolsList(tools) {
+    if (!preconfiguredToolsListEl) return;
+    if (!Array.isArray(tools) || tools.length === 0) {
+      preconfiguredToolsListEl.innerHTML = '<div class="empty-state">No built-in tools listed.</div>';
+      return;
+    }
+    preconfiguredToolsListEl.innerHTML = '';
+    tools.forEach((t) => {
+      const card = document.createElement('div');
+      card.className = 'config-card';
+      card.innerHTML = `
+        <div class="card-title-row">
+          <div class="card-title-left">
+            <span class="card-name">🧰 ${escapeHtml(t.name)}</span>
+          </div>
+          <span class="badge-default">PRECONFIGURED</span>
+        </div>
+        <div class="card-details">
+          <div class="card-row"><span class="card-label">Category:</span><span class="card-val">${escapeHtml(t.category || 'Built-in')} (${escapeHtml(t.risk || 'read')})</span></div>
+          <div class="card-row"><span class="card-val">${escapeHtml(t.description || '')}</span></div>
+        </div>
+        ${t.configurableTab ? `<div class="card-actions"><button class="card-action-btn ws-config-jump-btn">⚙ Configure</button></div>` : ''}
+      `;
+      const jumpBtn = card.querySelector('.ws-config-jump-btn');
+      if (jumpBtn) {
+        jumpBtn.addEventListener('click', () => window.switchTab(t.configurableTab));
+      }
+      preconfiguredToolsListEl.appendChild(card);
+    });
+  }
+
   function renderMcpList(data) {
     activeMcpFilePath = data.filePath || '';
     mcpFilePathEl.textContent = activeMcpFilePath || '(not resolved)';
     mcpFilePathEl.title = activeMcpFilePath;
+    if (Array.isArray(data.preconfiguredTools)) {
+      renderPreconfiguredToolsList(data.preconfiguredTools);
+    }
 
     const servers = data.servers || [];
     if (servers.length === 0) {
@@ -2183,6 +2291,11 @@ system_prompt: |
       return;
     }
 
+    if (message.type === 'web_search_config_data') {
+      populateWebSearchForm(message);
+      return;
+    }
+
     if (message.type === 'skills_data') {
       renderSkillsList(message);
       return;
@@ -2306,14 +2419,26 @@ system_prompt: |
       case 'models':
         if (ev.models && Array.isArray(ev.models)) {
           modelSelect.innerHTML = '';
+          let matched = false;
           ev.models.forEach((m) => {
             const opt = document.createElement('option');
             opt.value = m.name;
             const badge = m.ctxAndPricing ? ` [${m.ctxAndPricing}]` : '';
             opt.textContent = `${m.name} (${m.model || m.provider}${badge})`;
-            if ((activeSelectedProfile && m.name === activeSelectedProfile) || (!activeSelectedProfile && m.isDefault)) opt.selected = true;
+            if ((activeSelectedProfile && m.name === activeSelectedProfile) || (!activeSelectedProfile && m.isDefault)) {
+              opt.selected = true;
+              matched = true;
+            }
             modelSelect.appendChild(opt);
           });
+          if (!matched && ev.models.length > 0) {
+            const fallback = ev.models.find((m) => m.isDefault) || ev.models[0];
+            modelSelect.value = fallback.name;
+            activeSelectedProfile = fallback.name;
+            vscode.postMessage({ type: 'set_model', model: fallback.name });
+          } else if (modelSelect.value) {
+            activeSelectedProfile = modelSelect.value;
+          }
         }
         break;
 

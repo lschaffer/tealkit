@@ -84,7 +84,7 @@ class RagEmbedder {
         return await _embedOpenAi(text);
       }
     } catch (e) {
-      stderr.writeln('[RAG Embedder] embedText failed: $e');
+      stderr.writeln('[RAG Embedder] note: semantic embedding unavailable ($provider), falling back to keyword search.');
     }
     return null;
   }
