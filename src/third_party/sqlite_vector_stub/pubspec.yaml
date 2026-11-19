@@ -1,0 +1,6 @@
+name: sqlite_vector
+description: Lightweight hookless stub of sqlite_vector for server_light.
+version: 1.2.0
+
+environment:
+  sdk: ^3.8.0

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
-import 'package:tealkit_server/database/server_duckdb_adapter.dart';
+import 'package:tealkit_server/database/server_database_adapter.dart';
 import '../models/agentic_task.dart';
 import '../runner/server_llm_runner.dart';
 import '../runner/server_tool_registry.dart';
@@ -278,7 +278,7 @@ class ServerEmailService {
   ) async {
     try {
       final llmRunner = ServerLlmRunner(ServerLlmSettingsService.instance);
-      final emptyRegistry = ServerToolRegistry(ServerDuckDbAdapter());
+      final emptyRegistry = ServerToolRegistry(serverDb);
       final prompt =
           'Check this condition against the task output.\n'
           'Return ONLY TRUE if it matches, otherwise ONLY FALSE.\n\n'

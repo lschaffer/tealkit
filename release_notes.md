@@ -2,6 +2,37 @@
 
 This file tracks release changes by version.
 
+## v2.4.0+170 - Breaking Changes: SQLite + `sqlite_vector` Engine Migration (Bridge Release 1), Desktop Store Light Editions & `llamadart` 0.20.0
+
+### ⚠️ Breaking Changes (Action Required for Existing Users)
+1. **Mandatory Two-Release Database Engine Migration (`DuckDB` → `SQLite` + `sqlite_vector` + `FTS5`)**:
+   - **All existing TealKit Client and Headless Server users MUST install and launch this bridge update at least once before installing future releases!**
+   - **Client App (`mobile_ai_agent.duckdb` → `mobile_ai_agent.sqlite`)**: On first launch, TealKit detects existing `.duckdb` storage (checking current app support directory, sibling desktop app support directories, and legacy `Documents` paths), opens an interactive **Database Upgrade** popup (`DatabaseUpgradeDialog`), migrates all **Workflows, Skills, Sub-Agents, MCP Configurations, Custom Python Tools, and Tool Hints**, and safely archives the old database as `mobile_ai_agent.duckdb.migrated.bak`. (Users can also export/restore an encrypted `.tkv` backup anytime in **Settings → Settings Vault / Tresor**.)
+   - **Headless TealKit Server (`tealkit_server.duckdb` → `tealkit_server.sqlite`)**: Performs a **silent automatic startup migration** (`ServerLegacyDuckDbMigrator`) across all 11 persistent server tables (`llm_profiles`, `tasks`, `skill_defs`, `subagent_definitions`, `py_tools`, `js_tools`, `github_mcp_servers`, `playground_sessions`, `internal_mcp_configs`, `tool_skills`, `scheduler_log`), archiving `tealkit_server.duckdb.migrated.bak` while **retaining full `llamadart: ^0.20.0` embedded GGUF support** in server mode.
+   - **Legacy DuckDB Removal in Next Release**: Legacy DuckDB migration support is included **only in this bridge release** and will be **completely removed in the next update** (~1–2 weeks).
+2. **Breaking Local RAG Re-index Requirement**:
+   - Rebuildable vector chunk tables (`document_index`, `website_index`) and transient `workflow_memory_store` rows are intentionally **not migrated** so startup upgrades complete in seconds—users relying on local Document Search or Web-Crawl must click **Re-index** once after upgrading.
+3. **Breaking Desktop Store Change — Streamlined "Light" Desktop Store Editions**:
+   - **Microsoft Store (Windows), Mac App Store (macOS), and Linux Desktop** builds now ship exclusively as **Light** editions (`--dart-define=TEALKIT_LIGHT=true` + `third_party/llamadart_stub`), removing bundled `llamadart` / `llama.cpp` / `ggml` / `litert_lm` native libraries and hiding **Embedded (on-device)** in LLM settings. Desktop Store users should connect to Cloud APIs or external local inference servers (`llama.cpp`, Ollama, LM Studio, vLLM).
+   - **Direct / Sideload Desktop Installers (`tealkit.dev/download/`)** offer **both Full and Light** setups for Windows (`tealkit_windows_setup.zip` & `tealkit_windows_light_setup.zip`) and macOS Direct (`TealKit-macos-direct.dmg` & `TealKit-macos-direct-light.dmg`).
+   - **Mobile (Android & iOS)** and **Headless Server (`tealkit_server`)** remain **Full** with embedded on-device GGUF inference (`llamadart: ^0.20.0`).
+
+### Major Features, Fixes & Tooling Updates
+- **SQLite + `sqlite_vector` + FTS5 Unified Storage (Client & Server)**:
+  - Replaced runtime `dart_duckdb` storage with `sqlite3` (WAL mode) + `sqlite_vector` (`vector_init`, `vector_full_scan` cosine/L2 search) + **SQLite FTS5 (`bm25()`)** hybrid Reciprocal Rank Fusion (RRF) across both Client (`SqliteService`) and Headless Server (`ServerSqliteAdapter.full()`), eliminating `100+ MB` of analytical engine RAM overhead.
+  - Fixed SQLite `INTEGER` (`0`/`1`) → `bool?` casting on `/scheduler/log` (`server_runner.dart`) and added null/type-safe `_toBool(...)` normalization across `ServerSqliteAdapter`, `SqliteService`, `WorkflowListScreen`, and `VisualBuilderScreen`.
+- **Unified Headless Server (`server/` Full & Light Build Flavors — `server_light/` Retired)**:
+  - Unified Full and Light headless server editions into the single `server/` package (`bin/tealkit_server.dart` with `-DTEALKIT_LIGHT=true` or `--light`, plus `server/scripts/build-server-light.sh` / `.ps1`), removing the redundant `server_light/` package.
+  - Updated `ServerFeatureFlags.light` so Light Server builds keep the full SQLite + FTS5 + RAG + Scheduler + PDF/Excel/File feature set (`tealkit_server.sqlite`) and disable **only** `enableEmbeddedModels` (`llamadart` stubbed out with zero `llama.cpp` binaries).
+- **Google Drive Full Read/Write/Delete OAuth Scope**:
+  - Upgraded the Google Drive OAuth2 scope in `DataSourcesSettingsService` and `DataSourcesSettingsScreen` from `drive.file` to `https://www.googleapis.com/auth/drive` so Drive write, overwrite, and delete operations work on existing files as well as newly created files.
+- **Startup Initialization & Mobile Settings Vault (Tresor) Fixes**:
+  - Removed premature `FunctionHintGenerationService.ensureSkillsForBuiltInTools()` execution from `main()` before startup dialogs so TealKit never fires background tool-hint LLM calls ahead of `DatabaseUpgradeDialog` or user consent.
+  - Refactored `SettingsVaultScreen` dialogs (`_VaultPasswordDialog`, `_VaultExportDialog`, `_VaultImportDialog`) into dedicated `StatefulWidget`s so `TextEditingController` disposal follows widget lifecycle, fixing the mobile `'_dependents.isEmpty': is not true` assertion on Vault restore.
+- **`tealkit_cli` v1.4.8, `tealkit-vscode` v0.1.10 & Core Dependency Upgrades**:
+  - **`tealkit_cli` v1.4.7–1.4.8**: Upgraded `dart_mcp_core` / `flutter_ui_mcp*` to `^1.5.13` (resolving Qwen3 / `llama.cpp` Jinja `System message must be at the beginning` ordering during mid-conversation context compression), `llamadart` to `^0.20.0`, and `sqlite3` to `^3.9.1`. Restricted `GlobalConfigLocator.ensureInitialized()` to an explicit TealKit config filename allowlist so unrelated workspace YAML files (`pubspec.yaml`, `l10n.yaml`, `melos.yaml`, `analysis_options.yaml`, `devtools_options.yaml`) are never copied into `~/.tealkitcoder/`. Added pre-write file diff snapshots (`path`, `original`, `modified`) and cumulative session token & estimated USD cost reporting to `TealKitRpcEngine`.
+  - **`tealkit-vscode` v0.1.9–0.1.10**: Bundled `tealkit.exe` (v1.4.8) + `lib/sqlite3.dll`; added a top-bar session token counter & estimated USD cost badge (`#tokens-badge`) with hover breakdown; replaced blocked webview `confirm()` / `alert()` calls with native VS Code modal confirmations (fixing LLM profile, MCP server, Server profile, and session deletion); fixed LLM profile renaming to update in-place without duplicating entries; and fixed **Show Diff** / **Review Diff** on both pre-write approval cards and post-write diff cards.
+
 ## v2.3.1+169 - Unified Assistant Modes, Cross-Platform Sessions, Mobile Vault Fullscreen & Dynamic LLM Timeouts
 
 ### Major Features & Enhancements

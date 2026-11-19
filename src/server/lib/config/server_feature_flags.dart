@@ -43,17 +43,10 @@ class ServerFeatureFlags {
     this.enableScheduler = true,
   });
 
-  /// Preset for server_light: disables everything that requires heavy
-  /// dependencies or >1GB RAM.
+  /// Preset for TealKit Server Light (`-DTEALKIT_LIGHT=true` or `--light`):
+  /// Identical to the full SQLite server except embedded on-device GGUF models
+  /// (`llamadart`) are disabled so no `llama.cpp` native binaries are required.
   static const light = ServerFeatureFlags(
     enableEmbeddedModels: false,
-    enableIndexing: false,
-    enablePdfTools: false,
-    enableChartTools: false,
-    enableDocumentTools: false,
-    enableExcelTools: false,
-    enableFileTools: false,
-    enableSemanticSearch: false,
-    enableScheduler: false,
   );
 }

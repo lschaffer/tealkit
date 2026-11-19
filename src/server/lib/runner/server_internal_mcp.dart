@@ -18,6 +18,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:http/http.dart' as http;
 
 import '../database/server_database_adapter.dart';
+import '../database/server_sqlite_adapter.dart';
 import '../models/mcp_models.dart';
 import '../services/server_data_sources_service.dart';
 import '../services/server_indexing_service.dart';
@@ -4763,15 +4764,48 @@ class ServerDocumentMcp extends ServerInternalMcp {
           .join(' OR ');
       conditions.write(' AND ($likeConditions)');
     }
+    final scopeOnly = StringBuffer(
+      "WHERE ${_rootPathInClause()} AND content_text IS NOT NULL AND content_text != ''",
+    );
+    if (fileType != null && fileType.isNotEmpty) {
+      scopeOnly.write(" AND file_type = '${_esc(fileType.toLowerCase())}'");
+    }
     try {
-      final rows = await db.query('''
-        SELECT file_path, file_name, file_type, file_size,
-               SUBSTRING(content_text, 1, 81920) AS content_text,
-               embedding_json, last_modified
-        FROM document_index
-        $conditions
-        LIMIT 200
-      ''');
+      final queryEmbedding = SemanticEmbedding.buildEmbedding(query);
+      Map<String, double> ftsRanks = const {};
+      List<List<dynamic>> rows = const [];
+      if (db is ServerSqliteAdapter && db.isVectorInitialized && searchMode != 'keyword') {
+        ftsRanks = await db.ftsRankDocuments(query, limit: 150);
+        final vecMaps = await db.vectorSearchDocuments(
+          queryEmbedding: queryEmbedding,
+          whereScopeSql: scopeOnly.toString(),
+          k: 150,
+        );
+        rows = vecMaps
+            .map((m) => [
+                  m['file_path'],
+                  m['file_name'],
+                  m['file_type'],
+                  m['file_size'],
+                  m['content_text'],
+                  m['embedding_json'],
+                  m['last_modified'],
+                ])
+            .toList();
+      }
+      if (rows.isEmpty) {
+        if (db is ServerSqliteAdapter && ftsRanks.isEmpty) {
+          ftsRanks = await db.ftsRankDocuments(query, limit: 150);
+        }
+        rows = await db.query('''
+          SELECT file_path, file_name, file_type, file_size,
+                 SUBSTR(content_text, 1, 81920) AS content_text,
+                 embedding_json, last_modified
+          FROM document_index
+          $conditions
+          LIMIT 200
+        ''');
+      }
       if (rows.isEmpty) {
         int totalDocs = 0;
         try {
@@ -4799,7 +4833,6 @@ class ServerDocumentMcp extends ServerInternalMcp {
           'results': <dynamic>[],
         };
       }
-      final queryEmbedding = SemanticEmbedding.buildEmbedding(query);
       final scored = <Map<String, dynamic>>[];
       for (final row in rows) {
         final content = row[4]?.toString() ?? '';
@@ -4814,12 +4847,14 @@ class ServerDocumentMcp extends ServerInternalMcp {
           queryEmbedding,
           docEmbedding,
         );
+        final ftsBoost = (ftsRanks[row[0]?.toString() ?? ''] ?? 0.0) * 6.0;
         final relevanceScore = switch (searchMode) {
-          'keyword' => keywordScore + (matchCount * 0.02),
+          'keyword' => keywordScore + (matchCount * 0.02) + ftsBoost,
           'semantic' => semanticScore,
           _ =>
             (0.65 * semanticScore) +
-                (0.30 * keywordScore) +
+                (0.25 * keywordScore) +
+                (0.10 * ftsBoost) +
                 (0.05 * matchCount),
         };
         if (searchMode == 'keyword' && matchCount == 0) continue;

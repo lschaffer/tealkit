@@ -1,7 +1,5 @@
-import 'dart:ffi';
 import 'dart:io';
 import 'package:path/path.dart' as p;
-import 'package:sqlite3/open.dart' as sqlite_open;
 import 'package:sqlite3/sqlite3.dart';
 
 /// Represents a scored chunk retrieved from search.
@@ -68,15 +66,12 @@ class ScoredChunk {
 class RagDatabase {
   final String databasePath;
   Database? _db;
-  static bool _sqliteOverrideRegistered = false;
 
   RagDatabase(this.databasePath);
 
   /// Initializes the SQLite library bindings and opens the database connection.
   void open() {
     if (_db != null) return;
-
-    _ensureSqliteDynamicLibrary();
 
     // Ensure parent directory exists (even on network UNC paths like \\server\share\dir)
     final dbFile = File(databasePath);
@@ -88,40 +83,6 @@ class RagDatabase {
 
     _db = sqlite3.open(databasePath);
     _initSchema();
-  }
-
-  static void _ensureSqliteDynamicLibrary() {
-    if (_sqliteOverrideRegistered) return;
-    _sqliteOverrideRegistered = true;
-
-    if (Platform.isWindows) {
-      sqlite_open.open.overrideFor(sqlite_open.OperatingSystem.windows, () {
-        // 1. Check beside executable
-        final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final localSqlite = p.join(exeDir, 'sqlite3.dll');
-        if (File(localSqlite).existsSync()) {
-          try {
-            return DynamicLibrary.open(localSqlite);
-          } catch (_) {}
-        }
-
-        // 2. Check current working directory
-        final cwdSqlite = p.join(Directory.current.path, 'sqlite3.dll');
-        if (File(cwdSqlite).existsSync()) {
-          try {
-            return DynamicLibrary.open(cwdSqlite);
-          } catch (_) {}
-        }
-
-        // 3. System winsqlite3.dll (available on all Windows 10/11)
-        try {
-          return DynamicLibrary.open('winsqlite3.dll');
-        } catch (_) {}
-
-        // 4. Default sqlite3.dll in PATH
-        return DynamicLibrary.open('sqlite3.dll');
-      });
-    }
   }
 
   void _initSchema() {
@@ -281,8 +242,8 @@ class RagDatabase {
         }
       }
 
-      chunkStmt.dispose();
-      ftsStmt?.dispose();
+      chunkStmt.close();
+      ftsStmt?.close();
 
       _db!.execute('COMMIT;');
     } catch (e) {
@@ -434,7 +395,7 @@ class RagDatabase {
   }
 
   void close() {
-    _db?.dispose();
+    _db?.close();
     _db = null;
   }
 }

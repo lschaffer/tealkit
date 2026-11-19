@@ -34,6 +34,7 @@
   const modelSelect = document.getElementById('model-select');
   const statusBadge = document.getElementById('agent-status-badge');
   const toolsBadge = document.getElementById('tools-badge');
+  const tokensBadge = document.getElementById('tokens-badge');
   const activityBar = document.getElementById('activity-indicator');
   const activityText = document.getElementById('activity-text');
   const attachedSkillsChips = document.getElementById('attached-skills-chips');
@@ -211,9 +212,78 @@
   const cfgRagMinScore = document.getElementById('cfg-rag-min-score');
 
   let editingLlmOriginalName = null;
+  let editingLlmIndex = -1;
   let editingMcpOriginalName = null;
   let editingServerOriginalName = null;
   const workflowStateMap = {};
+  const knownModelsPricing = {};
+  let sessionUsage = {
+    prompt: 0,
+    completion: 0,
+    total: 0,
+    costUsd: null,
+    rateDescription: '',
+  };
+
+  function showWebviewWarning(msg) {
+    vscode.postMessage({ type: 'show_warning', message: String(msg || '') });
+  }
+
+  function formatCompactTokens(n) {
+    const val = Number(n) || 0;
+    if (val >= 1000000) return `${(val / 1000000).toFixed(2).replace(/\.?0+$/, '')}M`;
+    if (val >= 1000) return `${(val / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+    return `${val}`;
+  }
+
+  function formatUsdCost(cost) {
+    if (cost === null || cost === undefined || Number.isNaN(Number(cost))) return '';
+    const v = Number(cost);
+    if (v === 0) return '$0.00';
+    if (v < 0.0001) return `<$0.0001`;
+    if (v < 0.01) return `$${v.toFixed(4)}`;
+    return `$${v.toFixed(3)}`;
+  }
+
+  function parsePricingPerMillion(pricingStr) {
+    if (!pricingStr) return null;
+    const s = String(pricingStr).trim();
+    if (/^free$/i.test(s)) return { inputPerM: 0, outputPerM: 0 };
+    const m = s.match(/\$?\s*([0-9]+(?:\.[0-9]+)?)\s*\/\s*\$?\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (!m) return null;
+    return { inputPerM: parseFloat(m[1]), outputPerM: parseFloat(m[2]) };
+  }
+
+  function updateTokensBadge() {
+    if (!tokensBadge) return;
+    const total = sessionUsage.total || (sessionUsage.prompt + sessionUsage.completion);
+    let cost = sessionUsage.costUsd;
+    if ((cost === null || cost === undefined) && total > 0) {
+      const profileName = activeSelectedProfile || modelSelect?.value || '';
+      const pricingStr = knownModelsPricing[profileName];
+      const parsed = parsePricingPerMillion(pricingStr);
+      if (parsed) {
+        cost = (sessionUsage.prompt / 1000000) * parsed.inputPerM +
+               (sessionUsage.completion / 1000000) * parsed.outputPerM;
+      }
+    }
+    const costLabel = (cost !== null && cost !== undefined && total > 0) ? ` • ${formatUsdCost(cost)}` : '';
+    tokensBadge.textContent = `${formatCompactTokens(total)} tok${costLabel}`;
+    const tooltipLines = [
+      `Session Tokens: ${total.toLocaleString()} (in: ${sessionUsage.prompt.toLocaleString()}, out: ${sessionUsage.completion.toLocaleString()})`,
+    ];
+    if (cost !== null && cost !== undefined) {
+      tooltipLines.push(`Estimated Cost: ${formatUsdCost(cost)}${sessionUsage.rateDescription ? ` (${sessionUsage.rateDescription})` : ''}`);
+    } else {
+      tooltipLines.push('Estimated Cost: n/a (no pricing available for active model)');
+    }
+    tokensBadge.title = tooltipLines.join('\n');
+  }
+
+  function resetSessionUsage() {
+    sessionUsage = { prompt: 0, completion: 0, total: 0, costUsd: null, rateDescription: '' };
+    updateTokensBadge();
+  }
 
 
   let currentAssistantBubble = null;
@@ -901,9 +971,7 @@
       });
 
       card.querySelector('.delete-session-btn').addEventListener('click', () => {
-        if (confirm(`Delete saved session "${title}"?`)) {
-          vscode.postMessage({ type: 'delete_session', path: s.path });
-        }
+        vscode.postMessage({ type: 'delete_session', path: s.path, title });
       });
 
       container.appendChild(card);
@@ -1227,6 +1295,7 @@
 
   addLlmBtn.addEventListener('click', () => {
     editingLlmOriginalName = null;
+    editingLlmIndex = -1;
     llmModalTitle.textContent = 'Add LLM Profile';
     llmInputName.value = '';
     llmInputName.disabled = false;
@@ -1276,8 +1345,16 @@
     });
   }
 
-  llmModalClose.addEventListener('click', () => llmModal.classList.add('hidden'));
-  llmModalCancel.addEventListener('click', () => llmModal.classList.add('hidden'));
+  llmModalClose.addEventListener('click', () => {
+    editingLlmOriginalName = null;
+    editingLlmIndex = -1;
+    llmModal.classList.add('hidden');
+  });
+  llmModalCancel.addEventListener('click', () => {
+    editingLlmOriginalName = null;
+    editingLlmIndex = -1;
+    llmModal.classList.add('hidden');
+  });
 
   toggleApiKeyVisibility.addEventListener('click', () => {
     if (llmInputApiKey.type === 'password') {
@@ -1298,7 +1375,7 @@
     const isDefault = llmInputDefault.checked;
 
     if (!name || !model) {
-      alert('Profile Name and Model ID are required.');
+      showWebviewWarning('Profile Name and Model ID are required.');
       return;
     }
 
@@ -1316,6 +1393,7 @@
     vscode.postMessage({
       type: 'save_llm_profile',
       originalName: editingLlmOriginalName || undefined,
+      originalIndex: editingLlmIndex >= 0 ? editingLlmIndex : undefined,
       profile: {
         name,
         provider,
@@ -1336,6 +1414,8 @@
       isDefault,
     });
 
+    editingLlmOriginalName = null;
+    editingLlmIndex = -1;
     llmModal.classList.add('hidden');
   });
 
@@ -1374,7 +1454,10 @@
     }
 
     llmListEl.innerHTML = '';
-    profiles.forEach((p) => {
+    profiles.forEach((p, idx) => {
+      if (p.pricing || p.ctxAndPricing) {
+        knownModelsPricing[p.name] = p.pricing || p.ctxAndPricing;
+      }
       const isDef = p.name === defaultModel || p.isDefault === true;
       const card = document.createElement('div');
       card.className = `config-card ${isDef ? 'is-default' : ''}`;
@@ -1413,6 +1496,7 @@
 
       card.querySelector('.edit-btn').addEventListener('click', () => {
         editingLlmOriginalName = p.name;
+        editingLlmIndex = idx;
         llmModalTitle.textContent = `Edit Profile: ${p.name}`;
         llmInputName.value = p.name;
         llmInputName.disabled = false;
@@ -1437,6 +1521,7 @@
 
       card.querySelector('.clone-btn').addEventListener('click', () => {
         editingLlmOriginalName = null;
+        editingLlmIndex = -1;
         llmModalTitle.textContent = `Clone Profile: ${p.name}`;
         llmInputName.value = `${p.name}_copy`;
         llmInputName.disabled = false;
@@ -1460,9 +1545,7 @@
       });
 
       card.querySelector('.delete-btn').addEventListener('click', () => {
-        if (confirm(`Delete LLM profile "${p.name}"?`)) {
-          vscode.postMessage({ type: 'delete_llm_profile', name: p.name });
-        }
+        vscode.postMessage({ type: 'delete_llm_profile', name: p.name });
       });
 
       llmListEl.appendChild(card);
@@ -1547,7 +1630,7 @@
     mcpBtnTest.addEventListener('click', () => {
       const server = parseMcpModalInputs();
       if (!server.command) {
-        alert('Command is required to test MCP server.');
+        showWebviewWarning('Command is required to test MCP server.');
         return;
       }
       if (mcpModalToolsResult) {
@@ -1568,7 +1651,7 @@
   mcpModalSave.addEventListener('click', () => {
     const server = parseMcpModalInputs();
     if (!mcpInputName.value.trim() || !server.command) {
-      alert('Server Name and Command are required.');
+      showWebviewWarning('Server Name and Command are required.');
       return;
     }
 
@@ -1697,9 +1780,7 @@
       });
 
       card.querySelector('.delete-mcp-btn').addEventListener('click', () => {
-        if (confirm(`Delete MCP server "${s.name}"?`)) {
-          vscode.postMessage({ type: 'delete_mcp_server', name: s.name });
-        }
+        vscode.postMessage({ type: 'delete_mcp_server', name: s.name });
       });
 
       mcpListEl.appendChild(card);
@@ -1740,7 +1821,7 @@
       const prompt = skillInputPrompt.value.trim();
 
       if (!name) {
-        alert('Skill name is required.');
+        showWebviewWarning('Skill name is required.');
         return;
       }
 
@@ -1919,7 +2000,7 @@ system_prompt: |
       const apiKey = (serverInputApiKey?.value || '').trim();
       const name = (serverInputName?.value || '').trim();
       if (!url) {
-        alert('Server URL is required.');
+        showWebviewWarning('Server URL is required.');
         return;
       }
       if (serverModalTestResult) {
@@ -1947,7 +2028,7 @@ system_prompt: |
       const isActive = serverInputActive.checked;
 
       if (!name || !url) {
-        alert('Server name and URL are required.');
+        showWebviewWarning('Server name and URL are required.');
         return;
       }
 
@@ -2040,9 +2121,7 @@ system_prompt: |
       });
 
       card.querySelector('.delete-server-btn').addEventListener('click', () => {
-        if (confirm(`Delete server profile "${p.name}"?`)) {
-          vscode.postMessage({ type: 'delete_server_profile', name: p.name });
-        }
+        vscode.postMessage({ type: 'delete_server_profile', name: p.name });
       });
 
       serverProfilesListEl.appendChild(card);
@@ -2391,6 +2470,18 @@ system_prompt: |
         if (ev.activeSkills) {
           updateAttachedSkillsChips(ev.activeSkills);
         }
+        if (ev.usage) {
+          sessionUsage.prompt = Number(ev.usage.promptTokens || 0);
+          sessionUsage.completion = Number(ev.usage.completionTokens || 0);
+          sessionUsage.total = Number(ev.usage.totalTokens || (sessionUsage.prompt + sessionUsage.completion));
+          if (ev.usage.estimatedCostUsd !== undefined) {
+            sessionUsage.costUsd = Number(ev.usage.estimatedCostUsd);
+          }
+          if (ev.usage.rateDescription) {
+            sessionUsage.rateDescription = String(ev.usage.rateDescription);
+          }
+          updateTokensBadge();
+        }
         if (Array.isArray(ev.history) && ev.history.length > 0) {
           renderRestoredSessionMessages(ev.history, !!ev.isTurnActive, false);
         } else if (ev.isTurnActive && !isGenerating) {
@@ -2421,6 +2512,9 @@ system_prompt: |
           modelSelect.innerHTML = '';
           let matched = false;
           ev.models.forEach((m) => {
+            if (m.pricing || m.ctxAndPricing) {
+              knownModelsPricing[m.name] = m.pricing || m.ctxAndPricing;
+            }
             const opt = document.createElement('option');
             opt.value = m.name;
             const badge = m.ctxAndPricing ? ` [${m.ctxAndPricing}]` : '';
@@ -2448,6 +2542,18 @@ system_prompt: |
       case 'skills_changed':
         if (ev.activeSkills) {
           updateAttachedSkillsChips(ev.activeSkills);
+        }
+        if (ev.usage) {
+          sessionUsage.prompt = Number(ev.usage.promptTokens || 0);
+          sessionUsage.completion = Number(ev.usage.completionTokens || 0);
+          sessionUsage.total = Number(ev.usage.totalTokens || (sessionUsage.prompt + sessionUsage.completion));
+          if (ev.usage.estimatedCostUsd !== undefined) {
+            sessionUsage.costUsd = Number(ev.usage.estimatedCostUsd);
+          }
+          if (ev.usage.rateDescription) {
+            sessionUsage.rateDescription = String(ev.usage.rateDescription);
+          }
+          updateTokensBadge();
         }
         break;
 
@@ -2613,14 +2719,46 @@ system_prompt: |
         currentAssistantBubble = null;
         break;
 
+      case 'usage':
+        if (ev.sessionTotalTokens !== undefined) {
+          sessionUsage.prompt = Number(ev.sessionPromptTokens || 0);
+          sessionUsage.completion = Number(ev.sessionCompletionTokens || 0);
+          sessionUsage.total = Number(ev.sessionTotalTokens || 0);
+        } else {
+          sessionUsage.prompt += Number(ev.promptTokens || 0);
+          sessionUsage.completion += Number(ev.completionTokens || 0);
+          sessionUsage.total = sessionUsage.prompt + sessionUsage.completion;
+        }
+        if (ev.estimatedCostUsd !== undefined && ev.estimatedCostUsd !== null) {
+          sessionUsage.costUsd = Number(ev.estimatedCostUsd);
+        }
+        if (ev.rateDescription) {
+          sessionUsage.rateDescription = String(ev.rateDescription);
+        }
+        updateTokensBadge();
+        break;
+
       case 'session_cleared':
         messagesContainer.innerHTML = '';
         currentAssistantBubble = null;
         setActivity(false);
+        resetSessionUsage();
         break;
 
       case 'done':
         setActivity(false);
+        if (ev.usage) {
+          sessionUsage.prompt = Number(ev.usage.promptTokens || sessionUsage.prompt);
+          sessionUsage.completion = Number(ev.usage.completionTokens || sessionUsage.completion);
+          sessionUsage.total = Number(ev.usage.totalTokens || (sessionUsage.prompt + sessionUsage.completion));
+          if (ev.usage.estimatedCostUsd !== undefined && ev.usage.estimatedCostUsd !== null) {
+            sessionUsage.costUsd = Number(ev.usage.estimatedCostUsd);
+          }
+          if (ev.usage.rateDescription) {
+            sessionUsage.rateDescription = String(ev.usage.rateDescription);
+          }
+          updateTokensBadge();
+        }
         if (ev.response && (!currentAssistantBubble || !currentAssistantBubble.innerText.trim())) {
           const bubble = getOrCreateAssistantBubble();
           bubble.innerHTML = formatSimpleMarkdown(ev.response);
@@ -2738,8 +2876,8 @@ system_prompt: |
       vscode.postMessage({
         type: 'review_diff',
         path: ev.path,
-        original: ev.original,
-        modified: ev.modified,
+        original: ev.original !== undefined ? ev.original : '',
+        modified: ev.modified !== undefined ? ev.modified : '',
       });
     });
 
@@ -2773,7 +2911,10 @@ system_prompt: |
     card.className = 'approval-card';
     const reqId = req.requestId || req.id;
     const toolName = req.tool || req.toolName || 'tool';
+    const paramsObj = (req.parameters && typeof req.parameters === 'object') ? req.parameters : {};
     const paramsStr = typeof req.parameters === 'object' ? JSON.stringify(req.parameters, null, 2) : String(req.parameters || '{}');
+    const isFileWrite = toolName === 'fs_write_file' || toolName === 'fs_replace_text' || !!req.diff;
+    const diffTargetPath = (req.diff && req.diff.path) || paramsObj.path || paramsObj.file_path || '';
     card.innerHTML = `
       <div class="approval-header">
         <span class="approval-icon">⚠️</span>
@@ -2782,10 +2923,12 @@ system_prompt: |
       </div>
       <div class="approval-body">
         <div class="approval-row"><strong>Tool:</strong> <code>${escapeHtml(toolName)}</code></div>
+        ${diffTargetPath ? `<div class="approval-row"><strong>File:</strong> <code>${escapeHtml(diffTargetPath)}</code></div>` : ''}
         <div class="approval-row"><strong>Parameters:</strong></div>
         <pre class="approval-params">${escapeHtml(paramsStr)}</pre>
       </div>
       <div class="approval-actions">
+        ${isFileWrite ? `<button class="btn-review" id="showdiff-${reqId}">🔀 Show Diff</button>` : ''}
         <button class="btn-approve" id="approve-${reqId}">✓ Approve</button>
         <button class="btn-always" id="always-${reqId}">⚡ Always Allow</button>
         <button class="btn-reject" id="reject-${reqId}">✕ Reject</button>
@@ -2794,6 +2937,20 @@ system_prompt: |
     messagesContainer.appendChild(card);
     currentAssistantBubble = null;
     scrollToBottom();
+
+    const showDiffBtn = document.getElementById(`showdiff-${reqId}`);
+    if (showDiffBtn) {
+      showDiffBtn.addEventListener('click', () => {
+        vscode.postMessage({
+          type: 'review_diff',
+          path: diffTargetPath,
+          original: req.diff ? req.diff.original : undefined,
+          modified: req.diff ? req.diff.modified : undefined,
+          tool: toolName,
+          parameters: paramsObj,
+        });
+      });
+    }
 
     const approveBtn = document.getElementById(`approve-${reqId}`);
     if (approveBtn) {

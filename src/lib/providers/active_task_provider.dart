@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/build_flavor.dart';
 import '../mcp/internal_mcp_client_adapter.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../models/workflow_task.dart';
@@ -845,9 +846,9 @@ class ActiveTaskNotifier extends Notifier<ActiveTaskState?> {
       useNativeToolCall = settings.useNativeToolCall2;
     }
 
-    // If provider is 'embedded' and server is in light mode, fall back to LLM1
+    // If provider is 'embedded' and app/server is in light mode, fall back to LLM1
     if (provider?.toLowerCase() == 'embedded') {
-      final isLightMode = ref.read(isLightModeProvider);
+      final isLightMode = BuildFlavor.isLight || ref.read(isLightModeProvider);
       if (isLightMode) {
         provider = settings.provider.configKey;
         if (model == null || model.isEmpty) model = settings.model;

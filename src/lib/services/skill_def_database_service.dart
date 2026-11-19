@@ -52,25 +52,8 @@ class SkillDefDatabaseService {
     }
 
     try {
-      final db = DuckDbService();
-      final conn = await db.connection;
-      final rows = (await conn.query(
-        'SELECT * FROM skill_defs ORDER BY updated_at DESC',
-      )).fetchAll();
-      return rows
-          .map(
-            (r) => SkillDef.fromJson({
-              'id': r[0] as String,
-              'name': r[1] as String,
-              'goal': r[2] as String? ?? '',
-              'description': r[3] as String? ?? '',
-              'skill_def': r[4] as String,
-              'tool_names': (r[5] as List?)?.cast<String>() ?? [],
-              'created_at': _toDateTimeStr(r[6]),
-              'updated_at': _toDateTimeStr(r[7]),
-            }),
-          )
-          .toList();
+      final rows = await DuckDbService().getAllSkillDefMaps();
+      return rows.map((m) => SkillDef.fromJson(m)).toList();
     } catch (e) {
       _log.warning('[SkillDef] getAllSkills failed: $e');
       return [];
@@ -91,23 +74,9 @@ class SkillDefDatabaseService {
     }
 
     try {
-      final db = DuckDbService();
-      final conn = await db.connection;
-      final rows = (await conn.query(
-        "SELECT * FROM skill_defs WHERE id = '${_esc(id)}'",
-      )).fetchAll();
-      if (rows.isEmpty) return null;
-      final r = rows.first;
-      return SkillDef.fromJson({
-        'id': r[0] as String,
-        'name': r[1] as String,
-        'goal': r[2] as String? ?? '',
-        'description': r[3] as String? ?? '',
-        'skill_def': r[4] as String,
-        'tool_names': (r[5] as List?)?.cast<String>() ?? [],
-        'created_at': _toDateTimeStr(r[6]),
-        'updated_at': _toDateTimeStr(r[7]),
-      });
+      final map = await DuckDbService().getSkillDefMap(id);
+      if (map == null) return null;
+      return SkillDef.fromJson(map);
     } catch (e) {
       _log.warning('[SkillDef] getSkill failed: $e');
       return null;
@@ -128,19 +97,14 @@ class SkillDefDatabaseService {
     }
 
     try {
-      final db = DuckDbService();
-      final conn = await db.connection;
-      final now = DateTime.now().toUtc().toIso8601String();
-      final toolNamesStr = skill.toolNames
-          .map((t) => "'${_esc(t)}'")
-          .join(', ');
-
-      await conn.execute('''
-        INSERT OR REPLACE INTO skill_defs (id, name, goal, description, skill_def, tool_names, created_at, updated_at)
-        VALUES ('${_esc(skill.id)}', '${_esc(skill.name)}', '${_esc(skill.goal)}',
-                '${_esc(skill.description)}', '${_esc(skill.skillDef)}',
-                [$toolNamesStr], '${_esc(now)}', '${_esc(now)}')
-      ''');
+      await DuckDbService().saveSkillDefMap(
+        id: skill.id,
+        name: skill.name,
+        goal: skill.goal,
+        description: skill.description,
+        skillDef: skill.skillDef,
+        toolNames: skill.toolNames,
+      );
       _log.info('[SkillDef] Saved skill: ${skill.name} (${skill.id})');
     } catch (e) {
       _log.warning('[SkillDef] saveSkill failed: $e');
@@ -162,9 +126,7 @@ class SkillDefDatabaseService {
     }
 
     try {
-      final db = DuckDbService();
-      final conn = await db.connection;
-      await conn.execute("DELETE FROM skill_defs WHERE id = '${_esc(id)}'");
+      await DuckDbService().deleteSkillDef(id);
       _log.info('[SkillDef] Deleted skill: $id');
     } catch (e) {
       _log.warning('[SkillDef] deleteSkill failed: $e');
@@ -232,12 +194,4 @@ class SkillDefDatabaseService {
     final base = filename.replaceAll(RegExp(r'\.[^.]+$'), '');
     return base.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '-').toLowerCase();
   }
-
-  static String _toDateTimeStr(dynamic v) {
-    if (v is DateTime) return v.toUtc().toIso8601String();
-    if (v is String) return v;
-    return DateTime.now().toUtc().toIso8601String();
-  }
-
-  static String _esc(String s) => s.replaceAll("'", "''");
 }

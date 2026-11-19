@@ -12,7 +12,14 @@ import '../config/global_config.dart';
 import '../config/llm_config_manager.dart';
 import '../config/permission_settings.dart';
 import '../config/server_config.dart';
-import 'package:tealkit_api/tealkit_api.dart' hide ChatMessage, MCPTool, MCPToolResult, Agent, ChatRole, MessageAttachment;
+import 'package:tealkit_api/tealkit_api.dart'
+    hide
+        ChatMessage,
+        MCPTool,
+        MCPToolResult,
+        Agent,
+        ChatRole,
+        MessageAttachment;
 import '../engine/builtin_mcp_servers.dart';
 import '../engine/cli_attachment_helper.dart';
 import '../engine/embedded/cli_embedded_llm_adapter.dart';
@@ -46,7 +53,11 @@ class TealKitRpcEngine {
   McpAgentEngine? _activeEngine;
   bool _isTurnActive = false;
   final Map<String, Completer<bool>> _pendingPermissions = {};
-  final Map<String, ({String rawTool, String effectiveTool, ToolRiskLevel risk})> _pendingPermissionMeta = {};
+  final Map<
+    String,
+    ({String rawTool, String effectiveTool, ToolRiskLevel risk})
+  >
+  _pendingPermissionMeta = {};
   final Set<String> _alwaysApprovedTools = {};
   final Set<String> _attachedSkills = {};
   int _sessionTurnCounter = 0;
@@ -71,10 +82,10 @@ class TealKitRpcEngine {
 
   void _sendEvent(String eventName, Map<String, dynamic> data) {
     try {
-      final payload = jsonEncode(
-        {'event': eventName, ...data},
-        toEncodable: (nonEncodable) => nonEncodable.toString(),
-      );
+      final payload = jsonEncode({
+        'event': eventName,
+        ...data,
+      }, toEncodable: (nonEncodable) => nonEncodable.toString());
       stdout.writeln(payload);
     } catch (e) {
       stderr.writeln('[TealKit-RPC] Failed to encode event $eventName: $e');
@@ -96,7 +107,12 @@ class TealKitRpcEngine {
         (cfg.rag.folderSources.isNotEmpty || cfg.rag.webSources.isNotEmpty);
   }
 
-  ({String effectiveTool, ToolRiskLevel risk, Map<String, dynamic> effectiveParams}) _resolveEffectiveToolAndRisk(
+  ({
+    String effectiveTool,
+    ToolRiskLevel risk,
+    Map<String, dynamic> effectiveParams,
+  })
+  _resolveEffectiveToolAndRisk(
     String toolName,
     Map<String, dynamic> parameters,
     ToolRiskLevel defaultRisk,
@@ -113,7 +129,9 @@ class TealKitRpcEngine {
     String effectiveName = toolName;
     Map<String, dynamic> effectiveParams = parameters;
     if (toolName == 'mcp_call_tool') {
-      final innerName = (parameters['tool_name'] ?? parameters['name'] ?? '').toString().trim();
+      final innerName = (parameters['tool_name'] ?? parameters['name'] ?? '')
+          .toString()
+          .trim();
       if (innerName.isNotEmpty) {
         effectiveName = innerName;
       }
@@ -170,16 +188,32 @@ class TealKitRpcEngine {
     };
 
     if (readTools.contains(effectiveName)) {
-      return (effectiveTool: effectiveName, risk: ToolRiskLevel.read, effectiveParams: effectiveParams);
+      return (
+        effectiveTool: effectiveName,
+        risk: ToolRiskLevel.read,
+        effectiveParams: effectiveParams,
+      );
     }
     if (writeTools.contains(effectiveName)) {
-      return (effectiveTool: effectiveName, risk: ToolRiskLevel.write, effectiveParams: effectiveParams);
+      return (
+        effectiveTool: effectiveName,
+        risk: ToolRiskLevel.write,
+        effectiveParams: effectiveParams,
+      );
     }
     if (execTools.contains(effectiveName)) {
-      return (effectiveTool: effectiveName, risk: ToolRiskLevel.execute, effectiveParams: effectiveParams);
+      return (
+        effectiveTool: effectiveName,
+        risk: ToolRiskLevel.execute,
+        effectiveParams: effectiveParams,
+      );
     }
 
-    return (effectiveTool: effectiveName, risk: defaultRisk, effectiveParams: effectiveParams);
+    return (
+      effectiveTool: effectiveName,
+      risk: defaultRisk,
+      effectiveParams: effectiveParams,
+    );
   }
 
   void _log(String message) {
@@ -208,10 +242,14 @@ class TealKitRpcEngine {
       }
     }
     activeProfile ??= allProfiles.isNotEmpty
-        ? allProfiles.firstWhere((p) => p.isDefault, orElse: () => allProfiles.first)
+        ? allProfiles.firstWhere(
+            (p) => p.isDefault,
+            orElse: () => allProfiles.first,
+          )
         : null;
     String activeLlmName = activeProfile?.name ?? (initialLlmName ?? 'default');
-    LlmConfig activeLlmConfig = activeProfile?.config ??
+    LlmConfig activeLlmConfig =
+        activeProfile?.config ??
         runner.loadLlmConfig(targetName: initialLlmName);
 
     if (activeProfile != null &&
@@ -257,12 +295,15 @@ class TealKitRpcEngine {
     // Load initial or most recent session if requested
     String? initialSessionToLoad = loadSessionPath;
     if (initialSessionToLoad == null && continueSession) {
-      final lastFile = SessionManager.findLastSessionFile(workspaceDir: workspaceDir);
+      final lastFile = SessionManager.findLastSessionFile(
+        workspaceDir: workspaceDir,
+      );
       if (lastFile != null) {
         initialSessionToLoad = lastFile.path;
       }
     }
-    if (initialSessionToLoad != null && File(initialSessionToLoad).existsSync()) {
+    if (initialSessionToLoad != null &&
+        File(initialSessionToLoad).existsSync()) {
       try {
         final loaded = await SessionManager.loadSession(initialSessionToLoad);
         if (loaded.messages.isNotEmpty) {
@@ -271,7 +312,9 @@ class TealKitRpcEngine {
           _activeSessionCreatedAt = loaded.createdAt;
           _activeSessionTitle = loaded.title;
           _activeSessionFilePath = initialSessionToLoad;
-          _log('Restored session from $initialSessionToLoad (${history.length} messages)');
+          _log(
+            'Restored session from $initialSessionToLoad (${history.length} messages)',
+          );
         }
       } catch (e) {
         _log('Could not load initial session $initialSessionToLoad: $e');
@@ -350,15 +393,20 @@ class TealKitRpcEngine {
               'id': ?requestId,
               'llmPath': resolvedLlmFile.path,
               'mcpPath': resolvedMcpFile.path,
-              'llmContent': resolvedLlmFile.existsSync() ? resolvedLlmFile.readAsStringSync() : '',
-              'mcpContent': resolvedMcpFile.existsSync() ? resolvedMcpFile.readAsStringSync() : '',
+              'llmContent': resolvedLlmFile.existsSync()
+                  ? resolvedLlmFile.readAsStringSync()
+                  : '',
+              'mcpContent': resolvedMcpFile.existsSync()
+                  ? resolvedMcpFile.readAsStringSync()
+                  : '',
             });
 
           case 'reload_config':
             try {
               cliConfig = CliConfig.load();
               permissions = ToolPermissionSettings.load();
-              if (currentMode == CodingMode.rag && !_isRagConfigured(cliConfig)) {
+              if (currentMode == CodingMode.rag &&
+                  !_isRagConfigured(cliConfig)) {
                 currentMode = CodingMode.code;
               }
               _sendEvent('config_reloaded', {
@@ -371,13 +419,19 @@ class TealKitRpcEngine {
                 'mode': currentMode.name,
               });
             } catch (e) {
-              _sendEvent('error', {'id': ?requestId, 'message': 'Failed to reload config.yaml: $e'});
+              _sendEvent('error', {
+                'id': ?requestId,
+                'message': 'Failed to reload config.yaml: $e',
+              });
             }
 
           case 'reload_mcp':
             try {
               localServers = runner.loadMcpServers();
-              mcpManager = await runner.connectMcpServers(localServers, silent: true);
+              mcpManager = await runner.connectMcpServers(
+                localServers,
+                silent: true,
+              );
               mcpTools = mcpManager.availableTools;
               _sendEvent('status', {
                 'id': ?requestId,
@@ -393,42 +447,56 @@ class TealKitRpcEngine {
                 'mcpConfigPath': resolvedMcpFile.path,
               });
             } catch (e) {
-              _sendEvent('error', {'id': ?requestId, 'message': 'Failed to reload MCP servers: $e'});
+              _sendEvent('error', {
+                'id': ?requestId,
+                'message': 'Failed to reload MCP servers: $e',
+              });
             }
 
           case 'save_llm_config':
             final content = request['content'] as String?;
-            final targetPath = request['path'] as String? ?? resolvedLlmFile.path;
+            final targetPath =
+                request['path'] as String? ?? resolvedLlmFile.path;
             if (content != null) {
               final f = File(targetPath);
               f.parent.createSync(recursive: true);
               f.writeAsStringSync(content);
               try {
                 allProfiles.clear();
-                allProfiles.addAll(LlmConfigManager.loadAllProfiles(configPath: llmPath));
+                allProfiles.addAll(
+                  LlmConfigManager.loadAllProfiles(configPath: llmPath),
+                );
               } catch (_) {}
               _sendEvent('llm_config_saved', {
                 'id': ?requestId,
                 'path': targetPath,
-                'models': allProfiles.map((p) => {
-                  'name': p.name,
-                  'provider': p.config.provider.displayName,
-                  'model': p.config.model,
-                  'isDefault': p.name == activeLlmName,
-                }).toList(),
+                'models': allProfiles
+                    .map(
+                      (p) => {
+                        'name': p.name,
+                        'provider': p.config.provider.displayName,
+                        'model': p.config.model,
+                        'isDefault': p.name == activeLlmName,
+                      },
+                    )
+                    .toList(),
               });
             }
 
           case 'save_mcp_config':
             final content = request['content'] as String?;
-            final targetPath = request['path'] as String? ?? resolvedMcpFile.path;
+            final targetPath =
+                request['path'] as String? ?? resolvedMcpFile.path;
             if (content != null) {
               final f = File(targetPath);
               f.parent.createSync(recursive: true);
               f.writeAsStringSync(content);
               try {
                 localServers = runner.loadMcpServers();
-                mcpManager = await runner.connectMcpServers(localServers, silent: true);
+                mcpManager = await runner.connectMcpServers(
+                  localServers,
+                  silent: true,
+                );
                 mcpTools = mcpManager.availableTools;
               } catch (_) {}
               _sendEvent('mcp_config_saved', {
@@ -442,7 +510,9 @@ class TealKitRpcEngine {
             var switchedToNewDefault = false;
             try {
               allProfiles.clear();
-              allProfiles.addAll(LlmConfigManager.loadAllProfiles(configPath: llmPath));
+              allProfiles.addAll(
+                LlmConfigManager.loadAllProfiles(configPath: llmPath),
+              );
               NamedLlmProfile? matched;
               for (final p in allProfiles) {
                 if (p.name == activeLlmName) {
@@ -463,36 +533,56 @@ class TealKitRpcEngine {
               }
             } catch (_) {}
 
-            final profilesList = await Future.wait(allProfiles.map((p) async {
-              final isCurrent = (p.name == activeLlmName);
-              final rates = await TokenUsageTracker.getRatesAsync(p.config);
-              final badgeParts = <String>[];
-              if (rates?.contextWindow != null) {
-                badgeParts.add(TokenUsageTracker.formatContextWindow(rates!.contextWindow));
-              }
-              if (rates != null && rates.inputPerM == 0.0 && rates.outputPerM == 0.0) {
-                badgeParts.add('Free');
-              } else if (rates != null && (rates.inputPerM > 0 || rates.outputPerM > 0)) {
-                badgeParts.add('\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}');
-              }
-              final ctxAndPricing = badgeParts.isNotEmpty ? badgeParts.join(' \u2022 ') : null;
+            final profilesList = await Future.wait(
+              allProfiles.map((p) async {
+                final isCurrent = (p.name == activeLlmName);
+                final rates = await TokenUsageTracker.getRatesAsync(p.config);
+                final badgeParts = <String>[];
+                if (rates?.contextWindow != null) {
+                  badgeParts.add(
+                    TokenUsageTracker.formatContextWindow(rates!.contextWindow),
+                  );
+                }
+                if (rates != null &&
+                    rates.inputPerM == 0.0 &&
+                    rates.outputPerM == 0.0) {
+                  badgeParts.add('Free');
+                } else if (rates != null &&
+                    (rates.inputPerM > 0 || rates.outputPerM > 0)) {
+                  badgeParts.add(
+                    '\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}',
+                  );
+                }
+                final ctxAndPricing = badgeParts.isNotEmpty
+                    ? badgeParts.join(' \u2022 ')
+                    : null;
 
-              return {
-                'name': p.name,
-                'provider': p.config.provider.displayName,
-                'model': p.config.model,
-                'baseUrl': p.config.baseUrl,
-                'isDefault': isCurrent,
-                'temperature': p.config.temperature,
-                'maxTokens': p.config.maxTokens,
-                'timeoutSeconds': p.config.timeoutSeconds,
-                'contextWindow': rates?.contextWindow != null ? TokenUsageTracker.formatContextWindow(rates!.contextWindow) : null,
-                'pricing': (rates != null && rates.inputPerM == 0.0 && rates.outputPerM == 0.0)
-                    ? 'Free'
-                    : (rates != null ? '\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}' : null),
-                'ctxAndPricing': ctxAndPricing,
-              };
-            }));
+                return {
+                  'name': p.name,
+                  'provider': p.config.provider.displayName,
+                  'model': p.config.model,
+                  'baseUrl': p.config.baseUrl,
+                  'isDefault': isCurrent,
+                  'temperature': p.config.temperature,
+                  'maxTokens': p.config.maxTokens,
+                  'timeoutSeconds': p.config.timeoutSeconds,
+                  'contextWindow': rates?.contextWindow != null
+                      ? TokenUsageTracker.formatContextWindow(
+                          rates!.contextWindow,
+                        )
+                      : null,
+                  'pricing':
+                      (rates != null &&
+                          rates.inputPerM == 0.0 &&
+                          rates.outputPerM == 0.0)
+                      ? 'Free'
+                      : (rates != null
+                            ? '\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}'
+                            : null),
+                  'ctxAndPricing': ctxAndPricing,
+                };
+              }),
+            );
             _sendEvent('models', {'id': ?requestId, 'models': profilesList});
             if (switchedToNewDefault) {
               _sendEvent('model_changed', {
@@ -505,11 +595,17 @@ class TealKitRpcEngine {
             }
 
           case 'set_model':
-            final profileName = (request['model'] as String? ?? request['profile'] as String? ?? '').trim();
+            final profileName =
+                (request['model'] as String? ??
+                        request['profile'] as String? ??
+                        '')
+                    .trim();
             if (profileName.isEmpty) break;
             try {
               allProfiles.clear();
-              allProfiles.addAll(LlmConfigManager.loadAllProfiles(configPath: llmPath));
+              allProfiles.addAll(
+                LlmConfigManager.loadAllProfiles(configPath: llmPath),
+              );
               final newConfig = runner.loadLlmConfig(targetName: profileName);
               activeLlmConfig = newConfig;
               activeLlmName = profileName;
@@ -625,8 +721,14 @@ class TealKitRpcEngine {
               final newProfile = ServerProfile(
                 name: profileMap['name'] as String? ?? 'Default',
                 url: profileMap['url'] as String? ?? 'http://localhost:7771',
-                apiKey: profileMap['apiKey'] as String? ?? profileMap['api_key'] as String? ?? '',
-                isActive: profileMap['isActive'] as bool? ?? profileMap['is_active'] as bool? ?? true,
+                apiKey:
+                    profileMap['apiKey'] as String? ??
+                    profileMap['api_key'] as String? ??
+                    '',
+                isActive:
+                    profileMap['isActive'] as bool? ??
+                    profileMap['is_active'] as bool? ??
+                    true,
               );
               _saveServerProfile(serverManager, newProfile);
               final profiles = serverManager.loadProfiles();
@@ -653,13 +755,19 @@ class TealKitRpcEngine {
                   apiKey: profile.apiKey.isNotEmpty ? profile.apiKey : null,
                 );
                 final tasks = await client.getAllTasks();
-                final wfList = tasks.map((t) => {
-                  'id': t.id,
-                  'name': t.name,
-                  'enabled': t.enabled,
-                  'agentsCount': t.agents.length,
-                  'internalMcps': t.internalMcps.map((m) => m.mcpType).toList(),
-                }).toList();
+                final wfList = tasks
+                    .map(
+                      (t) => {
+                        'id': t.id,
+                        'name': t.name,
+                        'enabled': t.enabled,
+                        'agentsCount': t.agents.length,
+                        'internalMcps': t.internalMcps
+                            .map((m) => m.mcpType)
+                            .toList(),
+                      },
+                    )
+                    .toList();
                 _sendEvent('workflows', {
                   'id': ?requestId,
                   'workflows': wfList,
@@ -676,13 +784,19 @@ class TealKitRpcEngine {
 
           case 'run_workflow':
             try {
-              final workflowId = (request['workflowId'] ?? request['id'])?.toString();
+              final workflowId = (request['workflowId'] ?? request['id'])
+                  ?.toString();
               if (workflowId == null) {
-                _sendEvent('error', {'id': ?requestId, 'message': 'Workflow ID required.'});
+                _sendEvent('error', {
+                  'id': ?requestId,
+                  'message': 'Workflow ID required.',
+                });
               } else {
                 final serverManager = ServerConfigManager();
                 final profile = serverManager.getActiveProfile();
-                if (profile == null) throw StateError('No active server profile.');
+                if (profile == null) {
+                  throw StateError('No active server profile.');
+                }
                 final client = ServerApiClient(
                   serverUrl: profile.url,
                   apiKey: profile.apiKey.isNotEmpty ? profile.apiKey : null,
@@ -695,18 +809,27 @@ class TealKitRpcEngine {
                 });
               }
             } catch (e) {
-              _sendEvent('error', {'id': ?requestId, 'message': 'Failed to run workflow: $e'});
+              _sendEvent('error', {
+                'id': ?requestId,
+                'message': 'Failed to run workflow: $e',
+              });
             }
 
           case 'get_workflow_status':
             try {
-              final workflowId = (request['workflowId'] ?? request['id'])?.toString();
+              final workflowId = (request['workflowId'] ?? request['id'])
+                  ?.toString();
               if (workflowId == null) {
-                _sendEvent('error', {'id': ?requestId, 'message': 'Workflow ID required.'});
+                _sendEvent('error', {
+                  'id': ?requestId,
+                  'message': 'Workflow ID required.',
+                });
               } else {
                 final serverManager = ServerConfigManager();
                 final profile = serverManager.getActiveProfile();
-                if (profile == null) throw StateError('No active server profile.');
+                if (profile == null) {
+                  throw StateError('No active server profile.');
+                }
                 final client = ServerApiClient(
                   serverUrl: profile.url,
                   apiKey: profile.apiKey.isNotEmpty ? profile.apiKey : null,
@@ -715,10 +838,18 @@ class TealKitRpcEngine {
                 Map<String, dynamic>? latestLog;
                 if (!running) {
                   try {
-                    final logsResp = await client.getTaskExecutionLogs(workflowId) ?? {};
-                    final logsList = logsResp['logs'] ?? logsResp['executions'] ?? logsResp['items'];
-                    if (logsList is List && logsList.isNotEmpty && logsList.first is Map) {
-                      latestLog = Map<String, dynamic>.from(logsList.first as Map);
+                    final logsResp =
+                        await client.getTaskExecutionLogs(workflowId) ?? {};
+                    final logsList =
+                        logsResp['logs'] ??
+                        logsResp['executions'] ??
+                        logsResp['items'];
+                    if (logsList is List &&
+                        logsList.isNotEmpty &&
+                        logsList.first is Map) {
+                      latestLog = Map<String, dynamic>.from(
+                        logsList.first as Map,
+                      );
                     }
                   } catch (_) {}
                 }
@@ -732,7 +863,8 @@ class TealKitRpcEngine {
             } catch (e) {
               _sendEvent('workflow_status', {
                 'id': ?requestId,
-                'workflowId': (request['workflowId'] ?? request['id'])?.toString(),
+                'workflowId': (request['workflowId'] ?? request['id'])
+                    ?.toString(),
                 'running': false,
                 'error': e.toString(),
               });
@@ -740,13 +872,19 @@ class TealKitRpcEngine {
 
           case 'get_workflow_logs':
             try {
-              final workflowId = (request['workflowId'] ?? request['id'])?.toString();
+              final workflowId = (request['workflowId'] ?? request['id'])
+                  ?.toString();
               if (workflowId == null) {
-                _sendEvent('error', {'id': ?requestId, 'message': 'Workflow ID required.'});
+                _sendEvent('error', {
+                  'id': ?requestId,
+                  'message': 'Workflow ID required.',
+                });
               } else {
                 final serverManager = ServerConfigManager();
                 final profile = serverManager.getActiveProfile();
-                if (profile == null) throw StateError('No active server profile.');
+                if (profile == null) {
+                  throw StateError('No active server profile.');
+                }
                 final client = ServerApiClient(
                   serverUrl: profile.url,
                   apiKey: profile.apiKey.isNotEmpty ? profile.apiKey : null,
@@ -758,7 +896,8 @@ class TealKitRpcEngine {
                   running = await client.getTaskRunStatus(workflowId);
                 } catch (_) {}
                 try {
-                  logsResp = await client.getTaskExecutionLogs(workflowId) ?? {};
+                  logsResp =
+                      await client.getTaskExecutionLogs(workflowId) ?? {};
                 } catch (e) {
                   logsResp = {'error': e.toString()};
                 }
@@ -778,14 +917,16 @@ class TealKitRpcEngine {
             } catch (e) {
               _sendEvent('workflow_logs', {
                 'id': ?requestId,
-                'workflowId': (request['workflowId'] ?? request['id'])?.toString(),
+                'workflowId': (request['workflowId'] ?? request['id'])
+                    ?.toString(),
                 'error': e.toString(),
               });
             }
 
           case 'cancel_workflow':
             try {
-              final workflowId = (request['workflowId'] ?? request['id'])?.toString();
+              final workflowId = (request['workflowId'] ?? request['id'])
+                  ?.toString();
               if (workflowId != null) {
                 final serverManager = ServerConfigManager();
                 final profile = serverManager.getActiveProfile();
@@ -804,7 +945,10 @@ class TealKitRpcEngine {
                 }
               }
             } catch (e) {
-              _sendEvent('error', {'id': ?requestId, 'message': 'Failed to cancel workflow: $e'});
+              _sendEvent('error', {
+                'id': ?requestId,
+                'message': 'Failed to cancel workflow: $e',
+              });
             }
 
           case 'list_mcp_tools':
@@ -826,12 +970,22 @@ class TealKitRpcEngine {
             _sendEvent('mcp_tools', {'id': ?requestId, 'tools': toolsInfo});
 
           case 'permission_response':
-            final permReqId = (request['requestId'] ?? request['id'])?.toString();
-            final allowed = (request['allowed'] ?? request['approved']) as bool? ?? false;
+            final permReqId = (request['requestId'] ?? request['id'])
+                ?.toString();
+            final allowed =
+                (request['allowed'] ?? request['approved']) as bool? ?? false;
             final always = request['always'] as bool? ?? false;
-            final meta = permReqId != null ? _pendingPermissionMeta[permReqId] : null;
+            final meta = permReqId != null
+                ? _pendingPermissionMeta[permReqId]
+                : null;
             if (always && allowed) {
-              final toolName = (request['tool'] ?? request['toolName'] ?? meta?.effectiveTool ?? '').toString().trim();
+              final toolName =
+                  (request['tool'] ??
+                          request['toolName'] ??
+                          meta?.effectiveTool ??
+                          '')
+                      .toString()
+                      .trim();
               if (toolName.isNotEmpty) {
                 _alwaysApprovedTools.add(toolName);
               }
@@ -839,13 +993,20 @@ class TealKitRpcEngine {
                 _alwaysApprovedTools.add(meta.rawTool);
                 _alwaysApprovedTools.add(meta.effectiveTool);
               }
-              final reqRiskStr = (request['risk'] ?? meta?.risk.name ?? '').toString().toLowerCase();
+              final reqRiskStr = (request['risk'] ?? meta?.risk.name ?? '')
+                  .toString()
+                  .toLowerCase();
               final resolvedRisk = switch (reqRiskStr) {
                 'read' => ToolRiskLevel.read,
                 'write' => ToolRiskLevel.write,
                 'network' => ToolRiskLevel.network,
                 'execute' => ToolRiskLevel.execute,
-                _ => _resolveEffectiveToolAndRisk(toolName, const {}, ToolRiskLevel.execute, dartTools).risk,
+                _ => _resolveEffectiveToolAndRisk(
+                  toolName,
+                  const {},
+                  ToolRiskLevel.execute,
+                  dartTools,
+                ).risk,
               };
               switch (resolvedRisk) {
                 case ToolRiskLevel.read:
@@ -863,7 +1024,7 @@ class TealKitRpcEngine {
               }
               permissions.save();
               try {
-                  // config.yaml synced via permissions.save()
+                // config.yaml synced via permissions.save()
               } catch (_) {}
               _sendEvent('permissions_updated', {
                 'autoApproveRead': permissions.autoApproveRead,
@@ -907,7 +1068,8 @@ class TealKitRpcEngine {
           case 'clear_session':
           case 'new_session':
             history.clear();
-            _activeSessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+            _activeSessionId =
+                'session_${DateTime.now().millisecondsSinceEpoch}';
             _activeSessionCreatedAt = DateTime.now();
             _activeSessionTitle = 'TealKit Coding Session';
             _activeSessionFilePath = null;
@@ -980,26 +1142,34 @@ class TealKitRpcEngine {
             }
 
           case 'prompt':
-            final promptText = request['text'] as String? ?? request['prompt'] as String? ?? '';
+            final promptText =
+                request['text'] as String? ??
+                request['prompt'] as String? ??
+                '';
             final contextFiles =
                 (request['contextFiles'] as List?)
                     ?.map((e) => e.toString())
                     .toList() ??
                 const <String>[];
             final rawImages = (request['images'] as List?) ?? const [];
-            final rawAttachments = (request['attachments'] as List?) ?? const [];
+            final rawAttachments =
+                (request['attachments'] as List?) ?? const [];
             final overrideMode = request['mode'] as String?;
             if (overrideMode != null) {
               currentMode = switch (overrideMode) {
                 'architect' => CodingMode.architect,
                 'ask' => CodingMode.ask,
-                'rag' => _isRagConfigured(cliConfig) ? CodingMode.rag : CodingMode.code,
+                'rag' =>
+                  _isRagConfigured(cliConfig)
+                      ? CodingMode.rag
+                      : CodingMode.code,
                 _ => CodingMode.code,
               };
             }
 
             final trimmedPrompt = promptText.trim();
-            final turnId = requestId ?? 'turn_${DateTime.now().millisecondsSinceEpoch}';
+            final turnId =
+                requestId ?? 'turn_${DateTime.now().millisecondsSinceEpoch}';
 
             if (trimmedPrompt.startsWith('/reindex')) {
               _sendEvent('start', {'id': turnId, 'prompt': promptText});
@@ -1008,17 +1178,32 @@ class TealKitRpcEngine {
               try {
                 final res = await ragService.reindex(
                   onProgress: (current, total, status) {
-                    _sendEvent('log', {'id': turnId, 'message': 'Indexing [$current/$total] $status'});
+                    _sendEvent('log', {
+                      'id': turnId,
+                      'message': 'Indexing [$current/$total] $status',
+                    });
                   },
                 );
                 final stats = res['stats'] as Map<String, dynamic>;
-                final msg = '✔ **RAG Indexing completed in ${res['duration_seconds']}s**\n'
+                final msg =
+                    '✔ **RAG Indexing completed in ${res['duration_seconds']}s**\n'
                     '- Evaluated: `${res['evaluated']}` | Updated: `${res['updated']}` | Unchanged: `${res['skipped']}` | New Chunks: `${res['new_chunks']}`\n'
                     '- Total Documents: `${stats['document_count']}` | Total Chunks: `${stats['chunk_count']}` | DB Size: `${stats['file_size_mb']} MB`';
                 _sendEvent('chunk', {'id': turnId, 'text': msg});
-                _sendEvent('done', {'id': turnId, 'response': msg, 'usage': {'promptTokens': 0, 'completionTokens': 0, 'totalTokens': 0}});
+                _sendEvent('done', {
+                  'id': turnId,
+                  'response': msg,
+                  'usage': {
+                    'promptTokens': 0,
+                    'completionTokens': 0,
+                    'totalTokens': 0,
+                  },
+                });
               } catch (e) {
-                _sendEvent('error', {'id': turnId, 'message': 'RAG indexing failed: $e'});
+                _sendEvent('error', {
+                  'id': turnId,
+                  'message': 'RAG indexing failed: $e',
+                });
               } finally {
                 ragService.dispose();
               }
@@ -1034,28 +1219,48 @@ class TealKitRpcEngine {
               try {
                 if (sub == 'search' && parts.length > 2) {
                   final query = parts.sublist(2).join(' ').trim();
-                  final results = await ragService.search(query, limit: cliConfig.rag.maxChunks);
-                  final sb = StringBuffer('### 📚 RAG Search Results for `"$query"`\n\n');
+                  final results = await ragService.search(
+                    query,
+                    limit: cliConfig.rag.maxChunks,
+                  );
+                  final sb = StringBuffer(
+                    '### 📚 RAG Search Results for `"$query"`\n\n',
+                  );
                   if (results.isEmpty) {
-                    sb.writeln('_No matching chunks found in RAG index. Run `/reindex` after configuring folders/web URLs in Settings._');
+                    sb.writeln(
+                      '_No matching chunks found in RAG index. Run `/reindex` after configuring folders/web URLs in Settings._',
+                    );
                   } else {
                     for (int i = 0; i < results.length; i++) {
                       final r = results[i];
                       final scoreStr = (r.score * 100).toStringAsFixed(1);
                       final title = r.documentTitle ?? r.documentUri;
-                      sb.writeln('**[${i + 1}] $title** (${r.matchType.toUpperCase()}, $scoreStr%, ${r.locationLabel})');
+                      sb.writeln(
+                        '**[${i + 1}] $title** (${r.matchType.toUpperCase()}, $scoreStr%, ${r.locationLabel})',
+                      );
                       sb.writeln('- Source: `${r.terminalLocation}`');
-                      final snippet = r.content.length > 280 ? '${r.content.substring(0, 280)}...' : r.content;
+                      final snippet = r.content.length > 280
+                          ? '${r.content.substring(0, 280)}...'
+                          : r.content;
                       sb.writeln('> ${snippet.replaceAll("\n", " ")}\n');
                     }
                   }
                   final outText = sb.toString();
                   _sendEvent('chunk', {'id': turnId, 'text': outText});
-                  _sendEvent('done', {'id': turnId, 'response': outText, 'usage': {'promptTokens': 0, 'completionTokens': 0, 'totalTokens': 0}});
+                  _sendEvent('done', {
+                    'id': turnId,
+                    'response': outText,
+                    'usage': {
+                      'promptTokens': 0,
+                      'completionTokens': 0,
+                      'totalTokens': 0,
+                    },
+                  });
                 } else {
                   ragService.init();
                   final stats = ragService.database.getStats();
-                  final outText = '### 📚 Local RAG Status\n'
+                  final outText =
+                      '### 📚 Local RAG Status\n'
                       '- **Enabled**: `${cliConfig.rag.enabled}` (Configured: `${_isRagConfigured(cliConfig)}`)\n'
                       '- **Database**: `${stats['database_path']}` (`${stats['file_size_mb']} MB`)\n'
                       '- **Documents**: `${stats['document_count']}` | **Chunks**: `${stats['chunk_count']}` (Vectors: `${stats['vector_count']}`)\n'
@@ -1064,7 +1269,15 @@ class TealKitRpcEngine {
                       '- **Web Sources**: `${cliConfig.rag.webSources.isEmpty ? "(none)" : cliConfig.rag.webSources.join(", ")}`\n\n'
                       '_Tip: Use `/reindex` to build/update the index or `/rag search <query>` to test retrieval._';
                   _sendEvent('chunk', {'id': turnId, 'text': outText});
-                  _sendEvent('done', {'id': turnId, 'response': outText, 'usage': {'promptTokens': 0, 'completionTokens': 0, 'totalTokens': 0}});
+                  _sendEvent('done', {
+                    'id': turnId,
+                    'response': outText,
+                    'usage': {
+                      'promptTokens': 0,
+                      'completionTokens': 0,
+                      'totalTokens': 0,
+                    },
+                  });
                 }
               } catch (e) {
                 _sendEvent('error', {'id': turnId, 'message': 'RAG error: $e'});
@@ -1074,7 +1287,11 @@ class TealKitRpcEngine {
               break;
             }
 
-            if (trimmedPrompt == '/llm' || trimmedPrompt == '/models' || trimmedPrompt.startsWith('/llm:') || (trimmedPrompt.startsWith('/llm ') && !trimmedPrompt.startsWith('/llm.yaml'))) {
+            if (trimmedPrompt == '/llm' ||
+                trimmedPrompt == '/models' ||
+                trimmedPrompt.startsWith('/llm:') ||
+                (trimmedPrompt.startsWith('/llm ') &&
+                    !trimmedPrompt.startsWith('/llm.yaml'))) {
               String? target;
               if (trimmedPrompt.startsWith('/llm:')) {
                 target = trimmedPrompt.substring(5).trim();
@@ -1087,20 +1304,41 @@ class TealKitRpcEngine {
                   final newConfig = runner.loadLlmConfig(targetName: target);
                   activeLlmConfig = newConfig;
                   activeLlmName = target;
-                  final rates = await TokenUsageTracker.getRatesAsync(activeLlmConfig);
+                  final rates = await TokenUsageTracker.getRatesAsync(
+                    activeLlmConfig,
+                  );
                   final badgeParts = <String>[];
                   if (rates?.contextWindow != null) {
-                    badgeParts.add(TokenUsageTracker.formatContextWindow(rates!.contextWindow));
+                    badgeParts.add(
+                      TokenUsageTracker.formatContextWindow(
+                        rates!.contextWindow,
+                      ),
+                    );
                   }
-                  if (rates != null && rates.inputPerM == 0.0 && rates.outputPerM == 0.0) {
+                  if (rates != null &&
+                      rates.inputPerM == 0.0 &&
+                      rates.outputPerM == 0.0) {
                     badgeParts.add('Free');
                   } else if (rates != null) {
-                    badgeParts.add('\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}');
+                    badgeParts.add(
+                      '\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}',
+                    );
                   }
-                  final badgeStr = badgeParts.isNotEmpty ? ' [${badgeParts.join(' \u2022 ')}]' : '';
-                  final msg = 'Switched active LLM to: **$target** (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})$badgeStr (temp: ${activeLlmConfig.temperature}, max_tokens: ${activeLlmConfig.maxTokens})';
+                  final badgeStr = badgeParts.isNotEmpty
+                      ? ' [${badgeParts.join(' \u2022 ')}]'
+                      : '';
+                  final msg =
+                      'Switched active LLM to: **$target** (${activeLlmConfig.provider.displayName} / ${activeLlmConfig.model})$badgeStr (temp: ${activeLlmConfig.temperature}, max_tokens: ${activeLlmConfig.maxTokens})';
                   _sendEvent('chunk', {'id': turnId, 'text': msg});
-                  _sendEvent('done', {'id': turnId, 'response': msg, 'usage': {'promptTokens': 0, 'completionTokens': 0, 'totalTokens': 0}});
+                  _sendEvent('done', {
+                    'id': turnId,
+                    'response': msg,
+                    'usage': {
+                      'promptTokens': 0,
+                      'completionTokens': 0,
+                      'totalTokens': 0,
+                    },
+                  });
                   _sendEvent('model_changed', {
                     'id': turnId,
                     'profile': activeLlmName,
@@ -1109,7 +1347,10 @@ class TealKitRpcEngine {
                     'provider': activeLlmConfig.provider.displayName,
                   });
                 } catch (e) {
-                  _sendEvent('error', {'id': turnId, 'message': 'Failed to switch model to $target: $e'});
+                  _sendEvent('error', {
+                    'id': turnId,
+                    'message': 'Failed to switch model to $target: $e',
+                  });
                 }
                 break;
               }
@@ -1123,51 +1364,76 @@ class TealKitRpcEngine {
                 final rates = await TokenUsageTracker.getRatesAsync(p.config);
                 final badgeParts = <String>[];
                 if (rates?.contextWindow != null) {
-                  badgeParts.add(TokenUsageTracker.formatContextWindow(rates!.contextWindow));
+                  badgeParts.add(
+                    TokenUsageTracker.formatContextWindow(rates!.contextWindow),
+                  );
                 }
-                if (rates != null && rates.inputPerM == 0.0 && rates.outputPerM == 0.0) {
+                if (rates != null &&
+                    rates.inputPerM == 0.0 &&
+                    rates.outputPerM == 0.0) {
                   badgeParts.add('Free');
                 } else if (rates != null) {
-                  badgeParts.add('\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}');
+                  badgeParts.add(
+                    '\$${rates.inputPerM.toStringAsFixed(2)}/\$${rates.outputPerM.toStringAsFixed(2)}',
+                  );
                 }
-                final badgeStr = badgeParts.isNotEmpty ? ' [${badgeParts.join(' \u2022 ')}]' : '';
-                buffer.writeln('$marker ${p.name.padRight(16)} : ${p.config.provider.displayName} / ${p.config.model}$badgeStr (temp: ${p.config.temperature}, max_tokens: ${p.config.maxTokens})');
+                final badgeStr = badgeParts.isNotEmpty
+                    ? ' [${badgeParts.join(' \u2022 ')}]'
+                    : '';
+                buffer.writeln(
+                  '$marker ${p.name.padRight(16)} : ${p.config.provider.displayName} / ${p.config.model}$badgeStr (temp: ${p.config.temperature}, max_tokens: ${p.config.maxTokens})',
+                );
               }
               buffer.writeln('```');
-              buffer.writeln('*Tip: Use `/llm <name>` or the dropdown selector to switch models.*');
+              buffer.writeln(
+                '*Tip: Use `/llm <name>` or the dropdown selector to switch models.*',
+              );
               final outText = buffer.toString();
               _sendEvent('chunk', {'id': turnId, 'text': outText});
-              _sendEvent('done', {'id': turnId, 'response': outText, 'usage': {'promptTokens': 0, 'completionTokens': 0, 'totalTokens': 0}});
+              _sendEvent('done', {
+                'id': turnId,
+                'response': outText,
+                'usage': {
+                  'promptTokens': 0,
+                  'completionTokens': 0,
+                  'totalTokens': 0,
+                },
+              });
               break;
             }
 
             if (_isTurnActive) {
-              _log('Turn already active, cancelling previous turn before starting new prompt');
+              _log(
+                'Turn already active, cancelling previous turn before starting new prompt',
+              );
               _cancelPendingPermissions();
               _activeEngine?.cancel('code_agent');
               await Future.delayed(const Duration(milliseconds: 150));
             }
 
-            unawaited(_executePromptTurn(
-              promptText: promptText,
-              contextFiles: contextFiles,
-              rawImages: rawImages,
-              rawAttachments: rawAttachments,
-              turnId:
-                  requestId ?? 'turn_${DateTime.now().millisecondsSinceEpoch}',
-              runner: runner,
-              activeLlmConfig: activeLlmConfig,
-              activeLlmName: activeLlmName,
-              allProfiles: allProfiles,
-              dartTools: dartTools,
-              localServers: localServers,
-              mcpTools: mcpTools,
-              history: history,
-              episodicMemoryStore: episodicMemoryStore,
-              usageTracker: usageTracker,
-              cliConfig: cliConfig,
-              permissions: permissions,
-            ));
+            unawaited(
+              _executePromptTurn(
+                promptText: promptText,
+                contextFiles: contextFiles,
+                rawImages: rawImages,
+                rawAttachments: rawAttachments,
+                turnId:
+                    requestId ??
+                    'turn_${DateTime.now().millisecondsSinceEpoch}',
+                runner: runner,
+                activeLlmConfig: activeLlmConfig,
+                activeLlmName: activeLlmName,
+                allProfiles: allProfiles,
+                dartTools: dartTools,
+                localServers: localServers,
+                mcpTools: mcpTools,
+                history: history,
+                episodicMemoryStore: episodicMemoryStore,
+                usageTracker: usageTracker,
+                cliConfig: cliConfig,
+                permissions: permissions,
+              ),
+            );
 
           case 'exit':
             _log('Exiting RPC engine on request');
@@ -1266,7 +1532,8 @@ class TealKitRpcEngine {
         if (commaIdx > 0) {
           final header = b64.substring(5, commaIdx);
           final semiIdx = header.indexOf(';');
-          final hdrMime = (semiIdx >= 0 ? header.substring(0, semiIdx) : header).trim();
+          final hdrMime = (semiIdx >= 0 ? header.substring(0, semiIdx) : header)
+              .trim();
           if (hdrMime.isNotEmpty) resolvedMime = hdrMime;
           b64 = b64.substring(commaIdx + 1);
         }
@@ -1275,7 +1542,8 @@ class TealKitRpcEngine {
       try {
         final bytes = base64Decode(b64);
         if (resolvedMime.isEmpty) resolvedMime = 'image/png';
-        final ext = resolvedMime.contains('jpeg') || resolvedMime.contains('jpg')
+        final ext =
+            resolvedMime.contains('jpeg') || resolvedMime.contains('jpg')
             ? '.jpg'
             : (resolvedMime.contains('webp') ? '.webp' : '.png');
         final fileName = (name != null && name.trim().isNotEmpty)
@@ -1299,7 +1567,8 @@ class TealKitRpcEngine {
       } else if (item is Map) {
         final map = Map<String, dynamic>.from(item);
         final itemPath = map['path']?.toString();
-        final dataRaw = (map['dataBase64'] ?? map['dataUrl'] ?? map['base64'])?.toString();
+        final dataRaw = (map['dataBase64'] ?? map['dataUrl'] ?? map['base64'])
+            ?.toString();
         final textContent = map['content']?.toString();
         final name = map['name']?.toString();
         final mimeType = map['mimeType']?.toString();
@@ -1317,13 +1586,17 @@ class TealKitRpcEngine {
           if (att != null) stagedAttachments.add(att);
         } else if (textContent != null && textContent.isNotEmpty) {
           final bytes = utf8.encode(textContent);
-          stagedAttachments.add(CliAttachmentHelper.fromBytes(
-            bytes: Uint8List.fromList(bytes),
-            name: (name != null && name.isNotEmpty) ? name : 'pasted.txt',
-            path: itemPath ?? (name ?? 'pasted.txt'),
-            mimeType: (mimeType != null && mimeType.isNotEmpty) ? mimeType : 'text/plain',
-            textContent: textContent,
-          ));
+          stagedAttachments.add(
+            CliAttachmentHelper.fromBytes(
+              bytes: Uint8List.fromList(bytes),
+              name: (name != null && name.isNotEmpty) ? name : 'pasted.txt',
+              path: itemPath ?? (name ?? 'pasted.txt'),
+              mimeType: (mimeType != null && mimeType.isNotEmpty)
+                  ? mimeType
+                  : 'text/plain',
+              textContent: textContent,
+            ),
+          );
         }
       }
     }
@@ -1339,7 +1612,8 @@ class TealKitRpcEngine {
       } else if (imgItem is Map) {
         final map = Map<String, dynamic>.from(imgItem);
         final itemPath = map['path']?.toString();
-        final dataRaw = (map['dataBase64'] ?? map['dataUrl'] ?? map['base64'])?.toString();
+        final dataRaw = (map['dataBase64'] ?? map['dataUrl'] ?? map['base64'])
+            ?.toString();
         if (dataRaw != null && dataRaw.trim().isNotEmpty) {
           final att = tryDecodeInlineAttachment(
             rawData: dataRaw,
@@ -1368,7 +1642,8 @@ class TealKitRpcEngine {
           messageAttachments.add(att.toMessageAttachment());
         } else {
           const maxInlineChars = 120000;
-          var content = att.extractedText ??
+          var content =
+              att.extractedText ??
               '[Binary/unreadable file content: ${att.sizeLabel}]';
           if (content.length > maxInlineChars) {
             content =
@@ -1391,7 +1666,8 @@ class TealKitRpcEngine {
         if (ragContext != null && ragContext.isNotEmpty) {
           _sendEvent('log', {
             'id': turnId,
-            'message': '📚 RAG: Retrieved relevant context from indexed documents',
+            'message':
+                '📚 RAG: Retrieved relevant context from indexed documents',
           });
           effectivePromptBuffer.writeln(ragContext);
           effectivePromptBuffer.writeln('');
@@ -1417,7 +1693,9 @@ class TealKitRpcEngine {
         'get_current_time',
         'get_timezone_info',
       };
-      activeDartTools = dartTools.where((t) => ragAllowedTools.contains(t.name)).toList();
+      activeDartTools = dartTools
+          .where((t) => ragAllowedTools.contains(t.name))
+          .toList();
     } else if (currentMode == CodingMode.ask) {
       activeDartTools = dartTools.where((t) {
         final isWriteOrExec =
@@ -1452,7 +1730,9 @@ class TealKitRpcEngine {
           if (skillPath != null && File(skillPath).existsSync()) {
             try {
               final manifest = runner.parseSkillFile(skillPath);
-              attachedSkillInstructions.writeln('\n--- [Attached Skill: ${manifest.name}] ---');
+              attachedSkillInstructions.writeln(
+                '\n--- [Attached Skill: ${manifest.name}] ---',
+              );
               if (manifest.systemPrompt.isNotEmpty) {
                 attachedSkillInstructions.writeln(manifest.systemPrompt);
               }
@@ -1462,7 +1742,8 @@ class TealKitRpcEngine {
       }
     }
 
-    final combinedInstructions = userInstructions + attachedSkillInstructions.toString();
+    final combinedInstructions =
+        userInstructions + attachedSkillInstructions.toString();
     final systemPrompt = _buildSystemPrompt(
       mode: currentMode,
       workspaceDir: workspaceDir,
@@ -1485,11 +1766,14 @@ class TealKitRpcEngine {
     // In IDE / RPC mode, coding agents expose native workspace tools directly so models
     // can invoke fs_read_file, fs_list_dir, terminal_exec without mcp_call_tool wrapping.
     // Only enable progressive discovery if there are many external MCP tools (> 20) and progressive_tools is 'on'.
-    final isProgressiveActive = mcpTools.length > 20 &&
+    final isProgressiveActive =
+        mcpTools.length > 20 &&
         (cliConfig.progressiveTools.toLowerCase().trim() == 'on' ||
             cliConfig.progressiveTools.toLowerCase().trim() == 'true');
 
-    final availableSkillNames = _discoverSkills(runner).map((s) => s['name'] as String).toList();
+    final availableSkillNames = _discoverSkills(
+      runner,
+    ).map((s) => s['name'] as String).toList();
     final activateTool = ActivateSkillsTool(
       availableSkills: availableSkillNames,
       onActivate: (skills) async {
@@ -1554,148 +1838,230 @@ class TealKitRpcEngine {
     _isTurnActive = true;
 
     String finalResponse = '';
+    final preWriteSnapshots = <String, String>{};
+    ModelRateInfo? resolvedRates = TokenUsageTracker.getRates(activeLlmConfig);
+    if (resolvedRates == null) {
+      unawaited(
+        TokenUsageTracker.getRatesAsync(activeLlmConfig).then((rates) {
+          resolvedRates = rates;
+        }).catchError((_) {}),
+      );
+    }
+
+    Map<String, dynamic>? buildWriteDiffPreview(
+      String toolName,
+      Map<String, dynamic> params,
+    ) {
+      if (toolName != 'fs_write_file' && toolName != 'fs_replace_text') {
+        return null;
+      }
+      final targetPath =
+          (params['path'] ?? params['file_path'])?.toString().trim();
+      if (targetPath == null || targetPath.isEmpty) return null;
+      final absPath = p.normalize(
+        p.isAbsolute(targetPath) ? targetPath : p.join(workspaceDir, targetPath),
+      );
+      final f = File(absPath);
+      final original = f.existsSync() ? f.readAsStringSync() : '';
+      preWriteSnapshots[absPath.toLowerCase()] = original;
+
+      String proposed = original;
+      if (toolName == 'fs_write_file') {
+        proposed = (params['content'] ?? '').toString();
+      } else if (toolName == 'fs_replace_text') {
+        final target =
+            (params['target'] ?? params['old_text'] ?? params['search'])
+                ?.toString();
+        final replacement =
+            (params['replacement'] ?? params['new_text'] ?? params['replace'])
+                ?.toString();
+        if (target != null && replacement != null && target.isNotEmpty) {
+          final replaceAll = params['replace_all'] == true;
+          proposed = replaceAll
+              ? original.replaceAll(target, replacement)
+              : original.replaceFirst(target, replacement);
+        }
+      }
+
+      return {
+        'path': targetPath,
+        'original': original,
+        'modified': proposed,
+      };
+    }
 
     try {
-      final subscription = engine.agentEvents.listen((event) {
-        try {
-          switch (event) {
-            case AgentLogEvent(:final message):
-              if (message.startsWith('User prompt [') ||
-                  message.contains('[Relevant Knowledge Base Documents]') ||
-                  message.length > 200) {
-                final firstLine = message.split('\n').first.trim();
-                final summary = firstLine.startsWith('User prompt [')
-                    ? 'Agent thinking...'
-                    : (firstLine.length > 140 ? '${firstLine.substring(0, 140)}...' : firstLine);
-                _sendEvent('log', {'id': turnId, 'message': summary});
-              } else {
-                _sendEvent('log', {'id': turnId, 'message': message});
-              }
+      final subscription = engine.agentEvents.listen(
+        (event) {
+          try {
+            switch (event) {
+              case AgentLogEvent(:final message):
+                if (message.startsWith('User prompt [') ||
+                    message.contains('[Relevant Knowledge Base Documents]') ||
+                    message.length > 200) {
+                  final firstLine = message.split('\n').first.trim();
+                  final summary = firstLine.startsWith('User prompt [')
+                      ? 'Agent thinking...'
+                      : (firstLine.length > 140
+                            ? '${firstLine.substring(0, 140)}...'
+                            : firstLine);
+                  _sendEvent('log', {'id': turnId, 'message': summary});
+                } else {
+                  _sendEvent('log', {'id': turnId, 'message': message});
+                }
 
-            case AgentTextChunkEvent(:final chunk):
-              finalResponse += chunk;
-              _sendEvent('chunk', {'id': turnId, 'text': chunk});
+              case AgentTextChunkEvent(:final chunk):
+                finalResponse += chunk;
+                _sendEvent('chunk', {'id': turnId, 'text': chunk});
 
-            case AgentAssistantResultEvent(:final response):
-              if (finalResponse.trim().isEmpty) {
-                finalResponse = response;
-                _sendEvent('chunk', {'id': turnId, 'text': response});
-              }
+              case AgentAssistantResultEvent(:final response):
+                if (finalResponse.trim().isEmpty) {
+                  finalResponse = response;
+                  _sendEvent('chunk', {'id': turnId, 'text': response});
+                }
 
-            case AgentToolResultEvent(
-              :final toolName,
-              :final parameters,
-              :final result,
-            ):
-              _sendEvent('tool_result', {
-                'id': turnId,
-                'tool': toolName,
-                'parameters': parameters,
-                'output': result,
-              });
+              case AgentToolResultEvent(
+                :final toolName,
+                :final parameters,
+                :final result,
+              ):
+                _sendEvent('tool_result', {
+                  'id': turnId,
+                  'tool': toolName,
+                  'parameters': parameters,
+                  'output': result,
+                });
 
-              // Detect and emit diff events for file modifications
-              if (toolName == 'fs_replace_text' || toolName == 'fs_write_file') {
-                final targetPath = parameters['path'] as String?;
-                if (targetPath != null) {
-                  final absPath = p.isAbsolute(targetPath)
-                      ? targetPath
-                      : p.join(workspaceDir, targetPath);
-                  final f = File(absPath);
-                  if (f.existsSync()) {
-                    _sendEvent('diff', {
-                      'id': turnId,
-                      'path': targetPath,
-                      'modified': f.readAsStringSync(),
-                    });
+                // Detect and emit diff events for file modifications
+                if (toolName == 'fs_replace_text' ||
+                    toolName == 'fs_write_file') {
+                  final targetPath =
+                      (parameters['path'] ?? parameters['file_path'])
+                          ?.toString();
+                  if (targetPath != null && targetPath.isNotEmpty) {
+                    final absPath = p.normalize(
+                      p.isAbsolute(targetPath)
+                          ? targetPath
+                          : p.join(workspaceDir, targetPath),
+                    );
+                    final f = File(absPath);
+                    if (f.existsSync()) {
+                      final original =
+                          preWriteSnapshots.remove(absPath.toLowerCase()) ?? '';
+                      _sendEvent('diff', {
+                        'id': turnId,
+                        'path': targetPath,
+                        'original': original,
+                        'modified': f.readAsStringSync(),
+                      });
+                    }
                   }
                 }
-              }
 
-            case AgentPlanEvent(:final plan):
-              _syncPlanToTasksMd(plan);
-              _sendEvent('plan', {
-                'id': turnId,
-                'plan': plan.toJson(),
-                'tasksFile': 'tasks.md',
-              });
+              case AgentPlanEvent(:final plan):
+                _syncPlanToTasksMd(plan);
+                _sendEvent('plan', {
+                  'id': turnId,
+                  'plan': plan.toJson(),
+                  'tasksFile': 'tasks.md',
+                });
 
-            case AgentSubAgentStartedEvent(:final subAgentKey, :final task):
-              _sendEvent('subagent_start', {
-                'id': turnId,
-                'subagent': subAgentKey,
-                'task': task,
-              });
+              case AgentSubAgentStartedEvent(:final subAgentKey, :final task):
+                _sendEvent('subagent_start', {
+                  'id': turnId,
+                  'subagent': subAgentKey,
+                  'task': task,
+                });
 
-            case AgentSubAgentCompletedEvent(:final subAgentKey):
-              _sendEvent('subagent_done', {
-                'id': turnId,
-                'subagent': subAgentKey,
-              });
+              case AgentSubAgentCompletedEvent(:final subAgentKey):
+                _sendEvent('subagent_done', {
+                  'id': turnId,
+                  'subagent': subAgentKey,
+                });
 
-            case AgentContextCompressedEvent(
-              :final originalTokens,
-              :final compressedTokens,
-              :final compressedTurnCount,
-            ):
-              _sendEvent('context_compressed', {
-                'id': turnId,
-                'originalTokens': originalTokens,
-                'compressedTokens': compressedTokens,
-                'compressedTurnCount': compressedTurnCount,
-              });
+              case AgentContextCompressedEvent(
+                :final originalTokens,
+                :final compressedTokens,
+                :final compressedTurnCount,
+              ):
+                _sendEvent('context_compressed', {
+                  'id': turnId,
+                  'originalTokens': originalTokens,
+                  'compressedTokens': compressedTokens,
+                  'compressedTurnCount': compressedTurnCount,
+                });
 
-            case AgentMemoryRetrievedEvent(
-              :final archiveId,
-              :final recalledTurnCount,
-              :final query,
-            ):
-              _sendEvent('memory_retrieved', {
-                'id': turnId,
-                'archiveId': archiveId,
-                'recalledTurnCount': recalledTurnCount,
-                'query': query,
-              });
+              case AgentMemoryRetrievedEvent(
+                :final archiveId,
+                :final recalledTurnCount,
+                :final query,
+              ):
+                _sendEvent('memory_retrieved', {
+                  'id': turnId,
+                  'archiveId': archiveId,
+                  'recalledTurnCount': recalledTurnCount,
+                  'query': query,
+                });
 
-            case AgentSkillsChangedEvent(:final activeSkills):
-              _attachedSkills.clear();
-              _attachedSkills.addAll(activeSkills);
-              _sendEvent('skills_changed', {
-                'id': turnId,
-                'activeSkills': activeSkills,
-              });
+              case AgentSkillsChangedEvent(:final activeSkills):
+                _attachedSkills.clear();
+                _attachedSkills.addAll(activeSkills);
+                _sendEvent('skills_changed', {
+                  'id': turnId,
+                  'activeSkills': activeSkills,
+                });
 
-            case AgentUsageEvent(:final promptTokens, :final completionTokens):
-              usageTracker.recordUsage(
-                prompt: promptTokens,
-                completion: completionTokens,
-              );
-              _sendEvent('usage', {
-                'id': turnId,
-                'promptTokens': promptTokens,
-                'completionTokens': completionTokens,
-              });
+              case AgentUsageEvent(
+                :final promptTokens,
+                :final completionTokens,
+              ):
+                usageTracker.recordUsage(
+                  prompt: promptTokens,
+                  completion: completionTokens,
+                );
+                resolvedRates ??= TokenUsageTracker.getRates(activeLlmConfig);
+                final estCost = usageTracker.calculateEstimatedCost(
+                  activeLlmConfig,
+                  rates: resolvedRates,
+                );
+                _sendEvent('usage', {
+                  'id': turnId,
+                  'promptTokens': promptTokens,
+                  'completionTokens': completionTokens,
+                  'sessionPromptTokens': usageTracker.promptTokens,
+                  'sessionCompletionTokens': usageTracker.completionTokens,
+                  'sessionTotalTokens': usageTracker.totalTokens,
+                  if (estCost != null) 'estimatedCostUsd': estCost,
+                  if (resolvedRates != null)
+                    'rateDescription': resolvedRates!.rateDescription,
+                });
 
-            case AgentErrorEvent(:final error):
-              _sendEvent('error', {'id': turnId, 'message': error.toString()});
+              case AgentErrorEvent(:final error):
+                _sendEvent('error', {
+                  'id': turnId,
+                  'message': error.toString(),
+                });
 
-            case AgentFinalResultEvent(:final response, :final messages):
-              if (finalResponse.trim().isEmpty && response.trim().isNotEmpty) {
-                finalResponse = response;
-                _sendEvent('chunk', {'id': turnId, 'text': response});
-              }
-              history.clear();
-              history.addAll(messages);
+              case AgentFinalResultEvent(:final response, :final messages):
+                if (finalResponse.trim().isEmpty &&
+                    response.trim().isNotEmpty) {
+                  finalResponse = response;
+                  _sendEvent('chunk', {'id': turnId, 'text': response});
+                }
+                history.clear();
+                history.addAll(messages);
 
-            default:
-              break;
+              default:
+                break;
+            }
+          } catch (e) {
+            _sendEvent('error', {'id': turnId, 'message': e.toString()});
           }
-        } catch (e) {
-          _sendEvent('error', {'id': turnId, 'message': e.toString()});
-        }
-      }, onError: (err) {
-        _sendEvent('error', {'id': turnId, 'message': err.toString()});
-      });
+        },
+        onError: (err) {
+          _sendEvent('error', {'id': turnId, 'message': err.toString()});
+        },
+      );
 
       await engine.run(
         agent.key,
@@ -1714,6 +2080,12 @@ class TealKitRpcEngine {
               final effectiveTool = resolved.effectiveTool;
               final effectiveRisk = resolved.risk;
               final effectiveParams = resolved.effectiveParams;
+
+              // Always capture pre-write snapshot (and proposed diff preview) before execution
+              final diffPreview = buildWriteDiffPreview(
+                effectiveTool,
+                effectiveParams,
+              );
 
               if (_alwaysApprovedTools.contains(toolName) ||
                   _alwaysApprovedTools.contains(effectiveTool)) {
@@ -1745,6 +2117,7 @@ class TealKitRpcEngine {
                 'rawTool': toolName,
                 'parameters': effectiveParams,
                 'risk': effectiveRisk.name,
+                if (diffPreview != null) 'diff': diffPreview,
               });
               return await completer.future;
             },
@@ -1762,6 +2135,12 @@ class TealKitRpcEngine {
         }
       }
 
+      resolvedRates ??= TokenUsageTracker.getRates(activeLlmConfig);
+      final finalEstimatedCost = usageTracker.calculateEstimatedCost(
+        activeLlmConfig,
+        rates: resolvedRates,
+      );
+
       _sendEvent('done', {
         'id': turnId,
         'response': finalResponse,
@@ -1769,6 +2148,10 @@ class TealKitRpcEngine {
           'promptTokens': usageTracker.promptTokens,
           'completionTokens': usageTracker.completionTokens,
           'totalTokens': usageTracker.totalTokens,
+          if (finalEstimatedCost != null)
+            'estimatedCostUsd': finalEstimatedCost,
+          if (resolvedRates != null)
+            'rateDescription': resolvedRates!.rateDescription,
         },
       });
     } catch (e) {
@@ -1782,7 +2165,10 @@ class TealKitRpcEngine {
       } catch (_) {}
 
       // Auto-save session transcript if enabled
-      if (history.isNotEmpty && (autoSaveSession || cliConfig.autoSaveSession || saveSessionPath != null)) {
+      if (history.isNotEmpty &&
+          (autoSaveSession ||
+              cliConfig.autoSaveSession ||
+              saveSessionPath != null)) {
         try {
           await _autoSaveActiveSession(
             workspaceDir: workspaceDir,
@@ -1862,14 +2248,20 @@ class TealKitRpcEngine {
     String targetPath;
     if (saveSessionPath != null && saveSessionPath!.trim().isNotEmpty) {
       targetPath = saveSessionPath!;
-    } else if (_activeSessionFilePath != null && _activeSessionFilePath!.isNotEmpty) {
+    } else if (_activeSessionFilePath != null &&
+        _activeSessionFilePath!.isNotEmpty) {
       targetPath = _activeSessionFilePath!;
     } else {
-      final sessionsDir = Directory(p.join(workspaceDir, '.tealkit', 'sessions'));
+      final sessionsDir = Directory(
+        p.join(workspaceDir, '.tealkit', 'sessions'),
+      );
       if (!sessionsDir.existsSync()) {
         sessionsDir.createSync(recursive: true);
       }
-      targetPath = p.join(sessionsDir.path, 'tealkitcoder_${_activeSessionId}.json');
+      targetPath = p.join(
+        sessionsDir.path,
+        'tealkitcoder_$_activeSessionId.json',
+      );
       _activeSessionFilePath = targetPath;
     }
 
@@ -1895,7 +2287,9 @@ class TealKitRpcEngine {
     });
   }
 
-  Future<List<Map<String, dynamic>>> _listSavedSessions(String workspaceDir) async {
+  Future<List<Map<String, dynamic>>> _listSavedSessions(
+    String workspaceDir,
+  ) async {
     final searchDirs = <String>{
       p.join(workspaceDir, '.tealkit', 'sessions'),
       p.join(workspaceDir, 'sessions'),
@@ -1924,10 +2318,18 @@ class TealKitRpcEngine {
                 'llmModel': session.llmModel ?? '',
                 'createdAt': session.createdAt.toIso8601String(),
                 'updatedAt': session.updatedAt.toIso8601String(),
-                'turnCount': session.messages.where((m) => m.role == ChatRole.user || m.role == ChatRole.assistant).length,
+                'turnCount': session.messages
+                    .where(
+                      (m) =>
+                          m.role == ChatRole.user ||
+                          m.role == ChatRole.assistant,
+                    )
+                    .length,
                 'messageCount': session.messages.length,
                 'path': normPath,
-                'isCurrent': _activeSessionFilePath != null && p.normalize(_activeSessionFilePath!) == normPath,
+                'isCurrent':
+                    _activeSessionFilePath != null &&
+                    p.normalize(_activeSessionFilePath!) == normPath,
               });
             } catch (_) {}
           }
@@ -1935,7 +2337,9 @@ class TealKitRpcEngine {
       } catch (_) {}
     }
 
-    list.sort((a, b) => (b['updatedAt'] as String).compareTo(a['updatedAt'] as String));
+    list.sort(
+      (a, b) => (b['updatedAt'] as String).compareTo(a['updatedAt'] as String),
+    );
     return list;
   }
 
@@ -1950,18 +2354,24 @@ class TealKitRpcEngine {
     final archiveId = 'mem_${DateTime.now().millisecondsSinceEpoch}';
     final archiveFile = File(p.join(memoryDir.path, '$archiveId.json'));
 
-    final turnsData = history.map((m) => {
-      'role': m.role.name,
-      'content': m.content,
-      'timestamp': m.timestamp.toIso8601String(),
-    }).toList();
+    final turnsData = history
+        .map(
+          (m) => {
+            'role': m.role.name,
+            'content': m.content,
+            'timestamp': m.timestamp.toIso8601String(),
+          },
+        )
+        .toList();
 
-    archiveFile.writeAsStringSync(jsonEncode({
-      'archiveId': archiveId,
-      'timestamp': DateTime.now().toIso8601String(),
-      'turnCount': history.length,
-      'turns': turnsData,
-    }));
+    archiveFile.writeAsStringSync(
+      jsonEncode({
+        'archiveId': archiveId,
+        'timestamp': DateTime.now().toIso8601String(),
+        'turnCount': history.length,
+        'turns': turnsData,
+      }),
+    );
 
     return history.length;
   }
@@ -1977,16 +2387,21 @@ class TealKitRpcEngine {
           final data = jsonDecode(f.readAsStringSync());
           if (data is Map<String, dynamic>) {
             list.add({
-              'archiveId': data['archiveId'] ?? p.basenameWithoutExtension(f.path),
-              'timestamp': data['timestamp'] ?? f.lastModifiedSync().toIso8601String(),
-              'turnCount': data['turnCount'] ?? (data['turns'] as List?)?.length ?? 0,
+              'archiveId':
+                  data['archiveId'] ?? p.basenameWithoutExtension(f.path),
+              'timestamp':
+                  data['timestamp'] ?? f.lastModifiedSync().toIso8601String(),
+              'turnCount':
+                  data['turnCount'] ?? (data['turns'] as List?)?.length ?? 0,
               'path': f.path,
             });
           }
         } catch (_) {}
       }
     }
-    list.sort((a, b) => (b['timestamp'] as String).compareTo(a['timestamp'] as String));
+    list.sort(
+      (a, b) => (b['timestamp'] as String).compareTo(a['timestamp'] as String),
+    );
     return list;
   }
 
@@ -2005,7 +2420,9 @@ class TealKitRpcEngine {
         }
       }
     }
-    final sb = StringBuffer('# TealKit CLI Server Connection Profiles\nservers:\n');
+    final sb = StringBuffer(
+      '# TealKit CLI Server Connection Profiles\nservers:\n',
+    );
     for (final p in profiles) {
       sb.writeln('  - name: "${p.name}"');
       sb.writeln('    url: "${p.url}"');
@@ -2170,7 +2587,6 @@ $userInstructions
   }
 }
 
-
 class _RagSearchTool extends McpLocalTool {
   final RagConfig ragConfig;
 
@@ -2188,19 +2604,21 @@ class _RagSearchTool extends McpLocalTool {
 
   @override
   Map<String, dynamic> get inputSchema => {
-        'type': 'object',
-        'properties': {
-          'query': {
-            'type': 'string',
-            'description': 'Search query or command/keyword to look up in the indexed knowledge base.',
-          },
-          'max_results': {
-            'type': 'integer',
-            'description': 'Maximum number of matching chunks to return (default 8, max 20).',
-          },
-        },
-        'required': ['query'],
-      };
+    'type': 'object',
+    'properties': {
+      'query': {
+        'type': 'string',
+        'description':
+            'Search query or command/keyword to look up in the indexed knowledge base.',
+      },
+      'max_results': {
+        'type': 'integer',
+        'description':
+            'Maximum number of matching chunks to return (default 8, max 20).',
+      },
+    },
+    'required': ['query'],
+  };
 
   @override
   Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
@@ -2209,19 +2627,28 @@ class _RagSearchTool extends McpLocalTool {
       return MCPToolResult.error('Parameter "query" is required.');
     }
 
-    final maxResults = ((arguments['max_results'] as num?)?.toInt() ?? 8).clamp(1, 20);
+    final maxResults = ((arguments['max_results'] as num?)?.toInt() ?? 8).clamp(
+      1,
+      20,
+    );
     final service = RagService(ragConfig);
     try {
       final hits = await service.search(query, limit: maxResults);
       if (hits.isEmpty) {
-        return MCPToolResult.text('No matching documents found in rag_index.db for "$query".');
+        return MCPToolResult.text(
+          'No matching documents found in rag_index.db for "$query".',
+        );
       }
       final buf = StringBuffer();
-      buf.writeln('Found ${hits.length} matching chunk(s) in rag_index.db for "$query":\n');
+      buf.writeln(
+        'Found ${hits.length} matching chunk(s) in rag_index.db for "$query":\n',
+      );
       for (int i = 0; i < hits.length; i++) {
         final h = hits[i];
         final title = h.documentTitle ?? p.basename(h.documentUri);
-        buf.writeln('--- Result [${i + 1}]: $title (${h.locationLabel}, score: ${h.score.toStringAsFixed(3)}) ---');
+        buf.writeln(
+          '--- Result [${i + 1}]: $title (${h.locationLabel}, score: ${h.score.toStringAsFixed(3)}) ---',
+        );
         buf.writeln('Location: ${h.terminalLocation}');
         buf.writeln(h.content.trim());
         buf.writeln('');

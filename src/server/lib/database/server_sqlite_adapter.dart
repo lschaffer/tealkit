@@ -6,37 +6,65 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../models/agentic_task.dart';
 import '../utils/cron_utils.dart';
+import '../utils/semantic_embedding.dart';
 import '../utils/server_logger.dart';
 import '../utils/server_paths.dart';
 import 'server_database_adapter.dart';
 
-/// SQLite implementation of [ServerDatabaseAdapter] for low-resource environments
-/// (≤1GB RAM — no DuckDB dependency).
+/// SQLite (+ optional `sqlite_vector` + FTS5) implementation of [ServerDatabaseAdapter].
 ///
-/// Creates an identical schema to DuckDB but using SQLite-compatible types:
-///   - VARCHAR → TEXT
-///   - BOOLEAN → INTEGER (0/1)
-///   - VARCHAR[] → TEXT (JSON array)
-///   - JSON → TEXT (JSON string)
-///   - TIMESTAMP → TEXT (ISO 8601)
+/// Used by both:
+/// - Full Server ([ServerSqliteAdapter.full] -> `tealkit_server.sqlite` with `sqlite_vector` + FTS5)
+/// - Server Light ([ServerSqliteAdapter] -> `tealkit_light.db` for <=1GB RAM)
 class ServerSqliteAdapter implements ServerDatabaseAdapter {
-  final String _dbPath;
-  Database? _db;
+  static Future<void> Function(ServerSqliteAdapter adapter)? legacyMigratorHook;
 
-  ServerSqliteAdapter({String? dbPath}) : _dbPath = dbPath ?? _defaultDbPath();
+  final String _dbPath;
+  final String? _customDataDir;
+  final bool _enableVectorAndFts;
+  final bool _vectorExtensionLoaded;
+  Database? _db;
+  bool _vectorInitialized = false;
+
+  ServerSqliteAdapter({
+    String? dbPath,
+    String? customDataDir,
+    bool enableVectorAndFts = false,
+    bool vectorExtensionLoaded = false,
+  }) : _customDataDir = customDataDir,
+       _dbPath = dbPath ?? _defaultLightDbPath(customDataDir),
+       _enableVectorAndFts = enableVectorAndFts,
+       _vectorExtensionLoaded = vectorExtensionLoaded;
+
+  factory ServerSqliteAdapter.full({
+    String? dbPath,
+    String? customDataDir,
+    bool vectorExtensionLoaded = false,
+  }) {
+    final effectiveDataDir = customDataDir ?? resolveServerDataDir();
+    return ServerSqliteAdapter(
+      dbPath: dbPath ?? p.join(effectiveDataDir, 'db', 'tealkit_server.sqlite'),
+      customDataDir: effectiveDataDir,
+      enableVectorAndFts: true,
+      vectorExtensionLoaded: vectorExtensionLoaded,
+    );
+  }
+
+  String get dbPath => _dbPath;
+  bool get isVectorInitialized => _vectorInitialized;
 
   @override
   String get engineType => 'sqlite';
 
-  static String _defaultDbPath() {
-    final dataDir = resolveServerDataDir();
+  static String _defaultLightDbPath([String? customDataDir]) {
+    final dataDir = customDataDir ?? resolveServerDataDir();
     return p.join(dataDir, 'db', 'tealkit_light.db');
   }
 
   // ── Lifecycle ──────────────────────────────────────────────
 
   @override
-  String get dataDir => resolveServerDataDir();
+  String get dataDir => _customDataDir ?? resolveServerDataDir();
 
   @override
   Future<void> init() async {
@@ -48,18 +76,42 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
     log.info('[SQLite] Opening database at: $_dbPath');
     _db = sqlite3.open(_dbPath);
     _db!.execute('PRAGMA journal_mode = WAL;');
+    _db!.execute('PRAGMA synchronous = NORMAL;');
     _db!.execute('PRAGMA foreign_keys = ON;');
+    _db!.execute('PRAGMA busy_timeout = 5000;');
 
     await _createTables();
+    if (_enableVectorAndFts) {
+      _createFtsTables();
+      _initVectorColumns();
+    }
+    if (legacyMigratorHook != null) {
+      await legacyMigratorHook!(this);
+    }
     await _seedDefaultPyTools();
-    log.info('[SQLite] Database opened successfully');
+    log.info('[SQLite] Database opened successfully (vector=$_vectorInitialized)');
   }
 
   @override
   Future<void> close() async {
     log.info('[SQLite] Closing database');
-    _db?.dispose();
+    _db?.close();
     _db = null;
+    _vectorInitialized = false;
+  }
+
+  void runInTransaction(void Function(Database db) action) {
+    final db = _requireDb;
+    db.execute('BEGIN IMMEDIATE');
+    try {
+      action(db);
+      db.execute('COMMIT');
+    } catch (_) {
+      try {
+        db.execute('ROLLBACK');
+      } catch (_) {}
+      rethrow;
+    }
   }
 
   Database get _requireDb {
@@ -215,7 +267,7 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
       )
     ''');
 
-db.execute('''
+    db.execute('''
       CREATE TABLE IF NOT EXISTS llm_profiles (
         id          TEXT PRIMARY KEY,
         name        TEXT NOT NULL,
@@ -226,6 +278,379 @@ db.execute('''
         updated_at  TEXT DEFAULT (datetime('now'))
       )
     ''');
+
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS document_index (
+        id             TEXT PRIMARY KEY,
+        root_path      TEXT NOT NULL,
+        file_path      TEXT NOT NULL,
+        file_name      TEXT NOT NULL,
+        file_type      TEXT NOT NULL,
+        content_text   TEXT,
+        embedding_json TEXT,
+        embedding      BLOB,
+        file_size      INTEGER,
+        last_modified  TEXT,
+        indexed_at     TEXT DEFAULT (datetime('now'))
+      )
+    ''');
+
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS website_index (
+        id             TEXT PRIMARY KEY,
+        seed_url       TEXT NOT NULL,
+        url            TEXT NOT NULL,
+        domain         TEXT NOT NULL,
+        title          TEXT,
+        content_text   TEXT,
+        embedding_json TEXT,
+        embedding      BLOB,
+        http_status    INTEGER,
+        indexed_at     TEXT DEFAULT (datetime('now'))
+      )
+    ''');
+  }
+
+  void _createFtsTables() {
+    final db = _requireDb;
+    try {
+      db.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS document_index_fts USING fts5(
+          file_name,
+          content_text,
+          content='document_index',
+          content_rowid='rowid'
+        )
+      ''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS document_index_ai AFTER INSERT ON document_index BEGIN
+          INSERT INTO document_index_fts(rowid, file_name, content_text)
+          VALUES (new.rowid, COALESCE(new.file_name, ''), COALESCE(new.content_text, ''));
+        END
+      ''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS document_index_ad AFTER DELETE ON document_index BEGIN
+          INSERT INTO document_index_fts(document_index_fts, rowid, file_name, content_text)
+          VALUES ('delete', old.rowid, COALESCE(old.file_name, ''), COALESCE(old.content_text, ''));
+        END
+      ''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS document_index_au AFTER UPDATE ON document_index BEGIN
+          INSERT INTO document_index_fts(document_index_fts, rowid, file_name, content_text)
+          VALUES ('delete', old.rowid, COALESCE(old.file_name, ''), COALESCE(old.content_text, ''));
+          INSERT INTO document_index_fts(rowid, file_name, content_text)
+          VALUES (new.rowid, COALESCE(new.file_name, ''), COALESCE(new.content_text, ''));
+        END
+      ''');
+
+      db.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS website_index_fts USING fts5(
+          title,
+          content_text,
+          content='website_index',
+          content_rowid='rowid'
+        )
+      ''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS website_index_ai AFTER INSERT ON website_index BEGIN
+          INSERT INTO website_index_fts(rowid, title, content_text)
+          VALUES (new.rowid, COALESCE(new.title, ''), COALESCE(new.content_text, ''));
+        END
+      ''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS website_index_ad AFTER DELETE ON website_index BEGIN
+          INSERT INTO website_index_fts(website_index_fts, rowid, title, content_text)
+          VALUES ('delete', old.rowid, COALESCE(old.title, ''), COALESCE(old.content_text, ''));
+        END
+      ''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS website_index_au AFTER UPDATE ON website_index BEGIN
+          INSERT INTO website_index_fts(website_index_fts, rowid, title, content_text)
+          VALUES ('delete', old.rowid, COALESCE(old.title, ''), COALESCE(old.content_text, ''));
+          INSERT INTO website_index_fts(rowid, title, content_text)
+          VALUES (new.rowid, COALESCE(new.title, ''), COALESCE(new.content_text, ''));
+        END
+      ''');
+    } catch (e) {
+      log.warning('[SQLite] FTS5 setup skipped/failed: $e');
+    }
+  }
+
+  void _initVectorColumns() {
+    if (!_vectorExtensionLoaded || _vectorInitialized) return;
+    final db = _requireDb;
+    const dim = SemanticEmbedding.defaultDimensions;
+    for (final table in ['document_index', 'website_index']) {
+      try {
+        db.select(
+          "SELECT vector_init('$table', 'embedding', 'type=FLOAT32,dimension=$dim,distance=COSINE')",
+        );
+      } catch (_) {
+        try {
+          db.select(
+            "SELECT vector_init('$table', 'embedding', 'type=FLOAT32,dimension=$dim')",
+          );
+        } catch (e) {
+          log.warning('[SQLite] vector_init failed for $table: $e');
+          return;
+        }
+      }
+    }
+    _vectorInitialized = true;
+  }
+
+  // ── Vector + FTS5 Hybrid Helpers ───────────────────────────
+
+  Future<void> upsertDocumentIndex({
+    required String id,
+    required String rootPath,
+    required String filePath,
+    required String fileName,
+    required String fileType,
+    required String contentText,
+    required List<double> embedding,
+    required int fileSize,
+    required String lastModified,
+    required String indexedAt,
+  }) async {
+    final db = _requireDb;
+    final embJson = SemanticEmbedding.toJson(embedding);
+    if (_vectorInitialized) {
+      db.execute(
+        '''
+        INSERT OR REPLACE INTO document_index
+          (id, root_path, file_path, file_name, file_type,
+           content_text, embedding_json, embedding, file_size, last_modified, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, vector_as_f32(?), ?, ?, ?)
+        ''',
+        [
+          id,
+          rootPath,
+          filePath,
+          fileName,
+          fileType,
+          contentText,
+          embJson,
+          embJson,
+          fileSize,
+          lastModified,
+          indexedAt,
+        ],
+      );
+    } else {
+      db.execute(
+        '''
+        INSERT OR REPLACE INTO document_index
+          (id, root_path, file_path, file_name, file_type,
+           content_text, embedding_json, file_size, last_modified, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        [
+          id,
+          rootPath,
+          filePath,
+          fileName,
+          fileType,
+          contentText,
+          embJson,
+          fileSize,
+          lastModified,
+          indexedAt,
+        ],
+      );
+    }
+  }
+
+  Future<void> upsertWebsiteIndex({
+    required String id,
+    required String seedUrl,
+    required String url,
+    required String domain,
+    required String title,
+    required String contentText,
+    required List<double> embedding,
+    required int httpStatus,
+    required String indexedAt,
+  }) async {
+    final db = _requireDb;
+    final embJson = SemanticEmbedding.toJson(embedding);
+    if (_vectorInitialized) {
+      db.execute(
+        '''
+        INSERT OR REPLACE INTO website_index
+          (id, seed_url, url, domain, title, content_text,
+           embedding_json, embedding, http_status, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, vector_as_f32(?), ?, ?)
+        ''',
+        [
+          id,
+          seedUrl,
+          url,
+          domain,
+          title,
+          contentText,
+          embJson,
+          embJson,
+          httpStatus,
+          indexedAt,
+        ],
+      );
+    } else {
+      db.execute(
+        '''
+        INSERT OR REPLACE INTO website_index
+          (id, seed_url, url, domain, title, content_text,
+           embedding_json, http_status, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        [
+          id,
+          seedUrl,
+          url,
+          domain,
+          title,
+          contentText,
+          embJson,
+          httpStatus,
+          indexedAt,
+        ],
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> vectorSearchDocuments({
+    required List<double> queryEmbedding,
+    String whereScopeSql = '',
+    int k = 150,
+  }) async {
+    if (!_vectorInitialized) return const [];
+    final db = _requireDb;
+    final embJson = SemanticEmbedding.toJson(queryEmbedding);
+    try {
+      final rs = db.select(
+        '''
+        SELECT d.file_path, d.file_name, d.file_type, d.file_size,
+               SUBSTR(d.content_text, 1, 81920) AS content_text,
+               d.embedding_json, d.last_modified, v.distance
+        FROM vector_full_scan('document_index', 'embedding', vector_as_f32(?), ?) AS v
+        JOIN document_index AS d ON d.rowid = v.rowid
+        $whereScopeSql
+        ''',
+        [embJson, k],
+      );
+      return rs.map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (e) {
+      log.warning('[SQLite] vectorSearchDocuments fallback: $e');
+      return const [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> vectorSearchWebsites({
+    required List<double> queryEmbedding,
+    String whereScopeSql = '',
+    int k = 150,
+  }) async {
+    if (!_vectorInitialized) return const [];
+    final db = _requireDb;
+    final embJson = SemanticEmbedding.toJson(queryEmbedding);
+    try {
+      final rs = db.select(
+        '''
+        SELECT w.url, w.domain, w.title, w.content_text,
+               w.embedding_json, w.indexed_at, v.distance
+        FROM vector_full_scan('website_index', 'embedding', vector_as_f32(?), ?) AS v
+        JOIN website_index AS w ON w.rowid = v.rowid
+        $whereScopeSql
+        ''',
+        [embJson, k],
+      );
+      return rs.map((r) => Map<String, dynamic>.from(r)).toList();
+    } catch (e) {
+      log.warning('[SQLite] vectorSearchWebsites fallback: $e');
+      return const [];
+    }
+  }
+
+  Future<Map<String, double>> ftsRankDocuments(
+    String rawQuery, {
+    int limit = 150,
+  }) async {
+    if (!_enableVectorAndFts) return const {};
+    final db = _requireDb;
+    final ftsQuery = _buildSafeFtsQuery(rawQuery);
+    if (ftsQuery.isEmpty) return const {};
+    try {
+      final rs = db.select(
+        '''
+        SELECT d.file_path, bm25(document_index_fts) AS rank_score
+        FROM document_index_fts
+        JOIN document_index AS d ON d.rowid = document_index_fts.rowid
+        WHERE document_index_fts MATCH ?
+        ORDER BY rank_score ASC
+        LIMIT ?
+        ''',
+        [ftsQuery, limit],
+      );
+      final ranks = <String, double>{};
+      var idx = 0;
+      for (final r in rs) {
+        final fp = r['file_path']?.toString();
+        if (fp != null && fp.isNotEmpty) {
+          ranks[fp] = 1.0 / (60.0 + idx);
+          idx++;
+        }
+      }
+      return ranks;
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<Map<String, double>> ftsRankWebsites(
+    String rawQuery, {
+    int limit = 150,
+  }) async {
+    if (!_enableVectorAndFts) return const {};
+    final db = _requireDb;
+    final ftsQuery = _buildSafeFtsQuery(rawQuery);
+    if (ftsQuery.isEmpty) return const {};
+    try {
+      final rs = db.select(
+        '''
+        SELECT w.url, bm25(website_index_fts) AS rank_score
+        FROM website_index_fts
+        JOIN website_index AS w ON w.rowid = website_index_fts.rowid
+        WHERE website_index_fts MATCH ?
+        ORDER BY rank_score ASC
+        LIMIT ?
+        ''',
+        [ftsQuery, limit],
+      );
+      final ranks = <String, double>{};
+      var idx = 0;
+      for (final r in rs) {
+        final url = r['url']?.toString();
+        if (url != null && url.isNotEmpty) {
+          ranks[url] = 1.0 / (60.0 + idx);
+          idx++;
+        }
+      }
+      return ranks;
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  String _buildSafeFtsQuery(String query) {
+    final tokens = query
+        .replaceAll(RegExp(r'[^\p{L}\p{N}_]+', unicode: true), ' ')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 2)
+        .take(8)
+        .map((w) => '"${w.replaceAll('"', '')}"*')
+        .toList();
+    return tokens.join(' OR ');
   }
 
   // ── Tasks CRUD ─────────────────────────────────────────────
@@ -344,6 +769,18 @@ db.execute('''
     }
   }
 
+  static bool _toBool(Object? v, {bool defaultValue = false}) {
+    if (v == null) return defaultValue;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    if (v is String) {
+      final lower = v.trim().toLowerCase();
+      if (lower == 'true' || lower == '1') return true;
+      if (lower == 'false' || lower == '0') return false;
+    }
+    return defaultValue;
+  }
+
   // ── Internal MCP Configs ───────────────────────────────────
 
   @override
@@ -377,7 +814,7 @@ db.execute('''
         id: row['id'] as String,
         mcpType: row['mcp_type'] as String,
         initParams: jsonDecode(row['params'] as String) as Map<String, dynamic>,
-        enabled: (row['enabled'] as int) == 1,
+        enabled: _toBool(row['enabled'], defaultValue: true),
       );
     }).toList();
   }
@@ -409,8 +846,8 @@ db.execute('''
         schema,
         tool['code'] as String? ?? '',
         tool['requirements'] as String? ?? '',
-        (tool['venv_ready'] as bool? ?? false) ? 1 : 0,
-        (tool['is_active'] as bool? ?? true) ? 1 : 0,
+        _toBool(tool['venv_ready']) ? 1 : 0,
+        _toBool(tool['is_active'], defaultValue: true) ? 1 : 0,
         tool['generation_prompt'] as String? ?? '',
         now,
         now,
@@ -432,8 +869,8 @@ db.execute('''
         'input_schema': _decodeJson(row['input_schema']),
         'code': row['code'],
         'requirements': row['requirements'],
-        'venv_ready': (row['venv_ready'] as int) == 1,
-        'is_active': (row['is_active'] as int) == 1,
+        'venv_ready': _toBool(row['venv_ready']),
+        'is_active': _toBool(row['is_active'], defaultValue: true),
         'generation_prompt': row['generation_prompt'],
       };
     }).toList();
@@ -482,7 +919,7 @@ db.execute('''
         tool['description'] as String? ?? '',
         schema,
         tool['js_code'] as String? ?? tool['jsCode'] as String? ?? '',
-        (tool['is_active'] as bool? ?? tool['isActive'] as bool? ?? true)
+        _toBool(tool['is_active'] ?? tool['isActive'], defaultValue: true)
             ? 1
             : 0,
         now,
@@ -507,7 +944,7 @@ db.execute('''
         'description': row['description'],
         'input_schema': _decodeJson(row['input_schema']),
         'js_code': row['js_code'],
-        'is_active': (row['is_active'] as int) == 1,
+        'is_active': _toBool(row['is_active'], defaultValue: true),
         'created_at': row['created_at']?.toString(),
         'updated_at': row['updated_at']?.toString(),
       };
@@ -594,9 +1031,9 @@ db.execute('''
         ).cast<String>(),
         envVars: Map<String, String>.from(_decodeJsonMap(row['env_vars'])),
         category: row['category'] as String? ?? 'other',
-        isInstalled: (row['is_installed'] as int) == 1,
-        isActive: (row['is_active'] as int) == 1,
-        isManual: (row['is_manual'] as int) == 1,
+        isInstalled: _toBool(row['is_installed']),
+        isActive: _toBool(row['is_active']),
+        isManual: _toBool(row['is_manual']),
         installedAt: row['installed_at'] != null
             ? DateTime.tryParse(row['installed_at'] as String)
             : null,
@@ -665,8 +1102,8 @@ db.execute('''
         skill['mcp_type'] as String,
         skill['skill_text'] as String? ?? '',
         skill['skill_text_slm'] as String? ?? '',
-        (skill['is_enabled'] as bool? ?? true) ? 1 : 0,
-        (skill['is_custom'] as bool? ?? false) ? 1 : 0,
+        _toBool(skill['is_enabled'], defaultValue: true) ? 1 : 0,
+        _toBool(skill['is_custom']) ? 1 : 0,
         skill['generated_at'],
       ],
     );
@@ -689,8 +1126,8 @@ db.execute('''
             'mcp_type': row['mcp_type'] as String,
             'skill_text': row['skill_text'] as String? ?? '',
             'skill_text_slm': row['skill_text_slm'] as String? ?? '',
-            'is_enabled': (row['is_enabled'] as int) == 1,
-            'is_custom': (row['is_custom'] as int) == 1,
+            'is_enabled': _toBool(row['is_enabled'], defaultValue: true),
+            'is_custom': _toBool(row['is_custom']),
             'generated_at': row['generated_at'],
             'updated_at': row['updated_at'],
           },
@@ -870,7 +1307,7 @@ db.execute('''
       final isSelected = id == selectedProfileId ? 1 : 0;
       stmt.execute([id, name, isSelected, jsonEncode(p), i]);
     }
-    stmt.dispose();
+    stmt.close();
   }
 
   @override
@@ -1227,7 +1664,7 @@ db.execute('''
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''');
     stmt.execute([key, name, desc, model, prompt, toolsJson, maxTurns, now, now]);
-    stmt.dispose();
+    stmt.close();
   }
 
   @override
@@ -1235,7 +1672,7 @@ db.execute('''
     final db = _requireDb;
     final stmt = db.prepare('DELETE FROM subagent_definitions WHERE key = ?');
     stmt.execute([key]);
-    stmt.dispose();
+    stmt.close();
   }
 
   @override

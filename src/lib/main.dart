@@ -12,7 +12,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:workmanager/workmanager.dart';
 import 'config/app_theme.dart';
+import 'config/build_flavor.dart';
 import 'database/duckdb_service.dart';
+import 'widgets/database_upgrade_dialog.dart';
 import 'database/task_database_service_duckdb.dart';
 import 'providers/data_sources_settings_provider.dart';
 import 'providers/external_tools_settings_provider.dart';
@@ -565,13 +567,10 @@ void main() async {
     log.error('Failed to load GitHub MCP library: $e');
   }
 
-  // Trigger background skill generation for built-in tools (fire-and-forget).
-  unawaited(
-    FunctionHintGenerationService.instance.ensureSkillsForBuiltInTools(),
-  );
-
-  // Register embedded LLM engine driver for Flutter MCP Suite.
-  FlutterUiMcpEmbedded.register();
+  // Register embedded LLM engine driver for Flutter MCP Suite (skipped in Light builds).
+  if (BuildFlavor.supportsEmbeddedLlm) {
+    FlutterUiMcpEmbedded.register();
+  }
 
   runApp(const ProviderScope(child: MobileAIAgentApp()));
 }
@@ -609,10 +608,8 @@ class _MobileAIAgentAppState extends State<MobileAIAgentApp>
       _startPing();
     } else {
       _stopPing();
-      // On detached (app terminated) or hidden (desktop window closed), close
-      // DuckDB so the WAL is checkpointed before the process exits.
-      if (state == AppLifecycleState.detached ||
-          state == AppLifecycleState.hidden) {
+      // On detached (app terminated), close SQLite cleanly.
+      if (state == AppLifecycleState.detached) {
         DuckDbService().close().catchError((_) {});
       }
     }
@@ -726,6 +723,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      // Run one-time DuckDB -> SQLite database upgrade dialog first if any local legacy DB exists.
+      await DatabaseUpgradeDialog.checkAndRunIfNeeded(context, ref);
+      if (!mounted) return;
       final mode = await ref.read(serverModeProvider.future);
       // Startup reconnect gate:
       // If the app was last used in server mode, route to server settings first
@@ -810,7 +810,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!settings.isConfigured) return; // LLM not set up — nothing to generate
 
     final existing = await FunctionHintDatabaseService().getAll();
-    if (existing.isNotEmpty) return; // already have tool hints
+    if (existing.isNotEmpty) {
+      // Existing/migrated install already has tool hints — top up only newly added built-in tools.
+      unawaited(
+        FunctionHintGenerationService.instance.ensureSkillsForBuiltInTools(),
+      );
+      return;
+    }
     if (!mounted) return;
 
     final doGenerate = await showDialog<bool>(

@@ -74,6 +74,14 @@ body {
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--vscode-descriptionForeground, #888);
+  white-space: nowrap;
+}
+
+.tokens-badge {
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  cursor: help;
 }
 
 .badge {

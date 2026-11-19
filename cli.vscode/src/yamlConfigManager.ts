@@ -237,7 +237,12 @@ export class TealKitYamlConfigManager {
     }
   }
 
-  public static saveLlmProfile(profile: LlmProfileItem, setAsDefault: boolean = false, originalName?: string): void {
+  public static saveLlmProfile(
+    profile: LlmProfileItem,
+    setAsDefault: boolean = false,
+    originalName?: string,
+    originalIndex?: number
+  ): void {
     const filePath = this.getLlmConfigPath();
     let doc: any = {};
     if (fs.existsSync(filePath)) {
@@ -248,10 +253,32 @@ export class TealKitYamlConfigManager {
       }
     }
 
-    if (!doc.llms) doc.llms = [];
+    if (!Array.isArray(doc.llms)) doc.llms = [];
 
-    const lookupName = originalName || profile.name;
-    const existingIdx = doc.llms.findIndex((p: any) => p.name === lookupName || p.name === profile.name);
+    const trimmedOriginal = (originalName || '').trim();
+    const trimmedNew = (profile.name || '').trim();
+    profile.name = trimmedNew;
+
+    let existingIdx = -1;
+    if (trimmedOriginal) {
+      existingIdx = doc.llms.findIndex(
+        (p: any) => p && String(p.name || '').trim() === trimmedOriginal
+      );
+    }
+    if (
+      existingIdx < 0 &&
+      typeof originalIndex === 'number' &&
+      originalIndex >= 0 &&
+      originalIndex < doc.llms.length
+    ) {
+      existingIdx = originalIndex;
+    }
+    if (existingIdx < 0) {
+      existingIdx = doc.llms.findIndex(
+        (p: any) => p && String(p.name || '').trim() === trimmedNew
+      );
+    }
+
     const newEntry: any = {
       name: profile.name,
       provider: profile.provider,
@@ -283,11 +310,19 @@ export class TealKitYamlConfigManager {
         delete merged.timeoutSeconds;
       }
       doc.llms[existingIdx] = merged;
+      // Remove any duplicate entry with the same new name at a different index
+      doc.llms = doc.llms.filter(
+        (p: any, idx: number) => idx === existingIdx || !p || String(p.name || '').trim() !== trimmedNew
+      );
     } else {
       doc.llms.push(newEntry);
     }
 
-    if (setAsDefault || !doc.default || (originalName && doc.default === originalName)) {
+    if (
+      setAsDefault ||
+      !doc.default ||
+      (trimmedOriginal && String(doc.default).trim() === trimmedOriginal)
+    ) {
       doc.default = profile.name;
     }
 
@@ -300,9 +335,10 @@ export class TealKitYamlConfigManager {
 
     try {
       const doc = YAML.parse(fs.readFileSync(filePath, 'utf-8')) || {};
+      const target = String(name || '').trim();
       if (Array.isArray(doc.llms)) {
-        doc.llms = doc.llms.filter((p: any) => p.name !== name);
-        if (doc.default === name) {
+        doc.llms = doc.llms.filter((p: any) => !p || String(p.name || '').trim() !== target);
+        if (String(doc.default || '').trim() === target) {
           doc.default = doc.llms.length > 0 ? doc.llms[0].name : '';
         }
         fs.writeFileSync(filePath, YAML.stringify(doc), 'utf-8');

@@ -15,6 +15,16 @@ TealKit is completely free. All features are available to every user with no tri
 
 ---
 
+> ### ⚠️ BREAKING CHANGES & MANDATORY DATABASE UPGRADE (v2.4.0+ Bridge Release)
+> TealKit has migrated both its **Client App** and **Headless Server** database engines from DuckDB to **SQLite + `sqlite_vector` + FTS5** for dramatically lower memory usage and compact desktop builds, alongside switching **Desktop Store** editions to streamlined **Light** builds:
+> - **Mandatory One-Time Launch for Existing Client Users (`mobile_ai_agent.duckdb` → `mobile_ai_agent.sqlite`)**: Please **install v2.4.0+ and open TealKit at least once** before future updates! An automatic **Database Upgrade** popup migrates all Workflows, Skills, Sub-Agents, MCP settings, Python tools, and Tool Hints to SQLite and archives your old database as `mobile_ai_agent.duckdb.migrated.bak` (you can also export an encrypted `.tkv` backup anytime via **Settings → Settings Vault / Tresor**).
+> - **Silent Automatic Migration on Headless TealKit Server (`tealkit_server.duckdb` → `tealkit_server.sqlite`)**: Existing `tealkit_server` instances **must run this bridge release once**; on startup, the server silently migrates all 11 server tables (including `llm_profiles`, `tasks`, `skill_defs`, `subagent_definitions`, MCP/script configs, and `scheduler_log`) to SQLite + `sqlite_vector` + FTS5 while **retaining full on-device `llamadart` (`^0.20.0`) GGUF support** in server mode.
+> - **Upcoming Removal of Legacy DuckDB**: The legacy DuckDB migration reader is included **only in this bridge release** and will be **removed completely in the next update** (~1–2 weeks).
+> - **Local RAG Re-indexing Required**: Rebuildable vector index tables (`document_index`, `website_index`) are intentionally skipped for an instant migration—please click **Re-index** once in Document / Web-Crawl settings after upgrading if you use local RAG.
+> - **Breaking Desktop Store Change — Streamlined Light Editions**: **Microsoft Store (Windows), Mac App Store (macOS), and Linux Desktop** packages now ship as **Light** editions (`TEALKIT_LIGHT=true`) with embedded on-device `llamadart` / `llama.cpp` native binaries removed (**Embedded (on-device)** is hidden in LLM settings; connect to Cloud APIs or external local inference servers like `llama.cpp`, Ollama, LM Studio, or vLLM). Direct/sideload downloads on [tealkit.dev](https://tealkit.dev) offer **both Full and Light** installers for Windows (`tealkit_windows_setup.zip` / `tealkit_windows_light_setup.zip`) and macOS Direct (`TealKit-macos-direct.dmg` / `TealKit-macos-direct-light.dmg`), while **Android, iOS, and Headless Server** remain **Full**.
+
+---
+
 ## 🗺️ High-Level System Architecture
 
 TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs locally on user devices, and a headless Dart server daemon that can run 24/7 in cloud/local VPS Docker containers.
@@ -55,7 +65,8 @@ TealKit is designed as a hybrid ecosystem: a Flutter-based client app that runs 
 
 ## 🆕 What's New
 
-* **Specialized Sub-Agents Catalog & Database Persistence (v2.2.0+159)** — Built-in catalog of 5 specialized sub-agents (`unit_tester`, `git_auditor`, `web_researcher`, `code_scout`, `c_analyzer`) with DuckDB / SQLite database persistence, Server Mode REST API sync, template selection dropdowns in Assistant settings and Workflow Editor, and CLI coder integration.
+* **⚠️ Breaking Changes — SQLite + `sqlite_vector` Engine Migration & Desktop Store Light Editions (v2.4.0+170)** — Replaced DuckDB across both the **Client App** (`mobile_ai_agent.sqlite`) and **Headless TealKit Server** (`tealkit_server.sqlite`) with **SQLite + `sqlite_vector` + FTS5** hybrid RAG. Existing users **must launch v2.4.0+ once** for automatic DuckDB → SQLite migration (interactive startup popup in Client App; silent startup migration in `tealkit_server`) before DuckDB is removed in the next release, and click **Re-index** once for local Document / Web-Crawl RAG. **Microsoft Store, Mac App Store, and Linux Desktop** builds now ship as **Light** editions without embedded `llamadart` native libraries (hidden in LLM settings), while **Android, iOS, Headless Server**, and **Full Windows Sideload / macOS Direct** installers retain `llamadart: ^0.20.0` GGUF inference. Also ships `tealkit_cli` v1.4.7 & `tealkit-vscode` v0.1.9 (`dart_mcp_core: ^1.5.13`) and mobile Settings Vault (Tresor) restore fixes.
+* **Specialized Sub-Agents Catalog & Database Persistence (v2.2.0+159)** — Built-in catalog of 5 specialized sub-agents (`unit_tester`, `git_auditor`, `web_researcher`, `code_scout`, `c_analyzer`) with SQLite database persistence, Server Mode REST API sync, template selection dropdowns in Assistant settings and Workflow Editor, and CLI coder integration.
 * **Human-in-the-Loop Tool Permissions & Architect Plan Guard** — Interactive permission toggles (Read, Write, Execution, Network) and plan mode file modification protections.
 * **Autonomous Sub-Agents & Delegation (v2.1.0+158)** — Primary workflow agents can dynamically delegate specialized sub-tasks to child sub-agents (`delegate_task`) with isolated conversation contexts, custom LLM profile routing, and configurable turn and tool-call safety limits. Features 1-click `[+ Clone]` worker creation and quick role presets (`+ Code Reviewer`, `+ Web Researcher`, `+ Doc Searcher`) in the Workflow Editor, along with tree branching connectors (`├──`, `└──`) in the Visual Flow Designer.
 * **Shared Workflow Memory Store** — DuckDB-backed persistent memory (`workflow_memory_store` table) enabling real-time knowledge sharing and coordination across primary and sub-agents using native `store_memory` and `recall_memory` tools with global or workflow-scoped memory.
@@ -168,7 +179,7 @@ Comprehensive settings panels for every aspect of TealKit.
 * **Auto System Prompt:** Select tools and TealKit automatically generates a tailored system prompt via AI — editable before you start.
 
 ### 🛠 Built-in AI function hints
-* **Document Intelligence:** Local RAG using **DuckDB**. Index PDFs, Word, and Excel files for instant semantic search across your device.
+* **Document Intelligence:** Local RAG using **SQLite + `sqlite_vector` + FTS5**. Index PDFs, Word, and Excel files for instant hybrid semantic and keyword search across your device.
 * **Digital Office:** Deep integration with **Gmail**, **Google Calendar**, **Google Drive**, and universal IMAP/SMTP support.
 * **Content & Visualization:** Generate files (TXT, PDF, Excel) and create **Mermaid** diagrams/flowcharts from any data.
 * **Web Search & Indexing:** Perform live searches via **SerpApi** or **DuckDuckGo**, and crawl websites for local indexing.

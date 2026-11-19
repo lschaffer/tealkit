@@ -8,6 +8,7 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/duckdb_service.dart';
+import '../../database/sqlite_service.dart';
 import '../../services/app_logger.dart';
 import '../../services/data_sources_settings_service.dart';
 import '../../services/server_api_client.dart';
@@ -276,27 +277,8 @@ class DocumentMcpServer extends InternalMcpServer {
   // ══════════════════════════════════════════════
 
   Future<void> _ensureTable() async {
-    final db = DuckDbService();
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS document_index (
-        id            VARCHAR PRIMARY KEY,
-        root_path     VARCHAR NOT NULL,
-        file_path     VARCHAR NOT NULL,
-        file_name     VARCHAR NOT NULL,
-        file_type     VARCHAR NOT NULL,
-        content_text  TEXT,
-        embedding_json TEXT,
-        file_size     BIGINT,
-        last_modified VARCHAR,
-        indexed_at    VARCHAR DEFAULT CURRENT_TIMESTAMP
-      )
-    ''');
-    try {
-      await db.execute('ALTER TABLE document_index ADD COLUMN IF NOT EXISTS embedding_json TEXT');
-    } catch (_) {
-      // ignore migration errors on older engines
-    }
-    log.info('[Document MCP] document_index table ensured');
+    await SqliteService().init();
+    log.info('[Document MCP] document_index table ensured (SQLite + sqlite_vector)');
   }
 
   Future<bool> _hasExistingIndexForConfiguredRoots() async {
@@ -457,27 +439,20 @@ class DocumentMcpServer extends InternalMcpServer {
         }
 
         final id = '${entry.rp}_$filePath'.hashCode.toRadixString(16);
-        final escapedContent = _esc(content ?? '');
         final embedding = SemanticEmbedding.buildEmbedding(content ?? '');
-        final escapedEmbedding = _esc(SemanticEmbedding.toJson(embedding));
 
-        await db.execute('''
-          INSERT OR REPLACE INTO document_index
-            (id, root_path, file_path, file_name, file_type,
-             content_text, embedding_json, file_size, last_modified, indexed_at)
-          VALUES (
-            '${_esc(id)}',
-            '${_esc(entry.rp)}',
-            '${_esc(filePath)}',
-            '${_esc(fileName)}',
-            '${_esc(_getExtension(fileName.isEmpty ? filePath : fileName))}',
-            '$escapedContent',
-            '$escapedEmbedding',
-            $fileSize,
-            '$lastModified',
-            '${DateTime.now().toIso8601String()}'
-          )
-        ''');
+        await SqliteService().upsertDocumentIndex(
+          id: id,
+          rootPath: entry.rp,
+          filePath: filePath,
+          fileName: fileName,
+          fileType: _getExtension(fileName.isEmpty ? filePath : fileName),
+          contentText: content ?? '',
+          embedding: embedding,
+          fileSize: fileSize,
+          lastModified: lastModified,
+          indexedAt: DateTime.now().toIso8601String(),
+        );
         indexed++;
         final contentLen = content?.length ?? 0;
         totalContentChars += contentLen;
@@ -816,17 +791,43 @@ class DocumentMcpServer extends InternalMcpServer {
     final db = DuckDbService();
 
     final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final queryEmbedding = SemanticEmbedding.buildEmbedding(query);
 
-    final conditions = StringBuffer('WHERE ${_rootPathInClause()}');
-    conditions.write(" AND content_text IS NOT NULL AND content_text != ''");
-
+    final baseScope = StringBuffer('WHERE ${_rootPathInClause()}');
+    baseScope.write(" AND content_text IS NOT NULL AND content_text != ''");
     if (fileType != null && fileType.isNotEmpty) {
-      conditions.write(" AND file_type = '${_esc(fileType.toLowerCase())}'");
+      baseScope.write(" AND file_type = '${_esc(fileType.toLowerCase())}'");
     }
 
-    // ── SQL pre-filter: only load rows that contain at least one search keyword.
-    // Applied for all search modes — semantic scoring still runs in the isolate,
-    // but we avoid loading irrelevant rows that can never match.
+    // 1. Query native sqlite_vector KNN candidates (when semantic or hybrid)
+    final mergedByPath = <String, List<dynamic>>{};
+    if (searchMode != 'keyword' && SqliteService().isVectorExtensionLoaded) {
+      final vecHits = await SqliteService().vectorSearchDocuments(
+        queryEmbedding: queryEmbedding,
+        whereScopeSql: baseScope.toString(),
+        k: 120,
+      );
+      for (final hit in vecHits) {
+        final fp = hit['file_path']?.toString() ?? '';
+        if (fp.isEmpty) continue;
+        mergedByPath[fp] = [
+          fp,
+          hit['file_name'],
+          hit['file_type'],
+          hit['file_size'],
+          hit['content_text'],
+          hit['embedding_json'],
+          hit['last_modified'],
+        ];
+      }
+    }
+
+    // 2. Query lexical candidates + FTS5 BM25 reciprocal ranks
+    final ftsRanks = searchMode == 'semantic'
+        ? const <String, double>{}
+        : await SqliteService().ftsRankDocuments(query, limit: 120);
+
+    final conditions = StringBuffer(baseScope.toString());
     if (words.isNotEmpty) {
       final likeConditions = words
           .take(3)
@@ -835,15 +836,22 @@ class DocumentMcpServer extends InternalMcpServer {
       conditions.write(' AND ($likeConditions)');
     }
 
-    // Cap content_text at 80 KB per row to avoid loading huge files into memory.
-    final rows = await db.query('''
+    final sqlRows = await db.query('''
       SELECT file_path, file_name, file_type, file_size,
-             SUBSTRING(content_text, 1, 81920) AS content_text,
+             SUBSTR(content_text, 1, 81920) AS content_text,
              embedding_json, last_modified
       FROM document_index
       $conditions
       LIMIT 200
     ''');
+    for (final r in sqlRows) {
+      final fp = r[0]?.toString() ?? '';
+      if (fp.isNotEmpty) {
+        mergedByPath.putIfAbsent(fp, () => r);
+      }
+    }
+
+    final rows = mergedByPath.values.toList();
 
     if (rows.isEmpty) {
       int totalDocs = 0;
@@ -873,10 +881,10 @@ class DocumentMcpServer extends InternalMcpServer {
       };
     }
 
-    // ── Offload CPU-heavy scoring (cosine similarity, keyword scan) to a
-    // separate isolate so the UI thread is never blocked.
-    final queryEmbedding = SemanticEmbedding.buildEmbedding(query);
-    final scored = await Isolate.run(() => _scoreRows(rows, words, query, queryEmbedding, searchMode));
+    // ── Offload scoring + FTS5 RRF fusion to a separate isolate ──
+    final scored = await Isolate.run(
+      () => _scoreRows(rows, words, query, queryEmbedding, searchMode, ftsRanks),
+    );
 
     scored.sort((a, b) => (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num));
 
@@ -896,26 +904,29 @@ class DocumentMcpServer extends InternalMcpServer {
     List<String> words,
     String query,
     List<double> queryEmbedding,
-    String searchMode,
-  ) {
+    String searchMode, [
+    Map<String, double> ftsRanks = const {},
+  ]) {
     final results = <Map<String, dynamic>>[];
     for (final row in rows) {
       final content = row[4]?.toString() ?? '';
       if (content.isEmpty) continue;
 
+      final filePath = row[0]?.toString() ?? '';
       final matchCount = _countMatches(content, words);
       final keywordScore = SemanticEmbedding.keywordOverlapScore(query, content);
       final docEmbedding = SemanticEmbedding.fromJson(row[5]?.toString());
       final semanticScore = SemanticEmbedding.cosineSimilarity(queryEmbedding, docEmbedding);
+      final ftsBoost = (ftsRanks[filePath] ?? 0.0) * 6.0;
 
       final relevanceScore = switch (searchMode) {
-        'keyword' => keywordScore + (matchCount * 0.02),
+        'keyword' => keywordScore + (matchCount * 0.02) + ftsBoost,
         'semantic' => semanticScore,
-        _ => (0.65 * semanticScore) + (0.30 * keywordScore) + (0.05 * matchCount),
+        _ => (0.60 * semanticScore) + (0.28 * keywordScore) + (0.05 * matchCount) + ftsBoost,
       };
 
-      if (searchMode == 'keyword' && matchCount == 0) continue;
-      if (matchCount == 0 && relevanceScore < 0.35) continue;
+      if (searchMode == 'keyword' && matchCount == 0 && ftsBoost == 0) continue;
+      if (matchCount == 0 && ftsBoost == 0 && relevanceScore < 0.28) continue;
 
       results.add({
         'filePath': row[0],

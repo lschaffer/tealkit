@@ -2,6 +2,34 @@
 
 All notable changes to the TealKit Coder extension will be documented in this file.
 
+## 0.1.11
+
+### Lean CLI Binary Without `llamadart` Native Binaries
+- **Bundled Lean `tealkit.exe` (14.25 MB, down from 17.82 MB)**:
+  - Switched `cli/pubspec.yaml` to `third_party/llamadart_stub` so the bundled CLI drops all 20 unused `llamadart` / `ggml` / `litert_lm` / `webgpu_dawn` native dependencies while keeping full `sqlite3` + FTS5 RAG support.
+
+## 0.1.10
+
+### Session Token & Cost Top-Bar, Diff Preview Fixes, LLM Delete/Rename & Clean `~/.tealkitcoder`
+- **Top-Bar Session Token Counter & Estimated Cost (`#tokens-badge`)**:
+  - Added live session token usage (`tok`) and estimated USD cost (`$...` when model pricing is available) directly in the top header bar, with a detailed hover tooltip showing input/output breakdown and active pricing rate. Resets automatically on new/cleared sessions.
+- **Fixed LLM Profile Delete & Rename (and All Webview Delete Confirmations)**:
+  - Replaced blocked VS Code webview `window.confirm()` / `window.alert()` calls with native VS Code modal confirmation dialogs (`showWarningMessage(..., { modal: true })`) across LLM profiles, MCP servers, Server profiles, and saved sessions so **Delete** works reliably.
+  - Fixed editing and renaming an LLM profile to update the profile in-place (by trimmed original name and index) without inserting a duplicate entry, and immediately reloads `llm.yaml` in the active RPC engine.
+- **Fixed "Show Diff" / "Review Diff" on File Write Operations**:
+  - Bundled `tealkit_cli` v1.4.8 captures pre-write file snapshots and proposed diff previews (`path`, `original`, `modified`) before `fs_write_file` and `fs_replace_text` execution.
+  - Added a working **🔀 Show Diff** button directly on file-write approval cards (`permission_request`) and fixed post-write **Review Diff** (`review_diff`) so VS Code's side-by-side diff editor opens reliably even for new files or fallback parameters.
+- **Fixed `~/.tealkitcoder` Workspace YAML Pollution (`tealkit_cli` v1.4.8)**:
+  - Restricted initial `~/.tealkitcoder` template seeding in `GlobalConfigLocator` to an explicit allowlist of TealKit config files so unrelated workspace YAML files (`pubspec.yaml`, `l10n.yaml`, `melos.yaml`, `analysis_options.yaml`, `devtools_options.yaml`) are never copied into `~/.tealkitcoder/`.
+
+## 0.1.9
+
+### Bundled CLI Engine Upgrade (`tealkit_cli` 1.4.7, `dart_mcp_core` 1.5.13, `llamadart` 0.20.0, `sqlite3` 3.9.1)
+- **Fixed Strict Jinja System Message Ordering on Local `llama.cpp` / Qwen 3.8 (`dart_mcp_core` 1.5.13)**:
+  - Rebuilt bundled `tealkit.exe` with `dart_mcp_core: ^1.5.13` so mid-conversation system/compression messages no longer trigger HTTP 500 `Jinja Exception: System message must be at the beginning` errors on `llama.cpp` / Qwen 3.8 servers.
+- **Native SQLite 3.9.1 Asset & `llamadart` 0.20.0**:
+  - Updated bundled `tealkit.exe` to `llamadart: ^0.20.0` and `sqlite3: ^3.9.1` (bundling `lib/sqlite3.dll` alongside `bin/tealkit.exe` for out-of-the-box FTS5 RAG support).
+
 ## 0.1.8
 
 ### Web Search Configuration Tab & Built-in `web_fetch` Preconfigured Tool

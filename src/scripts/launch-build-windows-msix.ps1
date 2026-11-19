@@ -1,29 +1,28 @@
 #!/usr/bin/env pwsh
-# Build a production-ready signed MSIX package for Windows.
+# Build a production-ready MSIX package for Windows.
+#
+# EDITION FLAVOR:
+#   Default (Store) : LIGHT edition (no llamadart / embedded LLM native DLLs;
+#                     passes --dart-define=TEALKIT_LIGHT=true and overrides
+#                     llamadart with third_party/llamadart_stub).
+#   -Full           : FULL edition (includes llamadart on-device GGUF engine).
 #
 # MODES:
-#   --store       (default) Creates an unsigned Store-ready MSIX.
-#                 Upload directly to Microsoft Partner Center -- Microsoft signs it.
-#
-#   --sideload    Creates a signed MSIX for sideloading / Enterprise deployment.
-#                 Requires --certificate-path and --certificate-password.
+#   Store (default) : Creates an unsigned Store-ready MSIX.
+#                     Upload directly to Microsoft Partner Center -- Microsoft signs it.
+#   -Sideload       : Creates a signed MSIX for sideloading / Enterprise deployment.
+#                     Requires -CertificatePath and -CertificatePassword.
 #
 # USAGE:
-#   # Store submission (unsigned, ready for Partner Center upload):
+#   # Microsoft Store Light submission (default, unsigned):
 #   .\scripts\launch-build-windows-msix.ps1
 #
-#   # Sideload build (signed with your PFX):
-#   .\scripts\launch-build-windows-msix.ps1 --sideload `
-#       --certificate-path "certs\tealkit-dev.pfx" `
-#       --certificate-password "YourPfxPassword"
-#
-#   # Override dart-define secrets (e.g. CI):
-#   .\scripts\launch-build-windows-msix.ps1 `
-#       --gmail-client-id $env:GMAIL_CLIENT_ID `
-#       --gmail-client-secret $env:GMAIL_CLIENT_SECRET
+#   # Full MSIX build (optional):
+#   .\scripts\launch-build-windows-msix.ps1 -Full
 
 param(
   [switch]$Sideload,
+  [switch]$Full,
   [string]$CertificatePath      = $env:MSIX_CERT_PATH,
   [string]$CertificatePassword  = $env:MSIX_CERT_PASSWORD,
   [string]$GmailClientId        = $env:GMAIL_CLIENT_ID,
@@ -35,12 +34,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location "$PSScriptRoot\.."
+$RepoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+Set-Location $RepoRoot
+
+$IsLight = -not $Full
 
 # ── 1. Validate sideload params ──────────────────────────────────────────────
 if ($Sideload) {
   if (-not $CertificatePath) {
-    Write-Error "Sideload mode requires --certificate-path (or env MSIX_CERT_PATH)."
+    Write-Error "Sideload mode requires -CertificatePath (or env MSIX_CERT_PATH)."
     exit 1
   }
   if (-not (Test-Path $CertificatePath)) {
@@ -71,6 +73,7 @@ if (Test-Path "$PSScriptRoot\.env") {
 
 # ── 2. Prepare dart-define flags ─────────────────────────────────────────────
 $defines = @()
+if ($IsLight)              { $defines += "--dart-define=TEALKIT_LIGHT=true" }
 if ($GmailClientId)        { $defines += "--dart-define=GMAIL_CLIENT_ID=$GmailClientId" }
 if ($GmailClientSecret)    { $defines += "--dart-define=GMAIL_CLIENT_SECRET=$GmailClientSecret" }
 if ($GoogleSearchApiKey)   { $defines += "--dart-define=GOOGLE_SEARCH_API_KEY=$GoogleSearchApiKey" }
@@ -80,21 +83,21 @@ if ($env:SERPER_API_KEY) { $defines += "--dart-define=SERPER_API_KEY=$($env:SERP
 if ($env:GOOGLE_IOS_CLIENT_ID) { $defines += "--dart-define=GOOGLE_IOS_CLIENT_ID=$($env:GOOGLE_IOS_CLIENT_ID)" }
 
 # ── 2b. Version management ────────────────────────────────────────────────────
-$pubspecPath    = 'pubspec.yaml'
-$pubspecContent = Get-Content $pubspecPath -Raw
+$pubspecPath      = Join-Path $RepoRoot 'pubspec.yaml'
+$overridesPath    = Join-Path $RepoRoot 'pubspec_overrides.yaml'
+$utf8NoBom        = New-Object System.Text.UTF8Encoding($false)
+$pubspecContent   = [System.IO.File]::ReadAllText($pubspecPath, [System.Text.Encoding]::UTF8)
 
 if ($BuildVersion) {
-  # Manual override: accept "major.minor.patch" or "major.minor.patch+build"
   if ($BuildVersion -match '^(\d+\.\d+\.\d+)(?:\+(\d+))?$') {
     $semVer   = $Matches[1]
     $buildNum = if ($Matches[2]) { [int]$Matches[2] } else { 0 }
   } else {
-    Write-Error "Invalid --BuildVersion '$BuildVersion'. Expected major.minor.patch or major.minor.patch+build."
+    Write-Error "Invalid -BuildVersion '$BuildVersion'. Expected major.minor.patch or major.minor.patch+build."
     exit 1
   }
   Write-Host "Version (manual): $semVer+$buildNum" -ForegroundColor Yellow
 } else {
-  # Auto: read current version from pubspec.yaml
   if ($pubspecContent -match 'version:\s+(\d+)\.(\d+)\.(\d+)\+(\d+)') {
     $semVer   = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
     $buildNum = [int]$Matches[4]
@@ -107,60 +110,85 @@ if ($BuildVersion) {
     $buildNum++
     $newVersionLine = "version: $semVer+$buildNum"
     $pubspecContent = $pubspecContent -replace 'version:\s+\d+\.\d+\.\d+\+\d+', $newVersionLine
-    Set-Content $pubspecPath $pubspecContent -NoNewline
+    [System.IO.File]::WriteAllText($pubspecPath, $pubspecContent, $utf8NoBom)
     Write-Host "Auto-incremented -> $newVersionLine  (pubspec.yaml updated)" -ForegroundColor Green
   } else {
     Write-Host "No-increment mode: using current version $semVer+$buildNum" -ForegroundColor Yellow
   }
 }
 
+$editionLabel = if ($IsLight) { "LIGHT (Store default -- no llamadart native libs)" } else { "FULL (with llamadart)" }
+Write-Host "Edition: $editionLabel" -ForegroundColor Cyan
+
 # Flutter flags derived from the resolved version
 $buildNameFlag   = @("--build-name=$semVer", "--build-number=$buildNum")
 # MSIX version must be 4-part with revision = 0 (Store rejects non-zero revision).
-# Encode the build number as the 3rd (patch) component: major.minor.build.0
 $semParts        = $semVer -split '\.'
 $msixVersionFull = "$($semParts[0]).$($semParts[1]).$buildNum.0"
 
-# ── 3. Install dependencies ───────────────────────────────────────────────────
-Write-Host "`n-- flutter pub get --" -ForegroundColor Cyan
-flutter pub get
+$pubspecBackup   = [System.IO.File]::ReadAllText($pubspecPath, [System.Text.Encoding]::UTF8)
+$hasOverrides    = Test-Path -LiteralPath $overridesPath
+$overridesBackup = if ($hasOverrides) { [System.IO.File]::ReadAllText($overridesPath, [System.Text.Encoding]::UTF8) } else { $null }
 
-# ── 4. Flutter build windows (release) ───────────────────────────────────────
-Write-Host "`n-- flutter build windows --release --" -ForegroundColor Cyan
-$buildArgs = @('build', 'windows', '--release') + $buildNameFlag + $defines
-& flutter @buildArgs
-if ($LASTEXITCODE -ne 0) { Write-Error "flutter build windows failed."; exit 1 }
-
-# ── 5. Create MSIX ───────────────────────────────────────────────────────────
-Write-Host "`n-- dart run msix:create --" -ForegroundColor Cyan
-
-$msixArgs = @()
-
-if ($Sideload) {
-  Write-Host "Mode: SIDELOAD (signed with $CertificatePath)" -ForegroundColor Yellow
-  # Override pubspec store:true for sideload signing.
-  $msixArgs += '--store=false'
-  $msixArgs += "--certificate-path=$CertificatePath"
-  if ($CertificatePassword) {
-    $msixArgs += "--certificate-password=$CertificatePassword"
-  }
-} else {
-  Write-Host "Mode: STORE (unsigned -- ready for Partner Center upload)" -ForegroundColor Green
-  # pubspec.yaml already has store: true -- no overrides needed.
+function Set-LlamaDartStub([string]$content) {
+  return ($content -replace '(?m)^(\s*)llamadart:\s*\^?[0-9][^\r\n]*\r?$', ('$1llamadart:' + "`r`n" + '$1  path: third_party/llamadart_stub'))
 }
 
-# Always pass the explicit 4-part version so Partner Center sees the bump
-$msixArgs += "--version=$msixVersionFull"
+try {
+  if ($IsLight) {
+    Write-Host "`n-- Applying temporary Light edition llamadart_stub override --" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($pubspecPath, (Set-LlamaDartStub $pubspecBackup), $utf8NoBom)
+    if ($hasOverrides) {
+      [System.IO.File]::WriteAllText($overridesPath, (Set-LlamaDartStub $overridesBackup), $utf8NoBom)
+    }
+  }
 
-& dart run msix:create @msixArgs
-if ($LASTEXITCODE -ne 0) { Write-Error "msix:create failed."; exit 1 }
+  # ── 3. Install dependencies ─────────────────────────────────────────────────
+  Write-Host "`n-- flutter pub get --" -ForegroundColor Cyan
+  & flutter pub get
+  if ($LASTEXITCODE -ne 0) { throw "flutter pub get failed." }
+
+  # ── 4. Flutter build windows (release) ─────────────────────────────────────
+  Write-Host "`n-- flutter build windows --release --" -ForegroundColor Cyan
+  $buildArgs = @('build', 'windows', '--release') + $buildNameFlag + $defines
+  & flutter @buildArgs
+  if ($LASTEXITCODE -ne 0) { throw "flutter build windows failed." }
+
+  # ── 5. Create MSIX ─────────────────────────────────────────────────────────
+  Write-Host "`n-- dart run msix:create --" -ForegroundColor Cyan
+
+  $msixArgs = @('--build-windows=false')
+
+  if ($Sideload) {
+    Write-Host "Mode: SIDELOAD (signed with $CertificatePath)" -ForegroundColor Yellow
+    $msixArgs += '--store=false'
+    $msixArgs += "--certificate-path=$CertificatePath"
+    if ($CertificatePassword) {
+      $msixArgs += "--certificate-password=$CertificatePassword"
+    }
+  } else {
+    Write-Host "Mode: STORE (unsigned -- ready for Partner Center upload)" -ForegroundColor Green
+  }
+
+  $msixArgs += "--version=$msixVersionFull"
+
+  & dart run msix:create @msixArgs
+  if ($LASTEXITCODE -ne 0) { throw "msix:create failed." }
+} finally {
+  if ($IsLight) {
+    [System.IO.File]::WriteAllText($pubspecPath, $pubspecBackup, $utf8NoBom)
+    if ($hasOverrides -and $null -ne $overridesBackup) {
+      [System.IO.File]::WriteAllText($overridesPath, $overridesBackup, $utf8NoBom)
+    }
+  }
+}
 
 # ── 6. Report output location ────────────────────────────────────────────────
 $msixFile = Get-ChildItem -Path "build\windows\x64\runner\Release" -Filter "*.msix" -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
 if ($msixFile) {
-  Write-Host "`n✅  MSIX ready: $($msixFile.FullName)" -ForegroundColor Green
+  Write-Host "`n[OK] MSIX ready ($editionLabel): $($msixFile.FullName)" -ForegroundColor Green
   Write-Host "    Size: $([Math]::Round($msixFile.Length / 1MB, 2)) MB"
 } else {
   Write-Warning "MSIX file not found in expected output folder -- check the msix:create output above."

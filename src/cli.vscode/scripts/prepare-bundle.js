@@ -23,6 +23,7 @@ const destBinDir = path.join(extRoot, 'bin');
 fs.mkdirSync(destBinDir, { recursive: true });
 
 const winExeCandidates = [
+  path.join(repoRoot, 'cli', 'build', 'cli', 'windows_x64', 'bundle', 'bin', 'tealkit.exe'),
   path.join(repoRoot, 'cli', 'build', 'cli', 'bundle', 'bin', 'tealkit.exe'),
   path.join(repoRoot, 'cli', 'tealkit.exe'),
 ];
@@ -34,4 +35,19 @@ if (winSrc) {
   console.log(`[prepare-bundle] Bundled bin/tealkit.exe (${mb} MB) from ${path.relative(repoRoot, winSrc)}`);
 } else {
   console.warn('[prepare-bundle] WARNING: cli/tealkit.exe not found; skipping Windows binary copy.');
+}
+
+// 3. Copy lightweight sqlite3 native asset (required by sqlite3 3.x @Native relative ../lib/sqlite3.dll lookup)
+const sqliteDllCandidates = [
+  path.join(repoRoot, 'cli', 'build', 'cli', 'windows_x64', 'bundle', 'lib', 'sqlite3.dll'),
+  path.join(repoRoot, 'cli', 'build', 'cli', 'bundle', 'lib', 'sqlite3.dll'),
+];
+const sqliteDllSrc = sqliteDllCandidates.find((p) => fs.existsSync(p));
+if (sqliteDllSrc) {
+  const destLibDir = path.join(extRoot, 'lib');
+  fs.mkdirSync(destLibDir, { recursive: true });
+  const destDll = path.join(destLibDir, 'sqlite3.dll');
+  fs.copyFileSync(sqliteDllSrc, destDll);
+  const mb = (fs.statSync(destDll).size / (1024 * 1024)).toFixed(2);
+  console.log(`[prepare-bundle] Bundled lib/sqlite3.dll (${mb} MB) from ${path.relative(repoRoot, sqliteDllSrc)}`);
 }

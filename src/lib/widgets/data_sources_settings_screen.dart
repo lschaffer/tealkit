@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/server_mode_provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -98,6 +100,7 @@ class _DataSourcesSettingsScreenState
   bool _obscureImapPassword = true;
   bool _gmailAuthInProgress = false;
   bool _useManualGoogleOAuthFallback = false;
+  String? _pendingPkceCodeVerifier;
   final _testEmailRecipientCtrl = TextEditingController();
   final _testEmailSubjectCtrl = TextEditingController(
     text: 'Test Email from Mobile AI Agent',
@@ -695,18 +698,31 @@ class _DataSourcesSettingsScreenState
     await _openManualGoogleAuthorization(clientId: clientId);
   }
 
+  ({String verifier, String challenge}) _generatePkcePair() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(32, (_) => rng.nextInt(256));
+    final verifier = base64UrlEncode(bytes).replaceAll('=', '');
+    final digest = sha256.convert(utf8.encode(verifier));
+    final challenge = base64UrlEncode(digest.bytes).replaceAll('=', '');
+    return (verifier: verifier, challenge: challenge);
+  }
+
   Future<void> _openManualGoogleAuthorization({
     required String clientId,
   }) async {
     final l = L.of(context);
+    final pkce = _generatePkcePair();
+    _pendingPkceCodeVerifier = pkce.verifier;
+
     final uri = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
       'client_id': clientId,
-      'redirect_uri': 'http://localhost/',
+      'redirect_uri': DataSourcesSettingsService.googleDesktopOAuthRedirectUri,
       'response_type': 'code',
-      'scope':
-          'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar',
+      'scope': DataSourcesSettingsService.gmailOAuthScopes.join(' '),
       'access_type': 'offline',
       'prompt': 'consent',
+      'code_challenge': pkce.challenge,
+      'code_challenge_method': 'S256',
     });
 
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -775,9 +791,11 @@ class _DataSourcesSettingsScreenState
 
       final result = await widget.service.exchangeGmailAuthorizationCode(
         authorizationCode: code,
+        codeVerifier: _pendingPkceCodeVerifier,
       );
       if (!mounted) return;
       if (result['success'] == true) {
+        _pendingPkceCodeVerifier = null;
         _gmailAuthCodeCtrl.clear();
         setState(() {});
         ScaffoldMessenger.of(

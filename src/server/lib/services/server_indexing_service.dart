@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 
 import '../database/server_database_adapter.dart';
+import '../database/server_sqlite_adapter.dart';
 import '../services/server_data_sources_service.dart';
 import '../utils/semantic_embedding.dart';
 import '../utils/server_logger.dart';
@@ -412,21 +413,36 @@ class ServerIndexingService {
       final id = '${seedKey}_$normalizedUrl'.hashCode.toRadixString(16);
 
       try {
-        await db.execute('''
-          INSERT OR REPLACE INTO website_index
-            (id, seed_url, url, domain, title, content_text, embedding_json, http_status, indexed_at)
-          VALUES (
-            '${_esc(id)}',
-            '${_esc(seedKey)}',
-            '${_esc(normalizedUrl)}',
-            '${_esc(item.url.host.toLowerCase())}',
-            '${_esc(page.title)}',
-            '${_esc(page.text)}',
-            '${_esc(SemanticEmbedding.toJson(embedding))}',
-            ${page.statusCode},
-            '${DateTime.now().toIso8601String()}'
-          )
-        ''');
+        final nowIso = DateTime.now().toIso8601String();
+        if (db is ServerSqliteAdapter) {
+          await db.upsertWebsiteIndex(
+            id: id,
+            seedUrl: seedKey,
+            url: normalizedUrl,
+            domain: item.url.host.toLowerCase(),
+            title: page.title,
+            contentText: page.text,
+            embedding: embedding,
+            httpStatus: page.statusCode,
+            indexedAt: nowIso,
+          );
+        } else {
+          await db.execute('''
+            INSERT OR REPLACE INTO website_index
+              (id, seed_url, url, domain, title, content_text, embedding_json, http_status, indexed_at)
+            VALUES (
+              '${_esc(id)}',
+              '${_esc(seedKey)}',
+              '${_esc(normalizedUrl)}',
+              '${_esc(item.url.host.toLowerCase())}',
+              '${_esc(page.title)}',
+              '${_esc(page.text)}',
+              '${_esc(SemanticEmbedding.toJson(embedding))}',
+              ${page.statusCode},
+              '$nowIso'
+            )
+          ''');
+        }
 
         perSeedIndexed[seedKey] = (perSeedIndexed[seedKey] ?? 0) + 1;
         indexed++;
@@ -553,24 +569,40 @@ class ServerIndexingService {
 
         final id = '${entry.rp}_${entry.path}'.hashCode.toRadixString(16);
         final embedding = SemanticEmbedding.buildEmbedding(content ?? '');
+        final nowIso = DateTime.now().toIso8601String();
 
-        await db.execute('''
-          INSERT OR REPLACE INTO document_index
-            (id, root_path, file_path, file_name, file_type,
-             content_text, embedding_json, file_size, last_modified, indexed_at)
-          VALUES (
-            '${_esc(id)}',
-            '${_esc(entry.rp)}',
-            '${_esc(entry.path)}',
-            '${_esc(fileName)}',
-            '${_esc(_getExtension(entry.path))}',
-            '${_esc(content ?? '')}',
-            '${_esc(SemanticEmbedding.toJson(embedding))}',
-            ${stat.size},
-            '${stat.modified.toIso8601String()}',
-            '${DateTime.now().toIso8601String()}'
-          )
-        ''');
+        if (db is ServerSqliteAdapter) {
+          await db.upsertDocumentIndex(
+            id: id,
+            rootPath: entry.rp,
+            filePath: entry.path,
+            fileName: fileName,
+            fileType: _getExtension(entry.path),
+            contentText: content ?? '',
+            embedding: embedding,
+            fileSize: stat.size,
+            lastModified: stat.modified.toIso8601String(),
+            indexedAt: nowIso,
+          );
+        } else {
+          await db.execute('''
+            INSERT OR REPLACE INTO document_index
+              (id, root_path, file_path, file_name, file_type,
+               content_text, embedding_json, file_size, last_modified, indexed_at)
+            VALUES (
+              '${_esc(id)}',
+              '${_esc(entry.rp)}',
+              '${_esc(entry.path)}',
+              '${_esc(fileName)}',
+              '${_esc(_getExtension(entry.path))}',
+              '${_esc(content ?? '')}',
+              '${_esc(SemanticEmbedding.toJson(embedding))}',
+              ${stat.size},
+              '${stat.modified.toIso8601String()}',
+              '$nowIso'
+            )
+          ''');
+        }
 
         indexed++;
         _documentIndexed = indexed;
@@ -992,13 +1024,45 @@ class ServerIndexingService {
       where.write(" AND domain = '${_esc(domain.toLowerCase())}'");
     }
 
-    final rows = await db.query('''
-      SELECT url, domain, title, content_text, embedding_json, indexed_at
-      FROM website_index
-      $where
-    ''');
-
     final queryEmbedding = SemanticEmbedding.buildEmbedding(cleanQuery);
+    Map<String, double> ftsRanks = const {};
+    List<List<dynamic>> rows;
+    if (db is ServerSqliteAdapter && db.isVectorInitialized && searchMode != 'keyword') {
+      ftsRanks = await db.ftsRankWebsites(cleanQuery, limit: 150);
+      final vecMaps = await db.vectorSearchWebsites(
+        queryEmbedding: queryEmbedding,
+        whereScopeSql: where.toString(),
+        k: 150,
+      );
+      if (vecMaps.isNotEmpty) {
+        rows = vecMaps
+            .map((m) => [
+                  m['url'],
+                  m['domain'],
+                  m['title'],
+                  m['content_text'],
+                  m['embedding_json'],
+                  m['indexed_at'],
+                ])
+            .toList();
+      } else {
+        rows = await db.query('''
+          SELECT url, domain, title, content_text, embedding_json, indexed_at
+          FROM website_index
+          $where
+        ''');
+      }
+    } else {
+      if (db is ServerSqliteAdapter) {
+        ftsRanks = await db.ftsRankWebsites(cleanQuery, limit: 150);
+      }
+      rows = await db.query('''
+        SELECT url, domain, title, content_text, embedding_json, indexed_at
+        FROM website_index
+        $where
+      ''');
+    }
+
     final matches = <Map<String, dynamic>>[];
 
     for (final row in rows) {
@@ -1015,13 +1079,15 @@ class ServerIndexingService {
         content,
       );
       final lexicalMatches = _countMatches(content, cleanQuery);
+      final ftsBoost = (ftsRanks[row[0]?.toString() ?? ''] ?? 0.0) * 6.0;
 
       final relevance = switch (searchMode) {
-        'keyword' => keywordScore + (lexicalMatches * 0.02),
+        'keyword' => keywordScore + (lexicalMatches * 0.02) + ftsBoost,
         'semantic' => semanticScore,
         _ =>
           (0.65 * semanticScore) +
-              (0.30 * keywordScore) +
+              (0.25 * keywordScore) +
+              (0.10 * ftsBoost) +
               (0.05 * lexicalMatches),
       };
 
@@ -1245,14 +1311,56 @@ class ServerIndexingService {
       where.write(' AND ($likes)');
     }
 
-    final rows = await db.query('''
-      SELECT file_path, file_name, file_type, file_size,
-             SUBSTRING(content_text, 1, 81920) AS content_text,
-             embedding_json, last_modified
-      FROM document_index
-      $where
-      LIMIT 200
-    ''');
+    final scopeOnlyWhere = StringBuffer(
+      "WHERE content_text IS NOT NULL AND content_text != ''",
+    );
+    if (roots.isNotEmpty) {
+      final rootClause = roots
+          .map((rp) => "root_path = '${_esc(rp)}'")
+          .join(' OR ');
+      scopeOnlyWhere.write(' AND ($rootClause)');
+    }
+    if (fileType != null && fileType.isNotEmpty) {
+      scopeOnlyWhere.write(" AND file_type = '${_esc(fileType.toLowerCase())}'");
+    }
+
+    final queryEmbedding = SemanticEmbedding.buildEmbedding(cleanQuery);
+    Map<String, double> ftsRanks = const {};
+    List<List<dynamic>> rows = const [];
+
+    if (db is ServerSqliteAdapter && db.isVectorInitialized && searchMode != 'keyword') {
+      ftsRanks = await db.ftsRankDocuments(cleanQuery, limit: 150);
+      final vecMaps = await db.vectorSearchDocuments(
+        queryEmbedding: queryEmbedding,
+        whereScopeSql: scopeOnlyWhere.toString(),
+        k: 150,
+      );
+      rows = vecMaps
+          .map((m) => [
+                m['file_path'],
+                m['file_name'],
+                m['file_type'],
+                m['file_size'],
+                m['content_text'],
+                m['embedding_json'],
+                m['last_modified'],
+              ])
+          .toList();
+    }
+
+    if (rows.isEmpty) {
+      if (db is ServerSqliteAdapter && ftsRanks.isEmpty) {
+        ftsRanks = await db.ftsRankDocuments(cleanQuery, limit: 150);
+      }
+      rows = await db.query('''
+        SELECT file_path, file_name, file_type, file_size,
+               SUBSTR(content_text, 1, 81920) AS content_text,
+               embedding_json, last_modified
+        FROM document_index
+        $where
+        LIMIT 200
+      ''');
+    }
 
     if (rows.isEmpty) {
       return {
@@ -1264,7 +1372,6 @@ class ServerIndexingService {
       };
     }
 
-    final queryEmbedding = SemanticEmbedding.buildEmbedding(cleanQuery);
     final scored = <Map<String, dynamic>>[];
     for (final row in rows) {
       final content = row[4]?.toString() ?? '';
@@ -1279,11 +1386,15 @@ class ServerIndexingService {
         queryEmbedding,
         docEmbedding,
       );
+      final ftsBoost = (ftsRanks[row[0]?.toString() ?? ''] ?? 0.0) * 6.0;
       final relevanceScore = switch (searchMode) {
-        'keyword' => keywordScore + (matchCount * 0.02),
+        'keyword' => keywordScore + (matchCount * 0.02) + ftsBoost,
         'semantic' => semanticScore,
         _ =>
-          (0.65 * semanticScore) + (0.30 * keywordScore) + (0.05 * matchCount),
+          (0.65 * semanticScore) +
+              (0.25 * keywordScore) +
+              (0.10 * ftsBoost) +
+              (0.05 * matchCount),
       };
       if (searchMode == 'keyword' && matchCount == 0) continue;
       if (matchCount == 0 && relevanceScore < 0.35) continue;

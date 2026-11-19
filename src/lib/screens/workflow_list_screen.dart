@@ -2838,7 +2838,10 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
       }
 
       final lastServerEntry = history.isNotEmpty ? history.first : null;
-      final bool? serverSuccess = lastServerEntry?['success'] as bool?;
+      final rawServerSuccess = lastServerEntry?['success'];
+      final bool? serverSuccess = rawServerSuccess is bool
+          ? rawServerSuccess
+          : (rawServerSuccess is num ? rawServerSuccess != 0 : null);
       final taskSuccess =
           serverSuccess ??
           (completed.execution.lastError == null &&
@@ -2865,7 +2868,8 @@ class _ExecutionFlowDialogState extends ConsumerState<_ExecutionFlowDialog> {
           final latest = matching.first;
           final startedAt = (latest['started_at'] as String?) ?? '-';
           final msg = (latest['message'] as String?) ?? '';
-          final ok = (latest['success'] as bool?) == true;
+          final rawOk = latest['success'];
+          final ok = rawOk is bool ? rawOk : (rawOk is num ? rawOk != 0 : false);
           _addEntry(
             'info',
             'Server scheduler: ${ok ? 'success' : 'failed'} at $startedAt${msg.isNotEmpty ? ' | $msg' : ''}',

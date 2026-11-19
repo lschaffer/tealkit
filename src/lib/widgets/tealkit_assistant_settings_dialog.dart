@@ -10,6 +10,7 @@ import 'package:dart_mcp_core/dart_mcp_core.dart';
 import 'package:flutter_ui_mcp_core/flutter_ui_mcp_core.dart';
 
 import '../config/app_theme.dart';
+import '../config/build_flavor.dart';
 import '../l10n/app_localizations.dart';
 import '../database/duckdb_service.dart';
 import '../mcp/internal_mcp_registry.dart';
@@ -751,7 +752,8 @@ class _TealKitAssistantSettingsDialogState
             llmSettings: llmSettings,
             selectedProfileId: _isCustomOverride ? null : _selectedProfileId,
             selectedProviderKey: _selectedProviderKey,
-            showEmbeddedOption: true,
+            showEmbeddedOption: BuildFlavor.supportsEmbeddedLlm &&
+                !(ref.watch(serverModeProvider).value?.isLightMode ?? false),
             onProfileSelected: (profileId) {
               if (profileId != null) {
                 _applySelectedProfile(profileId);

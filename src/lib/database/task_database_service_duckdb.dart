@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../models/workflow_task.dart';
 import '../services/app_logger.dart';
 import 'duckdb_service.dart';
@@ -98,14 +96,8 @@ class TaskDatabaseService {
 
   /// Get tasks by tag.
   Future<List<WorkflowTask>> getTasksByTag(String tag) async {
-    // DuckDB supports array operations
-    final rows = await _duckDb.query(
-      "SELECT data FROM tasks WHERE list_contains(tags, '${tag.replaceAll("'", "''")}') ORDER BY updated_at DESC",
-    );
-    return rows.map((r) {
-      final jsonStr = r[0] as String;
-      return WorkflowTask.fromJson(Map<String, dynamic>.from((r[0] is Map) ? r[0] as Map : _parseJson(jsonStr)));
-    }).toList();
+    final rows = await _duckDb.getTasksByTag(tag);
+    return rows.map((data) => WorkflowTask.fromJson(data)).toList();
   }
 
   /// Count tasks.
@@ -148,10 +140,6 @@ class TaskDatabaseService {
   // ──────────────────────────────────────────────
   // Helpers
   // ──────────────────────────────────────────────
-
-  Map<String, dynamic> _parseJson(String jsonStr) {
-    return Map<String, dynamic>.from(json.decode(jsonStr) as Map<String, dynamic>);
-  }
 
   /// Remove API keys, passwords, tokens from export.
   Map<String, dynamic> _stripSecrets(Map<String, dynamic> json) {

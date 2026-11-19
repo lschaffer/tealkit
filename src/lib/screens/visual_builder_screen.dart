@@ -1901,7 +1901,10 @@ class _VisualBuilderScreenState extends ConsumerState<VisualBuilderScreen> {
       }
 
       final lastServerEntry = history.isNotEmpty ? history.first : null;
-      final bool? serverSuccess = lastServerEntry?['success'] as bool?;
+      final rawServerSuccess = lastServerEntry?['success'];
+      final bool? serverSuccess = rawServerSuccess is bool
+          ? rawServerSuccess
+          : (rawServerSuccess is num ? rawServerSuccess != 0 : null);
       final taskSuccess =
           serverSuccess ??
           (completed.execution.lastError == null &&

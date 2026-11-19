@@ -2,6 +2,22 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.8
+
+- **Removed `llamadart` Native Binaries from CLI (`third_party/llamadart_stub`)**:
+  - Switched `cli/pubspec.yaml` to `third_party/llamadart_stub` so `dart build cli` no longer compiles or copies 20 `llamadart` / `ggml` / `litert_lm` / `webgpu_dawn` native DLLs (reducing native assets to just `sqlite3` and `pdfium`), and removed the sample `qwen-coder-embedded` entry from `cli/config/llm.yaml`.
+- **Fix `~/.tealkitcoder` Workspace YAML Pollution (`GlobalConfigLocator.ensureInitialized`)**:
+  - Restricted initial template seeding in `global_config.dart` to an explicit allowlist of TealKit config files (`.env`, `.env.example`, `config.yaml`, `llm.yaml`, `mcp.yaml`, `extern_mcp_tools.yaml`, `server.yaml`, `permissions.yaml`, `web_search.yaml`) so unrelated workspace YAML files (such as `pubspec.yaml`, `l10n.yaml`, `melos.yaml`, `analysis_options.yaml`, `devtools_options.yaml`) are never copied into `~/.tealkitcoder/`.
+- **Pre-Write Diff Snapshots & Live Session Cost in RPC (`TealKitRpcEngine`)**:
+  - Captured pre-write file snapshots and proposed diff previews (`path`, `original`, `modified`) before `fs_write_file` and `fs_replace_text` execution, emitting `diff` previews on both `permission_request` and post-write `diff` events.
+  - Added cumulative `sessionPromptTokens`, `sessionCompletionTokens`, `sessionTotalTokens`, `estimatedCostUsd`, and `rateDescription` fields to `usage` and `done` RPC events.
+
+## 1.4.7
+
+- **`dart_mcp_core: ^1.5.13`, `llamadart: ^0.20.0` & `sqlite3: ^3.9.1` Native Assets**:
+  - Upgraded to `dart_mcp_core: ^1.5.13` (resolving strict Jinja chat template `System message must be at the beginning` errors during context compression on `llama.cpp` / Qwen 3.8 models).
+  - Upgraded `llamadart` to `^0.20.0` (`llama.cpp` v1.0.0) and migrated `RagDatabase` (`rag_database.dart`) cleanly to `sqlite3: ^3.9.1` native build hooks.
+
 ## 1.4.6
 
 - **Configurable Request Timeouts & Dynamic Streaming (`dart_mcp_core: ^1.5.12`, `llamadart: ^0.19.11`)**:

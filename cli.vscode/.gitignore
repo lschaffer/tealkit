@@ -1,6 +1,7 @@
 node_modules/
 out/
 bin/
+lib/
 *.vsix
 .vscode-test/
 

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/duckdb_service.dart';
+import '../../database/sqlite_service.dart';
 import '../../services/app_logger.dart';
 import '../../services/data_sources_settings_service.dart';
 import '../../services/server_api_client.dart';
@@ -306,20 +307,7 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
   }
 
   Future<void> _ensureTable() async {
-    final db = DuckDbService();
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS website_index (
-        id              VARCHAR PRIMARY KEY,
-        seed_url        VARCHAR NOT NULL,
-        url             VARCHAR NOT NULL,
-        domain          VARCHAR NOT NULL,
-        title           VARCHAR,
-        content_text    TEXT,
-        embedding_json  TEXT,
-        http_status     INTEGER,
-        indexed_at      VARCHAR DEFAULT CURRENT_TIMESTAMP
-      )
-    ''');
+    await SqliteService().init();
   }
 
   Future<Map<String, dynamic>> _indexWebsites([
@@ -445,21 +433,17 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
       final id = '${seedKey}_$normalizedUrl'.hashCode.toRadixString(16);
 
       try {
-        await db.execute('''
-          INSERT OR REPLACE INTO website_index
-            (id, seed_url, url, domain, title, content_text, embedding_json, http_status, indexed_at)
-          VALUES (
-            '${_esc(id)}',
-            '${_esc(seedKey)}',
-            '${_esc(normalizedUrl)}',
-            '${_esc(item.url.host.toLowerCase())}',
-            '${_esc(page.title)}',
-            '${_esc(page.text)}',
-            '${_esc(SemanticEmbedding.toJson(embedding))}',
-            ${page.statusCode},
-            '${DateTime.now().toIso8601String()}'
-          )
-        ''');
+        await SqliteService().upsertWebsiteIndex(
+          id: id,
+          seedUrl: seedKey,
+          url: normalizedUrl,
+          domain: item.url.host.toLowerCase(),
+          title: page.title,
+          contentText: page.text,
+          embedding: embedding,
+          httpStatus: page.statusCode,
+          indexedAt: DateTime.now().toIso8601String(),
+        );
 
         perSeedIndexed[seedKey] = (perSeedIndexed[seedKey] ?? 0) + 1;
         indexed++;
@@ -651,21 +635,51 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
       where.write(" AND domain = '${_esc(domain)}'");
     }
 
-    final rows = await db.query('''
+    final queryEmbedding = SemanticEmbedding.buildEmbedding(query);
+    final ftsRanks = mode == 'semantic'
+        ? const <String, double>{}
+        : await SqliteService().ftsRankWebsites(query, limit: 150);
+
+    final mergedByUrl = <String, List<dynamic>>{};
+    if (mode != 'keyword' && SqliteService().isVectorExtensionLoaded) {
+      final vecHits = await SqliteService().vectorSearchWebsites(
+        queryEmbedding: queryEmbedding,
+        whereScopeSql: where.toString(),
+        k: 150,
+      );
+      for (final hit in vecHits) {
+        final u = hit['url']?.toString() ?? '';
+        if (u.isEmpty) continue;
+        mergedByUrl[u] = [
+          u,
+          hit['domain'],
+          hit['title'],
+          hit['content_text'],
+          hit['embedding_json'],
+          hit['indexed_at'],
+        ];
+      }
+    }
+
+    final sqlRows = await db.query('''
       SELECT url, domain, title, content_text, embedding_json, indexed_at
       FROM website_index
       $where
     ''');
+    for (final r in sqlRows) {
+      final u = r[0]?.toString() ?? '';
+      if (u.isNotEmpty) {
+        mergedByUrl.putIfAbsent(u, () => r);
+      }
+    }
+    final rows = mergedByUrl.values.toList();
 
-    final queryEmbedding = SemanticEmbedding.buildEmbedding(query);
     final matches = <Map<String, dynamic>>[];
 
     for (final row in rows) {
       final content = (row[3] ?? '').toString();
       if (content.isEmpty) continue;
 
-      // Skip pages whose URL path indicates a non-article page (author profiles,
-      // tag pages, cookie notices, etc.) that slipped through the crawl filter.
       final rowUrl = (row[0] ?? '').toString();
       final rowPathParts = (Uri.tryParse(rowUrl)?.path.toLowerCase() ?? '')
           .split('/')
@@ -686,18 +700,19 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
         content,
       );
       final lexicalMatches = _countMatches(content, query);
+      final ftsBoost = (ftsRanks[rowUrl] ?? 0.0) * 6.0;
 
       final relevance = switch (mode) {
-        'keyword' => keywordScore + (lexicalMatches * 0.02),
+        'keyword' => keywordScore + (lexicalMatches * 0.02) + ftsBoost,
         'semantic' => semanticScore,
         _ =>
-          (0.65 * semanticScore) +
-              (0.30 * keywordScore) +
-              (0.05 * lexicalMatches),
+          (0.60 * semanticScore) +
+              (0.28 * keywordScore) +
+              (0.05 * lexicalMatches) +
+              ftsBoost,
       };
 
-      // Filter obviously irrelevant results; keep anything with at least one keyword hit.
-      if (lexicalMatches == 0 && relevance < 0.12) continue;
+      if (lexicalMatches == 0 && ftsBoost == 0 && relevance < 0.12) continue;
 
       matches.add({
         'url': row[0],

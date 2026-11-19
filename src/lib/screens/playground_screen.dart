@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/app_theme.dart';
+import '../config/build_flavor.dart';
 import '../l10n/app_localizations.dart';
 import '../mcp/internal_mcp_registry.dart';
 import '../models/workflow_task.dart' hide ChatRole;
@@ -857,7 +858,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         ? activeConfig.model
         : (activeConfig.isConfigured ? activeConfig.provider.displayName : 'Select Model');
 
-    final profiles = tk_llm.LlmSettingsService.instance.profiles;
+    final profiles = tk_llm.LlmSettingsService.instance.profiles
+        .where(
+          (p) =>
+              BuildFlavor.supportsEmbeddedLlm ||
+              p.provider != tk_llm.LlmProvider.embedded,
+        )
+        .toList();
 
     return PopupMenuButton<String>(
       tooltip: 'Quick Model Selector',

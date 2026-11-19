@@ -54,12 +54,15 @@ class SqliteWorkflowRepository {
         updated_at = excluded.updated_at;
     ''');
     stmt.execute([id, name, jsonEncode(definition), now, now]);
-    stmt.dispose();
+    stmt.close();
   }
 
   /// Retrieve a workflow definition by ID.
   Map<String, dynamic>? getWorkflow(String id) {
-    final ResultSet results = db.select('SELECT id, name, definition FROM workflows WHERE id = ?;', [id]);
+    final ResultSet results = db.select(
+      'SELECT id, name, definition FROM workflows WHERE id = ?;',
+      [id],
+    );
     if (results.isEmpty) return null;
     final row = results.first;
     return {
@@ -71,39 +74,63 @@ class SqliteWorkflowRepository {
 
   /// List all saved workflows.
   List<Map<String, dynamic>> listWorkflows() {
-    final ResultSet results = db.select('SELECT id, name, updated_at FROM workflows ORDER BY updated_at DESC;');
-    return results.map((row) => {
-      'id': row['id'],
-      'name': row['name'],
-      'updated_at': row['updated_at'],
-    }).toList();
+    final ResultSet results = db.select(
+      'SELECT id, name, updated_at FROM workflows ORDER BY updated_at DESC;',
+    );
+    return results
+        .map(
+          (row) => {
+            'id': row['id'],
+            'name': row['name'],
+            'updated_at': row['updated_at'],
+          },
+        )
+        .toList();
   }
 
   /// Record initial workflow run.
-  void recordRunStart(String runId, String workflowId, Map<String, dynamic>? input) {
+  void recordRunStart(
+    String runId,
+    String workflowId,
+    Map<String, dynamic>? input,
+  ) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final stmt = db.prepare('''
       INSERT INTO workflow_runs (id, workflow_id, status, input_data, started_at)
       VALUES (?, ?, 'running', ?, ?);
     ''');
-    stmt.execute([runId, workflowId, input != null ? jsonEncode(input) : null, now]);
-    stmt.dispose();
+    stmt.execute([
+      runId,
+      workflowId,
+      input != null ? jsonEncode(input) : null,
+      now,
+    ]);
+    stmt.close();
   }
 
   /// Record workflow run completion.
-  void recordRunFinish(String runId, String status, Map<String, dynamic>? output) {
+  void recordRunFinish(
+    String runId,
+    String status,
+    Map<String, dynamic>? output,
+  ) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final stmt = db.prepare('''
       UPDATE workflow_runs
       SET status = ?, output_data = ?, finished_at = ?
       WHERE id = ?;
     ''');
-    stmt.execute([status, output != null ? jsonEncode(output) : null, now, runId]);
-    stmt.dispose();
+    stmt.execute([
+      status,
+      output != null ? jsonEncode(output) : null,
+      now,
+      runId,
+    ]);
+    stmt.close();
   }
 
   /// Close SQLite database connection.
   void dispose() {
-    db.dispose();
+    db.close();
   }
 }

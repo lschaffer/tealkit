@@ -2929,19 +2929,21 @@ Future<Response> _handleGetSchedulerLog(Request request) async {
       'LIMIT $limit OFFSET $offset',
     );
 
-    final entries = rows
-        .map(
-          (row) => {
-            'id': row[0],
-            'task_id': row[1],
-            'task_name': row[2],
-            'started_at': row[3]?.toString(),
-            'ended_at': row[4]?.toString(),
-            'success': row[5],
-            'message': row[6],
-          },
-        )
-        .toList();
+    final entries = rows.map((row) {
+      final rawSuccess = row[5];
+      final bool? success = rawSuccess is bool
+          ? rawSuccess
+          : (rawSuccess is num ? rawSuccess != 0 : null);
+      return {
+        'id': row[0],
+        'task_id': row[1],
+        'task_name': row[2],
+        'started_at': row[3]?.toString(),
+        'ended_at': row[4]?.toString(),
+        'success': success,
+        'message': row[6],
+      };
+    }).toList();
 
     return _json({'entries': entries, 'limit': limit, 'offset': offset});
   } catch (e) {

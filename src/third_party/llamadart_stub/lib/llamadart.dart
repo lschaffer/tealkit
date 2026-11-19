@@ -1,15 +1,57 @@
-// Stub llamadart for server_light.
-// Exports the same public API used by server_embedded_llm_adapter.dart
-// but with no-op implementations. server_light never uses embedded LLMs.
+// Stub llamadart for Desktop Light builds and server_light.
+// Exports the public API used by embedded_llm_adapter.dart,
+// flutter_ui_mcp_embedded, and server_embedded_llm_adapter.dart
+// with no-op implementations and zero native build hooks.
 library llamadart;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 // ═══════════════════════════════════════════════════════════════
-// Enums
+// Logging & Enums
 // ═══════════════════════════════════════════════════════════════
+
+enum LlamaLogLevel { debug, info, warn, warning, error, none }
+
+class LlamaLogging {
+  const LlamaLogging._();
+  static void configure({LlamaLogLevel level = LlamaLogLevel.info}) {}
+}
 
 enum LlamaChatRole { user, assistant, tool, system }
+
+enum ComputeDevice { auto, cpu, gpu }
+
+enum ModelSplitMode { none, layer, row }
+
+// ═══════════════════════════════════════════════════════════════
+// Model source & metadata
+// ═══════════════════════════════════════════════════════════════
+
+class ModelSource {
+  final String value;
+  const ModelSource._(this.value);
+
+  factory ModelSource.path(String path) => ModelSource._(path);
+  factory ModelSource.parse(String raw) => ModelSource._(raw);
+}
+
+class LlamaModel {
+  final ModelSource source;
+  const LlamaModel(this.source);
+}
+
+class ModelDownloadProgress {
+  final double? fraction;
+  final int downloadedBytes;
+  final int? totalBytes;
+
+  const ModelDownloadProgress({
+    this.fraction,
+    this.downloadedBytes = 0,
+    this.totalBytes,
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════
 // Content parts (used in chat messages)
@@ -20,6 +62,12 @@ abstract class LlamaContentPart {}
 class LlamaTextContent extends LlamaContentPart {
   final String text;
   LlamaTextContent(this.text);
+}
+
+class LlamaImageContent extends LlamaContentPart {
+  final Uint8List? bytes;
+  final String? path;
+  LlamaImageContent({this.bytes, this.path});
 }
 
 class LlamaToolCallContent extends LlamaContentPart {
@@ -73,9 +121,27 @@ class LlamaChatMessage {
 // ═══════════════════════════════════════════════════════════════
 
 class ModelParams {
+  static const int maxGpuLayers = 99;
+
   final int contextSize;
   final int gpuLayers;
-  const ModelParams({this.contextSize = 4096, this.gpuLayers = 0});
+  final ComputeDevice device;
+  final ModelSplitMode splitMode;
+  final int? batchSize;
+  final int? microBatchSize;
+  final int? numberOfThreads;
+  final int? numberOfThreadsBatch;
+
+  const ModelParams({
+    this.contextSize = 4096,
+    this.gpuLayers = 0,
+    this.device = ComputeDevice.auto,
+    this.splitMode = ModelSplitMode.none,
+    this.batchSize,
+    this.microBatchSize,
+    this.numberOfThreads,
+    this.numberOfThreadsBatch,
+  });
 }
 
 class GenerationParams {
@@ -240,8 +306,9 @@ class ChatSession {
     List<ToolDefinition>? tools,
     GenerationParams? params,
   }) async* {
-    throw UnimplementedError(
-      'llamadart_stub: ChatSession.create() not available',
+    throw UnsupportedError(
+      'Embedded LLM (llamadart) is not included in TealKit Light builds. '
+      'Use an external local server (llama.cpp, Ollama, LM Studio) or the Full sideload edition.',
     );
   }
 }
@@ -253,21 +320,44 @@ class ChatSession {
 class LlamaBackend {
   LlamaBackend();
 
+  bool get supportsUrlLoading => false;
+
   Future<bool> isGpuSupported() async => false;
 
   Future<({int total, int free})> getVramInfo() async => (total: 0, free: 0);
+
+  Future<void> dispose() async {}
 }
 
 class LlamaEngine {
+  // ignore: unused_field
   final LlamaBackend _backend;
 
   LlamaEngine(this._backend);
 
   bool get isReady => false;
 
+  Future<void> setModel(
+    LlamaModel model, {
+    ModelParams? params,
+    void Function(ModelDownloadProgress progress)? onProgress,
+  }) async {
+    throw UnsupportedError(
+      'Embedded LLM (llamadart) is not included in TealKit Light builds. '
+      'Use an external local server (llama.cpp, Ollama, LM Studio) or the Full sideload edition.',
+    );
+  }
+
   Future<void> loadModel(String modelPath, {ModelParams? modelParams}) async {
-    throw UnimplementedError(
-      'llamadart_stub: LlamaEngine.loadModel() not available',
+    throw UnsupportedError(
+      'Embedded LLM (llamadart) is not included in TealKit Light builds.',
+    );
+  }
+
+  Future<List<double>> embed(String text, {bool normalize = true}) async {
+    throw UnsupportedError(
+      'Embedded embeddings (llamadart) are not included in this build. '
+      'Configure an external Ollama or OpenAI-compatible embedding endpoint.',
     );
   }
 

@@ -137,9 +137,50 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
             }
           }
           break;
-        case 'review_diff':
-          if (message.path && message.original !== undefined && message.modified !== undefined) {
-            await TealKitDiffManager.getInstance().showDiff(message.path, message.original, message.modified);
+        case 'review_diff': {
+          const targetPath = message.path || message.parameters?.path || message.parameters?.file_path;
+          if (targetPath) {
+            const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+            const absPath = path.isAbsolute(targetPath)
+              ? targetPath
+              : path.join(wsRoot, targetPath);
+            let originalContent: string = message.original;
+            if (originalContent === undefined || originalContent === null) {
+              try {
+                originalContent = fs.existsSync(absPath) ? fs.readFileSync(absPath, 'utf-8') : '';
+              } catch (_) {
+                originalContent = '';
+              }
+            }
+            let modifiedContent: string | undefined = message.modified;
+            if ((modifiedContent === undefined || modifiedContent === null) && message.parameters) {
+              const params = message.parameters;
+              const tool = String(message.tool || '');
+              if (tool === 'fs_write_file' || params.content !== undefined) {
+                modifiedContent = String(params.content ?? '');
+              } else if (tool === 'fs_replace_text') {
+                const target = params.target ?? params.old_text ?? params.search;
+                const replacement = params.replacement ?? params.new_text ?? params.replace;
+                if (typeof target === 'string' && typeof replacement === 'string' && target.length > 0) {
+                  modifiedContent = params.replace_all === true
+                    ? originalContent.split(target).join(replacement)
+                    : originalContent.replace(target, replacement);
+                } else {
+                  modifiedContent = originalContent;
+                }
+              }
+            }
+            if (modifiedContent !== undefined && modifiedContent !== null) {
+              await TealKitDiffManager.getInstance().showDiff(targetPath, originalContent, modifiedContent);
+            } else {
+              vscode.window.showWarningMessage(`No proposed content available to diff for ${targetPath}.`);
+            }
+          }
+          break;
+        }
+        case 'show_warning':
+          if (message.message) {
+            vscode.window.showWarningMessage(String(message.message));
           }
           break;
         case 'open_tasks':
@@ -216,7 +257,15 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         }
         case 'delete_session': {
           if (message.path) {
-            this._agent.deleteSession(message.path);
+            const label = message.title || path.basename(message.path);
+            const confirmChoice = await vscode.window.showWarningMessage(
+              `Delete saved session "${label}"?`,
+              { modal: true },
+              'Delete'
+            );
+            if (confirmChoice === 'Delete') {
+              this._agent.deleteSession(message.path);
+            }
           }
           break;
         }
@@ -237,8 +286,14 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         }
         case 'save_llm_profile': {
           if (message.profile) {
-            TealKitYamlConfigManager.saveLlmProfile(message.profile, message.isDefault, message.originalName);
+            TealKitYamlConfigManager.saveLlmProfile(
+              message.profile,
+              message.isDefault,
+              message.originalName,
+              message.originalIndex
+            );
             const config = TealKitYamlConfigManager.loadLlmConfig();
+            this._agent.sendCommand('reload_config');
             this._agent.listModels();
             if (message.isDefault || config.defaultModel === message.profile.name || config.profiles.length === 1) {
               this._agent.setModel(message.profile.name);
@@ -253,7 +308,14 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         }
         case 'delete_llm_profile': {
           if (message.name) {
+            const confirmChoice = await vscode.window.showWarningMessage(
+              `Delete LLM profile "${message.name}"?`,
+              { modal: true },
+              'Delete'
+            );
+            if (confirmChoice !== 'Delete') break;
             TealKitYamlConfigManager.deleteLlmProfile(message.name);
+            this._agent.sendCommand('reload_config');
             this._agent.listModels();
             const config = TealKitYamlConfigManager.loadLlmConfig();
             this._view?.webview.postMessage({
@@ -354,6 +416,12 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         }
         case 'delete_mcp_server': {
           if (message.name) {
+            const confirmChoice = await vscode.window.showWarningMessage(
+              `Delete MCP server "${message.name}"?`,
+              { modal: true },
+              'Delete'
+            );
+            if (confirmChoice !== 'Delete') break;
             TealKitYamlConfigManager.deleteMcpServer(message.name);
             this._agent.sendCommand('reload_mcp');
             const config = TealKitYamlConfigManager.loadMcpConfig();
@@ -484,6 +552,12 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         }
         case 'delete_server_profile': {
           if (message.name) {
+            const confirmChoice = await vscode.window.showWarningMessage(
+              `Delete server profile "${message.name}"?`,
+              { modal: true },
+              'Delete'
+            );
+            if (confirmChoice !== 'Delete') break;
             TealKitYamlConfigManager.deleteServerProfile(message.name);
             const serverConfig = TealKitYamlConfigManager.loadServerConfig();
             this._view?.webview.postMessage({
@@ -590,10 +664,10 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
       }
 
       // Optionally auto-open native diff editor if configured
-      if (event.event === 'diff' && event.path && event.original !== undefined && event.modified !== undefined) {
+      if (event.event === 'diff' && event.path && event.modified !== undefined) {
         const autoPreview = vscode.workspace.getConfiguration('tealkit').get<boolean>('autoPreviewDiff', true);
         if (autoPreview) {
-          TealKitDiffManager.getInstance().showDiff(event.path, event.original, event.modified);
+          TealKitDiffManager.getInstance().showDiff(event.path, event.original ?? '', event.modified);
         }
       }
     });
@@ -1144,6 +1218,7 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
           <span class="agent-title">TealKit Coder</span>
         </div>
         <div class="header-badges">
+          <span id="tokens-badge" class="badge-mini tokens-badge" title="Session Tokens &amp; Estimated Cost">0 tok</span>
           <span id="tools-badge" class="badge-mini" title="Active Tools">0 tools</span>
           <span id="agent-status-badge" class="badge">Connecting...</span>
           <button id="restart-agent-btn" class="gear-btn" title="Restart Agent Process">🔄</button>

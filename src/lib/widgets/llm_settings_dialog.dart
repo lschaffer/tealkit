@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import '../l10n/app_localizations.dart';
 import '../config/app_theme.dart';
+import '../config/build_flavor.dart';
 import '../services/app_logger.dart';
 import '../services/app_preferences_service.dart';
 import '../services/llm_settings_service.dart';
@@ -128,7 +129,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
   @override
   void initState() {
     super.initState();
-    _isLightMode = widget.isLightMode;
+    _isLightMode = widget.isLightMode || BuildFlavor.isLight;
     _tabController = TabController(length: _isLightMode ? 1 : 2, vsync: this);
     _initFromService();
   }
@@ -577,7 +578,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
         ),
         const SizedBox(height: 14),
 
-        if (_profiles.isEmpty)
+        if (_profiles.where((p) => !_isLightMode || p.provider != LlmProvider.embedded).isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -590,7 +591,9 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
             ),
           )
         else
-          ..._profiles.map((p) => _buildProfileCard(p, theme, isModern)),
+          ..._profiles
+              .where((p) => !_isLightMode || p.provider != LlmProvider.embedded)
+              .map((p) => _buildProfileCard(p, theme, isModern)),
 
         const SizedBox(height: 16),
       ],

@@ -160,11 +160,14 @@ class DataSourcesSettingsService extends ChangeNotifier {
     }
   }
 
+  static const String googleDesktopOAuthRedirectUri =
+      'https://tealkit.dev/oauth/callback.html';
+
   static const List<String> gmailOAuthScopes = [
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/calendar',
   ];
 
@@ -475,7 +478,11 @@ class DataSourcesSettingsService extends ChangeNotifier {
     return _gmailClientId;
   }
 
-  String get gmailClientSecret => _gmailClientSecret.isNotEmpty ? _gmailClientSecret : OAuthDefaults.gmailClientSecret;
+  String get gmailClientSecret {
+    final buildClientSecret = OAuthDefaults.gmailClientSecret.trim();
+    if (buildClientSecret.isNotEmpty) return buildClientSecret;
+    return _gmailClientSecret;
+  }
   String get gmailAccessToken => _gmailAccessToken;
   String get gmailRefreshToken => _gmailRefreshToken;
   DateTime? get gmailTokenExpiry => _gmailTokenExpiry;
@@ -1104,7 +1111,7 @@ class DataSourcesSettingsService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> exchangeGmailAuthorizationCode({
     required String authorizationCode,
-    String redirectUri = 'http://localhost/',
+    String redirectUri = googleDesktopOAuthRedirectUri,
     String? codeVerifier,
   }) async {
     if (gmailClientId.trim().isEmpty) {
@@ -1170,7 +1177,7 @@ class DataSourcesSettingsService extends ChangeNotifier {
         var finalError = errorMessage.isNotEmpty ? errorMessage : 'Google token exchange failed (${response.statusCode}).';
         if (finalError.toLowerCase() == 'unauthorized') {
           finalError =
-              'Unauthorized. Check Google OAuth client type (Desktop App), ensure Gmail API is enabled, and use redirect URI http://localhost/ exactly.';
+              'Unauthorized. Check Google OAuth client (Web application client with $googleDesktopOAuthRedirectUri in Authorized Redirect URIs) and ensure Gmail/Drive APIs are enabled.';
         }
 
         return {'success': false, 'error': finalError};

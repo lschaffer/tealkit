@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import '../l10n/app_localizations.dart';
 import '../config/app_theme.dart';
+import '../config/build_flavor.dart';
 import '../services/llm_settings_service.dart';
 import '../services/server_api_client.dart';
 import 'embedded_llm/embedded_model_picker_widget.dart';
@@ -533,89 +534,99 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          initialValue: widget.providerKey.isNotEmpty
-              ? widget.providerKey
-              : (widget.showNoneOption ? '' : null),
-          decoration: InputDecoration(
-            prefixIcon: Icon(_providerIcon(provider)),
-            border: const OutlineInputBorder(),
-            helperText: provider == LlmProvider.embedded
-                ? 'Embedded models will be downloaded to server host storage (/data/models).'
-                : null,
-            helperMaxLines: 2,
-          ),
-          items: [
-            if (widget.showNoneOption)
-              const DropdownMenuItem(value: '', child: Text('—')),
-            const DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
-            const DropdownMenuItem(
-              value: 'gemini',
-              child: Text('Google Gemini'),
-            ),
-            const DropdownMenuItem(
-              value: 'claude',
-              child: Text('Anthropic Claude'),
-            ),
-            const DropdownMenuItem(value: 'mistral', child: Text('Mistral AI')),
-            const DropdownMenuItem(
-              value: 'ollama',
-              child: Text('Ollama (local)'),
-            ),
-            const DropdownMenuItem(
-              value: 'openai_compatible',
-              child: Text('OpenAI-compatible'),
-            ),
-            if (widget.showEmbeddedOption)
-              const DropdownMenuItem(
-                value: 'embedded',
-                child: Text('Embedded (on-device)'),
-              ),
-            if (widget.showLlm2Option)
-              const DropdownMenuItem(
-                value: 'llm2',
-                child: Text('LLM 2 (from settings)'),
-              ),
-          ],
-          onChanged: (v) {
-            final newKey = v ?? '';
-            widget.onProviderChanged(newKey);
+        Builder(
+          builder: (context) {
+            final effectiveShowEmbedded =
+                widget.showEmbeddedOption && BuildFlavor.supportsEmbeddedLlm;
+            final rawInitial = widget.providerKey.isNotEmpty
+                ? widget.providerKey
+                : (widget.showNoneOption ? '' : null);
+            final safeInitial =
+                (!effectiveShowEmbedded && rawInitial == 'embedded')
+                    ? (widget.showNoneOption ? '' : 'gemini')
+                    : rawInitial;
 
-            if (newKey == 'llm2') {
-              final settings = widget.service;
-              if (settings.isConfigured2) {
-                widget.modelController.text = settings.model2;
-                widget.apiKeyController.text = settings.apiKey2;
-                widget.baseUrlController.text = settings.baseUrl2;
-                widget.temperatureController.text = settings.temperature2
-                    .toString();
-                widget.maxTokensController.text = settings.maxTokens2
-                    .toString();
-                widget.onModelChanged?.call(settings.model2);
-                widget.onSlmChanged(settings.isSlm2);
-                widget.onMultiModalChanged(settings.isMultiModal2);
-              }
-              return;
-            }
-
-            final newProvider = LlmProvider.fromConfigKey(newKey);
-            if (newProvider == LlmProvider.embedded) {
-              widget.apiKeyController.clear();
-              widget.baseUrlController.clear();
-              widget.maxTokensController.text = '4096';
-              final defaultModel =
-                  defaultModels[LlmProvider.embedded]?.first ?? '';
-              widget.modelController.text = defaultModel;
-              widget.onModelChanged?.call(defaultModel);
-              widget.onMultiModalChanged(
-                LlmSettingsService.detectDefaultMultiModal(
-                  LlmProvider.embedded,
-                  defaultModel,
+            return DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: safeInitial,
+              decoration: InputDecoration(
+                prefixIcon: Icon(_providerIcon(provider)),
+                border: const OutlineInputBorder(),
+                helperText: provider == LlmProvider.embedded && effectiveShowEmbedded
+                    ? 'Embedded models will be downloaded to server host storage (/data/models).'
+                    : null,
+                helperMaxLines: 2,
+              ),
+              items: [
+                if (widget.showNoneOption)
+                  const DropdownMenuItem(value: '', child: Text('—')),
+                const DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
+                const DropdownMenuItem(
+                  value: 'gemini',
+                  child: Text('Google Gemini'),
                 ),
-              );
-              return;
-            }
+                const DropdownMenuItem(
+                  value: 'claude',
+                  child: Text('Anthropic Claude'),
+                ),
+                const DropdownMenuItem(value: 'mistral', child: Text('Mistral AI')),
+                const DropdownMenuItem(
+                  value: 'ollama',
+                  child: Text('Ollama (local)'),
+                ),
+                const DropdownMenuItem(
+                  value: 'openai_compatible',
+                  child: Text('OpenAI-compatible'),
+                ),
+                if (effectiveShowEmbedded)
+                  const DropdownMenuItem(
+                    value: 'embedded',
+                    child: Text('Embedded (on-device)'),
+                  ),
+                if (widget.showLlm2Option)
+                  const DropdownMenuItem(
+                    value: 'llm2',
+                    child: Text('LLM 2 (from settings)'),
+                  ),
+              ],
+              onChanged: (v) {
+                final newKey = v ?? '';
+                widget.onProviderChanged(newKey);
+
+                if (newKey == 'llm2') {
+                  final settings = widget.service;
+                  if (settings.isConfigured2) {
+                    widget.modelController.text = settings.model2;
+                    widget.apiKeyController.text = settings.apiKey2;
+                    widget.baseUrlController.text = settings.baseUrl2;
+                    widget.temperatureController.text = settings.temperature2
+                        .toString();
+                    widget.maxTokensController.text = settings.maxTokens2
+                        .toString();
+                    widget.onModelChanged?.call(settings.model2);
+                    widget.onSlmChanged(settings.isSlm2);
+                    widget.onMultiModalChanged(settings.isMultiModal2);
+                  }
+                  return;
+                }
+
+                final newProvider = LlmProvider.fromConfigKey(newKey);
+                if (newProvider == LlmProvider.embedded) {
+                  widget.apiKeyController.clear();
+                  widget.baseUrlController.clear();
+                  widget.maxTokensController.text = '4096';
+                  final defaultModel =
+                      defaultModels[LlmProvider.embedded]?.first ?? '';
+                  widget.modelController.text = defaultModel;
+                  widget.onModelChanged?.call(defaultModel);
+                  widget.onMultiModalChanged(
+                    LlmSettingsService.detectDefaultMultiModal(
+                      LlmProvider.embedded,
+                      defaultModel,
+                    ),
+                  );
+                  return;
+                }
 
             if (newProvider == LlmProvider.none) {
               widget.modelController.clear();
@@ -667,6 +678,8 @@ class _LlmSettingsFormWidgetState extends State<LlmSettingsFormWidget> {
                 newProvider,
                 finalModel,
               ),
+            );
+              },
             );
           },
         ),

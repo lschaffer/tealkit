@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import '../config/build_flavor.dart';
 import '../services/llm_settings_service.dart';
 
 /// Unified LLM selector widget used across Assistant (Playground), Workflow Task Editor,
@@ -52,8 +53,19 @@ class AgentLlmSelectorWidget extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final profileColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
 
-    final profiles = llmSettings.profiles;
-    final defaultProfile = llmSettings.selectedProfile ?? (profiles.isNotEmpty ? profiles.first : null);
+    final effectiveShowEmbedded =
+        showEmbeddedOption && BuildFlavor.supportsEmbeddedLlm;
+    final profiles = effectiveShowEmbedded
+        ? llmSettings.profiles
+        : llmSettings.profiles
+              .where((p) => p.provider != LlmProvider.embedded)
+              .toList();
+    final defaultProfile =
+        (llmSettings.selectedProfile != null &&
+            (effectiveShowEmbedded ||
+                llmSettings.selectedProfile!.provider != LlmProvider.embedded))
+        ? llmSettings.selectedProfile
+        : (profiles.isNotEmpty ? profiles.first : null);
 
     // Determine current dropdown value
     String dropdownValue;
@@ -74,7 +86,7 @@ class AgentLlmSelectorWidget extends StatelessWidget {
         : null;
 
     final providersToDisplay = supportedProviders.where((p) {
-      if (!showEmbeddedOption && p == LlmProvider.embedded) return false;
+      if (!effectiveShowEmbedded && p == LlmProvider.embedded) return false;
       return true;
     }).toList();
 

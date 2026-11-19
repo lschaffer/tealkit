@@ -234,6 +234,21 @@ class GlobalConfigLocator {
 
       final sourceDirs = getTemplateSourceDirectories();
 
+      // Explicit allowlist of TealKit config filenames so we NEVER copy unrelated
+      // workspace YAML files (e.g. pubspec.yaml, l10n.yaml, melos.yaml, analysis_options.yaml)
+      // into ~/.tealkitcoder/.
+      const allowedConfigFiles = <String>{
+        '.env',
+        '.env.example',
+        'config.yaml',
+        'llm.yaml',
+        'mcp.yaml',
+        'extern_mcp_tools.yaml',
+        'server.yaml',
+        'permissions.yaml',
+        'web_search.yaml',
+      };
+
       // 1. Copy config files (never overwrite existing files)
       for (final srcDir in sourceDirs) {
         try {
@@ -241,10 +256,7 @@ class GlobalConfigLocator {
             if (entity is File) {
               final filename = p.basename(entity.path);
               final lower = filename.toLowerCase();
-              if (lower == '.env' ||
-                  lower == '.env.example' ||
-                  lower.endsWith('.yaml') ||
-                  lower.endsWith('.yml')) {
+              if (allowedConfigFiles.contains(lower)) {
                 final destFile = File(p.join(targetDir.path, filename));
                 if (!destFile.existsSync()) {
                   entity.copySync(destFile.path);
