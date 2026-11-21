@@ -21,10 +21,10 @@ packages:
     dependency: transitive
     description:
       name: anthropic_sdk_dart
-      sha256: "07d22750f7e8032c35c1384c940ee608f71d777ea1e33e0596d6b514c51156d4"
+      sha256: "969f031b52b884ad8a257f86c79689354a1ce61ae6d70cf9f4ddf493a3bb6c6b"
       url: "https://pub.dev"
     source: hosted
-    version: "10.0.0"
+    version: "11.0.0"
   archive:
     dependency: "direct main"
     description:
@@ -127,7 +127,7 @@ packages:
       path: "../../mcp_playground/dart_mcp_core"
       relative: true
     source: path
-    version: "1.5.13"
+    version: "1.5.15"
   dartssh2:
     dependency: "direct main"
     description:
@@ -307,10 +307,10 @@ packages:
     dependency: transitive
     description:
       name: openai_dart
-      sha256: "3debd66810a3fd88d0f330e2551c17ce578a364d3b6545257746bf3bd85765b3"
+      sha256: f08e9d02554c5e08fa8d2ca653cfbf7c90ea9aaf2826da1c45f42b5237444ea5
       url: "https://pub.dev"
     source: hosted
-    version: "12.0.0"
+    version: "13.0.0"
   package_config:
     dependency: transitive
     description:

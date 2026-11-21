@@ -141,6 +141,15 @@ try {
     if ($hasOverrides) {
       [System.IO.File]::WriteAllText($overridesPath, (Set-LlamaDartStub $overridesBackup), $utf8NoBom)
     }
+    foreach ($staleDir in @(
+      (Join-Path $RepoRoot 'build\windows\x64\runner\Release'),
+      (Join-Path $RepoRoot 'build\native_assets\windows')
+    )) {
+      if (Test-Path -LiteralPath $staleDir) {
+        Write-Host "-- Cleaning stale build output: $staleDir --" -ForegroundColor Cyan
+        Remove-Item -LiteralPath $staleDir -Recurse -Force
+      }
+    }
   }
 
   # ── 3. Install dependencies ─────────────────────────────────────────────────

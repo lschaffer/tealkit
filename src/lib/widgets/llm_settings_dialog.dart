@@ -867,7 +867,7 @@ class _LlmSettingsDialogState extends State<LlmSettingsDialog>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Manage on-device GGUF models. Download and preload a model into '
+                    'Manage on-device GGUF and LiteRT-LM models. Download and preload a model into '
                     'app memory here — available across Assistant and Workflows.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: isModern

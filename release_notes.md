@@ -2,6 +2,19 @@
 
 This file tracks release changes by version.
 
+## v2.4.1+173 - LiteRT-LM (`.litertlm`) On-Device Models, Context Compression Fix & Persistent Episodic Memory
+
+### Major Features & Fixes
+- **LiteRT-LM (`.litertlm`) Embedded Model Support & `Add from Disk` (`tealkit` v2.2.2+173, `llamadart` 0.20.4, `flutter_ui_mcp_embedded` 1.5.17)**:
+  - Added **`GGUF (.gguf)`** and **`LiteRT-LM (.litertlm)`** format filter chips and HuggingFace `.litertlm` repo discovery in `HfDiscoverDialog`, alongside the `Hide too large for CPU (>1.5 GB)` filter.
+  - Updated `EmbeddedModelPickerWidget`, `AddGgufDialog`, and `EmbeddedLlmAdapter` with purple **`LiteRT-LM (.litertlm)`** model badges, LiteRT-LM `ModelParams` initialization, **`Add Model URL`** (accepting both `.gguf` and `.litertlm`), and **`Add from Disk`** supporting `.gguf` and `.litertlm` on both desktop and mobile (including local-disk path resolution in `_refresh()` and `_loadModelIntoApp()`).
+- **`tealkit_cli` v1.4.9 & `tealkit-vscode` v0.1.12 (`dart_mcp_core` 1.5.15)**:
+  - **Fixed Context Compression Thrashing**: Upgraded `dart_mcp_core` to `^1.5.15` to eliminate the infinite `ContextCompressor` single-turn archival loop on large refactoring sessions, and raised the default non-SLM compression threshold in `TealKitRpcEngine` to `64,000` tokens.
+  - **Persistent Episodic Memory Across Restarts**: Persisted `MemoryArchive` blocks to `.tealkit/episodic_memory.json` and restored them automatically on startup so `retrieve_memory` works reliably after VS Code or CLI restarts.
+  - **VS Code Extension Polish (`tealkit-vscode` v0.1.12)**: Bundled lean `tealkit.exe` (v1.4.9, 14.39 MB) + `lib/sqlite3.dll` (1.65 MB); fixed `#saved-sessions-list` scrolling in the **Memory** tab so session cards never overlap **Archived Episodic Memories**; and simplified post-write diff cards (`File updated:` + **Review Diff** / **Dismiss**).
+- **Core LLM SDK & Server Updates**:
+  - Upgraded `openai_dart` (`^13.0.0`), `anthropic_sdk_dart` (`^11.0.0`), `googleai_dart` (`^13.1.0`), `ollama_dart` (`^5.0.0`), `flutter_ui_mcp_core` / `flutter_ui_mcp` (`^1.5.15`), `flutter_ui_mcp_embedded` (`^1.5.17`), and `llamadart` (`^0.20.4` app / `^0.20.3` server), plus SQLite adapter refinements in `server/lib/database/server_sqlite_adapter.dart`.
+
 ## v2.4.0+170 - Breaking Changes: SQLite + `sqlite_vector` Engine Migration (Bridge Release 1), Desktop Store Light Editions & `llamadart` 0.20.0
 
 ### ⚠️ Breaking Changes (Action Required for Existing Users)

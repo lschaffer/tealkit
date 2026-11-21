@@ -84,9 +84,22 @@ class EmbeddedLlmAdapter {
 
       // Reuse the single LlamaEngine instance; create it only on first use.
       _engine ??= LlamaEngine(_backend);
+      final isLitertLm = modelPath.toLowerCase().endsWith('.litertlm');
+      final params = isLitertLm
+          ? ModelParams(
+              contextSize: effectiveContextSize,
+              gpuLayers: gpuLayers == 0 ? 0 : ModelParams.maxGpuLayers,
+              device: gpuLayers == 0 ? ComputeDevice.cpu : ComputeDevice.auto,
+            )
+          : ModelParams(
+              contextSize: effectiveContextSize,
+              gpuLayers: gpuLayers,
+              device: gpuLayers == 0 ? ComputeDevice.cpu : ComputeDevice.auto,
+              splitMode: ModelSplitMode.none,
+            );
       await _engine!.setModel(
         LlamaModel(ModelSource.path(modelPath)),
-        params: ModelParams(contextSize: effectiveContextSize, gpuLayers: gpuLayers),
+        params: params,
       );
 
       _loadedModelPath = modelPath;

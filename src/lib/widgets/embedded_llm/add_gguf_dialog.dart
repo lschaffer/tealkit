@@ -83,7 +83,7 @@ class _AddGgufDialogState extends State<AddGgufDialog> {
     final maxContentHeight = availableHeight * 0.52;
 
     return AlertDialog(
-      title: const Row(children: [Icon(Icons.add_link, size: 22), SizedBox(width: 8), Text('Add GGUF Model')]),
+      title: const Row(children: [Icon(Icons.add_link, size: 22), SizedBox(width: 8), Text('Add Model URL')]),
       content: Form(
         key: _formKey,
         child: ConstrainedBox(
@@ -96,8 +96,8 @@ class _AddGgufDialogState extends State<AddGgufDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Enter the direct download URL of a .gguf file. '
-                    'You can find models on HuggingFace or other GGUF repositories.',
+                    'Enter the direct download URL of a .gguf or .litertlm file. '
+                    'You can find models on HuggingFace or other repositories.',
                     style: TextStyle(fontSize: 13),
                   ),
                   const SizedBox(height: 16),
@@ -114,8 +114,8 @@ class _AddGgufDialogState extends State<AddGgufDialog> {
                   TextFormField(
                     controller: _urlCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'GGUF download URL *',
-                      hintText: 'https://huggingface.co/.../model.gguf',
+                      labelText: 'Model download URL (.gguf / .litertlm) *',
+                      hintText: 'https://huggingface.co/.../model.gguf or .litertlm',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.link),
                     ),
@@ -123,8 +123,9 @@ class _AddGgufDialogState extends State<AddGgufDialog> {
                       if (v == null || v.trim().isEmpty) return 'URL is required';
                       final uri = Uri.tryParse(v.trim());
                       if (uri == null || !uri.hasScheme) return 'Enter a valid URL';
-                      if (!v.trim().toLowerCase().contains('.gguf') && !v.trim().contains('?')) {
-                        return 'URL does not appear to point to a .gguf file';
+                      final lower = v.trim().toLowerCase();
+                      if (!lower.contains('.gguf') && !lower.contains('.litertlm') && !lower.contains('?')) {
+                        return 'URL does not appear to point to a .gguf or .litertlm file';
                       }
                       return null;
                     },

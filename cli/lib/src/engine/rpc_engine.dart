@@ -290,6 +290,7 @@ class TealKitRpcEngine {
 
     final history = <ChatMessage>[];
     final episodicMemoryStore = EpisodicMemoryStore();
+    _loadEpisodicMemoryFromDisk(workspaceDir, episodicMemoryStore);
     final usageTracker = TokenUsageTracker();
 
     // Load initial or most recent session if requested
@@ -1817,7 +1818,7 @@ class TealKitRpcEngine {
       contextCompressor: ContextCompressor(
         tokenThreshold: cliConfig.contextCompressionThreshold > 8000
             ? cliConfig.contextCompressionThreshold
-            : (activeLlmConfig.isSlm ? 12000 : 32000),
+            : (activeLlmConfig.isSlm ? 12000 : 64000),
         memoryStore: episodicMemoryStore,
       ),
       prompts: messageAttachments.isNotEmpty
@@ -1842,9 +1843,11 @@ class TealKitRpcEngine {
     ModelRateInfo? resolvedRates = TokenUsageTracker.getRates(activeLlmConfig);
     if (resolvedRates == null) {
       unawaited(
-        TokenUsageTracker.getRatesAsync(activeLlmConfig).then((rates) {
-          resolvedRates = rates;
-        }).catchError((_) {}),
+        TokenUsageTracker.getRatesAsync(activeLlmConfig)
+            .then((rates) {
+              resolvedRates = rates;
+            })
+            .catchError((_) {}),
       );
     }
 
@@ -1855,11 +1858,14 @@ class TealKitRpcEngine {
       if (toolName != 'fs_write_file' && toolName != 'fs_replace_text') {
         return null;
       }
-      final targetPath =
-          (params['path'] ?? params['file_path'])?.toString().trim();
+      final targetPath = (params['path'] ?? params['file_path'])
+          ?.toString()
+          .trim();
       if (targetPath == null || targetPath.isEmpty) return null;
       final absPath = p.normalize(
-        p.isAbsolute(targetPath) ? targetPath : p.join(workspaceDir, targetPath),
+        p.isAbsolute(targetPath)
+            ? targetPath
+            : p.join(workspaceDir, targetPath),
       );
       final f = File(absPath);
       final original = f.existsSync() ? f.readAsStringSync() : '';
@@ -1883,11 +1889,7 @@ class TealKitRpcEngine {
         }
       }
 
-      return {
-        'path': targetPath,
-        'original': original,
-        'modified': proposed,
-      };
+      return {'path': targetPath, 'original': original, 'modified': proposed};
     }
 
     try {
@@ -1984,6 +1986,7 @@ class TealKitRpcEngine {
                 :final compressedTokens,
                 :final compressedTurnCount,
               ):
+                _saveEpisodicMemoryToDisk(workspaceDir, episodicMemoryStore);
                 _sendEvent('context_compressed', {
                   'id': turnId,
                   'originalTokens': originalTokens,
@@ -2031,7 +2034,7 @@ class TealKitRpcEngine {
                   'sessionPromptTokens': usageTracker.promptTokens,
                   'sessionCompletionTokens': usageTracker.completionTokens,
                   'sessionTotalTokens': usageTracker.totalTokens,
-                  if (estCost != null) 'estimatedCostUsd': estCost,
+                  'estimatedCostUsd': ?estCost,
                   if (resolvedRates != null)
                     'rateDescription': resolvedRates!.rateDescription,
                 });
@@ -2117,7 +2120,7 @@ class TealKitRpcEngine {
                 'rawTool': toolName,
                 'parameters': effectiveParams,
                 'risk': effectiveRisk.name,
-                if (diffPreview != null) 'diff': diffPreview,
+                'diff': ?diffPreview,
               });
               return await completer.future;
             },
@@ -2148,8 +2151,7 @@ class TealKitRpcEngine {
           'promptTokens': usageTracker.promptTokens,
           'completionTokens': usageTracker.completionTokens,
           'totalTokens': usageTracker.totalTokens,
-          if (finalEstimatedCost != null)
-            'estimatedCostUsd': finalEstimatedCost,
+          'estimatedCostUsd': ?finalEstimatedCost,
           if (resolvedRates != null)
             'rateDescription': resolvedRates!.rateDescription,
         },
@@ -2341,6 +2343,39 @@ class TealKitRpcEngine {
       (a, b) => (b['updatedAt'] as String).compareTo(a['updatedAt'] as String),
     );
     return list;
+  }
+
+  static File _episodicMemoryFile(String workspaceDir) {
+    return File(p.join(workspaceDir, '.tealkit', 'episodic_memory.json'));
+  }
+
+  static void _loadEpisodicMemoryFromDisk(
+    String workspaceDir,
+    EpisodicMemoryStore store,
+  ) {
+    try {
+      final f = _episodicMemoryFile(workspaceDir);
+      if (!f.existsSync()) return;
+      final decoded = jsonDecode(f.readAsStringSync());
+      if (decoded is Map<String, dynamic> && decoded['entries'] is List) {
+        store.loadFromJsonList(decoded['entries'] as List, replace: true);
+      } else if (decoded is List) {
+        store.loadFromJsonList(decoded, replace: true);
+      }
+    } catch (_) {}
+  }
+
+  static void _saveEpisodicMemoryToDisk(
+    String workspaceDir,
+    EpisodicMemoryStore store,
+  ) {
+    try {
+      final f = _episodicMemoryFile(workspaceDir);
+      if (!f.parent.existsSync()) {
+        f.parent.createSync(recursive: true);
+      }
+      f.writeAsStringSync(jsonEncode(store.toJson()));
+    } catch (_) {}
   }
 
   Future<int> _archiveMemorySnapshot({

@@ -2861,11 +2861,10 @@ system_prompt: |
         <span class="diff-title">🔀 ${escapeHtml(fileName)}</span>
       </div>
       <div style="font-size: 11px; color: var(--vscode-descriptionForeground);">
-        Proposed changes for: <code>${escapeHtml(ev.path || '')}</code>
+        File updated: <code>${escapeHtml(ev.path || '')}</code>
       </div>
       <div class="diff-actions">
-        <button class="btn-review" id="review-${cardId}">Review Diff</button>
-        <button class="btn-apply" id="apply-${cardId}">Accept & Apply</button>
+        <button class="btn-review" id="review-${cardId}">🔀 Review Diff</button>
         <button class="btn-reject" id="reject-${cardId}">Dismiss</button>
       </div>
     `;
@@ -2878,15 +2877,6 @@ system_prompt: |
         path: ev.path,
         original: ev.original !== undefined ? ev.original : '',
         modified: ev.modified !== undefined ? ev.modified : '',
-      });
-    });
-
-    document.getElementById(`apply-${cardId}`).addEventListener('click', () => {
-      vscode.postMessage({
-        type: 'apply_diff',
-        path: ev.path,
-        modified: ev.modified,
-        id: cardId,
       });
     });
 

@@ -127,7 +127,14 @@ class EmbeddedModelManager {
     return files.map((f) => f.uri.pathSegments.last).toSet();
   }
 
-  Future<String> fullPathForFilename(String filename) async {
+  Future<String> fullPathForFilename(String filename, {String? customUrl}) async {
+    if (customUrl != null &&
+        customUrl.isNotEmpty &&
+        !customUrl.startsWith('http://') &&
+        !customUrl.startsWith('https://')) {
+      final f = File(customUrl);
+      if (await f.exists()) return customUrl;
+    }
     final dir = await getModelsDirectory();
     return '${dir.path}/$filename';
   }
@@ -263,16 +270,28 @@ class EmbeddedModelManager {
 
   // ── HuggingFace discovery ─────────────────────────────────────────────────
 
-  /// Searches HuggingFace for popular GGUF models.
+  /// Searches HuggingFace for popular GGUF or LiteRT-LM models.
   ///
+  /// [format] can be `'gguf'` (default) or `'litertlm'`.
   /// [query] filters by model name. [maxRamGb] skips models that need more RAM.
-  Future<List<HfDiscoveryResult>> discoverPopularModels({String? query, int? maxRamGb, String sort = 'downloads', int limit = 20}) async {
-    final queryParams = {
-      'filter': 'gguf',
+  Future<List<HfDiscoveryResult>> discoverPopularModels({
+    String? query,
+    int? maxRamGb,
+    String sort = 'downloads',
+    int limit = 20,
+    String format = 'gguf',
+  }) async {
+    final isLitert = format.toLowerCase() == 'litertlm';
+    final effectiveSearch = isLitert
+        ? ((query != null && query.trim().isNotEmpty) ? '${query.trim()} litertlm' : 'litertlm')
+        : (query != null && query.trim().isNotEmpty ? query.trim() : null);
+
+    final queryParams = <String, String>{
+      if (!isLitert) 'filter': 'gguf',
       'sort': sort,
       'limit': '$limit',
       'full': 'true',
-      if (query != null && query.isNotEmpty) 'search': query,
+      if (effectiveSearch != null && effectiveSearch.isNotEmpty) 'search': effectiveSearch,
     };
 
     final uri = Uri.https('huggingface.co', '/api/models', queryParams);
@@ -291,17 +310,20 @@ class EmbeddedModelManager {
       if (repoId.isEmpty) continue;
 
       final siblings = (map['siblings'] as List<dynamic>? ?? []);
-      final ggufFiles = siblings
+      final matchingFiles = siblings
           .where((s) {
-            final name = (s as Map<String, dynamic>)['rfilename'] as String? ?? '';
-            return name.toLowerCase().endsWith('.gguf') && !name.toLowerCase().contains('mmproj');
+            final name = ((s as Map<String, dynamic>)['rfilename'] as String? ?? '').toLowerCase();
+            if (isLitert) {
+              return name.endsWith('.litertlm');
+            }
+            return name.endsWith('.gguf') && !name.contains('mmproj');
           })
           .map((s) {
             final sMap = s as Map<String, dynamic>;
             final filename = sMap['rfilename'] as String;
             // HuggingFace stores LFS file sizes inside the 'lfs' sub-object.
             // The top-level 'size' field is the pointer file size (~130 B) —
-            // always near zero for GGUF files. Use lfs.size first.
+            // always near zero for LFS model files. Use lfs.size first.
             final lfs = sMap['lfs'] as Map<String, dynamic>?;
             final sizeBytes = (lfs?['size'] as num?)?.toInt() ?? (sMap['size'] as num?)?.toInt() ?? 0;
             return HfGgufFile(
@@ -312,7 +334,7 @@ class EmbeddedModelManager {
           })
           .toList();
 
-      if (ggufFiles.isEmpty) continue;
+      if (matchingFiles.isEmpty) continue;
 
       results.add(
         HfDiscoveryResult(
@@ -321,7 +343,7 @@ class EmbeddedModelManager {
           downloads: (map['downloads'] as num?)?.toInt() ?? 0,
           likes: (map['likes'] as num?)?.toInt() ?? 0,
           description: map['description'] as String?,
-          ggufFiles: ggufFiles,
+          ggufFiles: matchingFiles,
         ),
       );
     }

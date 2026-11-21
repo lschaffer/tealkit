@@ -21,10 +21,10 @@ packages:
     dependency: "direct main"
     description:
       name: anthropic_sdk_dart
-      sha256: "6b6b17e1ae153f990569c77fa479ba6f0488f17acf40b77ad7d4b71c3c9ccaab"
+      sha256: "969f031b52b884ad8a257f86c79689354a1ce61ae6d70cf9f4ddf493a3bb6c6b"
       url: "https://pub.dev"
     source: hosted
-    version: "9.0.1"
+    version: "11.0.0"
   archive:
     dependency: "direct main"
     description:
@@ -340,10 +340,10 @@ packages:
     dependency: "direct main"
     description:
       name: llamadart
-      sha256: cf41917b275ef781ac3ef29e6626725ff46a6853b7d644431cdd366fcc05954e
+      sha256: "6617ef069985dae375181b30965b87fa8d4635772f3d3c9f5d8cec378c95bbd1"
       url: "https://pub.dev"
     source: hosted
-    version: "0.20.0"
+    version: "0.20.4"
   logging:
     dependency: transitive
     description:
@@ -404,18 +404,18 @@ packages:
     dependency: "direct main"
     description:
       name: ollama_dart
-      sha256: e8c03590c6f751d8b986125e5bde270412174b6cc49a2bdf6a5b9ef2b3c5cf30
+      sha256: "55605625bb172718790dcf599753fa60767b9c9086dc3a44f72d8e3bbb44173a"
       url: "https://pub.dev"
     source: hosted
-    version: "4.1.0"
+    version: "5.0.0"
   openai_dart:
     dependency: "direct main"
     description:
       name: openai_dart
-      sha256: "40bbca48b592f6a0671501caf6082577a6afc7cc72a0af910580f0054609205a"
+      sha256: f08e9d02554c5e08fa8d2ca653cfbf7c90ea9aaf2826da1c45f42b5237444ea5
       url: "https://pub.dev"
     source: hosted
-    version: "11.0.1"
+    version: "13.0.0"
   package_config:
     dependency: transitive
     description:

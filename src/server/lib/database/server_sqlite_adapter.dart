@@ -29,12 +29,10 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
   ServerSqliteAdapter({
     String? dbPath,
     String? customDataDir,
-    bool enableVectorAndFts = false,
-    bool vectorExtensionLoaded = false,
+    this._enableVectorAndFts = false,
+    this._vectorExtensionLoaded = false,
   }) : _customDataDir = customDataDir,
-       _dbPath = dbPath ?? _defaultLightDbPath(customDataDir),
-       _enableVectorAndFts = enableVectorAndFts,
-       _vectorExtensionLoaded = vectorExtensionLoaded;
+       _dbPath = dbPath ?? _defaultLightDbPath(customDataDir);
 
   factory ServerSqliteAdapter.full({
     String? dbPath,
@@ -89,7 +87,9 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
       await legacyMigratorHook!(this);
     }
     await _seedDefaultPyTools();
-    log.info('[SQLite] Database opened successfully (vector=$_vectorInitialized)');
+    log.info(
+      '[SQLite] Database opened successfully (vector=$_vectorInitialized)',
+    );
   }
 
   @override
@@ -253,7 +253,7 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
       )
     ''');
 
-        db.execute('''
+    db.execute('''
       CREATE TABLE IF NOT EXISTS subagent_definitions (
         key           TEXT PRIMARY KEY,
         name          TEXT NOT NULL,
@@ -1621,7 +1621,9 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
   @override
   Future<List<Map<String, dynamic>>> getSubagentDefinitions() async {
     final db = _requireDb;
-    final rows = db.select('SELECT key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at FROM subagent_definitions ORDER BY key');
+    final rows = db.select(
+      'SELECT key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at FROM subagent_definitions ORDER BY key',
+    );
     return rows.map((r) {
       List<String> tools = [];
       try {
@@ -1653,7 +1655,12 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
     final desc = data['description']?.toString().trim() ?? '';
     final model = data['model']?.toString().trim() ?? 'default';
     final prompt = data['system_prompt']?.toString() ?? '';
-    final toolsList = (data['tools'] as List?)?.map((t) => t.toString().trim()).where((s) => s.isNotEmpty).toList() ?? [];
+    final toolsList =
+        (data['tools'] as List?)
+            ?.map((t) => t.toString().trim())
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        [];
     final toolsJson = jsonEncode(toolsList);
     final maxTurns = (data['max_turns'] as num?)?.toInt() ?? 8;
     final now = DateTime.now().toIso8601String();
@@ -1663,7 +1670,17 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
         (key, name, description, model, system_prompt, tools_json, max_turns, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''');
-    stmt.execute([key, name, desc, model, prompt, toolsJson, maxTurns, now, now]);
+    stmt.execute([
+      key,
+      name,
+      desc,
+      model,
+      prompt,
+      toolsJson,
+      maxTurns,
+      now,
+      now,
+    ]);
     stmt.close();
   }
 
@@ -1678,50 +1695,68 @@ class ServerSqliteAdapter implements ServerDatabaseAdapter {
   @override
   Future<int> seedSampleSubagents() async {
     final existing = await getSubagentDefinitions();
-    final existingKeys = existing.map((e) => e['key'].toString().toLowerCase()).toSet();
+    final existingKeys = existing
+        .map((e) => e['key'].toString().toLowerCase())
+        .toSet();
     int added = 0;
 
     const samples = [
       {
         'key': 'unit_tester',
         'name': 'Automated Unit Test Specialist',
-        'description': 'Automated unit test specialist: generates, updates, and executes test suites',
+        'description':
+            'Automated unit test specialist: generates, updates, and executes test suites',
         'model': 'default',
-        'system_prompt': 'You are an expert test engineer and QA specialist.\nYour task is to analyze code, write robust and comprehensive unit tests (covering happy paths, edge cases, and failure modes), and execute them to verify test suite health.\nFollow standard test frameworks for the target project (e.g. xUnit for .NET, pytest for Python, test/flutter_test for Dart).\nAlways execute the test runner via terminal to verify all tests pass before completing.',
-        'tools': ['fs_read_file', 'fs_replace_text', 'fs_write_file', 'terminal_exec', 'fs_list_dir'],
+        'system_prompt':
+            'You are an expert test engineer and QA specialist.\nYour task is to analyze code, write robust and comprehensive unit tests (covering happy paths, edge cases, and failure modes), and execute them to verify test suite health.\nFollow standard test frameworks for the target project (e.g. xUnit for .NET, pytest for Python, test/flutter_test for Dart).\nAlways execute the test runner via terminal to verify all tests pass before completing.',
+        'tools': [
+          'fs_read_file',
+          'fs_replace_text',
+          'fs_write_file',
+          'terminal_exec',
+          'fs_list_dir',
+        ],
         'max_turns': 10,
       },
       {
         'key': 'git_auditor',
         'name': 'Git Status, Diff & Commit Auditor',
-        'description': 'Git repository auditor: inspects status, diffs, branch health, and formats commits',
+        'description':
+            'Git repository auditor: inspects status, diffs, branch health, and formats commits',
         'model': 'default',
-        'system_prompt': 'You are an expert Git and version control auditor.\nYour job is to inspect git status, review branch diffs, detect untracked or dangling files, ensure working tree hygiene, and prepare clean, conventional commit messages.\nNever force-push or destroy uncommitted work.\nReport a clean breakdown of modified, added, and deleted files with recommendations.',
+        'system_prompt':
+            'You are an expert Git and version control auditor.\nYour job is to inspect git status, review branch diffs, detect untracked or dangling files, ensure working tree hygiene, and prepare clean, conventional commit messages.\nNever force-push or destroy uncommitted work.\nReport a clean breakdown of modified, added, and deleted files with recommendations.',
         'tools': ['terminal_exec', 'fs_read_file', 'fs_list_dir'],
         'max_turns': 6,
       },
       {
         'key': 'web_researcher',
         'name': 'Technical Web Researcher',
-        'description': 'Technical web researcher: queries online documentation, APIs, and release notes',
+        'description':
+            'Technical web researcher: queries online documentation, APIs, and release notes',
         'model': 'default',
-        'system_prompt': 'You are a specialized technical documentation and web researcher.\nYour task is to search the web for API documentation, libraries, release notes, and solutions to technical errors or deprecations.\nSynthesize your findings concisely with direct links, code snippets, and citations.',
+        'system_prompt':
+            'You are a specialized technical documentation and web researcher.\nYour task is to search the web for API documentation, libraries, release notes, and solutions to technical errors or deprecations.\nSynthesize your findings concisely with direct links, code snippets, and citations.',
         'tools': ['web_search', 'fs_read_file'],
         'max_turns': 8,
       },
       {
         'key': 'code_scout',
         'name': 'Fast Codebase Explorer & Architecture Scout',
-        'description': 'Fast codebase explorer and caller hierarchy / symbol scout',
-        'system_prompt': 'You are a specialized codebase exploration and symbol search agent.\nYour objective is to quickly locate symbols, caller hierarchies, interface implementations, and architectural structure without modifying any code.\nReturn concise, structured findings with exact file paths and line numbers.',
+        'description':
+            'Fast codebase explorer and caller hierarchy / symbol scout',
+        'system_prompt':
+            'You are a specialized codebase exploration and symbol search agent.\nYour objective is to quickly locate symbols, caller hierarchies, interface implementations, and architectural structure without modifying any code.\nReturn concise, structured findings with exact file paths and line numbers.',
         'tools': ['fs_find', 'fs_read_file', 'fs_list_dir'],
         'max_turns': 8,
       },
       {
         'key': 'c_analyzer',
         'name': 'Embedded C/C++ Firmware & Warning Specialist',
-        'description': 'C/C++ firmware static analyzer and compiler warning expert',
-        'system_prompt': 'You are an expert embedded C/C++ systems engineer.\nAnalyze source files and header files for compiler warnings, buffer overflows,\npointer safety, signed/unsigned mismatches, and missing NULL checks.\nBe concise: return only file paths, line numbers, and actionable fixes.',
+        'description':
+            'C/C++ firmware static analyzer and compiler warning expert',
+        'system_prompt':
+            'You are an expert embedded C/C++ systems engineer.\nAnalyze source files and header files for compiler warnings, buffer overflows,\npointer safety, signed/unsigned mismatches, and missing NULL checks.\nBe concise: return only file paths, line numbers, and actionable fixes.',
         'tools': ['fs_read_file', 'fs_find', 'fs_list_dir'],
         'max_turns': 8,
       },

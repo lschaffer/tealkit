@@ -86,6 +86,16 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
       final downloaded = _isServerMode
           ? await _listRemoteDownloadedFilenames()
           : await EmbeddedModelManager.instance.listDownloadedFilenames();
+      if (!_isServerMode) {
+        for (final m in customs) {
+          if (m.url.isNotEmpty &&
+              !m.url.startsWith('http://') &&
+              !m.url.startsWith('https://') &&
+              File(m.url).existsSync()) {
+            downloaded.add(m.filename);
+          }
+        }
+      }
 
       final gpuMap = <String, int>{};
       for (final filename in downloaded) {
@@ -220,7 +230,9 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
     // Show any file physically on disk even if not tracked in custom list
     for (final filename in _downloadedFilenames) {
       if (seen.add(filename)) {
-        final name = filename.replaceAll(RegExp(r'\.gguf$', caseSensitive: false), '').replaceAll(RegExp(r'[-_]'), ' ');
+        final name = filename
+            .replaceAll(RegExp(r'\.(gguf|litertlm)$', caseSensitive: false), '')
+            .replaceAll(RegExp(r'[-_]'), ' ');
         combined.add(EmbeddedGgufModel(id: filename, displayName: name, filename: filename, url: '', description: 'Downloaded model.'));
       }
     }
@@ -350,8 +362,8 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
         title: const Text('Remove all models?'),
         content: Text(
           _isServerMode
-              ? 'This will delete all downloaded GGUF files from server storage (/data/models).'
-              : 'This will delete all downloaded GGUF files from device storage.',
+              ? 'This will delete all downloaded model files from server storage (/data/models).'
+              : 'This will delete all downloaded model files from device storage.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -391,21 +403,34 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
 
   Future<void> _openAddFromDisk() async {
     try {
+      final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
       final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['gguf'],
+        type: isDesktop ? FileType.custom : FileType.any,
+        allowedExtensions: isDesktop ? ['gguf', 'litertlm'] : null,
       );
       if (result.isEmpty) return;
       final file = result.first;
       final path = file.path;
       if (path == null) return;
 
+      final filename = file.name;
+      final lowerName = filename.toLowerCase();
+      if (!lowerName.endsWith('.gguf') && !lowerName.endsWith('.litertlm')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Please select a .gguf or .litertlm model file.'),
+              backgroundColor: AppTheme.warning,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
       setState(() => _loading = true);
       
-      final filename = file.name;
       String finalUrl = '';
-      
-      final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
       
       if (isDesktop) {
         finalUrl = path;
@@ -421,7 +446,9 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
 
       final model = EmbeddedGgufModel(
         id: 'disk_${DateTime.now().millisecondsSinceEpoch}',
-        displayName: filename.replaceAll(RegExp(r'\.gguf$', caseSensitive: false), '').replaceAll(RegExp(r'[-_]'), ' '),
+        displayName: filename
+            .replaceAll(RegExp(r'\.(gguf|litertlm)$', caseSensitive: false), '')
+            .replaceAll(RegExp(r'[-_]'), ' '),
         filename: filename,
         url: finalUrl,
         description: 'Local model added from disk.',
@@ -521,7 +548,10 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
         _serverLoadedFilename = model.filename;
       } else {
         final gpuLayers = _gpuLayersMap[model.filename] ?? 0;
-        final fullPath = await EmbeddedModelManager.instance.fullPathForFilename(model.filename);
+        final fullPath = await EmbeddedModelManager.instance.fullPathForFilename(
+          model.filename,
+          customUrl: model.url,
+        );
         await EmbeddedLlmAdapter.instance.initialize(
           fullPath,
           gpuLayers: gpuLayers,
@@ -609,7 +639,7 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Use "Discover popular" to browse HuggingFace GGUF repos, or paste a direct download URL with "Add GGUF URL".',
+                    'Use "Discover popular" to browse HuggingFace GGUF & LiteRT-LM repos, paste a direct download URL with "Add Model URL", or load a local file with "Add from Disk".',
                     style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ],
@@ -663,12 +693,16 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
               icon: const Icon(Icons.explore_outlined, size: 18),
               label: const Text('Discover popular'),
             ),
-            OutlinedButton.icon(onPressed: _openAddGguf, icon: const Icon(Icons.add_link, size: 18), label: const Text('Add GGUF URL')),
+            OutlinedButton.icon(
+              onPressed: _openAddGguf,
+              icon: const Icon(Icons.add_link, size: 18),
+              label: const Text('Add Model URL'),
+            ),
             if (!_isServerMode)
               OutlinedButton.icon(
                 onPressed: _openAddFromDisk,
-                icon: const Icon(Icons.drive_folder_upload, size: 18),
-                label: const Text('Add GGUF from Disk'),
+                icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+                label: const Text('Add from Disk'),
               ),
             if (_downloadedFilenames.isNotEmpty)
               OutlinedButton.icon(
@@ -820,6 +854,12 @@ class _ModelTile extends StatelessWidget {
                           spacing: 6,
                           runSpacing: 4,
                           children: [
+                            if (model.filename.toLowerCase().endsWith('.litertlm'))
+                              const _Chip(
+                                label: 'LiteRT-LM (.litertlm)',
+                                icon: Icons.memory_outlined,
+                                color: Colors.deepPurpleAccent,
+                              ),
                             if (model.sizeLabel.isNotEmpty) _Chip(label: model.sizeLabel, icon: Icons.sd_card_outlined),
                             _Chip(label: '≥ ${model.minRamGb} GB RAM', icon: Icons.memory_outlined),
                             _Chip(label: '${(model.contextSize / 1024).round()}K ctx', icon: Icons.chat_bubble_outline),

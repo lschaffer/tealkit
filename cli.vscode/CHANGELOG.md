@@ -2,9 +2,21 @@
 
 All notable changes to the TealKit Coder extension will be documented in this file.
 
+## 0.1.12
+
+### Context Compression Fix, Persistent Episodic Memory & UI Polish
+
+- **Bundled `tealkit_cli` 1.4.9 (`dart_mcp_core` 1.5.15)**:
+  - Fixed infinite `ContextCompressor` thrashing loop on large refactoring tasks (1-turn archival loops that failed to reduce token count) and raised default non-SLM compression threshold to `64,000` tokens.
+  - Persisted `MemoryArchive` blocks to `.tealkit/episodic_memory.json` so `retrieve_memory` remains available after restarting VS Code or resuming a session.
+- **Memory Tab & File Update Card Polish**:
+  - Fixed `#saved-sessions-list` scrolling (`overflow-y: auto; flex-shrink: 0;`) in the **Memory** tab so saved session cards no longer overlap the **Archived Episodic Memories** section.
+  - Simplified post-write diff cards to display `File updated:` with **Review Diff** and **Dismiss** actions cleanly without duplicating pre-approval buttons.
+
 ## 0.1.11
 
 ### Lean CLI Binary Without `llamadart` Native Binaries
+
 - **Bundled Lean `tealkit.exe` (14.25 MB, down from 17.82 MB)**:
   - Switched `cli/pubspec.yaml` to `third_party/llamadart_stub` so the bundled CLI drops all 20 unused `llamadart` / `ggml` / `litert_lm` / `webgpu_dawn` native dependencies while keeping full `sqlite3` + FTS5 RAG support.
 

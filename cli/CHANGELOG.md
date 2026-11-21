@@ -2,6 +2,14 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.9
+
+- **Fixed Context Compression Thrashing (`dart_mcp_core: ^1.5.15`)**:
+  - Updated to `dart_mcp_core: ^1.5.15` resolving the infinite `ContextCompressor` thrashing loop where single-turn archival repeatedly compressed without shrinking token count.
+  - Raised default non-SLM compression threshold in `TealKitRpcEngine` to `64000` tokens.
+- **Persistent Episodic Memory Across Restarts**:
+  - Persisted `MemoryArchive` blocks to `.tealkit/episodic_memory.json` and restored them on RPC engine startup so `retrieve_memory` works seamlessly after restarting VS Code or CLI sessions.
+
 ## 1.4.8
 
 - **Removed `llamadart` Native Binaries from CLI (`third_party/llamadart_stub`)**:

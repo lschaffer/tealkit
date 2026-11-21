@@ -27,6 +27,7 @@ class HfDiscoverDialog extends StatefulWidget {
 class _HfDiscoverDialogState extends State<HfDiscoverDialog> {
   final _searchCtrl = TextEditingController();
   String _sort = 'downloads';
+  String _selectedFormat = 'gguf'; // 'gguf' or 'litertlm'
   bool _loading = false;
   String? _error;
   List<HfDiscoveryResult> _results = [];
@@ -60,6 +61,7 @@ class _HfDiscoverDialogState extends State<HfDiscoverDialog> {
         query: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
         sort: _sort,
         limit: 30,
+        format: _selectedFormat,
       );
       if (mounted) setState(() => _results = results);
     } catch (e) {
@@ -118,7 +120,7 @@ class _HfDiscoverDialogState extends State<HfDiscoverDialog> {
                   child: TextField(
                     controller: _searchCtrl,
                     decoration: InputDecoration(
-                      hintText: 'Search for GGUF models…',
+                      hintText: _selectedFormat == 'litertlm' ? 'Search for LiteRT-LM …' : 'Search for GGUF models…',
                       prefixIcon: const Icon(Icons.search),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -167,19 +169,57 @@ class _HfDiscoverDialogState extends State<HfDiscoverDialog> {
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  ChoiceChip(
+                    label: const Text('GGUF (.gguf)'),
+                    selected: _selectedFormat == 'gguf',
+                    onSelected: (selected) {
+                      if (selected && _selectedFormat != 'gguf') {
+                        setState(() => _selectedFormat = 'gguf');
+                        _search();
+                      }
+                    },
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  ChoiceChip(
+                    label: const Text('LiteRT-LM (.litertlm)'),
+                    selected: _selectedFormat == 'litertlm',
+                    onSelected: (selected) {
+                      if (selected && _selectedFormat != 'litertlm') {
+                        setState(() => _selectedFormat = 'litertlm');
+                        _search();
+                      }
+                    },
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+          ),
           if (_results.isNotEmpty) ...[
             const SizedBox(height: 6),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FilterChip(
-                label: const Text('Hide too large for CPU'),
-                selected: _hideOversized,
-                onSelected: (v) => setState(() => _hideOversized = v),
-                avatar: Icon(Icons.filter_list, size: 14, color: _hideOversized ? AppTheme.warning : null),
-                selectedColor: AppTheme.warning.withValues(alpha: 0.12),
-                checkmarkColor: AppTheme.warning,
-                side: BorderSide(color: AppTheme.warning.withValues(alpha: _hideOversized ? 0.5 : 0.2)),
-                visualDensity: VisualDensity.compact,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FilterChip(
+                  label: const Text('Hide too large for CPU (>1.5 GB)'),
+                  selected: _hideOversized,
+                  onSelected: (v) => setState(() => _hideOversized = v),
+                  avatar: Icon(Icons.filter_list, size: 14, color: _hideOversized ? AppTheme.warning : null),
+                  selectedColor: AppTheme.warning.withValues(alpha: 0.12),
+                  checkmarkColor: AppTheme.warning,
+                  side: BorderSide(color: AppTheme.warning.withValues(alpha: _hideOversized ? 0.5 : 0.2)),
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
           ],
@@ -208,7 +248,14 @@ class _HfDiscoverDialogState extends State<HfDiscoverDialog> {
                     ),
                   )
                 : _results.isEmpty
-                ? Center(child: Text('No GGUF models found. Try a different query.', style: theme.textTheme.bodyMedium))
+                ? Center(
+                    child: Text(
+                      _selectedFormat == 'litertlm'
+                          ? 'No LiteRT-LM models found. Try a different query.'
+                          : 'No GGUF models found. Try a different query.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  )
                 : Builder(
                     builder: (context) {
                       // Filter repos at list level: hide repos that have no files

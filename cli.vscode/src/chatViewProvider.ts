@@ -1444,7 +1444,7 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
         </div>
       </div>
 
-      <div id="saved-sessions-list" class="cards-list" style="max-height: 240px; margin-bottom: 12px;">
+      <div id="saved-sessions-list" class="cards-list" style="max-height: 240px; overflow-y: auto; flex-shrink: 0; margin-bottom: 12px;">
         <div class="loading-state">Loading saved chat sessions...</div>
       </div>
 
