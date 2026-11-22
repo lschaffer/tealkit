@@ -2576,6 +2576,14 @@ class _TealKitAssistantSettingsDialogState
                                       _buildWebsiteSearchSection(theme),
                                       const Divider(height: 16),
                                     ],
+                                    if (info.type == 'image_generator') ...[
+                                      _buildImageGeneratorConfigRow(theme),
+                                      const Divider(height: 16),
+                                    ],
+                                    if (info.type == 'github') ...[
+                                      _buildGithubTokenConfigRow(theme),
+                                      const Divider(height: 16),
+                                    ],
                                     for (final toolName in groupToolNames) ...[
                                       Builder(
                                         builder: (ctx) {
@@ -4578,6 +4586,345 @@ class _TealKitAssistantSettingsDialogState
           }(),
       ],
     );
+  }
+
+  Widget _buildImageGeneratorConfigRow(ThemeData theme) {
+    final cfg = widget.controller.imageGenConfig;
+    return Row(
+      children: [
+        const Icon(Icons.image_outlined, size: 18, color: AppTheme.primaryBlue),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Image Generation Model',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              Text(
+                cfg.displayLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _showImageGenConfigDialog,
+          icon: const Icon(Icons.tune, size: 15),
+          label: const Text('Configure'),
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showImageGenConfigDialog() async {
+    final current = widget.controller.imageGenConfig;
+    var preset = current.preset;
+    var provider = current.provider;
+    final modelCtrl = TextEditingController(text: current.model);
+    final baseUrlCtrl = TextEditingController(text: current.baseUrl);
+    final apiKeyCtrl = TextEditingController(text: current.apiKey);
+    var obscureKey = true;
+
+    void applyPreset(String newPreset) {
+      preset = newPreset;
+      if (newPreset == 'deepinfra_flux') {
+        final p = ImageGenConfig.deepInfraFlux(apiKey: apiKeyCtrl.text);
+        provider = p.provider;
+        modelCtrl.text = p.model;
+        baseUrlCtrl.text = p.baseUrl;
+      } else if (newPreset == 'gemini_nano_banana') {
+        final p = ImageGenConfig.geminiNanoBanana(apiKey: apiKeyCtrl.text);
+        provider = p.provider;
+        modelCtrl.text = p.model;
+        baseUrlCtrl.text = p.baseUrl;
+      } else if (newPreset == 'openai_gpt_image') {
+        final p = ImageGenConfig.openAiGptImage(apiKey: apiKeyCtrl.text);
+        provider = p.provider;
+        modelCtrl.text = p.model;
+        baseUrlCtrl.text = p.baseUrl;
+      } else if (newPreset == 'custom') {
+        if (provider == LlmProvider.none) {
+          provider = LlmProvider.openaiCompatible;
+        }
+      } else {
+        provider = LlmProvider.none;
+        modelCtrl.clear();
+        baseUrlCtrl.clear();
+      }
+    }
+
+    final saved = await showDialog<ImageGenConfig>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final isAuto = preset == 'auto';
+          final isCustom = preset == 'custom';
+          final needsBaseUrl = !isAuto && provider != LlmProvider.gemini;
+
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.image_outlined, size: 22),
+                SizedBox(width: 8),
+                Expanded(child: Text('Image Generator Settings')),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: preset,
+                      decoration: const InputDecoration(
+                        labelText: 'Preset',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'auto',
+                          child: Text('Auto (use active/saved LLM profile)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'deepinfra_flux',
+                          child: Text('DeepInfra FLUX-1-schnell'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'gemini_nano_banana',
+                          child: Text('Google Gemini (gemini-2.5-flash-image)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'openai_gpt_image',
+                          child: Text('OpenAI (gpt-image-1)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text('Custom OpenAI-Compatible / Gemini'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setDialogState(() => applyPreset(v));
+                        }
+                      },
+                    ),
+                    if (!isAuto) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: modelCtrl,
+                        readOnly: !isCustom,
+                        decoration: const InputDecoration(
+                          labelText: 'Image Model ID',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      if (needsBaseUrl) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: baseUrlCtrl,
+                          readOnly: !isCustom,
+                          decoration: const InputDecoration(
+                            labelText: 'Base URL',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: apiKeyCtrl,
+                        obscureText: obscureKey,
+                        decoration: InputDecoration(
+                          labelText: 'Dedicated API Key (optional)',
+                          hintText: 'Leave blank to reuse matching LLM profile key',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureKey ? Icons.visibility_off : Icons.visibility,
+                            ),
+                            onPressed: () =>
+                                setDialogState(() => obscureKey = !obscureKey),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop(
+                    ImageGenConfig(
+                      preset: preset,
+                      provider: provider,
+                      baseUrl: baseUrlCtrl.text.trim(),
+                      model: modelCtrl.text.trim(),
+                      apiKey: apiKeyCtrl.text.trim(),
+                    ),
+                  );
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    modelCtrl.dispose();
+    baseUrlCtrl.dispose();
+    apiKeyCtrl.dispose();
+
+    if (saved != null && mounted) {
+      await widget.controller.updateImageGenConfig(saved);
+      setState(() {});
+    }
+  }
+
+  Widget _buildGithubTokenConfigRow(ThemeData theme) {
+    final ds = DataSourcesSettingsService.instance;
+    final configured = ds.isGitHubConfigured;
+    return Row(
+      children: [
+        Icon(
+          Icons.vpn_key_outlined,
+          size: 18,
+          color: configured ? AppTheme.success : AppTheme.warning,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'GitHub API Token (Local Storage)',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              Text(
+                configured
+                    ? (ds.githubDefaultOwner.isNotEmpty
+                        ? 'Token saved • Default owner: ${ds.githubDefaultOwner}'
+                        : 'Personal Access Token saved locally')
+                    : 'Not configured (public read-only access until token is saved)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _showGithubTokenDialog,
+          icon: const Icon(Icons.key, size: 15),
+          label: Text(configured ? 'Edit Token' : 'Set Token'),
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showGithubTokenDialog() async {
+    final ds = DataSourcesSettingsService.instance;
+    if (!ds.isLoaded) await ds.load();
+    if (!mounted) return;
+
+    final tokenCtrl = TextEditingController(text: ds.githubToken);
+    final ownerCtrl = TextEditingController(text: ds.githubDefaultOwner);
+    var obscure = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.code, size: 22),
+              SizedBox(width: 8),
+              Expanded(child: Text('GitHub (Built-in API)')),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: tokenCtrl,
+                  obscureText: obscure,
+                  decoration: InputDecoration(
+                    labelText: 'GitHub Personal Access Token',
+                    hintText: 'ghp_... or github_pat_...',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.vpn_key),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setDialogState(() => obscure = !obscure),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ownerCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Default Owner / Org (optional)',
+                    hintText: 'e.g. your-github-username',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Save Locally'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ds.saveGitHub(
+        token: tokenCtrl.text,
+        defaultOwner: ownerCtrl.text,
+      );
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('GitHub API token saved locally.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+
+    tokenCtrl.dispose();
+    ownerCtrl.dispose();
   }
 }
 

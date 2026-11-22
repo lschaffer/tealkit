@@ -1,9 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import '../database/task_database_service_duckdb.dart';
 import '../models/workflow_task.dart';
 import '../models/mcp_models.dart';
@@ -83,26 +81,17 @@ class ImportExportService {
 
       // ── 2. Write / offer file ────────────────────────────────────────────
       if (!kIsWeb) {
-        final isMobile = Platform.isAndroid || Platform.isIOS;
-        // Show directory chooser on all platforms; fall back to Downloads/Docs on mobile if cancelled
-        String? dirPath = await FilePicker.getDirectoryPath(dialogTitle: 'Choose Export Directory');
-        if (dirPath == null) {
-          if (isMobile) {
-            // Mobile fallback: save silently to Downloads / Documents
-            if (Platform.isAndroid) {
-              final downloads = Directory('/storage/emulated/0/Download');
-              dirPath = await downloads.exists() ? downloads.path : (await getApplicationDocumentsDirectory()).path;
-            } else {
-              dirPath = (await getApplicationDocumentsDirectory()).path;
-            }
-          } else {
-            return (error: null, savedPath: null); // user cancelled on desktop
-          }
+        final uri = await FilePicker.saveFile(
+          dialogTitle: 'Export TealKit Backup',
+          fileName: fullName,
+          bytes: Uint8List.fromList(jsonBytes),
+        );
+        if (uri == null) {
+          return (error: null, savedPath: null); // user cancelled
         }
-        final filePath = '$dirPath${Platform.pathSeparator}$fullName';
-        await File(filePath).writeAsBytes(jsonBytes);
-        log.info('[Export] Saved to $filePath');
-        return (error: null, savedPath: isMobile ? filePath : null);
+        final savedLabel = uri.scheme == 'file' ? uri.toFilePath() : fullName;
+        log.info('[Export] Saved to $savedLabel');
+        return (error: null, savedPath: savedLabel);
       }
       return (error: 'Export not supported on this platform.', savedPath: null);
     } catch (e, st) {
@@ -376,7 +365,7 @@ class ImportExportService {
           bytes: Uint8List.fromList(jsonBytes),
         );
         if (uri == null) return (error: null, savedPath: null); // cancelled
-        final outputPath = uri.toFilePath();
+        final outputPath = uri.scheme == 'file' ? uri.toFilePath() : fullName;
         log.info('[Session Export] Saved to $outputPath');
         return (error: null, savedPath: outputPath);
       }

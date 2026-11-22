@@ -204,6 +204,12 @@ class _DataSourcesSettingsScreenState
   final _haTokenCtrl = TextEditingController();
   bool _obscureHaToken = true;
 
+  // ── GitHub (Built-in API) ─────────────────────
+  bool _githubEnabled = false;
+  final _githubTokenCtrl = TextEditingController();
+  final _githubDefaultOwnerCtrl = TextEditingController();
+  bool _obscureGithubToken = true;
+
   // ── Slack ─────────────────────────────────────
   bool _slackEnabled = false;
   final _slackWebhookUrlCtrl = TextEditingController();
@@ -376,6 +382,12 @@ class _DataSourcesSettingsScreenState
     _haTokenCtrl.text = ha['token'] as String? ?? '';
     _haEnabled = _haBaseUrlCtrl.text.isNotEmpty && _haTokenCtrl.text.isNotEmpty;
 
+    // GitHub (Built-in API)
+    final gh = r['github'] as Map<String, dynamic>? ?? {};
+    _githubTokenCtrl.text = gh['token'] as String? ?? '';
+    _githubDefaultOwnerCtrl.text = gh['default_owner'] as String? ?? '';
+    _githubEnabled = _githubTokenCtrl.text.isNotEmpty;
+
     // Slack
     final slack = r['slack'] as Map<String, dynamic>? ?? {};
     _slackEnabled = slack['enabled'] as bool? ?? false;
@@ -492,6 +504,11 @@ class _DataSourcesSettingsScreenState
     _haBaseUrlCtrl.text = s.haBaseUrl;
     _haTokenCtrl.text = s.haToken;
 
+    // GitHub (Built-in API)
+    _githubEnabled = s.isGitHubConfigured;
+    _githubTokenCtrl.text = s.githubToken;
+    _githubDefaultOwnerCtrl.text = s.githubDefaultOwner;
+
     // Auto-fetch GPS on first open if no location is saved yet
     if (s.locationLatitude == null && s.locationLongitude == null) {
       _autoFetchLocation();
@@ -569,6 +586,8 @@ class _DataSourcesSettingsScreenState
     _whatsAppCallMeBotApiKeyCtrl.dispose();
     _haBaseUrlCtrl.dispose();
     _haTokenCtrl.dispose();
+    _githubTokenCtrl.dispose();
+    _githubDefaultOwnerCtrl.dispose();
     super.dispose();
   }
 
@@ -1150,6 +1169,10 @@ class _DataSourcesSettingsScreenState
             'base_url': _haBaseUrlCtrl.text,
             'token': _haTokenCtrl.text,
           },
+          'github': {
+            'token': _githubTokenCtrl.text,
+            'default_owner': _githubDefaultOwnerCtrl.text,
+          },
           'whatsapp': {
             'enabled': _whatsAppEnabled,
             'mode': _whatsAppMode,
@@ -1235,6 +1258,11 @@ class _DataSourcesSettingsScreenState
         await widget.service.saveHomeAssistant(
           baseUrl: _haBaseUrlCtrl.text,
           token: _haTokenCtrl.text,
+        );
+
+        await widget.service.saveGitHub(
+          token: _githubTokenCtrl.text,
+          defaultOwner: _githubDefaultOwnerCtrl.text,
         );
       }
 
@@ -4443,6 +4471,53 @@ class _DataSourcesSettingsScreenState
                               () => _obscureHaToken = !_obscureHaToken,
                             ),
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ═══════════════════════════════════════
+                  // 7b. GITHUB (BUILT-IN API)
+                  // ═══════════════════════════════════════
+                  _buildSectionCard(
+                    icon: Icons.code,
+                    title: 'GitHub (Built-in API)',
+                    subtitle:
+                        'Pure-Dart GitHub MCP tool for repos, files, branches, issues, and PRs (local & server mode).',
+                    enabled: _githubEnabled,
+                    onToggle: (v) => setState(() => _githubEnabled = v),
+                    configured: widget.service.isGitHubConfigured,
+                    children: [
+                      TextFormField(
+                        controller: _githubTokenCtrl,
+                        obscureText: _obscureGithubToken,
+                        decoration: InputDecoration(
+                          labelText: 'GitHub Personal Access Token',
+                          hintText: 'ghp_... or github_pat_...',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.vpn_key),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureGithubToken
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscureGithubToken = !_obscureGithubToken,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _githubDefaultOwnerCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Default Owner / Organization (optional)',
+                          hintText: 'e.g. your-github-username',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person_outline),
                         ),
                       ),
                     ],

@@ -2,6 +2,13 @@
 
 All notable changes to the TealKit Coder extension will be documented in this file.
 
+## 0.1.13
+
+### Bundled `tealkit_cli` 1.4.10 — Built-In `generate_image` & GitHub REST API (`github_*`) Tools
+
+- **Bundled `tealkit_cli` 1.4.10**:
+  - Added built-in **`generate_image`** (`GenerateImageTool` from `dart_mcp_core` 1.5.15) and 16 pure-Dart **GitHub REST API v3** tools (`github_*`) into the bundled `tealkit.exe` RPC engine (configured via `GITHUB_TOKEN` in `.env` or environment variables).
+
 ## 0.1.12
 
 ### Context Compression Fix, Persistent Episodic Memory & UI Polish

@@ -174,7 +174,7 @@ class _ToolListExportSheetState extends State<ToolListExportSheet> {
                         bytes: bytes,
                       );
                       if (uri == null || !context.mounted) return;
-                      final savePath = uri.toFilePath();
+                      final savePath = uri.scheme == 'file' ? uri.toFilePath() : defaultName;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Saved to $savePath'),

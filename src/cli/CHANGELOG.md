@@ -2,6 +2,12 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.10
+
+- **Built-In AI Image Generator (`generate_image`) & Pure-Dart GitHub API Tools (`github_*`)**:
+  - Registered `GenerateImageTool` (`generate_image`, from `dart_mcp_core: ^1.5.15`) in `BuiltinMcpServers.createAll()` across `chat`, `code`, and `rpc` modes.
+  - Added 16 pure-Dart GitHub REST API v3 tools (`github_get_me`, `github_list_repositories`, `github_search_repositories`, `github_get_file_contents`, `github_create_or_update_file`, `github_list_branches`, `github_create_branch`, `github_list_commits`, `github_list_issues`, `github_get_issue`, `github_create_issue`, `github_add_issue_comment`, `github_list_pull_requests`, `github_get_pull_request`, `github_create_pull_request`, `github_search_code`) reading `GITHUB_TOKEN` / `GITHUB_PERSONAL_ACCESS_TOKEN` and optional `GITHUB_DEFAULT_OWNER` from `.env` or environment variables.
+
 ## 1.4.9
 
 - **Fixed Context Compression Thrashing (`dart_mcp_core: ^1.5.15`)**:

@@ -110,8 +110,22 @@ class AssistantSessionService {
           bytes: Uint8List.fromList(bytes),
         );
         filePath = uri?.toFilePath();
+      } else if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        // Use native SAF / Files save dialog so the user can choose any folder
+        // (including Downloads / Documents) and edit the filename directly.
+        final uri = await FilePicker.saveFile(
+          dialogTitle: 'Save Assistant Session',
+          fileName: defaultName,
+          bytes: Uint8List.fromList(bytes),
+        );
+        if (uri == null) return null; // user cancelled
+        if (uri.scheme == 'file') {
+          filePath = uri.toFilePath();
+        } else {
+          // On Android SAF, FilePicker.saveFile already wrote the bytes to the content:// URI.
+          return uri.toString();
+        }
       } else {
-        // Mobile fallback
         final docs = await getApplicationDocumentsDirectory();
         final sessionDir = Directory(p.join(docs.path, 'sessions'));
         if (!sessionDir.existsSync()) {

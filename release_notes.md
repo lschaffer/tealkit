@@ -2,10 +2,24 @@
 
 This file tracks release changes by version.
 
-## v2.4.1+173 - LiteRT-LM (`.litertlm`) On-Device Models, Context Compression Fix & Persistent Episodic Memory
+## v2.4.1+173 - Built-In AI Image Generator & GitHub API Tools, Mobile Server Coding Mode, LiteRT-LM Models, Android SAF Save-As & Server Runner Fixes
 
 ### Major Features & Fixes
-- **LiteRT-LM (`.litertlm`) Embedded Model Support & `Add from Disk` (`tealkit` v2.2.2+173, `llamadart` 0.20.4, `flutter_ui_mcp_embedded` 1.5.17)**:
+- **Built-In AI Image Generator (`image_generator` / `generate_image`) (`dart_mcp_core` 1.5.15, `flutter_ui_mcp` 1.5.16)**:
+  - Added selectable built-in **AI Image Generator** (`ImageGeneratorMcpServer` + `GenerateImageTool`) across Assistant and Workflows, rendering generated images inline in chat.
+  - Added an **Image Generation Model → Configure** dialog in Assistant Settings supporting Auto, DeepInfra FLUX-1-schnell, Google Gemini (`gemini-2.5-flash-image`), OpenAI (`gpt-image-1`), and custom endpoints with optional dedicated API keys.
+- **Pure-Dart Built-In GitHub API Tool (`github` / `github_*`)**:
+  - Added a pure-Dart GitHub REST API v3 MCP server (`GithubApiMcpServer` on client & `ServerGithubMcp` on server) mimicking `@modelcontextprotocol/server-github` (repos, file contents, create/update file, branches, commits, issues, PRs, code search) with zero Node.js/Docker dependencies.
+  - Added secure local Personal Access Token (`githubToken` + optional `defaultOwner`) storage and UI in both **Data Sources → GitHub (Built-in API)** and **Assistant Settings → Tools → GitHub (Built-in API)**, synced with TealKit Server.
+- **Mobile Coding Mode in Server Mode**:
+  - Enabled **Coding Mode** (`/code`, `/plan`, `/ask`, `/rag`) on Mobile when connected in Server Mode (`isRemote`), executing all 10 coding tools (`fs_*`, `terminal_exec`, `fetch_web`) via sandboxed server endpoints (`GET /api/v1/coding/workspace`, `POST /api/v1/coding/tools/<toolName>`) jailed inside the server's configured files root directory (`TEALKIT_FILES_DIR`), with a mobile **Select Server Workspace** subfolder picker.
+- **Android & iOS SAF Save-As Fix (Downloads / Documents & Any Folder)**:
+  - Updated **Save Session** (`PlaygroundScreen`, `AssistantSessionService`), generated PNG/chart/document saves (`MultimediaMessageWidget`), SFTP downloads (`ChatService`), and backup exports (`ImportExportService`) to use native `FilePicker.saveFile(..., bytes: ...)` (`ACTION_CREATE_DOCUMENT` on Android) so users can choose **Downloads, Documents, or any folder** and edit filenames without `MANAGE_EXTERNAL_STORAGE`.
+  - Fixed Android `content://` URI crashes (`uri.toFilePath()`) across `MultimediaMessageWidget`, `FileDownloadService`, `ImportExportService`, `SkillsListScreen`, and `ToolListExportSheet`.
+- **Headless Server Multi-Turn Workflow Reliability (`server_llm_runner.dart`, `server_internal_mcp.dart`)**:
+  - Raised server tool loop limit `_maxToolIterations` from `15` to `50` and added an automatic **final synthesis turn** (`mcpTools: const []`) when the limit is reached so long multi-turn workflows synthesize their final answer instead of failing with `LLM returned empty response`.
+  - Added missing built-in **`ServerFetchMcp` (`'fetch'`)** and **`ServerGithubMcp` (`'github'`)** to `createServerInternalMcp` so server workflows can fetch GitHub/pub.dev/web URLs directly.
+- **LiteRT-LM (`.litertlm`) Embedded Model Support & `Add from Disk` (`tealkit` v2.2.2+173, `llamadart` 0.20.4, `flutter_ui_mcp_embedded` 1.5.18)**:
   - Added **`GGUF (.gguf)`** and **`LiteRT-LM (.litertlm)`** format filter chips and HuggingFace `.litertlm` repo discovery in `HfDiscoverDialog`, alongside the `Hide too large for CPU (>1.5 GB)` filter.
   - Updated `EmbeddedModelPickerWidget`, `AddGgufDialog`, and `EmbeddedLlmAdapter` with purple **`LiteRT-LM (.litertlm)`** model badges, LiteRT-LM `ModelParams` initialization, **`Add Model URL`** (accepting both `.gguf` and `.litertlm`), and **`Add from Disk`** supporting `.gguf` and `.litertlm` on both desktop and mobile (including local-disk path resolution in `_refresh()` and `_loadModelIntoApp()`).
 - **`tealkit_cli` v1.4.9 & `tealkit-vscode` v0.1.12 (`dart_mcp_core` 1.5.15)**:
@@ -13,7 +27,7 @@ This file tracks release changes by version.
   - **Persistent Episodic Memory Across Restarts**: Persisted `MemoryArchive` blocks to `.tealkit/episodic_memory.json` and restored them automatically on startup so `retrieve_memory` works reliably after VS Code or CLI restarts.
   - **VS Code Extension Polish (`tealkit-vscode` v0.1.12)**: Bundled lean `tealkit.exe` (v1.4.9, 14.39 MB) + `lib/sqlite3.dll` (1.65 MB); fixed `#saved-sessions-list` scrolling in the **Memory** tab so session cards never overlap **Archived Episodic Memories**; and simplified post-write diff cards (`File updated:` + **Review Diff** / **Dismiss**).
 - **Core LLM SDK & Server Updates**:
-  - Upgraded `openai_dart` (`^13.0.0`), `anthropic_sdk_dart` (`^11.0.0`), `googleai_dart` (`^13.1.0`), `ollama_dart` (`^5.0.0`), `flutter_ui_mcp_core` / `flutter_ui_mcp` (`^1.5.15`), `flutter_ui_mcp_embedded` (`^1.5.17`), and `llamadart` (`^0.20.4` app / `^0.20.3` server), plus SQLite adapter refinements in `server/lib/database/server_sqlite_adapter.dart`.
+  - Upgraded `openai_dart` (`^13.0.0`), `anthropic_sdk_dart` (`^11.0.0`), `googleai_dart` (`^13.1.0`), `ollama_dart` (`^5.0.0`), `flutter_ui_mcp_core` / `flutter_ui_mcp` (`^1.5.16`), `flutter_ui_mcp_embedded` (`^1.5.18`), and `llamadart` (`^0.20.4` app / `^0.20.3` server), plus SQLite adapter refinements in `server/lib/database/server_sqlite_adapter.dart`.
 
 ## v2.4.0+170 - Breaking Changes: SQLite + `sqlite_vector` Engine Migration (Bridge Release 1), Desktop Store Light Editions & `llamadart` 0.20.0
 

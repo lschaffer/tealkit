@@ -1306,7 +1306,7 @@ class MultimediaMessageWidget extends StatelessWidget {
     );
 
     if (uri != null) {
-      final savedPath = uri.toFilePath();
+      final savedPath = uri.scheme == 'file' ? uri.toFilePath() : fileName;
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -3681,7 +3681,18 @@ class MultimediaMessageWidget extends StatelessWidget {
 
   Future<bool> _saveFileToDownloads(Uint8List bytes, String fileName) async {
     try {
-      // Desktop/mobile native app download using path_provider
+      // On Android & iOS, use native SAF / Files Save As dialog (ACTION_CREATE_DOCUMENT)
+      // so the user can choose any folder (including Downloads/Documents) and filename.
+      if (Platform.isAndroid || Platform.isIOS) {
+        final uri = await FilePicker.saveFile(
+          dialogTitle: 'Save file',
+          fileName: fileName,
+          bytes: bytes,
+        );
+        return uri != null;
+      }
+
+      // Desktop native app download using path_provider
       Directory? downloadsDir;
       try {
         downloadsDir = await getDownloadsDirectory();
@@ -3697,14 +3708,6 @@ class MultimediaMessageWidget extends StatelessWidget {
       final filePath = '${downloadsDir.path}/$fileName';
       final file = File(filePath);
       await file.writeAsBytes(bytes);
-
-      // Auto-open file with system viewer on mobile
-      if (Platform.isAndroid || Platform.isIOS) {
-        final result = await OpenFile.open(filePath);
-        if (result.type != ResultType.done) {
-          talker.warning('⚠️ Failed to auto-open file: ${result.message}');
-        } else {}
-      }
 
       return true;
     } catch (e) {
@@ -5309,7 +5312,7 @@ class MultimediaMessageWidget extends StatelessWidget {
       );
 
       if (uri != null) {
-        final savedPath = uri.toFilePath();
+        final savedPath = uri.scheme == 'file' ? uri.toFilePath() : defaultFileName;
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

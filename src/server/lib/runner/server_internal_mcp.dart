@@ -110,6 +110,14 @@ Future<ServerInternalMcp?> createServerInternalMcp(
       return wsImpl;
     case 'toolbox':
       return ServerToolboxMcp();
+    case 'fetch':
+      final fetchImpl = ServerFetchMcp();
+      await fetchImpl.initialize(initParams);
+      return fetchImpl;
+    case 'github':
+      final ghImpl = ServerGithubMcp();
+      await ghImpl.initialize(initParams);
+      return ghImpl;
     default:
       return null;
   }
@@ -6857,4 +6865,296 @@ class ServerToolboxMcp extends ServerInternalMcp {
 /// Mutable position cursor used by ServerToolboxMcp expression parser.
 class _ToolboxCursor {
   int pos = 0;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Pure-Dart Web Page Fetcher ('fetch')
+// ═══════════════════════════════════════════════════════════════
+
+class ServerFetchMcp extends ServerInternalMcp {
+  int _defaultMaxLength = 12000;
+  String _customUserAgent = '';
+
+  Future<void> initialize(Map<String, dynamic> initParams) async {
+    _defaultMaxLength = ((initParams['defaultMaxLength'] as num?)?.toInt() ?? 12000)
+        .clamp(100, 100000);
+    _customUserAgent = (initParams['userAgent'] as String? ?? '').trim();
+  }
+
+  @override
+  List<MCPTool> get tools => const [
+    MCPTool(
+      name: 'fetch',
+      description:
+          'Fetches a URL from the internet (HTTP/HTTPS) and returns its content as clean text/markdown or raw text. Supports pagination via start_index and max_length.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'url': {
+            'type': 'string',
+            'description': 'The HTTP or HTTPS URL to fetch.',
+          },
+          'max_length': {
+            'type': 'integer',
+            'default': 12000,
+            'description': 'Maximum number of characters to return (default: 12000).',
+          },
+          'start_index': {
+            'type': 'integer',
+            'default': 0,
+            'description': 'Character offset to start reading from (default: 0).',
+          },
+          'raw': {
+            'type': 'boolean',
+            'default': false,
+            'description': 'If true, returns raw response body without HTML stripping.',
+          },
+        },
+        'required': ['url'],
+      },
+    ),
+  ];
+
+  @override
+  Future<Map<String, dynamic>> callTool(
+    String name,
+    Map<String, dynamic> args,
+  ) async {
+    if (name != 'fetch') return {'error': 'Unknown fetch tool: $name'};
+    final rawUrl = (args['url'] as String? ?? '').trim();
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return {'error': 'Invalid URL: "$rawUrl". Must start with http:// or https://.'};
+    }
+
+    final rawMode = args['raw'] == true;
+    final startIndex = ((args['start_index'] as num?)?.toInt() ?? 0).clamp(0, 10000000);
+    final maxLength = ((args['max_length'] as num?)?.toInt() ?? _defaultMaxLength)
+        .clamp(100, 100000);
+
+    try {
+      final resp = await http
+          .get(
+            uri,
+            headers: {
+              'User-Agent': _customUserAgent.isNotEmpty
+                  ? _customUserAgent
+                  : 'Mozilla/5.0 (compatible; TealKit-Fetch/1.0; ModelContextProtocol/1.0)',
+              'Accept': 'text/html,application/xhtml+xml,application/json,text/plain,*/*;q=0.8',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        return {
+          'url': rawUrl,
+          'status': resp.statusCode,
+          'error': 'HTTP ${resp.statusCode} fetching $rawUrl',
+        };
+      }
+
+      final contentType = (resp.headers['content-type'] ?? '').toLowerCase();
+      String text = utf8.decode(resp.bodyBytes, allowMalformed: true);
+      if (!rawMode && contentType.contains('text/html')) {
+        text = text
+            .replaceAll(RegExp(r'<script[^>]*>[\s\S]*?</script>', caseSensitive: false), ' ')
+            .replaceAll(RegExp(r'<style[^>]*>[\s\S]*?</style>', caseSensitive: false), ' ')
+            .replaceAll(RegExp(r'<[^>]+>'), ' ')
+            .replaceAll(RegExp(r'[ \t]+'), ' ')
+            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+            .trim();
+      }
+
+      final totalLength = text.length;
+      if (startIndex >= totalLength) {
+        return {
+          'url': rawUrl,
+          'status': resp.statusCode,
+          'contents': '',
+          'start_index': startIndex,
+          'total_length': totalLength,
+          'has_more': false,
+        };
+      }
+
+      final endIndex = math.min(startIndex + maxLength, totalLength);
+      final slice = text.substring(startIndex, endIndex);
+      final hasMore = endIndex < totalLength;
+      return {
+        'url': rawUrl,
+        'status': resp.statusCode,
+        'contents': slice,
+        'start_index': startIndex,
+        'end_index': endIndex,
+        'total_length': totalLength,
+        'has_more': hasMore,
+        if (hasMore) 'next_start_index': endIndex,
+      };
+    } catch (e) {
+      return {'error': 'Failed to fetch $rawUrl: $e'};
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Pure-Dart GitHub REST API ('github')
+// ═══════════════════════════════════════════════════════════════
+
+class ServerGithubMcp extends ServerInternalMcp {
+  static const String _apiBase = 'https://api.github.com';
+  String _token = '';
+  String _defaultOwner = '';
+
+  Future<void> initialize(Map<String, dynamic> initParams) async {
+    _token = (initParams['githubToken'] as String? ?? '').trim();
+    _defaultOwner = (initParams['defaultOwner'] as String? ?? '').trim();
+    final ds = ServerDataSourcesService.instance;
+    if (_token.isEmpty) _token = ds.githubToken.trim();
+    if (_defaultOwner.isEmpty) _defaultOwner = ds.githubDefaultOwner.trim();
+  }
+
+  Map<String, String> _headers() => {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'TealKit-Server-GitHub-MCP/1.0',
+    if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+    'Content-Type': 'application/json',
+  };
+
+  @override
+  List<MCPTool> get tools => const [
+    MCPTool(
+      name: 'github_get_me',
+      description: 'Get details of the currently authenticated GitHub user.',
+      inputSchema: {'type': 'object', 'properties': {}, 'required': []},
+    ),
+    MCPTool(
+      name: 'github_list_repositories',
+      description: 'List repositories for the authenticated user or a specific owner.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'owner': {'type': 'string'},
+          'per_page': {'type': 'integer', 'default': 20},
+        },
+        'required': [],
+      },
+    ),
+    MCPTool(
+      name: 'github_get_file_contents',
+      description: 'Get decoded file contents or directory listing from a GitHub repository.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'owner': {'type': 'string'},
+          'repo': {'type': 'string'},
+          'path': {'type': 'string', 'default': ''},
+          'ref': {'type': 'string'},
+        },
+        'required': ['repo'],
+      },
+    ),
+    MCPTool(
+      name: 'github_list_issues',
+      description: 'List issues in a GitHub repository.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'owner': {'type': 'string'},
+          'repo': {'type': 'string'},
+          'state': {'type': 'string', 'default': 'open'},
+          'per_page': {'type': 'integer', 'default': 20},
+        },
+        'required': ['repo'],
+      },
+    ),
+    MCPTool(
+      name: 'github_list_pull_requests',
+      description: 'List pull requests in a GitHub repository.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'owner': {'type': 'string'},
+          'repo': {'type': 'string'},
+          'state': {'type': 'string', 'default': 'open'},
+          'per_page': {'type': 'integer', 'default': 20},
+        },
+        'required': ['repo'],
+      },
+    ),
+  ];
+
+  @override
+  Future<Map<String, dynamic>> callTool(
+    String name,
+    Map<String, dynamic> args,
+  ) async {
+    final ds = ServerDataSourcesService.instance;
+    if (_token.isEmpty) _token = ds.githubToken.trim();
+    if (_defaultOwner.isEmpty) _defaultOwner = ds.githubDefaultOwner.trim();
+
+    try {
+      switch (name) {
+        case 'github_get_me':
+          if (_token.isEmpty) return {'error': 'GitHub token not configured.'};
+          final r = await http.get(Uri.parse('$_apiBase/user'), headers: _headers()).timeout(const Duration(seconds: 30));
+          return jsonDecode(r.body) as Map<String, dynamic>;
+        case 'github_list_repositories':
+          final owner = (args['owner'] as String? ?? '').trim();
+          final perPage = ((args['per_page'] as num?)?.toInt() ?? 20).clamp(1, 100);
+          final path = owner.isNotEmpty ? '/users/$owner/repos' : '/user/repos';
+          final r = await http
+              .get(Uri.parse('$_apiBase$path?sort=updated&per_page=$perPage'), headers: _headers())
+              .timeout(const Duration(seconds: 30));
+          if (r.statusCode < 200 || r.statusCode >= 300) return {'error': 'HTTP ${r.statusCode}: ${r.body}'};
+          return {'repositories': jsonDecode(r.body)};
+        case 'github_get_file_contents':
+          final owner = (args['owner'] as String? ?? _defaultOwner).trim();
+          final repo = (args['repo'] as String? ?? '').trim();
+          if (owner.isEmpty || repo.isEmpty) return {'error': 'owner and repo are required.'};
+          final filePath = (args['path'] as String? ?? '').trim().replaceFirst(RegExp(r'^/+'), '');
+          final ref = (args['ref'] as String? ?? '').trim();
+          final uri = Uri.parse(
+            filePath.isEmpty
+                ? '$_apiBase/repos/$owner/$repo/contents'
+                : '$_apiBase/repos/$owner/$repo/contents/$filePath',
+          ).replace(queryParameters: ref.isNotEmpty ? {'ref': ref} : null);
+          final r = await http.get(uri, headers: _headers()).timeout(const Duration(seconds: 30));
+          if (r.statusCode < 200 || r.statusCode >= 300) return {'error': 'HTTP ${r.statusCode}: ${r.body}'};
+          final decoded = jsonDecode(r.body);
+          if (decoded is List) {
+            return {
+              'type': 'dir',
+              'entries': decoded
+                  .whereType<Map>()
+                  .map((e) => {'name': e['name'], 'path': e['path'], 'type': e['type']})
+                  .toList(),
+            };
+          }
+          final m = decoded as Map<String, dynamic>;
+          var text = '';
+          if (m['encoding'] == 'base64' && m['content'] is String) {
+            text = utf8.decode(base64Decode((m['content'] as String).replaceAll('\n', '')), allowMalformed: true);
+          }
+          return {'type': 'file', 'path': m['path'], 'sha': m['sha'], 'content': text};
+        case 'github_list_issues':
+        case 'github_list_pull_requests':
+          final owner = (args['owner'] as String? ?? _defaultOwner).trim();
+          final repo = (args['repo'] as String? ?? '').trim();
+          if (owner.isEmpty || repo.isEmpty) return {'error': 'owner and repo are required.'};
+          final state = (args['state'] as String? ?? 'open').trim();
+          final perPage = ((args['per_page'] as num?)?.toInt() ?? 20).clamp(1, 50);
+          final endpoint = name == 'github_list_issues' ? 'issues' : 'pulls';
+          final r = await http
+              .get(Uri.parse('$_apiBase/repos/$owner/$repo/$endpoint?state=$state&per_page=$perPage'), headers: _headers())
+              .timeout(const Duration(seconds: 30));
+          if (r.statusCode < 200 || r.statusCode >= 300) return {'error': 'HTTP ${r.statusCode}: ${r.body}'};
+          return {endpoint: jsonDecode(r.body)};
+        default:
+          return {'error': 'Unknown GitHub tool: $name'};
+      }
+    } catch (e) {
+      return {'error': 'GitHub API error: $e'};
+    }
+  }
 }

@@ -105,7 +105,7 @@ class FileDownloadService {
       bytes: bytes,
     );
     if (uri != null) {
-      return uri.toFilePath();
+      return uri.scheme == 'file' ? uri.toFilePath() : fileName;
     }
 
     throw Exception('User cancelled file save');

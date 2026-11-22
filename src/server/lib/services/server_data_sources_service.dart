@@ -171,6 +171,10 @@ class ServerDataSourcesService {
   static const _kHaBaseUrl = '${_p}ha_base_url';
   static const _kHaToken = '${_p}ha_token';
 
+  // ── GitHub (Built-in API) ─────────────────────────
+  static const _kGithubToken = '${_p}github_token';
+  static const _kGithubDefaultOwner = '${_p}github_default_owner';
+
   // ── WhatsApp ──────────────────────────────────────
   static const _kWhatsAppEnabled = '${_p}whatsapp_enabled';
   static const _kWhatsAppMode = '${_p}whatsapp_mode';
@@ -253,6 +257,10 @@ class ServerDataSourcesService {
   // Home Assistant
   String _haBaseUrl = '';
   String _haToken = '';
+
+  // GitHub (Built-in API)
+  String _githubToken = '';
+  String _githubDefaultOwner = '';
 
   // WhatsApp
   bool _whatsAppEnabled = false;
@@ -362,6 +370,11 @@ class ServerDataSourcesService {
   String get haToken => _haToken;
   bool get isHomeAssistantConfigured => _haBaseUrl.isNotEmpty && _haToken.isNotEmpty;
 
+  // GitHub (Built-in API)
+  String get githubToken => _githubToken;
+  String get githubDefaultOwner => _githubDefaultOwner;
+  bool get isGitHubConfigured => _githubToken.isNotEmpty;
+
   // Slack
   bool get slackEnabled => _slackEnabled;
   String get slackWebhookUrl => _slackWebhookUrl;
@@ -465,6 +478,10 @@ class ServerDataSourcesService {
     _haBaseUrl = cfg.getString(_kHaBaseUrl) ?? '';
     _haToken = cfg.getSecret(_kHaToken) ?? '';
 
+    // GitHub (Built-in API)
+    _githubToken = cfg.getSecret(_kGithubToken) ?? '';
+    _githubDefaultOwner = cfg.getString(_kGithubDefaultOwner) ?? '';
+
     // WhatsApp
     _whatsAppEnabled = cfg.getBool(_kWhatsAppEnabled) ?? false;
     _whatsAppMode = cfg.getString(_kWhatsAppMode) ?? 'meta';
@@ -544,6 +561,14 @@ class ServerDataSourcesService {
     final cfg = ServerConfigService();
     await cfg.setString(_kHaBaseUrl, baseUrl);
     await cfg.setSecret(_kHaToken, token);
+  }
+
+  Future<void> setGitHub({required String token, String defaultOwner = ''}) async {
+    _githubToken = token.trim();
+    _githubDefaultOwner = defaultOwner.trim();
+    final cfg = ServerConfigService();
+    await cfg.setSecret(_kGithubToken, _githubToken);
+    await cfg.setString(_kGithubDefaultOwner, _githubDefaultOwner);
   }
 
   Future<void> saveEmail({

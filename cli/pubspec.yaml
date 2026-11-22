@@ -1,6 +1,6 @@
 name: tealkit_cli
 description: "TealKit native CLI — server management, configuration auto-discovery, task runner, and direct skill prompt execution."
-version: 1.4.9
+version: 1.4.10
 publish_to: 'none'
 
 environment:
@@ -14,7 +14,7 @@ dependencies:
   ffi: ^2.1.3
   tealkit_api:
     path: ../api
-  dart_mcp_core: ^1.5.14
+  dart_mcp_core: ^1.5.15
   dartssh2: ^4.1.0
   # Embedded GGUF inference is not bundled in CLI (use external llama.cpp/Ollama/vLLM)
   llamadart:

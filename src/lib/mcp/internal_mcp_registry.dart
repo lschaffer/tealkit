@@ -25,6 +25,8 @@ import 'servers/ssh_mcp_server.dart';
 import 'servers/website_search_mcp_server.dart';
 import 'servers/home_assistant_mcp_server.dart';
 import 'servers/github_mcp_bridge_server.dart';
+import 'servers/github_api_mcp_server.dart';
+import 'servers/image_generator_mcp_server.dart';
 import 'servers/coding_tools_mcp_server.dart';
 import 'servers/fetch_mcp_server.dart';
 import '../services/github_mcp_library_service.dart';
@@ -65,6 +67,8 @@ class InternalMcpRegistry {
     register('ssh', () => SshMcpServer());
     register('excel', () => ExcelMcpServer());
     register('home_assistant', () => HomeAssistantMcpServer());
+    register('github', () => GithubApiMcpServer());
+    register('image_generator', () => ImageGeneratorMcpServer());
     register('mermaid', () => MermaidMcpServer());
     register('js_bridge', () => JsBridgeMcpServer());
 

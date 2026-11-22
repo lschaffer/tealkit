@@ -112,11 +112,253 @@ class BuiltinMcpServers {
     return manager.getStatus();
   }
 
+  /// Built-in AI Image Generator (`generate_image`) from `dart_mcp_core`.
+  static McpLocalTool createImageGeneratorTool() {
+    return GenerateImageTool();
+  }
+
+  /// Pure-Dart GitHub REST API v3 tools (`github_*`), reading `GITHUB_TOKEN`
+  /// (or `GITHUB_PERSONAL_ACCESS_TOKEN`) and optional `GITHUB_DEFAULT_OWNER`
+  /// from `.env` or environment variables.
+  static List<McpLocalTool> createGithubTools() {
+    return [
+      _CliGithubTool(
+        name: 'github_get_me',
+        description: 'Get details of the currently authenticated GitHub user.',
+        inputSchema: const {'type': 'object', 'properties': {}, 'required': []},
+      ),
+      _CliGithubTool(
+        name: 'github_list_repositories',
+        description:
+            'List repositories for the authenticated user or a specific owner.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'sort': {'type': 'string', 'default': 'updated'},
+            'per_page': {'type': 'integer', 'default': 20},
+          },
+          'required': [],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_search_repositories',
+        description: 'Search GitHub repositories by query string.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'query': {'type': 'string'},
+            'per_page': {'type': 'integer', 'default': 15},
+          },
+          'required': ['query'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_get_file_contents',
+        description:
+            'Get decoded UTF-8 file contents (+ sha) or list directory entries in a GitHub repository.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'path': {'type': 'string', 'default': ''},
+            'ref': {'type': 'string'},
+          },
+          'required': ['repo'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_create_or_update_file',
+        description:
+            'Create or update a file in a GitHub repository (requires GITHUB_TOKEN).',
+        riskLevel: ToolRiskLevel.write,
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'path': {'type': 'string'},
+            'content': {'type': 'string'},
+            'message': {'type': 'string'},
+            'branch': {'type': 'string'},
+            'sha': {'type': 'string'},
+          },
+          'required': ['repo', 'path', 'content', 'message'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_list_branches',
+        description: 'List branches in a GitHub repository.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'per_page': {'type': 'integer', 'default': 30},
+          },
+          'required': ['repo'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_create_branch',
+        description: 'Create a new branch in a GitHub repository.',
+        riskLevel: ToolRiskLevel.write,
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'branch': {'type': 'string'},
+            'from_branch': {'type': 'string'},
+          },
+          'required': ['repo', 'branch'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_list_commits',
+        description: 'List recent commits in a GitHub repository.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'sha': {'type': 'string'},
+            'path': {'type': 'string'},
+            'per_page': {'type': 'integer', 'default': 15},
+          },
+          'required': ['repo'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_list_issues',
+        description: 'List issues in a GitHub repository.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'state': {'type': 'string', 'default': 'open'},
+            'labels': {'type': 'string'},
+            'per_page': {'type': 'integer', 'default': 20},
+          },
+          'required': ['repo'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_get_issue',
+        description: 'Get details and comments for a GitHub issue.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'issue_number': {'type': 'integer'},
+          },
+          'required': ['repo', 'issue_number'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_create_issue',
+        description: 'Create a new issue in a GitHub repository.',
+        riskLevel: ToolRiskLevel.write,
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'title': {'type': 'string'},
+            'body': {'type': 'string'},
+            'labels': {
+              'type': 'array',
+              'items': {'type': 'string'},
+            },
+          },
+          'required': ['repo', 'title'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_add_issue_comment',
+        description: 'Add a comment to a GitHub issue or pull request.',
+        riskLevel: ToolRiskLevel.write,
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'issue_number': {'type': 'integer'},
+            'body': {'type': 'string'},
+          },
+          'required': ['repo', 'issue_number', 'body'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_list_pull_requests',
+        description: 'List pull requests in a GitHub repository.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'state': {'type': 'string', 'default': 'open'},
+            'per_page': {'type': 'integer', 'default': 20},
+          },
+          'required': ['repo'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_get_pull_request',
+        description: 'Get details and changed files for a pull request.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'pull_number': {'type': 'integer'},
+          },
+          'required': ['repo', 'pull_number'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_create_pull_request',
+        description: 'Create a new pull request in a GitHub repository.',
+        riskLevel: ToolRiskLevel.write,
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'owner': {'type': 'string'},
+            'repo': {'type': 'string'},
+            'title': {'type': 'string'},
+            'head': {'type': 'string'},
+            'base': {'type': 'string'},
+            'body': {'type': 'string'},
+            'draft': {'type': 'boolean', 'default': false},
+          },
+          'required': ['repo', 'title', 'head', 'base'],
+        },
+      ),
+      _CliGithubTool(
+        name: 'github_search_code',
+        description: 'Search code across GitHub repositories.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'query': {'type': 'string'},
+            'per_page': {'type': 'integer', 'default': 15},
+          },
+          'required': ['query'],
+        },
+      ),
+    ];
+  }
+
   /// Create all built-in tools configured for the workspace.
   static List<McpLocalTool> createAll() {
     return [
       createWebSearchTool(),
       createWebFetchTool(),
+      createImageGeneratorTool(),
+      ...createGithubTools(),
       createMermaidTool(),
       ...createToolboxTools(),
       ...createSshTools(),
@@ -1401,6 +1643,378 @@ class _SshExecuteCommandTool extends McpLocalTool {
       });
     } catch (e) {
       return _toolResultError('SSH execute failed: $e');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. Built-In GitHub REST API v3 Tools (`github_*`)
+// ═══════════════════════════════════════════════════════════════
+
+class _CliGithubTool extends McpLocalTool {
+  static const String _apiBase = 'https://api.github.com';
+
+  @override
+  final String name;
+
+  @override
+  final String description;
+
+  @override
+  final Map<String, dynamic> inputSchema;
+
+  @override
+  final ToolRiskLevel riskLevel;
+
+  _CliGithubTool({
+    required this.name,
+    required this.description,
+    required this.inputSchema,
+    this.riskLevel = ToolRiskLevel.network,
+  });
+
+  String _resolveToken() {
+    final dotEnv = EnvLoader.loadDotEnv();
+    return (dotEnv['GITHUB_TOKEN'] ??
+            dotEnv['GITHUB_PERSONAL_ACCESS_TOKEN'] ??
+            Platform.environment['GITHUB_TOKEN'] ??
+            Platform.environment['GITHUB_PERSONAL_ACCESS_TOKEN'] ??
+            '')
+        .trim();
+  }
+
+  String _resolveDefaultOwner() {
+    final dotEnv = EnvLoader.loadDotEnv();
+    return (dotEnv['GITHUB_DEFAULT_OWNER'] ??
+            Platform.environment['GITHUB_DEFAULT_OWNER'] ??
+            '')
+        .trim();
+  }
+
+  Map<String, String> _headers(String token) => {
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'TealKit-CLI-GitHub-MCP/1.0',
+    if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
+
+  Future<dynamic> _request(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Map<String, dynamic>? body,
+    bool requireToken = false,
+  }) async {
+    final token = _resolveToken();
+    if (requireToken && token.isEmpty) {
+      throw Exception(
+        'GITHUB_TOKEN is not set. Add GITHUB_TOKEN=ghp_... to your .env file or environment.',
+      );
+    }
+    final uri = Uri.parse('$_apiBase$path').replace(
+      queryParameters: query != null && query.isNotEmpty ? query : null,
+    );
+    late http.Response resp;
+    if (method == 'GET') {
+      resp = await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 30));
+    } else if (method == 'POST') {
+      resp = await http
+          .post(uri, headers: _headers(token), body: jsonEncode(body ?? {}))
+          .timeout(const Duration(seconds: 30));
+    } else if (method == 'PUT') {
+      resp = await http
+          .put(uri, headers: _headers(token), body: jsonEncode(body ?? {}))
+          .timeout(const Duration(seconds: 30));
+    } else {
+      throw Exception('Unsupported method: $method');
+    }
+    final decoded = resp.body.isNotEmpty ? jsonDecode(resp.body) : null;
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      final msg = decoded is Map ? (decoded['message'] ?? resp.body) : resp.body;
+      throw Exception('HTTP ${resp.statusCode}: $msg');
+    }
+    return decoded;
+  }
+
+  (String, String) _ownerRepo(Map<String, dynamic> args) {
+    final owner = (args['owner'] as String? ?? _resolveDefaultOwner()).trim();
+    final repo = (args['repo'] as String? ?? '').trim();
+    if (owner.isEmpty) {
+      throw Exception('Parameter "owner" is required (or set GITHUB_DEFAULT_OWNER).');
+    }
+    if (repo.isEmpty) {
+      throw Exception('Parameter "repo" is required.');
+    }
+    return (owner, repo);
+  }
+
+  @override
+  Future<MCPToolResult> execute(Map<String, dynamic> arguments) async {
+    try {
+      switch (name) {
+        case 'github_get_me':
+          final data = await _request('GET', '/user', requireToken: true) as Map<String, dynamic>;
+          return _toolResultJson({
+            'login': data['login'],
+            'name': data['name'],
+            'email': data['email'],
+            'html_url': data['html_url'],
+          });
+        case 'github_list_repositories':
+          final owner = (arguments['owner'] as String? ?? '').trim();
+          final sort = (arguments['sort'] as String? ?? 'updated').trim();
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 20).clamp(1, 100);
+          final data = await _request(
+            'GET',
+            owner.isNotEmpty ? '/users/$owner/repos' : '/user/repos',
+            query: {'sort': sort, 'per_page': '$perPage'},
+            requireToken: owner.isEmpty,
+          ) as List;
+          return _toolResultJson({
+            'repositories': data.map((r) {
+              final m = r as Map<String, dynamic>;
+              return {
+                'full_name': m['full_name'],
+                'description': m['description'],
+                'default_branch': m['default_branch'],
+                'language': m['language'],
+                'html_url': m['html_url'],
+              };
+            }).toList(),
+          });
+        case 'github_search_repositories':
+          final q = (arguments['query'] as String? ?? '').trim();
+          if (q.isEmpty) return _toolResultError('Parameter "query" is required.');
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 15).clamp(1, 50);
+          final data = await _request(
+            'GET',
+            '/search/repositories',
+            query: {'q': q, 'per_page': '$perPage'},
+          ) as Map<String, dynamic>;
+          return _toolResultJson({
+            'total_count': data['total_count'],
+            'repositories': (data['items'] as List? ?? []).map((r) {
+              final m = r as Map<String, dynamic>;
+              return {
+                'full_name': m['full_name'],
+                'description': m['description'],
+                'stargazers_count': m['stargazers_count'],
+                'html_url': m['html_url'],
+              };
+            }).toList(),
+          });
+        case 'github_get_file_contents':
+          final (owner, repo) = _ownerRepo(arguments);
+          final filePath = (arguments['path'] as String? ?? '').trim().replaceFirst(RegExp(r'^/+'), '');
+          final ref = (arguments['ref'] as String? ?? '').trim();
+          final endpoint = filePath.isEmpty
+              ? '/repos/$owner/$repo/contents'
+              : '/repos/$owner/$repo/contents/$filePath';
+          final data = await _request('GET', endpoint, query: ref.isNotEmpty ? {'ref': ref} : null);
+          if (data is List) {
+            return _toolResultJson({
+              'type': 'dir',
+              'entries': data.map((e) {
+                final m = e as Map<String, dynamic>;
+                return {'name': m['name'], 'path': m['path'], 'type': m['type'], 'sha': m['sha']};
+              }).toList(),
+            });
+          }
+          final m = data as Map<String, dynamic>;
+          var decodedText = '';
+          if (m['encoding'] == 'base64' && m['content'] is String) {
+            decodedText = utf8.decode(
+              base64Decode((m['content'] as String).replaceAll('\n', '')),
+              allowMalformed: true,
+            );
+          }
+          return _toolResultJson({
+            'type': m['type'] ?? 'file',
+            'path': m['path'],
+            'sha': m['sha'],
+            'content': decodedText,
+          });
+        case 'github_create_or_update_file':
+          final (owner, repo) = _ownerRepo(arguments);
+          final filePath = (arguments['path'] as String? ?? '').trim().replaceFirst(RegExp(r'^/+'), '');
+          final content = arguments['content'] as String? ?? '';
+          final message = (arguments['message'] as String? ?? '').trim();
+          final branch = (arguments['branch'] as String? ?? '').trim();
+          final sha = (arguments['sha'] as String? ?? '').trim();
+          final res = await _request(
+            'PUT',
+            '/repos/$owner/$repo/contents/$filePath',
+            body: {
+              'message': message,
+              'content': base64Encode(utf8.encode(content)),
+              if (branch.isNotEmpty) 'branch': branch,
+              if (sha.isNotEmpty) 'sha': sha,
+            },
+            requireToken: true,
+          ) as Map<String, dynamic>;
+          return _toolResultJson({
+            'success': true,
+            'path': (res['content'] as Map?)?['path'] ?? filePath,
+            'sha': (res['content'] as Map?)?['sha'],
+            'commit_sha': (res['commit'] as Map?)?['sha'],
+          });
+        case 'github_list_branches':
+          final (owner, repo) = _ownerRepo(arguments);
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 30).clamp(1, 100);
+          final data = await _request('GET', '/repos/$owner/$repo/branches', query: {'per_page': '$perPage'}) as List;
+          return _toolResultJson({
+            'branches': data.map((b) {
+              final m = b as Map<String, dynamic>;
+              return {'name': m['name'], 'sha': (m['commit'] as Map?)?['sha']};
+            }).toList(),
+          });
+        case 'github_create_branch':
+          final (owner, repo) = _ownerRepo(arguments);
+          final newBranch = (arguments['branch'] as String? ?? '').trim();
+          var fromBranch = (arguments['from_branch'] as String? ?? '').trim();
+          if (fromBranch.isEmpty) {
+            final info = await _request('GET', '/repos/$owner/$repo') as Map<String, dynamic>;
+            fromBranch = (info['default_branch'] as String?) ?? 'main';
+          }
+          final refData = await _request('GET', '/repos/$owner/$repo/git/ref/heads/$fromBranch', requireToken: true) as Map<String, dynamic>;
+          final sha = (refData['object'] as Map)['sha'] as String;
+          final created = await _request(
+            'POST',
+            '/repos/$owner/$repo/git/refs',
+            body: {'ref': 'refs/heads/$newBranch', 'sha': sha},
+            requireToken: true,
+          ) as Map<String, dynamic>;
+          return _toolResultJson({'success': true, 'branch': newBranch, 'sha': sha, 'ref': created['ref']});
+        case 'github_list_commits':
+          final (owner, repo) = _ownerRepo(arguments);
+          final sha = (arguments['sha'] as String? ?? '').trim();
+          final path = (arguments['path'] as String? ?? '').trim();
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 15).clamp(1, 50);
+          final data = await _request(
+            'GET',
+            '/repos/$owner/$repo/commits',
+            query: {'per_page': '$perPage', if (sha.isNotEmpty) 'sha': sha, if (path.isNotEmpty) 'path': path},
+          ) as List;
+          return _toolResultJson({
+            'commits': data.map((c) {
+              final m = c as Map<String, dynamic>;
+              final commit = m['commit'] as Map? ?? {};
+              return {'sha': m['sha'], 'message': commit['message'], 'date': (commit['author'] as Map?)?['date']};
+            }).toList(),
+          });
+        case 'github_list_issues':
+          final (owner, repo) = _ownerRepo(arguments);
+          final state = (arguments['state'] as String? ?? 'open').trim();
+          final labels = (arguments['labels'] as String? ?? '').trim();
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 20).clamp(1, 50);
+          final data = await _request(
+            'GET',
+            '/repos/$owner/$repo/issues',
+            query: {'state': state, 'per_page': '$perPage', if (labels.isNotEmpty) 'labels': labels},
+          ) as List;
+          return _toolResultJson({
+            'issues': data
+                .where((i) => (i as Map)['pull_request'] == null)
+                .map((i) {
+                  final m = i as Map<String, dynamic>;
+                  return {'number': m['number'], 'title': m['title'], 'state': m['state'], 'html_url': m['html_url']};
+                })
+                .toList(),
+          });
+        case 'github_get_issue':
+          final (owner, repo) = _ownerRepo(arguments);
+          final numVal = (arguments['issue_number'] as num).toInt();
+          final issue = await _request('GET', '/repos/$owner/$repo/issues/$numVal') as Map<String, dynamic>;
+          final comments = await _request('GET', '/repos/$owner/$repo/issues/$numVal/comments', query: {'per_page': '20'}) as List;
+          return _toolResultJson({
+            'number': issue['number'],
+            'title': issue['title'],
+            'state': issue['state'],
+            'body': issue['body'],
+            'comments': comments.map((c) => {'user': ((c as Map)['user'] as Map?)?['login'], 'body': c['body']}).toList(),
+          });
+        case 'github_create_issue':
+          final (owner, repo) = _ownerRepo(arguments);
+          final created = await _request(
+            'POST',
+            '/repos/$owner/$repo/issues',
+            body: {
+              'title': arguments['title'],
+              if ((arguments['body'] as String? ?? '').isNotEmpty) 'body': arguments['body'],
+              if (arguments['labels'] is List) 'labels': arguments['labels'],
+            },
+            requireToken: true,
+          ) as Map<String, dynamic>;
+          return _toolResultJson({'success': true, 'number': created['number'], 'html_url': created['html_url']});
+        case 'github_add_issue_comment':
+          final (owner, repo) = _ownerRepo(arguments);
+          final numVal = (arguments['issue_number'] as num).toInt();
+          final created = await _request(
+            'POST',
+            '/repos/$owner/$repo/issues/$numVal/comments',
+            body: {'body': arguments['body']},
+            requireToken: true,
+          ) as Map<String, dynamic>;
+          return _toolResultJson({'success': true, 'id': created['id'], 'html_url': created['html_url']});
+        case 'github_list_pull_requests':
+          final (owner, repo) = _ownerRepo(arguments);
+          final state = (arguments['state'] as String? ?? 'open').trim();
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 20).clamp(1, 50);
+          final data = await _request(
+            'GET',
+            '/repos/$owner/$repo/pulls',
+            query: {'state': state, 'per_page': '$perPage'},
+          ) as List;
+          return _toolResultJson({
+            'pull_requests': data.map((pr) {
+              final m = pr as Map<String, dynamic>;
+              return {'number': m['number'], 'title': m['title'], 'state': m['state'], 'html_url': m['html_url']};
+            }).toList(),
+          });
+        case 'github_get_pull_request':
+          final (owner, repo) = _ownerRepo(arguments);
+          final numVal = (arguments['pull_number'] as num).toInt();
+          final pr = await _request('GET', '/repos/$owner/$repo/pulls/$numVal') as Map<String, dynamic>;
+          final files = await _request('GET', '/repos/$owner/$repo/pulls/$numVal/files', query: {'per_page': '30'}) as List;
+          return _toolResultJson({
+            'number': pr['number'],
+            'title': pr['title'],
+            'state': pr['state'],
+            'body': pr['body'],
+            'files': files.map((f) => {'filename': (f as Map)['filename'], 'status': f['status']}).toList(),
+          });
+        case 'github_create_pull_request':
+          final (owner, repo) = _ownerRepo(arguments);
+          final created = await _request(
+            'POST',
+            '/repos/$owner/$repo/pulls',
+            body: {
+              'title': arguments['title'],
+              'head': arguments['head'],
+              'base': arguments['base'],
+              if ((arguments['body'] as String? ?? '').isNotEmpty) 'body': arguments['body'],
+              if (arguments['draft'] == true) 'draft': true,
+            },
+            requireToken: true,
+          ) as Map<String, dynamic>;
+          return _toolResultJson({'success': true, 'number': created['number'], 'html_url': created['html_url']});
+        case 'github_search_code':
+          final q = (arguments['query'] as String? ?? '').trim();
+          final perPage = ((arguments['per_page'] as num?)?.toInt() ?? 15).clamp(1, 50);
+          final data = await _request('GET', '/search/code', query: {'q': q, 'per_page': '$perPage'}, requireToken: true) as Map<String, dynamic>;
+          return _toolResultJson({
+            'total_count': data['total_count'],
+            'items': (data['items'] as List? ?? []).map((i) {
+              final m = i as Map<String, dynamic>;
+              return {'name': m['name'], 'path': m['path'], 'repository': (m['repository'] as Map?)?['full_name'], 'html_url': m['html_url']};
+            }).toList(),
+          });
+        default:
+          return _toolResultError('Unknown GitHub tool: $name');
+      }
+    } catch (e) {
+      return _toolResultError('GitHub API error: $e');
     }
   }
 }

@@ -1330,4 +1330,42 @@ class ServerApiClient {
     final body = jsonDecode(r.body) as Map<String, dynamic>;
     return (body['added'] as num?)?.toInt() ?? 0;
   }
+
+  // ── Remote Coding Workspace (Mobile Server Mode) ─────────────
+
+  /// Returns `{ root_dir, current_dir, parent_dir, subdirectories: [{name, path}] }`
+  /// jailed inside the server's configured files root directory.
+  Future<Map<String, dynamic>> getServerCodingWorkspace({String? path}) async {
+    final q = (path != null && path.trim().isNotEmpty)
+        ? '?path=${Uri.encodeQueryComponent(path.trim())}'
+        : '';
+    final r = await http
+        .get(Uri.parse(_url('/api/v1/coding/workspace$q')), headers: _headers)
+        .timeout(_timeout);
+    _checkStatus(r);
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  /// Executes a coding tool (`fs_*`, `terminal_exec`, `fetch_web`) on the server
+  /// inside [workspace] (jailed to the server's configured files root directory).
+  Future<Map<String, dynamic>> executeServerCodingTool(
+    String toolName, {
+    required String workspace,
+    required Map<String, dynamic> arguments,
+  }) async {
+    final r = await http
+        .post(
+          Uri.parse(
+            _url('/api/v1/coding/tools/${Uri.encodeComponent(toolName)}'),
+          ),
+          headers: _headers,
+          body: jsonEncode({
+            'workspace': workspace,
+            'arguments': arguments,
+          }),
+        )
+        .timeout(const Duration(seconds: 150));
+    _checkStatus(r);
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
 }

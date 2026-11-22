@@ -16,6 +16,7 @@ import 'package:tealkit_server/models/agentic_task.dart';
 import 'package:tealkit_server/runner/server_mcp_client.dart';
 import 'package:tealkit_server/runner/server_embedded_types.dart';
 import 'package:tealkit_server/runner/server_task_runner.dart';
+import 'package:tealkit_server/runner/server_coding_tools.dart';
 import 'package:tealkit_server/runner/server_internal_mcp.dart';
 import 'package:tealkit_server/runner/server_tool_registry.dart';
 import 'package:tealkit_server/scheduler/server_scheduler.dart';
@@ -812,6 +813,10 @@ Future<void> startHttpServer({
     '/api/v1/playground/sessions/<id>',
     _handleDeletePlaygroundSession,
   );
+
+  // ── Remote Coding Workspace (Mobile Server Mode) ──────────────
+  router.get('/api/v1/coding/workspace', _handleGetCodingWorkspace);
+  router.post('/api/v1/coding/tools/<toolName>', _handleExecuteCodingTool);
 
   final handler = Pipeline()
       .addMiddleware(logRequests())
@@ -2699,6 +2704,7 @@ Future<Response> _handleGetDataSourcesSettings(Request request) async {
       'default_channel': ds.slackDefaultChannel,
     },
     'home_assistant': {'base_url': ds.haBaseUrl, 'token': ds.haToken},
+    'github': {'token': ds.githubToken, 'default_owner': ds.githubDefaultOwner},
     'whatsapp': {
       'enabled': ds.whatsAppEnabled,
       'mode': ds.whatsAppMode,
@@ -2810,6 +2816,13 @@ Future<Response> _handlePutDataSourcesSettings(Request request) async {
       await ds.setHomeAssistant(
         baseUrl: ha['base_url'] as String? ?? '',
         token: ha['token'] as String? ?? '',
+      );
+    }
+    if (body.containsKey('github')) {
+      final gh = body['github'] as Map<String, dynamic>;
+      await ds.setGitHub(
+        token: gh['token'] as String? ?? '',
+        defaultOwner: gh['default_owner'] as String? ?? '',
       );
     }
     if (body.containsKey('whatsapp')) {
@@ -4967,5 +4980,51 @@ Future<Response> _handleGenerateSampleSubagents(Request request) async {
       body: jsonEncode({'error': e.toString()}),
       headers: {'content-type': 'application/json'},
     );
+  }
+}
+
+// ── Remote Coding Workspace (Mobile Server Mode) ──────────────
+
+Future<Response> _handleGetCodingWorkspace(Request request) async {
+  try {
+    final rootDir = resolveServerFilesDir();
+    final requestedPath = request.url.queryParameters['path'];
+    final data = await ServerCodingTools.listWorkspaceFolders(
+      rootDir,
+      currentPath: requestedPath,
+    );
+    return _json(data);
+  } on ArgumentError catch (e) {
+    return _jsonError(e.message?.toString() ?? e.toString(), status: 400);
+  } catch (e) {
+    log.error('[API] GET /coding/workspace failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
+}
+
+Future<Response> _handleExecuteCodingTool(
+  Request request,
+  String toolName,
+) async {
+  final body = await _parseJsonBody(request);
+  if (body == null) return _jsonError('Invalid or missing JSON body');
+  try {
+    final rootDir = resolveServerFilesDir();
+    final workspace = (body['workspace'] as String? ?? '').trim();
+    final rawArgs = body['arguments'];
+    final arguments = rawArgs is Map
+        ? Map<String, dynamic>.from(rawArgs)
+        : <String, dynamic>{};
+
+    final result = await ServerCodingTools.executeTool(
+      toolName,
+      rootDir: rootDir,
+      workspace: workspace,
+      arguments: arguments,
+    );
+    return _json(result);
+  } catch (e) {
+    log.error('[API] POST /coding/tools/$toolName failed: $e');
+    return _jsonError(e.toString(), status: 500);
   }
 }

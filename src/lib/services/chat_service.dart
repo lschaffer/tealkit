@@ -6986,48 +6986,24 @@ CRITICAL RULES:
       }
       final bytes = base64Decode(b64);
 
-      // Save to device — dialog on desktop, direct-to-Downloads on mobile
-      // (FilePicker.saveFile returns null on Android even on success, so we skip
-      // the dialog there and save directly to the standard Downloads folder.)
+      // Save to device via native Save As dialog (SAF ACTION_CREATE_DOCUMENT on Android,
+      // Files on iOS, native dialog on desktop) so any folder including Downloads/Documents works.
       String? savedPath;
       try {
-        final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-        if (isMobile) {
-          // Mobile: always save to Downloads — no dialog needed
-          late Directory dir;
-          if (Platform.isAndroid) {
-            dir = Directory('/storage/emulated/0/Download');
-            if (!await dir.exists()) {
-              dir =
-                  (await getExternalStorageDirectory()) ??
-                  await getApplicationDocumentsDirectory();
-            }
-          } else {
-            dir = await getApplicationDocumentsDirectory();
-          }
-          final outFile = File('${dir.path}/$fileName');
-          await outFile.writeAsBytes(bytes, flush: true);
-          savedPath = outFile.path;
+        final uri = await FilePicker.saveFile(
+          dialogTitle: 'Save downloaded file',
+          fileName: fileName,
+          bytes: bytes,
+        );
+        if (uri != null) {
+          savedPath = uri.scheme == 'file' ? uri.toFilePath() : fileName;
           talker.info(
-            'SFTP download saved (mobile): $savedPath (${bytes.length} bytes)',
+            'SFTP download saved: $savedPath (${bytes.length} bytes)',
           );
         } else {
-          // Desktop: ask the user where to save
-          final uri = await FilePicker.saveFile(
-            dialogTitle: 'Save downloaded file',
-            fileName: fileName,
-            bytes: bytes,
+          talker.info(
+            'SFTP download: user cancelled save dialog for $fileName',
           );
-          if (uri != null) {
-            savedPath = uri.toFilePath();
-            talker.info(
-              'SFTP download saved (desktop): $savedPath (${bytes.length} bytes)',
-            );
-          } else {
-            talker.info(
-              'SFTP download: user cancelled save dialog for $fileName',
-            );
-          }
         }
       } catch (e) {
         talker.error('SFTP download save failed: $e');

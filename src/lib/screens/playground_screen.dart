@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -75,7 +76,16 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   late final TealKitDatabaseStorageDelegate _storageDelegate;
   late final PlaygroundController _controller;
   String _workspaceDirectory = Directory.current.path;
+  String? _serverCodingRootDir;
   late List<McpLocalTool> _localTools;
+
+  bool get _isDesktopPlatform =>
+      !kIsWeb &&
+      (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+  bool get _isRemoteMobileCoding =>
+      !_isDesktopPlatform &&
+      (ref.read(serverModeProvider).value?.isRemote ?? false);
 
   bool _isCodingMode = false;
   String _codingSubMode = '/code';
@@ -109,6 +119,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     tk_llm.LlmSettingsService.instance.addListener(_onTealKitLlmSettingsChanged);
     _controller.addListener(_onControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncRemoteCodingWorkspaceIfNeeded();
       _checkPromptContinueLastSession();
     });
   }
@@ -161,12 +172,205 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   }
 
   void _refreshTools() {
+    final serverClient = _isRemoteMobileCoding
+        ? ref.read(serverApiClientProvider)
+        : null;
     _localTools = TealKitToolsBuilder.buildAllTools(
       workspaceDirectory: _workspaceDirectory,
+      serverClient: serverClient,
     );
     try {
       _controller.updateLocalTools(_localTools);
     } catch (_) {}
+  }
+
+  Future<void> _syncRemoteCodingWorkspaceIfNeeded() async {
+    if (_isDisposed || !mounted || _isDesktopPlatform) return;
+    final isRemote = ref.read(serverModeProvider).value?.isRemote ?? false;
+    final serverClient = ref.read(serverApiClientProvider);
+    if (!isRemote || serverClient == null) {
+      if (_isCodingMode) {
+        _exitCodingMode(context, showSnackbar: false);
+      }
+      _serverCodingRootDir = null;
+      _refreshTools();
+      return;
+    }
+
+    try {
+      final info = await serverClient.getServerCodingWorkspace();
+      final rootDir = (info['root_dir'] as String? ?? '').trim();
+      if (rootDir.isNotEmpty && mounted) {
+        setState(() {
+          _serverCodingRootDir = rootDir;
+          if (_workspaceDirectory.isEmpty ||
+              _workspaceDirectory == Directory.current.path ||
+              !_workspaceDirectory.startsWith(rootDir)) {
+            _workspaceDirectory = rootDir;
+          }
+          _controller.workspaceDirectory = _workspaceDirectory;
+          _refreshTools();
+        });
+        if (_isCodingMode) {
+          _applyCodingSubMode(_codingSubMode);
+        }
+      }
+    } catch (_) {
+      // Server may not be reachable yet; will retry when entering Coding Mode.
+    }
+  }
+
+  Future<void> _pickRemoteServerWorkspaceFolder() async {
+    final serverClient = ref.read(serverApiClientProvider);
+    if (serverClient == null) return;
+
+    var currentDir = _workspaceDirectory.isNotEmpty
+        ? _workspaceDirectory
+        : (_serverCodingRootDir ?? '');
+    String rootDir = _serverCodingRootDir ?? '';
+    String? parentDir;
+    List<Map<String, String>> subdirs = [];
+    String? loadError;
+    bool loading = true;
+
+    Future<void> loadFolder(String? target, StateSetter setDialogState) async {
+      setDialogState(() {
+        loading = true;
+        loadError = null;
+      });
+      try {
+        final data = await serverClient.getServerCodingWorkspace(path: target);
+        rootDir = (data['root_dir'] as String? ?? '').trim();
+        currentDir = (data['current_dir'] as String? ?? rootDir).trim();
+        parentDir = (data['parent_dir'] as String?)?.trim();
+        final rawList = data['subdirectories'] as List? ?? const [];
+        subdirs = rawList
+            .whereType<Map>()
+            .map(
+              (m) => {
+                'name': (m['name'] ?? '').toString(),
+                'path': (m['path'] ?? '').toString(),
+              },
+            )
+            .where((m) => m['path']!.isNotEmpty)
+            .toList();
+      } catch (e) {
+        loadError = e.toString();
+      } finally {
+        setDialogState(() => loading = false);
+      }
+    }
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        bool initialized = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            if (!initialized) {
+              initialized = true;
+              unawaited(loadFolder(currentDir.isNotEmpty ? currentDir : null, setDialogState));
+            }
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.folder_open, color: Color(0xFFEA580C), size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Select Server Workspace',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 360,
+                height: 360,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentDir.isNotEmpty ? currentDir : 'Loading server root...',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    if (parentDir != null && parentDir!.isNotEmpty)
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.arrow_upward, size: 18),
+                        title: const Text('.. (Parent folder)'),
+                        onTap: loading ? null : () => loadFolder(parentDir, setDialogState),
+                      ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: loading
+                          ? const Center(child: CircularProgressIndicator())
+                          : loadError != null
+                              ? Center(
+                                  child: Text(
+                                    loadError!,
+                                    style: TextStyle(color: AppTheme.error, fontSize: 12),
+                                  ),
+                                )
+                              : subdirs.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        'No subfolders here.\nYou can use this folder as workspace.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: subdirs.length,
+                                      itemBuilder: (_, i) {
+                                        final entry = subdirs[i];
+                                        return ListTile(
+                                          dense: true,
+                                          leading: const Icon(
+                                            Icons.folder_outlined,
+                                            color: Color(0xFFFB923C),
+                                            size: 18,
+                                          ),
+                                          title: Text(entry['name']!),
+                                          onTap: () => loadFolder(entry['path'], setDialogState),
+                                        );
+                                      },
+                                    ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: currentDir.isEmpty
+                      ? null
+                      : () => Navigator.of(ctx).pop(currentDir),
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Use this folder'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null && selected.isNotEmpty && mounted) {
+      setState(() {
+        if (rootDir.isNotEmpty) _serverCodingRootDir = rootDir;
+        _workspaceDirectory = selected;
+        _controller.workspaceDirectory = selected;
+        _refreshTools();
+      });
+      _applyCodingSubMode(_codingSubMode);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -233,17 +437,56 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       workspaceDirectory: _isCodingMode ? _workspaceDirectory : null,
     );
     final defaultFileName = sessionService.generateFilename();
-    final defaultPath = p.join(defaultDir, defaultFileName);
+    final jsonBytes = Uint8List.fromList(
+      utf8.encode(const JsonEncoder.withIndent('  ').convert(sessionData.toJson())),
+    );
 
     try {
-      final savedFile = await sessionService.saveSession(sessionData, defaultPath);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Session saved to ${savedFile.path}'),
-            backgroundColor: AppTheme.success,
-          ),
+      final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+      if (isMobile) {
+        // On Android/iOS, FilePicker.saveFile opens the native SAF / Files
+        // Save dialog (ACTION_CREATE_DOCUMENT on Android) where the user can
+        // pick any folder (including Downloads/Documents) and edit the filename,
+        // and writes `bytes` directly without needing MANAGE_EXTERNAL_STORAGE.
+        final savedUri = await FilePicker.saveFile(
+          dialogTitle: 'Save Session (.json)',
+          fileName: defaultFileName,
+          bytes: jsonBytes,
         );
+        if (savedUri == null) return; // user cancelled
+        if (mounted) {
+          final displayTarget = savedUri.scheme == 'file'
+              ? savedUri.toFilePath()
+              : (savedUri.pathSegments.isNotEmpty
+                    ? savedUri.pathSegments.last
+                    : defaultFileName);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Session saved: $displayTarget'),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
+      } else {
+        final savedUri = await FilePicker.saveFile(
+          dialogTitle: 'Save Session (.json)',
+          fileName: defaultFileName,
+          initialDirectory: Directory(defaultDir).existsSync() ? defaultDir : null,
+          bytes: jsonBytes,
+        );
+        if (savedUri == null) return; // user cancelled
+        final targetPath = savedUri.scheme == 'file'
+            ? savedUri.toFilePath()
+            : savedUri.toString();
+        final savedFile = await sessionService.saveSession(sessionData, targetPath);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Session saved to ${savedFile.path}'),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -444,6 +687,13 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _previousSystemPrompt = _controller.systemPrompt;
     _previousEnabledTools = Set<String>.from(_controller.enabledToolNames);
 
+    if (_isRemoteMobileCoding) {
+      _refreshTools();
+      if (_serverCodingRootDir == null) {
+        unawaited(_syncRemoteCodingWorkspaceIfNeeded());
+      }
+    }
+
     _controller.chatMode = false;
     for (final t in _kCodingToolNames) {
       _controller.toggleToolEnabled(t, true);
@@ -490,10 +740,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _controller.workspaceDirectory = _workspaceDirectory;
 
     final isWin = Platform.isWindows;
-    final osNotice = isWin
-        ? 'HOST OS: Windows (${Platform.operatingSystemVersion}). Terminal commands execute via CMD/PowerShell. '
-          'Do NOT use Linux commands like "cat", "grep", "ls -la", "touch". Use pure-Dart tools (fs_read_file, fs_find).'
-        : 'HOST OS: POSIX (${Platform.operatingSystem}). Standard shell commands supported.';
+    final osNotice = _isRemoteMobileCoding
+        ? 'REMOTE SERVER WORKSPACE: File operations (fs_*) and terminal_exec execute on the connected TealKit Server inside "$_workspaceDirectory" (under the server root directory).'
+        : isWin
+            ? 'HOST OS: Windows (${Platform.operatingSystemVersion}). Terminal commands execute via CMD/PowerShell. '
+              'Do NOT use Linux commands like "cat", "grep", "ls -la", "touch". Use pure-Dart tools (fs_read_file, fs_find).'
+            : 'HOST OS: POSIX (${Platform.operatingSystem}). Standard shell commands supported.';
 
     if (mode == '/rag') {
       // 1. Strictly disable all filesystem and terminal tools in RAG mode
@@ -660,7 +912,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   Widget _buildAssistantModeDropdown(
     BuildContext context,
     PlaygroundController controller, {
-    required bool isDesktop,
+    required bool canUseCodingMode,
     required bool isCompact,
   }) {
     final mode = _currentAssistantMode;
@@ -790,13 +1042,15 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       onSelected: (selected) => _selectAssistantMode(context, selected),
       position: PopupMenuPosition.under,
       itemBuilder: (ctx) => [
-        if (isDesktop)
+        if (canUseCodingMode)
           buildMenuItem(
             value: _AssistantMode.coding,
             icon: Icons.terminal_rounded,
             color: const Color(0xFFFB923C),
             title: 'Coding Mode',
-            subtitle: 'Workspace files, terminal & /code /plan /ask /rag',
+            subtitle: _isRemoteMobileCoding
+                ? 'Server workspace files, terminal & /code /plan /ask /rag'
+                : 'Workspace files, terminal & /code /plan /ask /rag',
           ),
         buildMenuItem(
           value: _AssistantMode.agent,
@@ -1015,9 +1269,9 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   Widget _buildBottomUtilityBar(
     BuildContext context,
     PlaygroundController controller, {
-    required bool isDesktop,
+    required bool canUseCodingMode,
   }) {
-    if (isDesktop && _isCodingMode) {
+    if (canUseCodingMode && _isCodingMode) {
       return _buildCodingModeBar(context, controller);
     }
 
@@ -1098,6 +1352,10 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
             InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () async {
+                if (_isRemoteMobileCoding) {
+                  await _pickRemoteServerWorkspaceFolder();
+                  return;
+                }
                 final selected = await FilePicker.getDirectoryPath();
                 if (selected != null && mounted) {
                   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
@@ -2116,14 +2374,17 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
               prevVal.serverUrl != nextVal.serverUrl)) {
         _hasSessionLlmOverride = false;
         _syncDefaultLlmFromSettings();
+        unawaited(_syncRemoteCodingWorkspaceIfNeeded());
       }
     });
 
+    final isRemoteServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
     final isDesktopPlatform = !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.linux ||
             defaultTargetPlatform == TargetPlatform.macOS);
     final isDesktop = isDesktopPlatform && MediaQuery.of(context).size.width >= 900;
+    final canUseCodingMode = isDesktop || isRemoteServerMode;
 
     // TealKit unified dark color theme inherited across all dialogs, popups, and components
     final tealKitTheme = ThemeData.dark().copyWith(
@@ -2214,7 +2475,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           );
         },
         inputTopWidgetBuilder: (ctx, ctrl) {
-          return _buildBottomUtilityBar(ctx, ctrl, isDesktop: isDesktop);
+          return _buildBottomUtilityBar(ctx, ctrl, canUseCodingMode: canUseCodingMode);
         },
         topBarBuilder: (ctx, controller, actions) {
           final l = L.of(ctx);
@@ -2263,7 +2524,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   _buildAssistantModeDropdown(
                     ctx,
                     controller,
-                    isDesktop: isDesktop,
+                    canUseCodingMode: canUseCodingMode,
                     isCompact: isCompactHeader,
                   ),
                 ],

@@ -820,7 +820,7 @@ Comprehensive .NET skill for WinForms modernization, backend services refactorin
       bytes: bytes,
     );
     if (uri == null) return;
-    final outputPath = uri.toFilePath();
+    final outputPath = uri.scheme == 'file' ? uri.toFilePath() : '$safeName.md';
 
     try {
       if (mounted) {

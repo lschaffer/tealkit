@@ -956,7 +956,7 @@ List<dynamic> _splitLooseArrayString(String input) {
 // ═══════════════════════════════════════════════════════════════
 
 class ServerLlmRunner {
-  static const int _maxToolIterations = 15;
+  static const int _maxToolIterations = 50;
   static const Duration _embeddedQueueTimeout = Duration(minutes: 3);
   static const Duration _embeddedLoadTimeout = Duration(minutes: 2);
   static const Duration _embeddedGenerationTimeout = Duration(minutes: 5);
@@ -1790,6 +1790,46 @@ class ServerLlmRunner {
       }
     }
 
+    // If the loop reached _maxToolIterations while still calling tools, give
+    // the model one final synthesis turn with tools disabled so it can produce
+    // a complete answer from the gathered tool results instead of failing with
+    // "LLM returned empty response".
+    if (!sawFinalResponse && finalContent.isEmpty && toolCallCount > 0) {
+      log.warning(
+        '[LlmRunner] Reached max tool iterations ($_maxToolIterations) — running final synthesis turn without tools.',
+      );
+      _liveLog(
+        'Reached max tool iterations ($_maxToolIterations) — synthesizing final response from gathered tool results...',
+      );
+      history.add(
+        LlmChatMessage.human(
+          'You have reached the maximum number of tool calls ($_maxToolIterations). '
+          'Do not request any more tools. Synthesize the best possible final answer now using all tool results gathered so far.',
+        ),
+      );
+      try {
+        final synth = await _generateNative(
+          provider: provider,
+          model: model,
+          apiKey: apiKey,
+          baseUrl: baseUrl,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          history: history,
+          mcpTools: const [],
+          thinking: thinking,
+        );
+        promptTokens += synth.promptTokens;
+        completionTokens += synth.completionTokens;
+        if (synth.content.trim().isNotEmpty) {
+          finalContent = synth.content.trim();
+          sawFinalResponse = true;
+        }
+      } catch (e) {
+        log.warning('[LlmRunner] Final synthesis turn failed: $e');
+      }
+    }
+
     if (finalContent.isNotEmpty) {
       _liveLog('Task execution finished. Final response:\n$finalContent');
     }
@@ -1806,7 +1846,9 @@ class ServerLlmRunner {
           finalContent.isNotEmpty || (stopAfterToolCall && toolCallCount > 0),
       error:
           (finalContent.isEmpty && (!stopAfterToolCall || toolCallCount == 0))
-          ? 'LLM returned empty response'
+          ? (toolCallCount >= _maxToolIterations
+                ? 'Reached max tool iterations ($_maxToolIterations) without a final response'
+                : 'LLM returned empty response')
           : null,
       promptTokens: promptTokens,
       completionTokens: completionTokens,

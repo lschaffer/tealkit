@@ -286,6 +286,10 @@ class DataSourcesSettingsService extends ChangeNotifier {
   static const _kHaBaseUrl = '${_prefix}ha_base_url';
   static const _kHaToken = '${_prefix}ha_token';
 
+  // ── GitHub (Built-in API) keys ────────────────────
+  static const _kGithubToken = '${_prefix}github_token';
+  static const _kGithubDefaultOwner = '${_prefix}github_default_owner';
+
   // ── WhatsApp keys ─────────────────────────────────
   static const _kWhatsAppEnabled = '${_prefix}whatsapp_enabled';
   static const _kWhatsAppMode = '${_prefix}whatsapp_mode'; // 'meta' | 'callmebot'
@@ -365,6 +369,10 @@ class DataSourcesSettingsService extends ChangeNotifier {
   // ── Home Assistant ────────────────────────────────
   String _haBaseUrl = '';
   String _haToken = '';
+
+  // ── GitHub (Built-in API) ─────────────────────────
+  String _githubToken = '';
+  String _githubDefaultOwner = '';
 
   // ── Slack ─────────────────────────────────────────
   bool _slackEnabled = false;
@@ -452,6 +460,10 @@ class DataSourcesSettingsService extends ChangeNotifier {
     final homeAssistant = remote['home_assistant'] as Map<String, dynamic>? ?? const <String, dynamic>{};
     _haBaseUrl = (homeAssistant['base_url'] as String?) ?? '';
     _haToken = (homeAssistant['token'] as String?) ?? '';
+
+    final github = remote['github'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+    _githubToken = (github['token'] as String?) ?? '';
+    _githubDefaultOwner = (github['default_owner'] as String?) ?? '';
 
     final whatsApp = remote['whatsapp'] as Map<String, dynamic>? ?? const <String, dynamic>{};
     _whatsAppEnabled = whatsApp['enabled'] as bool? ?? false;
@@ -595,6 +607,11 @@ class DataSourcesSettingsService extends ChangeNotifier {
   String get haToken => _haToken;
   bool get isHomeAssistantConfigured => _haBaseUrl.isNotEmpty && _haToken.isNotEmpty;
 
+  // GitHub (Built-in API)
+  String get githubToken => _githubToken;
+  String get githubDefaultOwner => _githubDefaultOwner;
+  bool get isGitHubConfigured => _githubToken.isNotEmpty;
+
   // Slack
   bool get slackEnabled => _slackEnabled;
   String get slackWebhookUrl => _slackWebhookUrl;
@@ -626,6 +643,7 @@ class DataSourcesSettingsService extends ChangeNotifier {
     if (isOneDriveConfigured) count++;
     if (isSshConfigured) count++;
     if (isHomeAssistantConfigured) count++;
+    if (isGitHubConfigured) count++;
     if (isSlackConfigured) count++;
     if (isWhatsAppConfigured) count++;
     return count;
@@ -716,6 +734,9 @@ class DataSourcesSettingsService extends ChangeNotifier {
 
       _haBaseUrl = await _storage.read(key: _kHaBaseUrl) ?? '';
       _haToken = await _storage.read(key: _kHaToken) ?? '';
+
+      _githubToken = await _storage.read(key: _kGithubToken) ?? '';
+      _githubDefaultOwner = await _storage.read(key: _kGithubDefaultOwner) ?? '';
 
       _slackEnabled = (await _storage.read(key: _kSlackEnabled)) == 'true';
       _slackWebhookUrl = await _storage.read(key: _kSlackWebhookUrl) ?? '';
@@ -830,6 +851,9 @@ class DataSourcesSettingsService extends ChangeNotifier {
       // Home Assistant
       await prefs.setString('${_kShadowPrefix}haBaseUrl', _haBaseUrl);
       await prefs.setString('${_kShadowPrefix}haToken', _haToken);
+      // GitHub (Built-in API)
+      await prefs.setString('${_kShadowPrefix}githubToken', _githubToken);
+      await prefs.setString('${_kShadowPrefix}githubDefaultOwner', _githubDefaultOwner);
       // Slack
       await prefs.setBool('${_kShadowPrefix}slackEnabled', _slackEnabled);
       await prefs.setString('${_kShadowPrefix}slackWebhookUrl', _slackWebhookUrl);
@@ -897,6 +921,13 @@ class DataSourcesSettingsService extends ChangeNotifier {
       }
       if (_haToken.isEmpty) {
         _haToken = prefs.getString('${_kShadowPrefix}haToken') ?? _haToken;
+      }
+      // GitHub (Built-in API)
+      if (_githubToken.isEmpty) {
+        _githubToken = prefs.getString('${_kShadowPrefix}githubToken') ?? _githubToken;
+      }
+      if (_githubDefaultOwner.isEmpty) {
+        _githubDefaultOwner = prefs.getString('${_kShadowPrefix}githubDefaultOwner') ?? _githubDefaultOwner;
       }
       // Slack
       if (_slackWebhookUrl.isEmpty) {
@@ -991,6 +1022,9 @@ class DataSourcesSettingsService extends ChangeNotifier {
       // Home Assistant
       _haBaseUrl = prefs.getString('${_kShadowPrefix}haBaseUrl') ?? _haBaseUrl;
       _haToken = prefs.getString('${_kShadowPrefix}haToken') ?? _haToken;
+      // GitHub (Built-in API)
+      _githubToken = prefs.getString('${_kShadowPrefix}githubToken') ?? _githubToken;
+      _githubDefaultOwner = prefs.getString('${_kShadowPrefix}githubDefaultOwner') ?? _githubDefaultOwner;
       // Slack
       _slackEnabled = prefs.getBool('${_kShadowPrefix}slackEnabled') ?? _slackEnabled;
       _slackWebhookUrl = prefs.getString('${_kShadowPrefix}slackWebhookUrl') ?? _slackWebhookUrl;
@@ -1617,6 +1651,28 @@ class DataSourcesSettingsService extends ChangeNotifier {
     }
   }
 
+  Future<void> saveGitHub({required String token, String defaultOwner = ''}) async {
+    _githubToken = token.trim();
+    _githubDefaultOwner = defaultOwner.trim();
+    try {
+      await _storage.write(key: _kGithubToken, value: _githubToken);
+      await _storage.write(key: _kGithubDefaultOwner, value: _githubDefaultOwner);
+      await _writeShadowPrefs();
+      log.info('[DataSources] GitHub saved – hasToken=${_githubToken.isNotEmpty}, defaultOwner=$_githubDefaultOwner');
+      notifyListeners();
+    } catch (e) {
+      if (_isLinuxKeyringError(e)) {
+        _keyringUnavailable = true;
+        log.warning('[DataSources] Keyring unavailable, GitHub saved to shadow prefs: $e');
+        await _writeShadowPrefs();
+        notifyListeners();
+        return;
+      }
+      log.error('[DataSources] Failed to save GitHub: $e');
+      rethrow;
+    }
+  }
+
   Future<void> saveSsh({
     required String host,
     int port = 22,
@@ -1699,6 +1755,8 @@ class DataSourcesSettingsService extends ChangeNotifier {
     _whatsAppCallMeBotApiKey = '';
     _haBaseUrl = '';
     _haToken = '';
+    _githubToken = '';
+    _githubDefaultOwner = '';
 
     try {
       // Delete all keys with our prefix
