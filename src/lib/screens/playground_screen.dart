@@ -580,16 +580,17 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     final lastModified = lastFile.lastModifiedSync();
     final timeStr = '${lastModified.year}-${lastModified.month.toString().padLeft(2, '0')}-${lastModified.day.toString().padLeft(2, '0')} ${lastModified.hour.toString().padLeft(2, '0')}:${lastModified.minute.toString().padLeft(2, '0')}';
 
+    final l = L.of(context);
     final shouldContinue = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.history_rounded, color: Color(0xFFFB923C)),
-            SizedBox(width: 8),
+            const Icon(Icons.history_rounded, color: Color(0xFFFB923C)),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Continue Last Session?',
+                l.continueLastSessionTitle,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -599,7 +600,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('A previous session was found:'),
+            Text(l.previousSessionFound),
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -619,7 +620,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Last updated: $timeStr',
+                    l.lastUpdatedAt(timeStr),
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(ctx).colorScheme.onSurfaceVariant,
@@ -633,11 +634,11 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Start New Session'),
+            child: Text(l.startNewSession),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.play_arrow_rounded, size: 16),
-            label: const Text('Continue Session'),
+            label: Text(l.continueSession),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -1265,6 +1266,103 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       onPressed: _continueLastSession,
     ),
   ];
+
+  Widget _buildEmptyChatWelcome(BuildContext context) {
+    final l = L.of(context);
+    final theme = Theme.of(context);
+    final hasLlm = _controller.activeLlmConfig.isConfigured;
+    final chatMode = _controller.chatMode;
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: const Alignment(0, -0.25),
+          radius: 1.0,
+          colors: [
+            (_isCodingMode
+                    ? const Color(0xFFEA580C)
+                    : AppTheme.primaryBlue)
+                .withValues(alpha: 0.12),
+            AppTheme.backgroundDark,
+          ],
+        ),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: (hasLlm
+                              ? (_isCodingMode
+                                  ? const Color(0xFFEA580C)
+                                  : theme.colorScheme.primary)
+                              : Colors.orange)
+                          .withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      hasLlm
+                          ? (_isCodingMode
+                              ? Icons.terminal_rounded
+                              : (chatMode
+                                  ? Icons.chat_bubble_outline
+                                  : Icons.smart_toy_outlined))
+                          : Icons.tune_outlined,
+                      size: 56,
+                      color: hasLlm
+                          ? (_isCodingMode
+                              ? const Color(0xFFFB923C)
+                              : theme.colorScheme.primary)
+                          : Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    hasLlm ? l.assistantWelcomeTitle : l.assistantWelcomeSetupTitle,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    hasLlm
+                        ? l.assistantWelcomeSubtitle
+                        : l.assistantWelcomeSetupSubtitle,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (!hasLlm) ...[
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.settings),
+                      label: Text(l.configureModelAndProvider),
+                      onPressed: () => _openAssistantSettingsDialog(
+                        context,
+                        _controller,
+                        initialTab: 1,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildBottomUtilityBar(
     BuildContext context,
@@ -2434,6 +2532,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         showSystemPromptTemplates: false,
         showWorkflowActions: false,
         showSkillsControls: false,
+        emptyChatBuilder: (ctx) => _buildEmptyChatWelcome(ctx),
         settingsDialogBuilder: (ctx, ctrl, initialTab, onClose) {
           final size = MediaQuery.sizeOf(ctx);
           final isMobile = size.width < 700;

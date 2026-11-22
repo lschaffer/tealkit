@@ -3610,4 +3610,163 @@ class LDe extends L {
 
   @override
   String get nameIsRequired => 'Name ist erforderlich';
+
+  @override
+  String get aiDataSharingConsent => 'KI-Datenübertragung (Einwilligung)';
+
+  @override
+  String get aiDataSharingEnabled => 'Übertragung an Remote-KI aktiviert';
+
+  @override
+  String get aiDataSharingRequired =>
+      'Aktion erforderlich für Cloud-KI-Anbieter';
+
+  @override
+  String get aiDataSharingDesc =>
+      'Wenn aktiviert, können Prompts, Anhänge und Tool-Ausgaben an Ihren konfigurierten KI-Anbieter (OpenAI, Google, Anthropic, Mistral oder eigene Remote-Endpunkte) gesendet werden. Erforderlich für Remote-KI. Sie können dies jederzeit deaktivieren.';
+
+  @override
+  String get serverModeConnected => 'Server-Modus • Verbunden';
+
+  @override
+  String get serverModeNotConnected => 'Server-Modus • Nicht verbunden';
+
+  @override
+  String get serverSettings => 'Server-Einstellungen';
+
+  @override
+  String get imageGenModelTitle => 'Bildgenerierungs-Modell';
+
+  @override
+  String get imageGenSettingsTitle => 'Bildgenerator-Einstellungen';
+
+  @override
+  String get imageGenPresetLabel => 'Vorlage';
+
+  @override
+  String get imageGenPresetAuto => 'Auto (aktives/gespeichertes LLM-Profil)';
+
+  @override
+  String get imageGenPresetCustom =>
+      'Benutzerdefiniert (OpenAI-kompatibel / Gemini)';
+
+  @override
+  String get imageGenModelIdLabel => 'Bildmodell-ID';
+
+  @override
+  String get imageGenBaseUrlLabel => 'Basis-URL';
+
+  @override
+  String get imageGenApiKeyLabel => 'Eigener API-Schlüssel (optional)';
+
+  @override
+  String get imageGenApiKeyHint =>
+      'Leer lassen, um den LLM-Profil-Schlüssel zu verwenden';
+
+  @override
+  String get githubTokenLocalTitle => 'GitHub-API-Token (Lokaler Speicher)';
+
+  @override
+  String get githubTokenSavedLocally =>
+      'Persönliches Zugriffstoken lokal gespeichert';
+
+  @override
+  String get githubTokenNotConfigured =>
+      'Nicht konfiguriert (nur öffentlicher Lesezugriff bis Token gespeichert)';
+
+  @override
+  String get githubTokenLabel => 'GitHub Personal Access Token';
+
+  @override
+  String get githubDefaultOwnerLabel =>
+      'Standard-Eigentümer / Organisation (optional)';
+
+  @override
+  String get githubSetToken => 'Token setzen';
+
+  @override
+  String get githubEditToken => 'Token bearbeiten';
+
+  @override
+  String get saveLocally => 'Lokal speichern';
+
+  @override
+  String get githubTokenSavedMsg => 'GitHub-API-Token lokal gespeichert.';
+
+  @override
+  String get githubBuiltinSubtitle =>
+      'Natives GitHub-API-Tool für Repos, Dateien, Branches, Issues und PRs (Lokal- & Server-Modus).';
+
+  @override
+  String get appTagline => 'Lokaler KI-Task-Orchestrator';
+
+  @override
+  String get continueLastSessionTitle => 'Letzte Sitzung fortsetzen?';
+
+  @override
+  String get previousSessionFound => 'Eine frühere Sitzung wurde gefunden:';
+
+  @override
+  String lastUpdatedAt(String time) {
+    return 'Zuletzt aktualisiert: $time';
+  }
+
+  @override
+  String get startNewSession => 'Neue Sitzung starten';
+
+  @override
+  String get continueSession => 'Sitzung fortsetzen';
+
+  @override
+  String get discoverPopular => 'Beliebte entdecken';
+
+  @override
+  String get addModelUrl => 'Modell-URL hinzufügen';
+
+  @override
+  String get addFromDisk => 'Von Datenträger hinzufügen';
+
+  @override
+  String get removeAll => 'Alle entfernen';
+
+  @override
+  String get selectDownloadedModelHint =>
+      'Wählen Sie oben ein heruntergeladenes Modell aus, um es zu aktivieren.';
+
+  @override
+  String get onDeviceModels => 'On-Device-Modelle';
+
+  @override
+  String get serverHostedModels => 'Server-gehostete Modelle';
+
+  @override
+  String get findModelToGetStarted => 'Modell zum Starten finden';
+
+  @override
+  String get downloadModelOnDeviceHint =>
+      'Laden Sie ein Modell herunter, um On-Device-Inferenz zu nutzen.';
+
+  @override
+  String get downloadModelServerHint =>
+      'Laden Sie ein Modell herunter, um es auf dem Server unter /data/models zu speichern.';
+
+  @override
+  String get refresh => 'Aktualisieren';
+
+  @override
+  String get assistantWelcomeTitle => 'Wie kann ich Ihnen heute helfen?';
+
+  @override
+  String get assistantWelcomeSetupTitle => 'Willkommen im TealKit Assistenten';
+
+  @override
+  String get assistantWelcomeSubtitle =>
+      'Geben Sie unten eine Nachricht ein, um die Unterhaltung zu starten. Sie können Bilder anhängen oder Inhalte aus der Zwischenablage einfügen.';
+
+  @override
+  String get assistantWelcomeSetupSubtitle =>
+      'Konfigurieren Sie zum Starten Ihren LLM-Anbieter (Gemini, Claude, OpenAI, Ollama oder Embedded) und Ihr Modell.';
+
+  @override
+  String get configureModelAndProvider => 'Modell & Anbieter konfigurieren';
 }

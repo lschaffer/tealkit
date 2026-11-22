@@ -1092,7 +1092,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
-                                                    'Local AI Task Orchestrator',
+                                                    L.of(context).appTagline,
                                                     style: theme
                                                         .textTheme
                                                         .bodySmall

@@ -607,14 +607,14 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
           children: [
             Expanded(
               child: Text(
-                _isServerMode ? 'Server-hosted models' : 'On-device models',
+                _isServerMode ? L.of(context).serverHostedModels : L.of(context).onDeviceModels,
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             TextButton.icon(
               onPressed: _refresh,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Refresh'),
+              label: Text(L.of(context).refresh),
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
             ),
           ],
@@ -634,7 +634,7 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
                     children: [
                       Icon(Icons.explore_outlined, size: 20, color: theme.colorScheme.primary),
                       const SizedBox(width: 8),
-                      Text('Find a model to get started', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(L.of(context).findModelToGetStarted, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -691,24 +691,24 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
             OutlinedButton.icon(
               onPressed: _openDiscover,
               icon: const Icon(Icons.explore_outlined, size: 18),
-              label: const Text('Discover popular'),
+              label: Text(L.of(context).discoverPopular),
             ),
             OutlinedButton.icon(
               onPressed: _openAddGguf,
               icon: const Icon(Icons.add_link, size: 18),
-              label: const Text('Add Model URL'),
+              label: Text(L.of(context).addModelUrl),
             ),
             if (!_isServerMode)
               OutlinedButton.icon(
                 onPressed: _openAddFromDisk,
                 icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-                label: const Text('Add from Disk'),
+                label: Text(L.of(context).addFromDisk),
               ),
             if (_downloadedFilenames.isNotEmpty)
               OutlinedButton.icon(
                 onPressed: _deleteAllModels,
                 icon: Icon(Icons.delete_sweep_outlined, size: 18, color: AppTheme.error),
-                label: Text('Remove all', style: TextStyle(color: AppTheme.error)),
+                label: Text(L.of(context).removeAll, style: TextStyle(color: AppTheme.error)),
                 style: OutlinedButton.styleFrom(side: BorderSide(color: AppTheme.error.withValues(alpha: 0.5))),
               ),
           ],
@@ -724,7 +724,7 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Select a downloaded model above to activate it.',
+                    L.of(context).selectDownloadedModelHint,
                     style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.warning, fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -736,8 +736,8 @@ class _EmbeddedModelPickerWidgetState extends State<EmbeddedModelPickerWidget> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               _isServerMode
-                  ? 'Download a model to store it on the server host at /data/models.'
-                  : 'Download a model to use on-device inference.',
+                  ? L.of(context).downloadModelServerHint
+                  : L.of(context).downloadModelOnDeviceHint,
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),

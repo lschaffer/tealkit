@@ -3577,4 +3577,160 @@ class LEn extends L {
 
   @override
   String get nameIsRequired => 'Name is required';
+
+  @override
+  String get aiDataSharingConsent => 'AI Data Sharing Consent';
+
+  @override
+  String get aiDataSharingEnabled => 'Remote AI data transmission enabled';
+
+  @override
+  String get aiDataSharingRequired => 'Action required for cloud AI providers';
+
+  @override
+  String get aiDataSharingDesc =>
+      'When enabled, prompts, attachments, and tool outputs may be sent to your configured AI provider (OpenAI, Google, Anthropic, Mistral, or custom remote endpoints). Required for remote AI usage. You can disable this at any time.';
+
+  @override
+  String get serverModeConnected => 'Server Mode • Connected';
+
+  @override
+  String get serverModeNotConnected => 'Server Mode • Not Connected';
+
+  @override
+  String get serverSettings => 'Server Settings';
+
+  @override
+  String get imageGenModelTitle => 'Image Generation Model';
+
+  @override
+  String get imageGenSettingsTitle => 'Image Generator Settings';
+
+  @override
+  String get imageGenPresetLabel => 'Preset';
+
+  @override
+  String get imageGenPresetAuto => 'Auto (use active/saved LLM profile)';
+
+  @override
+  String get imageGenPresetCustom => 'Custom OpenAI-Compatible / Gemini';
+
+  @override
+  String get imageGenModelIdLabel => 'Image Model ID';
+
+  @override
+  String get imageGenBaseUrlLabel => 'Base URL';
+
+  @override
+  String get imageGenApiKeyLabel => 'Dedicated API Key (optional)';
+
+  @override
+  String get imageGenApiKeyHint =>
+      'Leave blank to reuse matching LLM profile key';
+
+  @override
+  String get githubTokenLocalTitle => 'GitHub API Token (Local Storage)';
+
+  @override
+  String get githubTokenSavedLocally => 'Personal Access Token saved locally';
+
+  @override
+  String get githubTokenNotConfigured =>
+      'Not configured (public read-only access until token is saved)';
+
+  @override
+  String get githubTokenLabel => 'GitHub Personal Access Token';
+
+  @override
+  String get githubDefaultOwnerLabel =>
+      'Default Owner / Organization (optional)';
+
+  @override
+  String get githubSetToken => 'Set Token';
+
+  @override
+  String get githubEditToken => 'Edit Token';
+
+  @override
+  String get saveLocally => 'Save Locally';
+
+  @override
+  String get githubTokenSavedMsg => 'GitHub API token saved locally.';
+
+  @override
+  String get githubBuiltinSubtitle =>
+      'Pure-Dart GitHub MCP tool for repos, files, branches, issues, and PRs (local & server mode).';
+
+  @override
+  String get appTagline => 'Local AI Task Orchestrator';
+
+  @override
+  String get continueLastSessionTitle => 'Continue Last Session?';
+
+  @override
+  String get previousSessionFound => 'A previous session was found:';
+
+  @override
+  String lastUpdatedAt(String time) {
+    return 'Last updated: $time';
+  }
+
+  @override
+  String get startNewSession => 'Start New Session';
+
+  @override
+  String get continueSession => 'Continue Session';
+
+  @override
+  String get discoverPopular => 'Discover popular';
+
+  @override
+  String get addModelUrl => 'Add Model URL';
+
+  @override
+  String get addFromDisk => 'Add from Disk';
+
+  @override
+  String get removeAll => 'Remove all';
+
+  @override
+  String get selectDownloadedModelHint =>
+      'Select a downloaded model above to activate it.';
+
+  @override
+  String get onDeviceModels => 'On-device models';
+
+  @override
+  String get serverHostedModels => 'Server-hosted models';
+
+  @override
+  String get findModelToGetStarted => 'Find a model to get started';
+
+  @override
+  String get downloadModelOnDeviceHint =>
+      'Download a model to use on-device inference.';
+
+  @override
+  String get downloadModelServerHint =>
+      'Download a model to store it on the server host at /data/models.';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get assistantWelcomeTitle => 'How can I help you today?';
+
+  @override
+  String get assistantWelcomeSetupTitle => 'Welcome to TealKit Assistant';
+
+  @override
+  String get assistantWelcomeSubtitle =>
+      'Type a message below to start your conversation. You can attach images or paste content from clipboard.';
+
+  @override
+  String get assistantWelcomeSetupSubtitle =>
+      'To get started, configure your LLM provider (Gemini, Claude, OpenAI, Ollama, or Embedded) and model.';
+
+  @override
+  String get configureModelAndProvider => 'Configure Model & Provider';
 }

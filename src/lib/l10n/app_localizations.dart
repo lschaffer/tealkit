@@ -6510,6 +6510,294 @@ abstract class L {
   /// In en, this message translates to:
   /// **'Name is required'**
   String get nameIsRequired;
+
+  /// No description provided for @aiDataSharingConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Data Sharing Consent'**
+  String get aiDataSharingConsent;
+
+  /// No description provided for @aiDataSharingEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote AI data transmission enabled'**
+  String get aiDataSharingEnabled;
+
+  /// No description provided for @aiDataSharingRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Action required for cloud AI providers'**
+  String get aiDataSharingRequired;
+
+  /// No description provided for @aiDataSharingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, prompts, attachments, and tool outputs may be sent to your configured AI provider (OpenAI, Google, Anthropic, Mistral, or custom remote endpoints). Required for remote AI usage. You can disable this at any time.'**
+  String get aiDataSharingDesc;
+
+  /// No description provided for @serverModeConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Server Mode • Connected'**
+  String get serverModeConnected;
+
+  /// No description provided for @serverModeNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Server Mode • Not Connected'**
+  String get serverModeNotConnected;
+
+  /// No description provided for @serverSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Server Settings'**
+  String get serverSettings;
+
+  /// No description provided for @imageGenModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Generation Model'**
+  String get imageGenModelTitle;
+
+  /// No description provided for @imageGenSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Generator Settings'**
+  String get imageGenSettingsTitle;
+
+  /// No description provided for @imageGenPresetLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get imageGenPresetLabel;
+
+  /// No description provided for @imageGenPresetAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (use active/saved LLM profile)'**
+  String get imageGenPresetAuto;
+
+  /// No description provided for @imageGenPresetCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom OpenAI-Compatible / Gemini'**
+  String get imageGenPresetCustom;
+
+  /// No description provided for @imageGenModelIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Model ID'**
+  String get imageGenModelIdLabel;
+
+  /// No description provided for @imageGenBaseUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL'**
+  String get imageGenBaseUrlLabel;
+
+  /// No description provided for @imageGenApiKeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dedicated API Key (optional)'**
+  String get imageGenApiKeyLabel;
+
+  /// No description provided for @imageGenApiKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave blank to reuse matching LLM profile key'**
+  String get imageGenApiKeyHint;
+
+  /// No description provided for @githubTokenLocalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub API Token (Local Storage)'**
+  String get githubTokenLocalTitle;
+
+  /// No description provided for @githubTokenSavedLocally.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Access Token saved locally'**
+  String get githubTokenSavedLocally;
+
+  /// No description provided for @githubTokenNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured (public read-only access until token is saved)'**
+  String get githubTokenNotConfigured;
+
+  /// No description provided for @githubTokenLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub Personal Access Token'**
+  String get githubTokenLabel;
+
+  /// No description provided for @githubDefaultOwnerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Default Owner / Organization (optional)'**
+  String get githubDefaultOwnerLabel;
+
+  /// No description provided for @githubSetToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Set Token'**
+  String get githubSetToken;
+
+  /// No description provided for @githubEditToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Token'**
+  String get githubEditToken;
+
+  /// No description provided for @saveLocally.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Locally'**
+  String get saveLocally;
+
+  /// No description provided for @githubTokenSavedMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub API token saved locally.'**
+  String get githubTokenSavedMsg;
+
+  /// No description provided for @githubBuiltinSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pure-Dart GitHub MCP tool for repos, files, branches, issues, and PRs (local & server mode).'**
+  String get githubBuiltinSubtitle;
+
+  /// No description provided for @appTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Local AI Task Orchestrator'**
+  String get appTagline;
+
+  /// No description provided for @continueLastSessionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Last Session?'**
+  String get continueLastSessionTitle;
+
+  /// No description provided for @previousSessionFound.
+  ///
+  /// In en, this message translates to:
+  /// **'A previous session was found:'**
+  String get previousSessionFound;
+
+  /// No description provided for @lastUpdatedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated: {time}'**
+  String lastUpdatedAt(String time);
+
+  /// No description provided for @startNewSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Start New Session'**
+  String get startNewSession;
+
+  /// No description provided for @continueSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Session'**
+  String get continueSession;
+
+  /// No description provided for @discoverPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover popular'**
+  String get discoverPopular;
+
+  /// No description provided for @addModelUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Model URL'**
+  String get addModelUrl;
+
+  /// No description provided for @addFromDisk.
+  ///
+  /// In en, this message translates to:
+  /// **'Add from Disk'**
+  String get addFromDisk;
+
+  /// No description provided for @removeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove all'**
+  String get removeAll;
+
+  /// No description provided for @selectDownloadedModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a downloaded model above to activate it.'**
+  String get selectDownloadedModelHint;
+
+  /// No description provided for @onDeviceModels.
+  ///
+  /// In en, this message translates to:
+  /// **'On-device models'**
+  String get onDeviceModels;
+
+  /// No description provided for @serverHostedModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Server-hosted models'**
+  String get serverHostedModels;
+
+  /// No description provided for @findModelToGetStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a model to get started'**
+  String get findModelToGetStarted;
+
+  /// No description provided for @downloadModelOnDeviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a model to use on-device inference.'**
+  String get downloadModelOnDeviceHint;
+
+  /// No description provided for @downloadModelServerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a model to store it on the server host at /data/models.'**
+  String get downloadModelServerHint;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @assistantWelcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How can I help you today?'**
+  String get assistantWelcomeTitle;
+
+  /// No description provided for @assistantWelcomeSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to TealKit Assistant'**
+  String get assistantWelcomeSetupTitle;
+
+  /// No description provided for @assistantWelcomeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a message below to start your conversation. You can attach images or paste content from clipboard.'**
+  String get assistantWelcomeSubtitle;
+
+  /// No description provided for @assistantWelcomeSetupSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'To get started, configure your LLM provider (Gemini, Claude, OpenAI, Ollama, or Embedded) and model.'**
+  String get assistantWelcomeSetupSubtitle;
+
+  /// No description provided for @configureModelAndProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure Model & Provider'**
+  String get configureModelAndProvider;
 }
 
 class _LDelegate extends LocalizationsDelegate<L> {
