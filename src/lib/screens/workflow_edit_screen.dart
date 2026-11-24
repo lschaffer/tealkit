@@ -8244,9 +8244,14 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
                               }
                               return;
                             }
-                            final selected = await FilePicker.getDirectoryPath(
+                            final selectedUri = await FilePicker.pickDirectory(
                               dialogTitle: l.chooseDirectory,
                             );
+                            final selected = selectedUri == null
+                                ? null
+                                : (selectedUri.scheme == 'file'
+                                    ? selectedUri.toFilePath()
+                                    : selectedUri.toString());
                             if (!mounted ||
                                 selected == null ||
                                 selected.trim().isEmpty) {
@@ -9526,9 +9531,14 @@ class _TaskEditScreenState extends ConsumerState<WorkflowEditScreen>
   }
 
   Future<void> _pickOutputDirectory() async {
-    final selected = await FilePicker.getDirectoryPath(
+    final selectedUri = await FilePicker.pickDirectory(
       dialogTitle: L.of(context).chooseDirectory,
     );
+    final selected = selectedUri == null
+        ? null
+        : (selectedUri.scheme == 'file'
+            ? selectedUri.toFilePath()
+            : selectedUri.toString());
     if (!mounted || selected == null || selected.isEmpty) return;
     setState(() {
       _downloadPathCtrl.text = selected;
@@ -11078,9 +11088,14 @@ class _TaskNotificationEditorState extends State<TaskNotificationEditor> {
   }
 
   Future<void> _pickOutputDirectory() async {
-    final selected = await FilePicker.getDirectoryPath(
+    final selectedUri = await FilePicker.pickDirectory(
       dialogTitle: 'Choose directory',
     );
+    final selected = selectedUri == null
+        ? null
+        : (selectedUri.scheme == 'file'
+            ? selectedUri.toFilePath()
+            : selectedUri.toString());
     if (!mounted || selected == null || selected.isEmpty) return;
     setState(() {
       _downloadPathCtrl.text = selected;

@@ -137,13 +137,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.8"
-  dart_duckdb:
-    dependency: "direct main"
-    description:
-      path: "../third_party/dart_duckdb"
-      relative: true
-    source: path
-    version: "1.4.4"
   dartssh2:
     dependency: "direct main"
     description:
@@ -304,22 +297,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
-  js:
-    dependency: transitive
-    description:
-      name: js
-      sha256: f2c445dce49627136094980615a031419f7f3eb393237e4ecd97ac15dea343f3
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.6.7"
-  js_interop:
-    dependency: transitive
-    description:
-      name: js_interop
-      sha256: "7ec859c296958ccea34dc770504bd3ff4ae52fdd9e7eeb2bacc7081ad476a1f5"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.1"
   json_annotation:
     dependency: transitive
     description:
@@ -340,10 +317,10 @@ packages:
     dependency: "direct main"
     description:
       name: llamadart
-      sha256: "6617ef069985dae375181b30965b87fa8d4635772f3d3c9f5d8cec378c95bbd1"
+      sha256: de2b281d53ff2ca9c644a981ed25943846830320de40f2e2160fa1b87160af7b
       url: "https://pub.dev"
     source: hosted
-    version: "0.20.4"
+    version: "0.20.7"
   logging:
     dependency: transitive
     description:

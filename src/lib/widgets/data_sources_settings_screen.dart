@@ -1359,7 +1359,10 @@ class _DataSourcesSettingsScreenState
         return;
       }
     } else {
-      picked = await FilePicker.getDirectoryPath();
+      final uri = await FilePicker.pickDirectory();
+      picked = uri == null
+          ? null
+          : (uri.scheme == 'file' ? uri.toFilePath() : uri.toString());
     }
     if (picked == null || !mounted) return;
     final updated = {..._documentRootPaths, picked};

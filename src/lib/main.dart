@@ -14,13 +14,13 @@ import 'package:workmanager/workmanager.dart';
 import 'config/app_theme.dart';
 import 'config/build_flavor.dart';
 import 'database/duckdb_service.dart';
-import 'widgets/database_upgrade_dialog.dart';
 import 'database/task_database_service_duckdb.dart';
 import 'providers/data_sources_settings_provider.dart';
 import 'providers/external_tools_settings_provider.dart';
 import 'providers/active_task_provider.dart';
 import 'providers/llm_settings_provider.dart';
 import 'services/app_preferences_service.dart';
+import 'services/coding_settings_service.dart';
 import 'services/data_sources_settings_service.dart';
 import 'services/external_tools_settings_service.dart';
 import 'services/llm_settings_service.dart';
@@ -434,6 +434,13 @@ void main() async {
   }
 
   try {
+    await CodingSettingsService.instance.load();
+    log.info('Coding settings loaded');
+  } catch (e) {
+    log.warning('Failed to load coding settings: $e');
+  }
+
+  try {
     await TaskOutputFileService.cleanupOldFiles();
     log.info('Task output file cleanup done');
   } catch (e) {
@@ -722,9 +729,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      // Run one-time DuckDB -> SQLite database upgrade dialog first if any local legacy DB exists.
-      await DatabaseUpgradeDialog.checkAndRunIfNeeded(context, ref);
       if (!mounted) return;
       final mode = await ref.read(serverModeProvider.future);
       // Startup reconnect gate:

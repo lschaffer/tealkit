@@ -1036,7 +1036,10 @@ class SettingsVaultService {
   /// Returns null if the user cancels.
   Future<String?> pickExportDirectory() async {
     try {
-      final dir = await FilePicker.getDirectoryPath(dialogTitle: 'Choose Export Directory');
+      final uri = await FilePicker.pickDirectory(dialogTitle: 'Choose Export Directory');
+      final dir = uri == null
+          ? null
+          : (uri.scheme == 'file' ? uri.toFilePath() : uri.toString());
       if (dir != null) return dir;
     } catch (e) {
       if (e.toString().contains('zenity') || e.toString().contains('kdialog') || e.toString().contains('executable')) {

@@ -2,7 +2,6 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite_vector/sqlite_vector.dart';
 import 'package:tealkit_server/config/server_feature_flags.dart';
 import 'package:tealkit_server/database/server_database_adapter.dart';
-import 'package:tealkit_server/database/server_legacy_duckdb_migrator.dart';
 import 'package:tealkit_server/database/server_sqlite_adapter.dart';
 import 'package:tealkit_server/runner/server_embedded_llm_adapter.dart';
 import 'package:tealkit_server/server_runner.dart' as runner;
@@ -30,10 +29,6 @@ Future<void> main(List<String> args) async {
       '[Bootstrap] sqlite_vector extension unavailable (falling back to pure-Dart cosine similarity): $e',
     );
   }
-
-  // Register silent one-time DuckDB -> SQLite startup migrator (Release 1 bridge).
-  ServerSqliteAdapter.legacyMigratorHook =
-      ServerLegacyDuckDbMigrator.migrateIfNeeded;
 
   // Unified SQLite + sqlite_vector + FTS5 database for both Full and Light builds.
   defaultDbFactory = () =>

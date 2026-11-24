@@ -2087,7 +2087,7 @@ abstract class L {
   /// No description provided for @runningTaskWithDuckdb.
   ///
   /// In en, this message translates to:
-  /// **'Running task and indexing/searching with DuckDB...'**
+  /// **'Running task and indexing/searching local index...'**
   String get runningTaskWithDuckdb;
 
   /// No description provided for @openLatestFile.
@@ -2111,7 +2111,7 @@ abstract class L {
   /// No description provided for @localSearchIndexDuckdb.
   ///
   /// In en, this message translates to:
-  /// **'Local search index (DuckDB)'**
+  /// **'Local search index'**
   String get localSearchIndexDuckdb;
 
   /// No description provided for @duckdbSizeLimitDescription.
@@ -2123,7 +2123,7 @@ abstract class L {
   /// No description provided for @duckdbSizeLimitGb.
   ///
   /// In en, this message translates to:
-  /// **'DuckDB size limit (GB)'**
+  /// **'Search index size limit (GB)'**
   String get duckdbSizeLimitGb;
 
   /// No description provided for @duckdbSizeLimitHint.
@@ -2747,7 +2747,7 @@ abstract class L {
   /// No description provided for @documentDescription.
   ///
   /// In en, this message translates to:
-  /// **'Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides full-text search via DuckDB.'**
+  /// **'Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides semantic/hybrid search via the local vector index.'**
   String get documentDescription;
 
   /// No description provided for @documentSystemPrompt.
@@ -4036,7 +4036,7 @@ abstract class L {
   /// No description provided for @websiteUrlLimitHint.
   ///
   /// In en, this message translates to:
-  /// **'Add up to 3 sites. Indexed pages are stored in DuckDB. Max pages: {maxPages}.'**
+  /// **'Add up to 3 sites. Indexed pages are stored in the local search index. Max pages: {maxPages}.'**
   String websiteUrlLimitHint(int maxPages);
 
   /// No description provided for @addUrlButton.
@@ -4636,7 +4636,7 @@ abstract class L {
   /// No description provided for @vaultExcludedText.
   ///
   /// In en, this message translates to:
-  /// **'Conversation history  •  DuckDB document index'**
+  /// **'Conversation history  •  Local document index'**
   String get vaultExcludedText;
 
   /// No description provided for @vaultExportSection.

@@ -2,45 +2,88 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:path/path.dart' as p;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app_logger.dart';
+import 'app_preferences_service.dart';
 
 /// Windows-only: manages the system tray icon, minimize-to-tray behaviour,
 /// and the "start at login" registry entry.
 ///
 /// On non-Windows platforms this is a no-op stub.
-class WindowsTrayService with TrayListener, WindowListener {
+class WindowsTrayService with WindowListener {
   WindowsTrayService._();
   static final instance = WindowsTrayService._();
 
   bool _initialized = false;
+  String _appName = 'TealKit';
+  String _lastLocale = '';
+
+  TrayIcon? _trayIcon;
+  Image? _icon;
+  Menu? _menu;
+  ListenerId? _trayListenerId;
+  final List<(MenuItem, ListenerId?)> _menuItems = [];
 
   /// Called once from [main] on Windows only.
   Future<void> init({required String appName}) async {
     if (kIsWeb || !Platform.isWindows) return;
     if (_initialized) return;
     _initialized = true;
+    _appName = appName;
+    _lastLocale = AppPreferencesService.instance.locale;
 
     // ── Window manager ──────────────────────────────────────────────────────
     await windowManager.ensureInitialized();
     windowManager.addListener(this);
     await windowManager.setPreventClose(true);
 
-    // ── Tray icon ────────────────────────────────────────────────────────────
-    // Windows system tray requires .ico format; other platforms use .png.
-    await trayManager.setIcon(_resolveIconPath());
-    await trayManager.setToolTip(appName);
-    await _updateMenu(appName);
-    trayManager.addListener(this);
+    // ── Tray icon (tray_manager 0.7+ native API) ────────────────────────────
+    final trayIcon = TrayIcon.create();
+    if (trayIcon != null) {
+      _trayIcon = trayIcon;
+      final iconPath = _resolveIconPath();
+      final icon = ImageAsset.fromAsset(iconPath) ?? Image.fromFile(iconPath);
+      if (icon != null) {
+        trayIcon.icon = icon;
+        _icon = icon;
+      } else {
+        log.warning('[TrayService] Could not load tray icon from $iconPath');
+      }
+      trayIcon.setTooltip(appName);
+      trayIcon.setContextMenuTrigger(ContextMenuTrigger.rightClicked);
+      _trayListenerId = trayIcon.addListener((event) {
+        if (event is TrayIconClickedEvent) {
+          _showWindow();
+        }
+      });
+      await _updateMenu();
+      trayIcon.setVisible(true);
+    } else {
+      log.warning('[TrayService] Unable to create native TrayIcon');
+    }
+
+    // Rebuild tray menu when the user switches app language.
+    AppPreferencesService.instance.addListener(_onPreferencesChanged);
 
     // ── Copy app path for startup registration ──────────────────────────────
-    LaunchAtStartup.instance.setup(appName: appName, appPath: Platform.resolvedExecutable);
+    LaunchAtStartup.instance.setup(
+      appName: appName,
+      appPath: Platform.resolvedExecutable,
+    );
 
     log.info('[TrayService] Initialized');
+  }
+
+  void _onPreferencesChanged() {
+    final currentLocale = AppPreferencesService.instance.locale;
+    if (currentLocale != _lastLocale) {
+      _lastLocale = currentLocale;
+      unawaited(_updateMenu());
+    }
   }
 
   // ─── Icon path ────────────────────────────────────────────────────────────
@@ -60,7 +103,14 @@ class WindowsTrayService with TrayListener, WindowListener {
     // Release / profile: exe sits at <install>/TealKit.exe and assets are at
     // <install>/data/flutter_assets/assets/icons/app_icon.ico
     final exeDir = File(Platform.resolvedExecutable).parent.path;
-    final releasePath = p.join(exeDir, 'data', 'flutter_assets', 'assets', 'icons', 'app_icon.ico');
+    final releasePath = p.join(
+      exeDir,
+      'data',
+      'flutter_assets',
+      'assets',
+      'icons',
+      'app_icon.ico',
+    );
     if (File(releasePath).existsSync()) return releasePath;
 
     // Fallback: profile mode or unexpected layout — try the bare relative path.
@@ -69,49 +119,114 @@ class WindowsTrayService with TrayListener, WindowListener {
 
   // ─── Menu ──────────────────────────────────────────────────────────────────
 
-  Future<void> _updateMenu(String appName) async {
-    final isStartup = await LaunchAtStartup.instance.isEnabled().catchError((_) => false);
+  Future<void> _updateMenu() async {
+    final trayIcon = _trayIcon;
+    if (trayIcon == null) return;
 
-    await trayManager.setContextMenu(
-      Menu(
-        items: [
-          MenuItem(label: appName, disabled: true),
-          MenuItem.separator(),
-          MenuItem(key: 'show', label: 'Öffnen'),
-          MenuItem(key: 'tasks', label: 'Tasks anzeigen'),
-          MenuItem.separator(),
-          MenuItem.checkbox(key: 'startup', label: 'Autostart beim Login', checked: isStartup),
-          MenuItem.separator(),
-          MenuItem(key: 'quit', label: 'Beenden'),
-        ],
-      ),
+    final isStartup = await LaunchAtStartup.instance
+        .isEnabled()
+        .catchError((_) => false);
+    final isDe = AppPreferencesService.instance.locale == 'de';
+
+    final menu = Menu.create();
+    if (menu == null) return;
+
+    final newItems = <(MenuItem, ListenerId?)>[];
+
+    void addActionItem(
+      String label, {
+      bool enabled = true,
+      void Function()? onClick,
+    }) {
+      final item = MenuItem.createWithLabelAndType(label, MenuItemType.normal);
+      if (item == null) return;
+      item.isEnabled = enabled;
+      ListenerId? listenerId;
+      if (onClick != null) {
+        listenerId = item.addListener((event) {
+          if (event is MenuItemClickedEvent) {
+            onClick();
+          }
+        });
+      }
+      newItems.add((item, listenerId));
+      menu.addItem(item);
+    }
+
+    addActionItem(_appName, enabled: false);
+    menu.addSeparator();
+    addActionItem(isDe ? 'Öffnen' : 'Open', onClick: _showWindow);
+    addActionItem(isDe ? 'Tasks anzeigen' : 'Show Tasks', onClick: _showWindow);
+    menu.addSeparator();
+
+    final startupItem = MenuItem.createWithLabelAndType(
+      isDe ? 'Autostart beim Login' : 'Start at Login',
+      MenuItemType.checkbox,
     );
-  }
+    if (startupItem != null) {
+      startupItem.state = isStartup
+          ? MenuItemState.checked
+          : MenuItemState.unchecked;
+      final listenerId = startupItem.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          unawaited(_toggleStartup());
+        }
+      });
+      newItems.add((startupItem, listenerId));
+      menu.addItem(startupItem);
+    }
 
-  // ─── TrayListener ─────────────────────────────────────────────────────────
-
-  @override
-  void onTrayIconMouseDown() {
-    _showWindow();
-  }
-
-  @override
-  void onTrayIconRightMouseDown() {
-    trayManager.popUpContextMenu();
-  }
-
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) async {
-    switch (menuItem.key) {
-      case 'show':
-      case 'tasks':
-        _showWindow();
-      case 'startup':
-        await _toggleStartup();
-      case 'quit':
+    menu.addSeparator();
+    addActionItem(
+      isDe ? 'Beenden' : 'Quit',
+      onClick: () async {
         await windowManager.setPreventClose(false);
         await windowManager.close();
+      },
+    );
+
+    trayIcon.setContextMenu(menu);
+
+    // Dispose the previous menu/items after the current callback unwinds.
+    final oldMenu = _menu;
+    final oldItems = List<(MenuItem, ListenerId?)>.of(_menuItems);
+    _menu = menu;
+    _menuItems
+      ..clear()
+      ..addAll(newItems);
+
+    if (oldMenu != null || oldItems.isNotEmpty) {
+      Timer.run(() {
+        for (final (item, listenerId) in oldItems) {
+          if (listenerId != null) {
+            item.removeListener(listenerId);
+          }
+          item.dispose();
+        }
+        oldMenu?.dispose();
+      });
     }
+  }
+
+  /// Dispose native tray resources if needed.
+  void dispose() {
+    AppPreferencesService.instance.removeListener(_onPreferencesChanged);
+    final listenerId = _trayListenerId;
+    if (listenerId != null) {
+      _trayIcon?.removeListener(listenerId);
+      _trayListenerId = null;
+    }
+    for (final (item, id) in _menuItems) {
+      if (id != null) item.removeListener(id);
+      item.dispose();
+    }
+    _menuItems.clear();
+    _menu?.dispose();
+    _menu = null;
+    _icon?.dispose();
+    _icon = null;
+    _trayIcon?.dispose();
+    _trayIcon = null;
   }
 
   // ─── WindowListener ───────────────────────────────────────────────────────
@@ -147,7 +262,7 @@ class WindowsTrayService with TrayListener, WindowListener {
         await LaunchAtStartup.instance.enable();
         log.info('[TrayService] Autostart enabled');
       }
-      await _updateMenu('TealKit'); // Refresh checkbox state.
+      await _updateMenu(); // Refresh checkbox state.
       return !enabled;
     } catch (e) {
       log.warning('[TrayService] Startup toggle failed: $e');
@@ -169,7 +284,7 @@ class WindowsTrayService with TrayListener, WindowListener {
       } else {
         await LaunchAtStartup.instance.disable();
       }
-      await _updateMenu('TealKit');
+      await _updateMenu();
     } catch (e) {
       log.warning('[TrayService] setStartup failed: $e');
     }

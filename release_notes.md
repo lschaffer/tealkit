@@ -2,6 +2,32 @@
 
 This file tracks release changes by version.
 
+## v3.0.0+178 - Pure SQLite + `sqlite_vector` Engine (DuckDB Removed), Major Dependency Modernization, Tray Native API & Localization Polish
+
+### ⚠️ Breaking / Major Changes
+- **Complete DuckDB Removal (Release 2 — Pure `sqlite3` + `sqlite_vector` + `FTS5`)**:
+  - Removed `dart_duckdb` and all legacy DuckDB migration/adapter code (`legacy_duckdb_migrator.dart`, `database_upgrade_dialog.dart`, `server_duckdb_*.dart`, `server_legacy_duckdb_migrator.dart`) from both the TealKit client app and Headless TealKit Server (`tealkit_server`).
+  - Eliminates native DuckDB binaries for a leaner package size, faster startup, and lower memory footprint. *(Users upgrading from pre-v2.4.0 DuckDB installations should first launch the v2.4.x bridge release once or restore an encrypted `.tkv` Settings Vault backup.)*
+
+### Major Upgrades & Enhancements
+- **Major Dependency & Platform Stack Upgrade (10 Major + 18 Minor/Patch Updates)**:
+  - Upgraded core dependencies in `pubspec.yaml`: `flutter_local_notifications` (`^23.0.4`), `permission_handler` (`^13.0.2`), `flutter_secure_storage` (`^11.2.0`), `flutter_web_auth_2` (`^6.1.0`), `enough_mail` (`^3.0.0`), `open_file` (`^4.0.0`), `pdfrx` (`^3.0.0`), `fl_chart` (`^1.3.1`), `tray_manager` (`^0.7.0`), and `workmanager` (`^0.10.10`), alongside 18 in-range minor/patch updates (`file_picker` `13.4.1`, `sqlite3` `3.5.2`, `flutter_riverpod` `3.5.0`, `mailer` `7.3.0`, etc.).
+  - **Windows System Tray Native API (`WindowsTrayService`)**: Migrated from `tray_manager 0.5.x` (`TrayListener`) to the `tray_manager 0.7.0` `nativeapi` `TrayIcon` / `Menu` / `MenuItem` API with live EN/DE language switching via `AppPreferencesService`.
+  - **Modern URI-Based Directory Pickers (`FilePicker.pickDirectory`)**: Replaced all 9 deprecated `FilePicker.getDirectoryPath` calls across Playground, Startup Wizard, Workflow Editor, Settings Vault, Data Sources, and Assistant Settings with `FilePicker.pickDirectory()` (native file paths on Desktop/iOS, `content://` SAF URIs on Android).
+- **Execution & Session Limits Across All Modes (`CodingSettingsService`, `CodingSettingsCard`)**:
+  - Added a responsive **Execution & Session Limits** settings card to both **Global Settings** and **Assistant Settings** (2-column grid on desktop, vertical stacked layout on mobile) controlling `Max Tool Iterations`, `Max Session Turns`, `Session Turn Limit`, `Max Session Size (MB)`, `Progressive Tool Discovery`, `Episodic Memory`, `Specialized Sub-Agents`, and Human-in-the-Loop Tool Auto-Approval checks.
+  - Added `GET/PUT /api/v1/coding/settings` on TealKit Server so execution limits sync seamlessly in Server Mode.
+- **Document Search Server/Local Separation & Clickable Download Links**:
+  - Cleanly separated **Server Mode** vs **Local Mode** in Assistant Settings → Document Search (`Server Document Folders` with **Add Server Path...** and server-side reindex in Server Mode; local folder/file pickers and local SQLite index in Local Mode) and fixed dynamic root-path sync in `DocumentMcpServer` & `WebsiteSearchMcpServer`.
+  - Added signed 24-hour HMAC-SHA256 document download endpoint `GET /api/v1/index/document/download` on TealKit Server and clickable `[fileName](downloadUrl)` Markdown links in both Server Mode and Local Mode.
+  - Replaced all remaining user-facing `"DuckDB"` strings with neutral local-index wording across `app_en.arb`, `app_de.arb`, and MCP descriptions.
+- **UI Localization, Mobile Layout & Android Toolchain Fixes**:
+  - Fixed mobile `Image Generator Settings` preset dropdown overflow and redesigned mobile Tool Group cards (`_buildToolGroupHeader`) so long tool titles never wrap mid-word.
+  - Upgraded Android build toolchain to **Gradle 9.5.0**, **AGP 9.3.1**, **Kotlin 2.4.20**, and **`compileSdk = 37`** for Flutter 3.47+ and `flutter_local_notifications 23` / `permission_handler 13`.
+  - Completed German (`DE`) translations across Settings, Assistant empty chat background, Session Continue dialog, Embedded Model picker, and Windows tasktray menu, and added `tool/scan_untranslated_ui.dart` + `tool/scan_untranslated_ui.ps1` to audit untranslated UI strings.
+- **TealKit CLI (`v1.4.10`) & VS Code Extension (`v0.1.13`)**:
+  - Added built-in `generate_image` (AI Image Generator) and pure-Dart `github_*` API tools to TealKit CLI and the VS Code extension.
+
 ## v2.4.1+173 - Built-In AI Image Generator & GitHub API Tools, Mobile Server Coding Mode, LiteRT-LM Models, Android SAF Save-As & Server Runner Fixes
 
 ### Major Features & Fixes

@@ -85,16 +85,20 @@ class TealKitToolsBuilder {
     final docPaths = DataSourcesSettingsService.instance.documentRootPaths.trim();
     addServerTools(
       'document',
-      initParams: docPaths.isNotEmpty
-          ? {'rootPath': docPaths, 'indexingStrategy': 'before_first_run'}
-          : null,
+      initParams: {
+        'useGlobalSettings': true,
+        if (docPaths.isNotEmpty) 'rootPath': docPaths,
+        'indexingStrategy': 'before_first_run',
+      },
     );
     final webUrls = DataSourcesSettingsService.instance.websiteIndexUrls.trim();
     addServerTools(
       'website_search',
-      initParams: webUrls.isNotEmpty
-          ? {'websiteUrls': webUrls, 'indexingStrategy': 'before_first_run'}
-          : null,
+      initParams: {
+        'useGlobalSettings': true,
+        if (webUrls.isNotEmpty) 'websiteUrls': webUrls,
+        'indexingStrategy': 'before_first_run',
+      },
     );
 
     // 3. Desktop Script Bridges

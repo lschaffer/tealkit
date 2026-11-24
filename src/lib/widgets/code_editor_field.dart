@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/material.dart' as legacy;
+import 'package:material_ui/material_ui.dart' as legacy;
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
@@ -89,7 +89,13 @@ class CodeEditorField extends StatefulWidget {
   /// Approximate number of visible lines in compact (inline) mode.
   final int previewLines;
 
-  const CodeEditorField({super.key, required this.controller, this.language, this.title, this.previewLines = 12});
+  const CodeEditorField({
+    super.key,
+    required this.controller,
+    this.language,
+    this.title,
+    this.previewLines = 12,
+  });
 
   @override
   State<CodeEditorField> createState() => _CodeEditorFieldState();
@@ -102,7 +108,10 @@ class _CodeEditorFieldState extends State<CodeEditorField> {
   @override
   void initState() {
     super.initState();
-    _codeCtrl = CodeController(text: widget.controller.text, language: _languageForId(widget.language));
+    _codeCtrl = CodeController(
+      text: widget.controller.text,
+      language: _languageForId(widget.language),
+    );
     _codeCtrl.addListener(_onCodeChanged);
     widget.controller.addListener(_onExternalChanged);
   }
@@ -139,7 +148,11 @@ class _CodeEditorFieldState extends State<CodeEditorField> {
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _FullScreenCodeEditorDialog(initialText: _codeCtrl.text, language: widget.language, title: widget.title),
+      builder: (_) => _FullScreenCodeEditorDialog(
+        initialText: _codeCtrl.text,
+        language: widget.language,
+        title: widget.title,
+      ),
     );
     if (result != null && mounted) {
       // Update both to stay in sync.
@@ -177,7 +190,10 @@ class _CodeEditorFieldState extends State<CodeEditorField> {
                   type: legacy.MaterialType.transparency,
                   child: CodeField(
                     controller: _codeCtrl,
-                    textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    textStyle: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
                     minLines: widget.previewLines,
                   ),
                 ),
@@ -200,11 +216,18 @@ class _CodeEditorFieldState extends State<CodeEditorField> {
                 child: Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: (isDark ? const Color(0xFF2A2A3E) : Colors.white).withValues(alpha: 0.90),
+                    color: (isDark ? const Color(0xFF2A2A3E) : Colors.white)
+                        .withValues(alpha: 0.90),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
+                    border: Border.all(
+                      color: theme.dividerColor.withValues(alpha: 0.5),
+                    ),
                   ),
-                  child: Icon(Icons.open_in_full, size: 15, color: theme.colorScheme.onSurfaceVariant),
+                  child: Icon(
+                    Icons.open_in_full,
+                    size: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),
@@ -222,19 +245,28 @@ class _FullScreenCodeEditorDialog extends StatefulWidget {
   final String? language;
   final String? title;
 
-  const _FullScreenCodeEditorDialog({required this.initialText, this.language, this.title});
+  const _FullScreenCodeEditorDialog({
+    required this.initialText,
+    this.language,
+    this.title,
+  });
 
   @override
-  State<_FullScreenCodeEditorDialog> createState() => _FullScreenCodeEditorDialogState();
+  State<_FullScreenCodeEditorDialog> createState() =>
+      _FullScreenCodeEditorDialogState();
 }
 
-class _FullScreenCodeEditorDialogState extends State<_FullScreenCodeEditorDialog> {
+class _FullScreenCodeEditorDialogState
+    extends State<_FullScreenCodeEditorDialog> {
   late final CodeController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = CodeController(text: widget.initialText, language: _languageForId(widget.language));
+    _controller = CodeController(
+      text: widget.initialText,
+      language: _languageForId(widget.language),
+    );
   }
 
   @override
@@ -253,27 +285,38 @@ class _FullScreenCodeEditorDialogState extends State<_FullScreenCodeEditorDialog
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: Text(widget.title ?? 'Code Editor', style: const TextStyle(fontSize: 15)),
+          title: Text(
+            widget.title ?? 'Code Editor',
+            style: const TextStyle(fontSize: 15),
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.copy_all),
               tooltip: 'Copy all',
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: _controller.text));
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Copied to clipboard'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
               },
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(null), // Cancel — no changes
+              onPressed: () =>
+                  Navigator.of(context).pop(null), // Cancel — no changes
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(_controller.text), // Save
+              onPressed: () =>
+                  Navigator.of(context).pop(_controller.text), // Save
               child: Text(
                 'Save',
-                style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -286,7 +329,10 @@ class _FullScreenCodeEditorDialogState extends State<_FullScreenCodeEditorDialog
               type: legacy.MaterialType.transparency,
               child: CodeField(
                 controller: _controller,
-                textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                textStyle: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                ),
               ),
             ),
           ),

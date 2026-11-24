@@ -921,7 +921,9 @@ class ServerApiClient {
         )
         .timeout(_timeout);
     _checkStatus(r);
-    return jsonDecode(r.body) as Map<String, dynamic>;
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    _resolveDocumentDownloadUrls(data);
+    return data;
   }
 
   /// List documents in the server's document index.
@@ -936,7 +938,25 @@ class ServerApiClient {
     ).replace(queryParameters: params);
     final r = await http.get(uri, headers: _headers).timeout(_timeout);
     _checkStatus(r);
-    return jsonDecode(r.body) as Map<String, dynamic>;
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    _resolveDocumentDownloadUrls(data);
+    return data;
+  }
+
+  void _resolveDocumentDownloadUrls(Map<String, dynamic> payload) {
+    for (final listKey in const ['documents', 'results']) {
+      final items = payload[listKey];
+      if (items is List) {
+        for (final item in items) {
+          if (item is Map<String, dynamic>) {
+            final dlPath = (item['downloadPath'] as String? ?? '').trim();
+            if (dlPath.isNotEmpty) {
+              item['downloadUrl'] = _url(dlPath);
+            }
+          }
+        }
+      }
+    }
   }
 
   /// Get full stored content for a single indexed document from the server.
@@ -1365,6 +1385,30 @@ class ServerApiClient {
           }),
         )
         .timeout(const Duration(seconds: 150));
+    _checkStatus(r);
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  /// Fetches saved Coding Mode settings from the server (`GET /api/v1/coding/settings`).
+  Future<Map<String, dynamic>> getServerCodingSettings() async {
+    final r = await http
+        .get(Uri.parse(_url('/api/v1/coding/settings')), headers: _headers)
+        .timeout(_timeout);
+    _checkStatus(r);
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  /// Saves Coding Mode settings on the server (`PUT /api/v1/coding/settings`).
+  Future<Map<String, dynamic>> saveServerCodingSettings(
+    Map<String, dynamic> settings,
+  ) async {
+    final r = await http
+        .put(
+          Uri.parse(_url('/api/v1/coding/settings')),
+          headers: _headers,
+          body: jsonEncode(settings),
+        )
+        .timeout(_timeout);
     _checkStatus(r);
     return jsonDecode(r.body) as Map<String, dynamic>;
   }

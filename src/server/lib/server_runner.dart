@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
@@ -757,6 +758,10 @@ Future<void> startHttpServer({
   router.post('/api/v1/index/document/search', _handleSearchDocumentIndex);
   router.get('/api/v1/index/document/list', _handleListDocumentIndex);
   router.get('/api/v1/index/document/entry', _handleGetDocumentIndexEntry);
+  router.get(
+    '/api/v1/index/document/download',
+    _handleDownloadIndexedDocument,
+  );
   router.post(
     '/api/v1/index/document/purge-stale',
     _handlePurgeStaleDocumentIndex,
@@ -814,9 +819,11 @@ Future<void> startHttpServer({
     _handleDeletePlaygroundSession,
   );
 
-  // ── Remote Coding Workspace (Mobile Server Mode) ──────────────
+  // ── Remote Coding Workspace & Settings (Mobile Server Mode) ───
   router.get('/api/v1/coding/workspace', _handleGetCodingWorkspace);
   router.post('/api/v1/coding/tools/<toolName>', _handleExecuteCodingTool);
+  router.get('/api/v1/coding/settings', _handleGetCodingSettings);
+  router.put('/api/v1/coding/settings', _handleSaveCodingSettings);
 
   final handler = Pipeline()
       .addMiddleware(logRequests())
@@ -862,6 +869,18 @@ Middleware _apiKeyMiddleware() {
       // Exempt unauthenticated status probes.
       if (path == 'health' || path == 'status') {
         return innerHandler(request);
+      }
+      // Allow signed short-lived download tokens for indexed documents so
+      // browser/app link clicks can download files without exposing the API key.
+      if (path == 'api/v1/index/document/download' &&
+          request.method.toUpperCase() == 'GET') {
+        final docPath = request.url.queryParameters['path'] ?? '';
+        final dlToken = request.url.queryParameters['token'] ?? '';
+        if (docPath.isNotEmpty &&
+            dlToken.isNotEmpty &&
+            _verifyDocumentDownloadToken(docPath, dlToken, allowedKeys)) {
+          return innerHandler(request);
+        }
       }
       final authHeader =
           request.headers['authorization'] ??
@@ -3086,6 +3105,7 @@ Future<Response> _handleSearchDocumentIndex(Request request) async {
     limit: limit.clamp(1, 200),
     searchMode: searchMode,
   );
+  _attachDocumentDownloadPaths(result);
   return _json(result);
 }
 
@@ -3097,7 +3117,120 @@ Future<Response> _handleListDocumentIndex(Request request) async {
     fileType: fileType.isEmpty ? null : fileType,
     limit: limit.clamp(1, 1000),
   );
+  _attachDocumentDownloadPaths(result);
   return _json(result);
+}
+
+String _buildDocumentDownloadPath(String filePath) {
+  final allowedKeys = _parseApiKeysFromEnv(
+    Platform.environment['TEALKIT_API_KEY'] ?? '',
+  );
+  final qp = <String, String>{'path': filePath};
+  if (allowedKeys.isNotEmpty) {
+    final exp =
+        DateTime.now().add(const Duration(hours: 24)).millisecondsSinceEpoch ~/
+        1000;
+    final key = allowedKeys.first;
+    final sig = Hmac(sha256, utf8.encode(key))
+        .convert(utf8.encode('$filePath|$exp'))
+        .toString();
+    qp['token'] = '$exp.$sig';
+  }
+  return Uri(
+    path: '/api/v1/index/document/download',
+    queryParameters: qp,
+  ).toString();
+}
+
+bool _verifyDocumentDownloadToken(
+  String filePath,
+  String token,
+  Set<String> allowedKeys,
+) {
+  final dot = token.indexOf('.');
+  if (dot <= 0) return false;
+  final exp = int.tryParse(token.substring(0, dot));
+  final sig = token.substring(dot + 1);
+  if (exp == null || sig.isEmpty) return false;
+  final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  if (nowSec > exp) return false;
+  for (final key in allowedKeys) {
+    final expected = Hmac(sha256, utf8.encode(key))
+        .convert(utf8.encode('$filePath|$exp'))
+        .toString();
+    if (expected == sig) return true;
+  }
+  return false;
+}
+
+void _attachDocumentDownloadPaths(Map<String, dynamic> payload) {
+  for (final listKey in const ['documents', 'results']) {
+    final items = payload[listKey];
+    if (items is List) {
+      for (final item in items) {
+        if (item is Map<String, dynamic>) {
+          final fp = (item['filePath'] as String? ?? '').trim();
+          if (fp.isNotEmpty) {
+            item['downloadPath'] = _buildDocumentDownloadPath(fp);
+          }
+        }
+      }
+    }
+  }
+}
+
+Future<Response> _handleDownloadIndexedDocument(Request request) async {
+  final rawPath = (request.url.queryParameters['path'] ?? '').trim();
+  if (rawPath.isEmpty) {
+    return _jsonError('Missing required query parameter: path');
+  }
+
+  final configuredRoots = ServerDataSourcesService.instance.documentRootPaths
+      .split(';')
+      .map((r) => r.trim())
+      .where((r) => r.isNotEmpty)
+      .map((r) => p.canonicalize(r))
+      .toList();
+  if (configuredRoots.isEmpty) {
+    return _jsonError('No document root paths configured on server', status: 403);
+  }
+
+  final canonicalTarget = p.canonicalize(rawPath);
+  final isAllowed = configuredRoots.any(
+    (root) => canonicalTarget == root || p.isWithin(root, canonicalTarget),
+  );
+  if (!isAllowed) {
+    return _jsonError('Access denied: path outside configured document roots', status: 403);
+  }
+
+  final file = File(canonicalTarget);
+  if (!file.existsSync()) {
+    return _jsonError('Document not found on disk', status: 404);
+  }
+
+  final fileName = p.basename(canonicalTarget).replaceAll('"', '_');
+  final ext = p.extension(canonicalTarget).toLowerCase();
+  final contentType = switch (ext) {
+    '.pdf' => 'application/pdf',
+    '.docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xlsx' =>
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.md' => 'text/markdown; charset=utf-8',
+    '.txt' => 'text/plain; charset=utf-8',
+    '.csv' => 'text/csv; charset=utf-8',
+    _ => 'application/octet-stream',
+  };
+
+  final bytes = await file.readAsBytes();
+  return Response.ok(
+    bytes,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Disposition': 'attachment; filename="$fileName"',
+      'Content-Length': '${bytes.length}',
+    },
+  );
 }
 
 Future<Response> _handleGetDocumentIndexEntry(Request request) async {
@@ -5025,6 +5158,72 @@ Future<Response> _handleExecuteCodingTool(
     return _json(result);
   } catch (e) {
     log.error('[API] POST /coding/tools/$toolName failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
+}
+
+const Map<String, dynamic> _kDefaultCodingSettings = {
+  'max_tool_iterations': 50,
+  'max_session_turns': 500,
+  'turn_limit': 0,
+  'max_session_size_mb': 10,
+  'progressive_mcp_discovery': false,
+  'enable_episodic_memory': true,
+  'enable_sub_agents': true,
+  'auto_approve_read': true,
+  'auto_approve_write': false,
+  'auto_approve_execute': false,
+  'auto_approve_network': true,
+};
+
+Future<Response> _handleGetCodingSettings(Request request) async {
+  try {
+    final raw = ServerConfigService().getString('coding_settings_json');
+    final merged = Map<String, dynamic>.from(_kDefaultCodingSettings);
+    if (raw != null && raw.trim().isNotEmpty) {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        for (final entry in decoded.entries) {
+          merged[entry.key.toString()] = entry.value;
+        }
+      }
+    }
+    return _json(merged);
+  } catch (e) {
+    log.error('[API] GET /coding/settings failed: $e');
+    return _jsonError(e.toString(), status: 500);
+  }
+}
+
+Future<Response> _handleSaveCodingSettings(Request request) async {
+  final body = await _parseJsonBody(request);
+  if (body == null) return _jsonError('Invalid or missing JSON body');
+  try {
+    final merged = Map<String, dynamic>.from(_kDefaultCodingSettings);
+    final existingRaw = ServerConfigService().getString('coding_settings_json');
+    if (existingRaw != null && existingRaw.trim().isNotEmpty) {
+      final decoded = jsonDecode(existingRaw);
+      if (decoded is Map) {
+        for (final entry in decoded.entries) {
+          merged[entry.key.toString()] = entry.value;
+        }
+      }
+    }
+
+    for (final key in _kDefaultCodingSettings.keys) {
+      if (body.containsKey(key)) {
+        merged[key] = body[key];
+      }
+    }
+
+    await ServerConfigService().setString(
+      'coding_settings_json',
+      jsonEncode(merged),
+    );
+    log.info('[API] Saved coding settings: $merged');
+    return _json({'status': 'saved', ...merged});
+  } catch (e) {
+    log.error('[API] PUT /coding/settings failed: $e');
     return _jsonError(e.toString(), status: 500);
   }
 }

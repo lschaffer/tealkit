@@ -16,6 +16,7 @@ import '../models/workflow_task.dart' hide ChatRole;
 import '../providers/database_providers.dart';
 import '../providers/server_mode_provider.dart';
 import '../providers/sidebar_provider.dart';
+import '../services/coding_settings_service.dart';
 import '../services/data_sources_settings_service.dart';
 import '../services/external_tools_settings_service.dart';
 import '../services/github_mcp_library_service.dart';
@@ -109,6 +110,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
     _controller.workspaceDirectory = _workspaceDirectory;
     _controller.codingSubMode = _codingSubMode;
     _controller.permissions.reload();
+    CodingSettingsService.instance.applyToController(_controller);
 
     if (widget.task != null) {
       _pendingInitialTaskApply = true;
@@ -117,6 +119,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
 
     // Sync any external changes from TealKit's settings
     tk_llm.LlmSettingsService.instance.addListener(_onTealKitLlmSettingsChanged);
+    CodingSettingsService.instance.addListener(_onCodingSettingsChanged);
     _controller.addListener(_onControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncRemoteCodingWorkspaceIfNeeded();
@@ -139,9 +142,15 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   void dispose() {
     _isDisposed = true;
     tk_llm.LlmSettingsService.instance.removeListener(_onTealKitLlmSettingsChanged);
+    CodingSettingsService.instance.removeListener(_onCodingSettingsChanged);
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onCodingSettingsChanged() {
+    if (_isDisposed || !mounted) return;
+    CodingSettingsService.instance.applyToController(_controller);
   }
 
   void _syncDefaultLlmFromSettings() {
@@ -185,9 +194,22 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   }
 
   Future<void> _syncRemoteCodingWorkspaceIfNeeded() async {
-    if (_isDisposed || !mounted || _isDesktopPlatform) return;
+    if (_isDisposed || !mounted) return;
     final isRemote = ref.read(serverModeProvider).value?.isRemote ?? false;
     final serverClient = ref.read(serverApiClientProvider);
+
+    // Sync Coding Mode settings from server whenever connected in Server Mode.
+    if (isRemote && serverClient != null) {
+      unawaited(
+        CodingSettingsService.instance.syncFromServer(serverClient).then((_) {
+          if (!_isDisposed && mounted) {
+            CodingSettingsService.instance.applyToController(_controller);
+          }
+        }),
+      );
+    }
+
+    if (_isDesktopPlatform) return;
     if (!isRemote || serverClient == null) {
       if (_isCodingMode) {
         _exitCodingMode(context, showSnackbar: false);
@@ -1454,7 +1476,12 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
                   await _pickRemoteServerWorkspaceFolder();
                   return;
                 }
-                final selected = await FilePicker.getDirectoryPath();
+                final selectedUri = await FilePicker.pickDirectory();
+                final selected = selectedUri == null
+                    ? null
+                    : (selectedUri.scheme == 'file'
+                        ? selectedUri.toFilePath()
+                        : selectedUri.toString());
                 if (selected != null && mounted) {
                   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
                     try {

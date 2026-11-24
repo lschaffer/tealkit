@@ -375,7 +375,7 @@
   "fileNamePatternHint": "task_result_{date}.txt",
   "addExecutionLogToOutput": "Ausführungsprotokoll zur Ausgabe hinzufügen",
   "zipOutputFiles": "Ausgabedateien zippen",
-  "runningTaskWithDuckdb": "Aufgabe läuft und indiziert/sucht mit DuckDB...",
+  "runningTaskWithDuckdb": "Aufgabe läuft und indiziert/sucht im lokalen Index...",
   "openLatestFile": "Neueste Datei öffnen",
   "pathNotFound": "Pfad nicht gefunden",
   "openFailed": "Öffnen fehlgeschlagen: {error}",
@@ -386,9 +386,9 @@
       }
     }
   },
-  "localSearchIndexDuckdb": "Lokaler Suchindex (DuckDB)",
+  "localSearchIndexDuckdb": "Lokaler Suchindex",
   "duckdbSizeLimitDescription": "Maximale indexierte Datenmenge in GB. Die Indexierung stoppt, wenn das Limit erreicht ist.",
-  "duckdbSizeLimitGb": "DuckDB-Limit (GB)",
+  "duckdbSizeLimitGb": "Suchindex-Limit (GB)",
   "duckdbSizeLimitHint": "1.0",
   "pushNotification": "Push-Benachrichtigung",
   "sendPush": "Push-Benachrichtigung senden",
@@ -493,7 +493,7 @@
   "weatherDisplayName": "Wetter",
   "weatherDescription": "Wettervorhersagen über Open-Meteo abrufen (kostenlos, kein API-Schlüssel). Bietet aktuelle Bedingungen, Stunden- und Tagesprognosen.",
   "documentDisplayName": "Dokumentensuche",
-  "documentDescription": "Lokale Dokumente durchsuchen und indexieren (TXT, MD, DOCX, XLSX, PDF, CSV). Extrahiert Textinhalte und bietet Volltextsuche über DuckDB.",
+  "documentDescription": "Lokale Dokumente durchsuchen und indexieren (TXT, MD, DOCX, XLSX, PDF, CSV). Extrahiert Textinhalte und bietet semantische/hybride Suche über den lokalen Suchindex.",
   "documentSystemPrompt": "Du bist ein Dokumenten-Suchassistent. Nutze die Dokument-Tools, um lokale Dokumente zu finden und zu durchsuchen. Wenn der Nutzer nach Dokumenteninhalten fragt, verwende search_documents um relevante Dateien zu finden und dann get_document_content um bestimmte Dokumente zu lesen. Präsentiere Ergebnisse klar mit Dateinamen und relevanten Auszügen. Falls keine Treffer gefunden werden, schlage breitere Suchbegriffe vor.",
   "reindexDocuments": "Dokumente neu indexieren",
   "reindexDocumentsHint": "Ordner erneut scannen und Suchindex neu aufbauen.",
@@ -805,7 +805,7 @@
   "websiteUrlInvalid": "Eingegebene URL ist ungültig.",
   "websiteUrlReady": "Bereit zum Hinzufügen und Indexieren dieser URL.",
   "websiteUrlAlreadyAdded": "URL bereits ausgewählt oder max. Websites erreicht.",
-  "websiteUrlLimitHint": "Bis zu 3 Seiten. Indexierte Seiten werden in DuckDB gespeichert. Max. Seiten: {maxPages}.",
+  "websiteUrlLimitHint": "Bis zu 3 Seiten. Indexierte Seiten werden im lokalen Suchindex gespeichert. Max. Seiten: {maxPages}.",
   "@websiteUrlLimitHint": {
     "placeholders": {
       "maxPages": {
@@ -1034,7 +1034,7 @@
   "vaultIncludedLabel": "Enthalten (pro Export wählbar)",
   "vaultIncludedText": "Konfiguration: LLM / API-Schlüssel / E-Mail / SSH / Integrationen\nServer-Verbindungen: Remote-Server-Profile, URLs & API-Schlüssel\nSkripte: JS  •  PowerShell  •  Python  •  SSH-Skripte\nAufgaben: alle Aufgaben mit benutzerdefiniertem LLM, SSH & Zugangsdaten\nSkills: MCP-Tool-Skills & AgentSkills.io-Definitionen",
   "vaultExcludedLabel": "Nie enthalten",
-  "vaultExcludedText": "Gesprächsverlauf  •  DuckDB-Dokumentindex",
+  "vaultExcludedText": "Gesprächsverlauf  •  Lokaler Dokumentindex",
   "vaultExportSection": "Tresor exportieren",
   "vaultExportHint": "Ordner wählen, dann Dateiname, Passwort und Abschnitte festlegen.",
   "vaultChooseFolderExport": "Ordner wählen & exportieren",

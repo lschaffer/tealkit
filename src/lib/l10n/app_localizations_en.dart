@@ -1086,7 +1086,7 @@ class LEn extends L {
 
   @override
   String get runningTaskWithDuckdb =>
-      'Running task and indexing/searching with DuckDB...';
+      'Running task and indexing/searching local index...';
 
   @override
   String get openLatestFile => 'Open latest file';
@@ -1100,14 +1100,14 @@ class LEn extends L {
   }
 
   @override
-  String get localSearchIndexDuckdb => 'Local search index (DuckDB)';
+  String get localSearchIndexDuckdb => 'Local search index';
 
   @override
   String get duckdbSizeLimitDescription =>
       'Maximum indexed data size in GB. Indexing stops when the cap is reached.';
 
   @override
-  String get duckdbSizeLimitGb => 'DuckDB size limit (GB)';
+  String get duckdbSizeLimitGb => 'Search index size limit (GB)';
 
   @override
   String get duckdbSizeLimitHint => '1.0';
@@ -1447,7 +1447,7 @@ class LEn extends L {
 
   @override
   String get documentDescription =>
-      'Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides full-text search via DuckDB.';
+      'Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides semantic/hybrid search via the local vector index.';
 
   @override
   String get documentSystemPrompt =>
@@ -2177,7 +2177,7 @@ class LEn extends L {
 
   @override
   String websiteUrlLimitHint(int maxPages) {
-    return 'Add up to 3 sites. Indexed pages are stored in DuckDB. Max pages: $maxPages.';
+    return 'Add up to 3 sites. Indexed pages are stored in the local search index. Max pages: $maxPages.';
   }
 
   @override
@@ -2521,7 +2521,7 @@ class LEn extends L {
 
   @override
   String get vaultExcludedText =>
-      'Conversation history  •  DuckDB document index';
+      'Conversation history  •  Local document index';
 
   @override
   String get vaultExportSection => 'Export vault';

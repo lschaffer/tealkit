@@ -1097,7 +1097,7 @@ class LDe extends L {
 
   @override
   String get runningTaskWithDuckdb =>
-      'Aufgabe läuft und indiziert/sucht mit DuckDB...';
+      'Aufgabe läuft und indiziert/sucht im lokalen Index...';
 
   @override
   String get openLatestFile => 'Neueste Datei öffnen';
@@ -1111,14 +1111,14 @@ class LDe extends L {
   }
 
   @override
-  String get localSearchIndexDuckdb => 'Lokaler Suchindex (DuckDB)';
+  String get localSearchIndexDuckdb => 'Lokaler Suchindex';
 
   @override
   String get duckdbSizeLimitDescription =>
       'Maximale indexierte Datenmenge in GB. Die Indexierung stoppt, wenn das Limit erreicht ist.';
 
   @override
-  String get duckdbSizeLimitGb => 'DuckDB-Limit (GB)';
+  String get duckdbSizeLimitGb => 'Suchindex-Limit (GB)';
 
   @override
   String get duckdbSizeLimitHint => '1.0';
@@ -1458,7 +1458,7 @@ class LDe extends L {
 
   @override
   String get documentDescription =>
-      'Lokale Dokumente durchsuchen und indexieren (TXT, MD, DOCX, XLSX, PDF, CSV). Extrahiert Textinhalte und bietet Volltextsuche über DuckDB.';
+      'Lokale Dokumente durchsuchen und indexieren (TXT, MD, DOCX, XLSX, PDF, CSV). Extrahiert Textinhalte und bietet semantische/hybride Suche über den lokalen Suchindex.';
 
   @override
   String get documentSystemPrompt =>
@@ -2203,7 +2203,7 @@ class LDe extends L {
 
   @override
   String websiteUrlLimitHint(int maxPages) {
-    return 'Bis zu 3 Seiten. Indexierte Seiten werden in DuckDB gespeichert. Max. Seiten: $maxPages.';
+    return 'Bis zu 3 Seiten. Indexierte Seiten werden im lokalen Suchindex gespeichert. Max. Seiten: $maxPages.';
   }
 
   @override
@@ -2548,7 +2548,7 @@ class LDe extends L {
   String get vaultExcludedLabel => 'Nie enthalten';
 
   @override
-  String get vaultExcludedText => 'Gesprächsverlauf  •  DuckDB-Dokumentindex';
+  String get vaultExcludedText => 'Gesprächsverlauf  •  Lokaler Dokumentindex';
 
   @override
   String get vaultExportSection => 'Tresor exportieren';

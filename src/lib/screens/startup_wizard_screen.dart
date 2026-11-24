@@ -28,6 +28,7 @@ import 'script_library_screen.dart';
 import 'js_tool_library_screen.dart';
 import 'powershell_tool_library_screen.dart';
 import 'local_shell_tool_library_screen.dart';
+import '../widgets/coding_settings_card.dart';
 import '../widgets/data_sources_settings_screen.dart';
 import '../widgets/llm_settings_dialog.dart';
 import 'settings_vault_screen.dart';
@@ -219,12 +220,15 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
 
   Future<void> _pickDefaultOutputDir() async {
     final prefs = ref.read(appPreferencesProvider);
-    final path = await FilePicker.getDirectoryPath(
+    final uri = await FilePicker.pickDirectory(
       dialogTitle: L.of(context).defaultOutputDir,
       initialDirectory: prefs.defaultOutputPath.isNotEmpty
           ? prefs.defaultOutputPath
           : null,
     );
+    final path = uri == null
+        ? null
+        : (uri.scheme == 'file' ? uri.toFilePath() : uri.toString());
     if (path != null) await prefs.setDefaultOutputPath(path);
   }
 
@@ -402,6 +406,10 @@ class _StartupWizardScreenState extends ConsumerState<StartupWizardScreen> {
 
             // ── Inbuilt tools ──
             const _InbuiltToolsCard(),
+            const SizedBox(height: 16),
+
+            // ── Execution & Session Limits (All Modes — Local & Server) ──
+            const CodingSettingsCard(initiallyExpanded: false),
             const SizedBox(height: 16),
 
             // ── 3. External tools ──

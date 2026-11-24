@@ -33,6 +33,7 @@ class DocumentMcpServer extends InternalMcpServer {
   String _indexingStrategy = 'now';
   int _maxDocuments = 1000;
   bool _indexed = false;
+  bool _useGlobalSettings = false;
   bool _pdfEngineInitialized = false;
   bool _cancelRequested = false;
 
@@ -61,7 +62,7 @@ class DocumentMcpServer extends InternalMcpServer {
   @override
   String get description =>
       'Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). '
-      'Extracts text content and provides semantic/hybrid search via DuckDB.';
+      'Extracts text content and provides semantic/hybrid search via the local vector index.';
 
   @override
   String get iconName => 'description';
@@ -112,8 +113,10 @@ class DocumentMcpServer extends InternalMcpServer {
   @override
   String get defaultSystemPrompt =>
       'Document tools: use search_documents to find relevant files, then '
-      'get_document_content to read details. Return file names and relevant '
-      'excerpts. If no matches are found, suggest broader search terms.';
+      'get_document_content to read details. When listing or citing documents '
+      'that include a downloadUrl, render each filename as a clickable Markdown '
+      'link: [fileName](downloadUrl). If no matches are found, suggest broader '
+      'search terms.';
 
   // ══════════════════════════════════════════════
   // Lifecycle
@@ -121,7 +124,11 @@ class DocumentMcpServer extends InternalMcpServer {
 
   @override
   Future<void> initialize(Map<String, dynamic> initParams) async {
-    final rawPath = initParams['rootPath'] as String? ?? '';
+    _useGlobalSettings = initParams['useGlobalSettings'] == true;
+    var rawPath = initParams['rootPath'] as String? ?? '';
+    if (rawPath.trim().isEmpty) {
+      rawPath = DataSourcesSettingsService.instance.documentRootPaths;
+    }
     _rootPaths = rawPath.split(';').map((e) => e.trim()).where((e) => e.isNotEmpty).take(_maxFolders).toList();
     // Use caller-supplied file types; fall back to the allowed set.
     final rawTypes = initParams['fileTypes'] as String? ?? '';
@@ -188,7 +195,9 @@ class DocumentMcpServer extends InternalMcpServer {
   List<McpToolDescriptor> get tools => [
     const McpToolDescriptor(
       name: 'list_documents',
-      description: 'List all indexed documents. Optionally filter by file type.',
+      description:
+          'List all indexed documents. Optionally filter by file type. '
+          'When presenting results to the user, format each filename as a clickable Markdown link [fileName](downloadUrl) whenever downloadUrl is present.',
       inputSchema: {
         'type': 'object',
         'properties': {
@@ -202,7 +211,8 @@ class DocumentMcpServer extends InternalMcpServer {
       name: 'search_documents',
       description:
           'Search across indexed documents. Supports keyword, semantic, and '
-          'hybrid ranking with relevance scoring and excerpts.',
+          'hybrid ranking with relevance scoring and excerpts. '
+          'When presenting results to the user, format each filename as a clickable Markdown link [fileName](downloadUrl) whenever downloadUrl is present.',
       inputSchema: {
         'type': 'object',
         'properties': {
@@ -244,12 +254,51 @@ class DocumentMcpServer extends InternalMcpServer {
     ),
   ];
 
+  Future<void> _syncGlobalSettingsIfNeeded(bool isRemote) async {
+    if (!_useGlobalSettings && _rootPaths.isNotEmpty) return;
+
+    final rawPath = DataSourcesSettingsService.instance.documentRootPaths;
+    final latestPaths = rawPath
+        .split(';')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .take(_maxFolders)
+        .toList();
+
+    final changed =
+        latestPaths.length != _rootPaths.length ||
+        !latestPaths.every(_rootPaths.contains);
+    if (changed) {
+      _rootPaths = latestPaths;
+      _indexed = false;
+    }
+
+    if (_fileTypes.isEmpty) {
+      final rawTypes = DataSourcesSettingsService.instance.documentFileTypes;
+      final parsedTypes = rawTypes
+          .split(',')
+          .map((e) => e.trim().toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      _fileTypes = parsedTypes.isNotEmpty ? parsedTypes : _allowedFileTypes;
+    }
+
+    if (!isRemote && _rootPaths.isNotEmpty && !_indexed) {
+      await _ensureTable();
+      _indexed = await _hasExistingIndexForConfiguredRoots();
+    }
+  }
+
   @override
   Future<Map<String, dynamic>> executeTool(String toolName, Map<String, dynamic> arguments) async {
     log.info('[Document MCP] executeTool: $toolName');
 
     final prefs = await SharedPreferences.getInstance();
     final isRemote = (prefs.getString('server_mode') ?? 'local') == 'remote';
+
+    // Always pick up newly configured document folders from DataSourcesSettingsService
+    // when running from Assistant / global settings (or if rootPaths were empty).
+    await _syncGlobalSettingsIfNeeded(isRemote);
 
     // Lazy indexing only applies in local mode.
     if (!isRemote && !_indexed && _indexingStrategy == 'before_first_run' && toolName != 'reindex') {
@@ -755,7 +804,18 @@ class DocumentMcpServer extends InternalMcpServer {
       'totalDocuments': totalCount,
       'returned': rows.length,
       'documents': rows
-          .map((r) => {'filePath': r[0], 'fileName': r[1], 'fileType': r[2], 'fileSize': r[3], 'lastModified': r[4], 'contentLength': r[5]})
+          .map(
+            (r) => {
+              'filePath': r[0],
+              'fileName': r[1],
+              'fileType': r[2],
+              'fileSize': r[3],
+              'lastModified': r[4],
+              'contentLength': r[5],
+              if ((r[0]?.toString() ?? '').isNotEmpty)
+                'downloadUrl': Uri.file(r[0].toString()).toString(),
+            },
+          )
           .toList(),
     };
   }
@@ -889,12 +949,27 @@ class DocumentMcpServer extends InternalMcpServer {
     scored.sort((a, b) => (b['relevanceScore'] as num).compareTo(a['relevanceScore'] as num));
 
     final limited = scored.take(limit).toList();
-    final fileLines = limited.asMap().entries.map((e) => '${e.key + 1}. ${e.value['fileName']}  →  ${e.value['filePath']}').join('\n');
+    final fileLines = limited.asMap().entries.map((e) {
+      final fp = e.value['filePath']?.toString() ?? '';
+      final fn = e.value['fileName']?.toString() ?? '';
+      final url = fp.isNotEmpty ? Uri.file(fp).toString() : '';
+      return url.isNotEmpty ? '${e.key + 1}. [$fn]($url)  →  $fp' : '${e.key + 1}. $fn  →  $fp';
+    }).join('\n');
     return {
       'summary':
-          'Found ${limited.length} file(s) matching "$query":\n$fileLines\n\nUse get_document_content with the filePath to read the full content.',
+          'Found ${limited.length} file(s) matching "$query":\n$fileLines\n\nUse get_document_content with the filePath to read the full content. Format filenames as [fileName](downloadUrl) links.',
       'totalResults': limited.length,
-      'results': limited.map((r) => {'fileName': r['fileName'], 'filePath': r['filePath'], 'fileType': r['fileType']}).toList(),
+      'results': limited
+          .map(
+            (r) => {
+              'fileName': r['fileName'],
+              'filePath': r['filePath'],
+              'fileType': r['fileType'],
+              if ((r['filePath']?.toString() ?? '').isNotEmpty)
+                'downloadUrl': Uri.file(r['filePath'].toString()).toString(),
+            },
+          )
+          .toList(),
     };
   }
 
@@ -1006,6 +1081,28 @@ class DocumentMcpServer extends InternalMcpServer {
   }
 
   Future<Map<String, dynamic>> _reindex() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getString('server_mode') ?? 'local') == 'remote') {
+      final client = _buildServerClient(prefs);
+      if (client == null) return {'error': 'Server not configured.'};
+      try {
+        final ds = await client.getDataSourcesSettings();
+        final docIdx = (ds['document_index'] as Map?)?.cast<String, dynamic>() ?? const {};
+        final rootPaths = (docIdx['root_paths'] as String? ?? '').trim();
+        final fileTypes = (docIdx['file_types'] as String? ?? '').trim();
+        if (rootPaths.isEmpty) {
+          return {'error': 'No document root path configured on server.'};
+        }
+        final res = await client.startDocumentIndex(
+          rootPaths: rootPaths,
+          fileTypes: fileTypes.isNotEmpty ? fileTypes : 'pdf,md,docx',
+        );
+        return {'status': 'started_on_server', 'rootPaths': rootPaths.split(';'), ...res};
+      } catch (e) {
+        return {'error': 'Failed to start server reindex: $e'};
+      }
+    }
+
     if (_rootPaths.isEmpty) {
       return {'error': 'No root path configured.'};
     }

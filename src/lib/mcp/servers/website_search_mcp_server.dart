@@ -18,6 +18,7 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
   int _maxPages = 100;
   String _indexingStrategy = 'now';
   bool _indexed = false;
+  bool _useGlobalSettings = false;
   bool _cancelRequested = false;
 
   /// Callback fired after each page is indexed: (indexed, total, currentUrl).
@@ -34,7 +35,7 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
 
   @override
   String get description =>
-      'Index predefined websites into DuckDB and search across indexed web content '
+      'Index predefined websites into the local search index and search across indexed web content '
       'with hybrid semantic + keyword ranking.';
 
   @override
@@ -96,11 +97,14 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
 
   @override
   Future<void> initialize(Map<String, dynamic> initParams) async {
+    _useGlobalSettings = initParams['useGlobalSettings'] == true;
+    var rawUrls = (initParams['websiteUrls'] as String? ?? '').trim();
+    if (rawUrls.isEmpty) {
+      rawUrls = DataSourcesSettingsService.instance.websiteIndexUrls.trim();
+    }
     _seedUrls
       ..clear()
-      ..addAll(
-        _parseSeedUrls((initParams['websiteUrls'] as String? ?? '').trim()),
-      );
+      ..addAll(_parseSeedUrls(rawUrls));
 
     final rawMaxPages = initParams['maxPages'];
     final parsedMaxPages = switch (rawMaxPages) {
@@ -266,11 +270,44 @@ class WebsiteSearchMcpServer extends InternalMcpServer {
     ),
   ];
 
+  Future<void> _syncGlobalSettingsIfNeeded() async {
+    if (!_useGlobalSettings && _seedUrls.isNotEmpty) return;
+    final rawUrls = DataSourcesSettingsService.instance.websiteIndexUrls.trim();
+    final latestUrls = _parseSeedUrls(rawUrls);
+    final oldNorm = _seedUrls.map(_normalizeUrl).toSet();
+    final newNorm = latestUrls.map(_normalizeUrl).toSet();
+    if (oldNorm.length != newNorm.length || !oldNorm.containsAll(newNorm)) {
+      _seedUrls
+        ..clear()
+        ..addAll(latestUrls);
+      _indexed = false;
+    }
+    if (_seedUrls.isNotEmpty && !_indexed) {
+      try {
+        await _ensureTable();
+        final seedIn = _seedUrls
+            .map((s) => "'${_esc(_normalizeUrl(s))}'")
+            .join(',');
+        final rows = await DuckDbService().query(
+          'SELECT COUNT(*) FROM website_index WHERE seed_url IN ($seedIn)',
+        );
+        final count = rows.isNotEmpty
+            ? int.tryParse(rows.first.first.toString()) ?? 0
+            : 0;
+        if (count > 0) {
+          _indexed = true;
+        }
+      } catch (_) {}
+    }
+  }
+
   @override
   Future<Map<String, dynamic>> executeTool(
     String toolName,
     Map<String, dynamic> arguments,
   ) async {
+    await _syncGlobalSettingsIfNeeded();
+
     if (!_indexed &&
         _indexingStrategy == 'before_first_run' &&
         toolName != 'index_websites' &&

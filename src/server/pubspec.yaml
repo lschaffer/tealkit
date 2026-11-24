@@ -1,7 +1,7 @@
 name: tealkit_server
 description: "TealKit Server — headless Docker/Linux daemon with REST API"
 publish_to: 'none'
-version: 1.0.218
+version: 1.0.222
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
@@ -21,11 +21,8 @@ dependencies:
   # AES encryption (credential cipher, API key protection)
   pointycastle: ^4.0.0
 
-  # DuckDB — pinned to same version as main app
-  dart_duckdb: 1.4.2
-
   # SQLite + sqlite_vector — unified database & vector engine
-  sqlite3: ^3.0.0
+  sqlite3: ^3.5.2
   sqlite_vector: ^1.2.0
 
   # HTTP client (for LLM API calls + MCP client)
@@ -55,11 +52,7 @@ dependencies:
   archive: ^4.0.0
 
   # Embedded GGUF inference via llama.cpp
-  llamadart: ^0.20.3
-
-dependency_overrides:
-  dart_duckdb:
-    path: ../third_party/dart_duckdb
+  llamadart: ^0.20.7
 
 dev_dependencies:
   lints: ^6.1.0

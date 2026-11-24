@@ -28,6 +28,7 @@ import '../services/session_service.dart';
 import '../services/tealkit_database_storage_delegate.dart';
 import '../utils/storage_permission.dart';
 import 'agent_llm_selector_widget.dart';
+import 'coding_settings_card.dart';
 import '../providers/server_mode_provider.dart';
 import '../models/github_mcp_server_definition.dart';
 import '../mcp/servers/py_bridge_mcp_server.dart';
@@ -173,6 +174,11 @@ class _TealKitAssistantSettingsDialogState
   String _docIndexCurrentFile = '';
   DocumentMcpServer? _activeDocIndexServer;
   DateTime? _docLastIndexed;
+  List<String> _remoteDocPaths = [];
+  String _remoteDocFileTypes = 'pdf,md,docx';
+  DateTime? _remoteDocLastIndexed;
+  bool _loadingRemoteDocSettings = false;
+  Timer? _remoteDocPollTimer;
 
   // ─── Website search indexing state ───
   bool _isIndexingWebsites = false;
@@ -217,6 +223,7 @@ class _TealKitAssistantSettingsDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshSelectableGithubMcpServers();
       _disableServerModeHiddenTools();
+      _loadRemoteDocSettings();
     });
     widget.controller.permissions.reload();
     _systemPromptCtrl = TextEditingController(
@@ -276,6 +283,7 @@ class _TealKitAssistantSettingsDialogState
 
   @override
   void dispose() {
+    _remoteDocPollTimer?.cancel();
     _activeDocIndexServer?.cancelIndexing();
     _activeWebIndexServer?.cancelIndexing();
     _websiteUrlInputCtrl.dispose();
@@ -855,7 +863,45 @@ class _TealKitAssistantSettingsDialogState
   // Document Search Folders & Indexing Helpers
   // ─────────────────────────────────────────────────────────────
 
+  bool get _isServerMode =>
+      ref.read(serverModeProvider).value?.isRemote ?? false;
+
+  Future<void> _loadRemoteDocSettings() async {
+    if (!_isServerMode) return;
+    final client = ref.read(serverApiClientProvider);
+    if (client == null) return;
+    if (mounted) setState(() => _loadingRemoteDocSettings = true);
+    try {
+      final data = await client.getDataSourcesSettings();
+      final docIdx =
+          (data['document_index'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final rawPaths = (docIdx['root_paths'] as String? ?? '').trim();
+      final fileTypes = (docIdx['file_types'] as String? ?? '').trim();
+      final rawLast = docIdx['last_indexed_at'] as String?;
+      final parsedPaths = rawPaths
+          .split(';')
+          .map((p) => p.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
+      if (mounted) {
+        setState(() {
+          _remoteDocPaths = parsedPaths;
+          if (fileTypes.isNotEmpty) _remoteDocFileTypes = fileTypes;
+          _remoteDocLastIndexed = rawLast != null
+              ? DateTime.tryParse(rawLast)
+              : null;
+          _loadingRemoteDocSettings = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingRemoteDocSettings = false);
+    }
+  }
+
   List<String> _getDocumentPaths() {
+    if (_isServerMode) {
+      return List<String>.from(_remoteDocPaths);
+    }
     final raw = DataSourcesSettingsService.instance.documentRootPaths;
     return raw
         .split(';')
@@ -865,7 +911,32 @@ class _TealKitAssistantSettingsDialogState
   }
 
   Future<void> _updateDocumentPaths(List<String> paths) async {
-    final joined = paths.toSet().join(';');
+    final deduped = paths.toSet().toList();
+    final joined = deduped.join(';');
+    if (_isServerMode) {
+      final client = ref.read(serverApiClientProvider);
+      if (mounted) setState(() => _remoteDocPaths = deduped);
+      if (client != null) {
+        try {
+          await client.putDataSourcesSettings({
+            'document_index': {
+              'root_paths': joined,
+              'file_types': _remoteDocFileTypes,
+            },
+          });
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to save server document paths: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+      return;
+    }
     await DataSourcesSettingsService.instance.saveDocumentIndex(
       rootPaths: joined,
     );
@@ -877,9 +948,14 @@ class _TealKitAssistantSettingsDialogState
       final granted = await StoragePermission.request(context);
       if (!mounted || !granted) return;
     }
-    final selected = await FilePicker.getDirectoryPath(
+    final selectedUri = await FilePicker.pickDirectory(
       dialogTitle: 'Select Document Folder',
     );
+    final selected = selectedUri == null
+        ? null
+        : (selectedUri.scheme == 'file'
+            ? selectedUri.toFilePath()
+            : selectedUri.toString());
     if (selected != null && selected.trim().isNotEmpty && mounted) {
       final current = _getDocumentPaths();
       if (!current.contains(selected)) {
@@ -889,18 +965,23 @@ class _TealKitAssistantSettingsDialogState
   }
 
   Future<void> _addDocumentPathManual() async {
+    final isRemote = _isServerMode;
     final ctrl = TextEditingController();
     final path = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add Document Path'),
+        title: Text(isRemote ? 'Add Server Document Path' : 'Add Document Path'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'C:\\Users\\name\\Documents or /home/...',
-            labelText: 'Absolute folder path',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: isRemote
+                ? '/home/tealkit/documents'
+                : 'C:\\Users\\name\\Documents or /home/...',
+            labelText: isRemote
+                ? 'Absolute folder path on server'
+                : 'Absolute folder path',
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -968,10 +1049,86 @@ class _TealKitAssistantSettingsDialogState
     final paths = _getDocumentPaths();
     if (paths.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add at least one folder before indexing.'),
+        SnackBar(
+          content: Text(
+            _isServerMode
+                ? 'Please add at least one server folder path before indexing.'
+                : 'Please add at least one folder before indexing.',
+          ),
         ),
       );
+      return;
+    }
+
+    if (_isServerMode) {
+      final client = ref.read(serverApiClientProvider);
+      if (client == null) return;
+      setState(() {
+        _isIndexingDocuments = true;
+        _docIndexedCount = 0;
+        _docIndexTotal = 0;
+        _docIndexCurrentFile = 'Starting server indexer...';
+      });
+      try {
+        await client.startDocumentIndex(
+          rootPaths: paths.join(';'),
+          fileTypes: _remoteDocFileTypes,
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isIndexingDocuments = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to start server indexing: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      _remoteDocPollTimer?.cancel();
+      _remoteDocPollTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+        try {
+          final status = await client.getDocumentIndexStatus();
+          final running = status['running'] as bool? ?? false;
+          final indexed = (status['indexed'] as num?)?.toInt() ?? 0;
+          final total = (status['total'] as num?)?.toInt() ?? 0;
+          if (mounted) {
+            setState(() {
+              _docIndexedCount = indexed;
+              _docIndexTotal = total;
+              _docIndexCurrentFile = status['currentFile'] as String? ?? '';
+            });
+          }
+          if (!running) {
+            _remoteDocPollTimer?.cancel();
+            _remoteDocPollTimer = null;
+            final lastRes = status['lastResult'] as Map<String, dynamic>? ?? {};
+            if (!mounted) return;
+            setState(() {
+              _isIndexingDocuments = false;
+              _remoteDocLastIndexed = DateTime.now();
+            });
+            if (lastRes.containsKey('error')) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Server reindex failed: ${lastRes['error']}'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            } else {
+              final count = lastRes['documentsIndexed'] ?? lastRes['indexedCount'] ?? indexed;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✔ Server indexed $count document(s).'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          }
+        } catch (_) {}
+      });
       return;
     }
 
@@ -1054,7 +1211,9 @@ class _TealKitAssistantSettingsDialogState
   }
 
   Widget _buildDocumentFolderSection(ThemeData theme) {
+    final isServerMode = ref.watch(serverModeProvider).value?.isRemote ?? false;
     final paths = _getDocumentPaths();
+    final lastIndexed = isServerMode ? _remoteDocLastIndexed : _docLastIndexed;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1077,13 +1236,40 @@ class _TealKitAssistantSettingsDialogState
                 color: Color(0xFF60A5FA),
               ),
               const SizedBox(width: 8),
-              Text(
-                'Indexed Document Folders',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF60A5FA),
+              Flexible(
+                child: Text(
+                  isServerMode
+                      ? 'Server Document Folders'
+                      : 'Indexed Document Folders',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF60A5FA),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (isServerMode) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.success.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.success.withAlpha(90)),
+                  ),
+                  child: const Text(
+                    'Server',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.success,
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               if (paths.isNotEmpty)
                 Text(
@@ -1097,18 +1283,20 @@ class _TealKitAssistantSettingsDialogState
             children: [
               Expanded(
                 child: Text(
-                  'Local folders scanned for PDF, Markdown, DOCX, XLSX, TXT, and CSV documents.',
+                  isServerMode
+                      ? 'Server-side folders scanned for PDF, Markdown, DOCX, XLSX, TXT, and CSV documents.'
+                      : 'Local folders scanned for PDF, Markdown, DOCX, XLSX, TXT, and CSV documents.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.grey,
                   ),
                 ),
               ),
-              if (_docLastIndexed != null) ...[
+              if (lastIndexed != null) ...[
                 const SizedBox(width: 8),
                 Icon(Icons.schedule, size: 12, color: Colors.grey[400]),
                 const SizedBox(width: 4),
                 Text(
-                  'Last indexed: ${_formatLastIndexed(_docLastIndexed)}',
+                  'Last indexed: ${_formatLastIndexed(lastIndexed)}',
                   style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
               ],
@@ -1117,7 +1305,25 @@ class _TealKitAssistantSettingsDialogState
           const SizedBox(height: 10),
 
           // Folder chips
-          if (paths.isEmpty)
+          if (isServerMode && _loadingRemoteDocSettings)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Loading server document folders...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          else if (paths.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
@@ -1171,26 +1377,29 @@ class _TealKitAssistantSettingsDialogState
 
           const SizedBox(height: 10),
 
-          // Action buttons row: Browse Folder | Add Path | Pick Files
+          // Action buttons row: Server Mode shows Add Server Path only; Local Mode shows Browse / Add / Pick Files
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.folder_open, size: 16),
-                label: const Text('Browse Folder...'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              if (!isServerMode)
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Browse Folder...'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
+                  onPressed: _browseDocumentFolder,
                 ),
-                onPressed: _browseDocumentFolder,
-              ),
               OutlinedButton.icon(
                 icon: const Icon(Icons.create_new_folder_outlined, size: 16),
-                label: const Text('Add Path...'),
+                label: Text(
+                  isServerMode ? 'Add Server Path...' : 'Add Path...',
+                ),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(
@@ -1200,18 +1409,19 @@ class _TealKitAssistantSettingsDialogState
                 ),
                 onPressed: _addDocumentPathManual,
               ),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.file_copy_outlined, size: 16),
-                label: const Text('Pick Files...'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              if (!isServerMode)
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.file_copy_outlined, size: 16),
+                  label: const Text('Pick Files...'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
+                  onPressed: _pickDocumentFiles,
                 ),
-                onPressed: _pickDocumentFiles,
-              ),
             ],
           ),
 
@@ -1241,7 +1451,7 @@ class _TealKitAssistantSettingsDialogState
                         child: Text(
                           _docIndexTotal > 0
                               ? 'Indexing $_docIndexedCount / $_docIndexTotal: $_docIndexCurrentFile'
-                              : 'Scanning & building DuckDB vector index...',
+                              : 'Scanning & building vector index...',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -1270,8 +1480,18 @@ class _TealKitAssistantSettingsDialogState
                             vertical: 4,
                           ),
                         ),
-                        onPressed: () =>
-                            _activeDocIndexServer?.cancelIndexing(),
+                        onPressed: () {
+                          if (isServerMode) {
+                            _remoteDocPollTimer?.cancel();
+                            _remoteDocPollTimer = null;
+                            ref.read(serverApiClientProvider)?.stopDocumentIndex();
+                            if (mounted) {
+                              setState(() => _isIndexingDocuments = false);
+                            }
+                          } else {
+                            _activeDocIndexServer?.cancelIndexing();
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -2224,11 +2444,12 @@ class _TealKitAssistantSettingsDialogState
         ),
         const SizedBox(height: 12),
 
-        if (!isMobile) ...[
-          // Tool Permissions Card (Human-in-the-Loop) - Hidden in mobile mode
-          _buildToolPermissionsCard(theme, l),
-          const SizedBox(height: 12),
-        ],
+        // Execution & Session Limits + Agent Capabilities (All Modes — Local & Server)
+        CodingSettingsCard(
+          controller: widget.controller,
+          initiallyExpanded: true,
+        ),
+        const SizedBox(height: 12),
 
         // Session & Auto-Save Card - Shown in all modes (desktop & mobile)
         _buildSessionAutoSaveCard(theme, l, isMobile: isMobile),
@@ -2480,74 +2701,29 @@ class _TealKitAssistantSettingsDialogState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SwitchListTile(
-                              secondary: Icon(
-                                _mcpIcon(info.iconName),
-                                color: isGroupEnabled
-                                    ? AppTheme.primaryBlue
-                                    : Colors.grey,
-                              ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      info.displayName,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: isGroupEnabled
-                                            ? null
-                                            : Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                  if (groupToolNames.isNotEmpty) ...[
-                                    const SizedBox(width: 4),
-                                    Chip(
-                                      label: Text(
-                                        enabledCount == groupToolNames.length
-                                            ? '${groupToolNames.length} tools'
-                                            : '$enabledCount / ${groupToolNames.length} tools',
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                      visualDensity: VisualDensity.compact,
-                                      backgroundColor: AppTheme.primaryBlue
-                                          .withAlpha(25),
-                                    ),
-                                  ],
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () {
-                                      setState(() {
-                                        if (isExpanded) {
-                                          _expandedToolGroups.remove(info.type);
-                                        } else {
-                                          _expandedToolGroups.add(info.type);
-                                        }
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        isExpanded
-                                            ? Icons.expand_less
-                                            : Icons.expand_more,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Text(
-                                info.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              value: isGroupEnabled,
-                              activeTrackColor: AppTheme.primaryBlue,
-                              onChanged: (val) {
+                            _buildToolGroupHeader(
+                              theme: theme,
+                              isMobile: isMobile,
+                              icon: _mcpIcon(info.iconName),
+                              title: info.displayName,
+                              description: info.description,
+                              toolCountLabel: groupToolNames.isEmpty
+                                  ? null
+                                  : (enabledCount == groupToolNames.length
+                                        ? '${groupToolNames.length} tools'
+                                        : '$enabledCount / ${groupToolNames.length} tools'),
+                              isEnabled: isGroupEnabled,
+                              isExpanded: isExpanded,
+                              onExpandToggle: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedToolGroups.remove(info.type);
+                                  } else {
+                                    _expandedToolGroups.add(info.type);
+                                  }
+                                });
+                              },
+                              onToggle: (val) {
                                 setState(() {
                                   TealKitDatabaseStorageDelegate.setToolsEnabled(
                                     widget.controller,
@@ -2663,73 +2839,29 @@ class _TealKitAssistantSettingsDialogState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SwitchListTile(
-                              secondary: Icon(
-                                Icons.extension,
-                                color: isEnabled
-                                    ? AppTheme.primaryBlue
-                                    : Colors.grey,
-                              ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Other Local Tools',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: isEnabled ? null : Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                  Chip(
-                                    label: Text(
-                                      enabledCount == unclaimedLocalTools.length
-                                          ? '${unclaimedLocalTools.length} tools'
-                                          : '$enabledCount / ${unclaimedLocalTools.length} tools',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    visualDensity: VisualDensity.compact,
-                                    backgroundColor: AppTheme.primaryBlue
-                                        .withAlpha(25),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () {
-                                      setState(() {
-                                        if (isExpanded) {
-                                          _expandedToolGroups.remove(
-                                            '__unclaimed__',
-                                          );
-                                        } else {
-                                          _expandedToolGroups.add(
-                                            '__unclaimed__',
-                                          );
-                                        }
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        isExpanded
-                                            ? Icons.expand_less
-                                            : Icons.expand_more,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: const Text(
-                                'Additional standalone workspace and system tools',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              value: isEnabled,
-                              activeTrackColor: AppTheme.primaryBlue,
-                              onChanged: (val) {
+                            _buildToolGroupHeader(
+                              theme: theme,
+                              isMobile: isMobile,
+                              icon: Icons.extension,
+                              title: 'Other Local Tools',
+                              description:
+                                  'Additional standalone workspace and system tools',
+                              toolCountLabel:
+                                  enabledCount == unclaimedLocalTools.length
+                                      ? '${unclaimedLocalTools.length} tools'
+                                      : '$enabledCount / ${unclaimedLocalTools.length} tools',
+                              isEnabled: isEnabled,
+                              isExpanded: isExpanded,
+                              onExpandToggle: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedToolGroups.remove('__unclaimed__');
+                                  } else {
+                                    _expandedToolGroups.add('__unclaimed__');
+                                  }
+                                });
+                              },
+                              onToggle: (val) {
                                 setState(() {
                                   TealKitDatabaseStorageDelegate.setToolsEnabled(
                                     widget.controller,
@@ -2814,73 +2946,30 @@ class _TealKitAssistantSettingsDialogState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SwitchListTile(
-                              secondary: Icon(
-                                Icons.hub_outlined,
-                                color: isEnabled
-                                    ? AppTheme.primaryBlue
-                                    : Colors.grey,
-                              ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'MCP Server Tools',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: isEnabled ? null : Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                  Chip(
-                                    label: Text(
-                                      enabledCount == mcpTools.length
-                                          ? '${mcpTools.length} tools'
-                                          : '$enabledCount / ${mcpTools.length} tools',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    visualDensity: VisualDensity.compact,
-                                    backgroundColor: AppTheme.primaryBlue
-                                        .withAlpha(25),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () {
-                                      setState(() {
-                                        if (isExpanded) {
-                                          _expandedToolGroups.remove(
-                                            '__mcp_remote__',
-                                          );
-                                        } else {
-                                          _expandedToolGroups.add(
-                                            '__mcp_remote__',
-                                          );
-                                        }
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        isExpanded
-                                            ? Icons.expand_less
-                                            : Icons.expand_more,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: const Text(
-                                'Tools discovered from connected remote MCP servers',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              value: isEnabled,
-                              activeTrackColor: AppTheme.primaryBlue,
-                              onChanged: (val) {
+                            _buildToolGroupHeader(
+                              theme: theme,
+                              isMobile: isMobile,
+                              icon: Icons.hub_outlined,
+                              title: 'MCP Server Tools',
+                              description:
+                                  'Tools discovered from connected remote MCP servers',
+                              toolCountLabel: enabledCount == mcpTools.length
+                                  ? '${mcpTools.length} tools'
+                                  : '$enabledCount / ${mcpTools.length} tools',
+                              isEnabled: isEnabled,
+                              isExpanded: isExpanded,
+                              onExpandToggle: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedToolGroups.remove(
+                                      '__mcp_remote__',
+                                    );
+                                  } else {
+                                    _expandedToolGroups.add('__mcp_remote__');
+                                  }
+                                });
+                              },
+                              onToggle: (val) {
                                 setState(() {
                                   TealKitDatabaseStorageDelegate.setToolsEnabled(
                                     widget.controller,
@@ -3155,105 +3244,159 @@ class _TealKitAssistantSettingsDialogState
     );
   }
 
-  Widget _buildToolPermissionsCard(ThemeData theme, L l) {
-    final perms = widget.controller.permissions;
-    const orangeColor = Color(0xFFF95721);
-
-    Widget buildSwitchRow(
-      String title,
-      bool value,
-      ValueChanged<bool> onChanged,
-    ) {
+  Widget _buildToolGroupHeader({
+    required ThemeData theme,
+    required bool isMobile,
+    required IconData icon,
+    required String title,
+    required String description,
+    required String? toolCountLabel,
+    required bool isEnabled,
+    required bool isExpanded,
+    required VoidCallback onExpandToggle,
+    required ValueChanged<bool> onToggle,
+  }) {
+    if (isMobile) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
+            // Top row: Icon + full-width Tool Name (no mid-word breaks) + Switch
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isEnabled ? AppTheme.primaryBlue : Colors.grey,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: isEnabled ? null : Colors.grey,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Switch.adaptive(
+                  value: isEnabled,
+                  activeTrackColor: AppTheme.primaryBlue,
+                  onChanged: onToggle,
+                ),
+              ],
+            ),
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            ),
-            Switch(
-              value: value,
-              activeThumbColor: orangeColor,
-              activeTrackColor: orangeColor.withValues(alpha: 0.5),
-              onChanged: onChanged,
-            ),
+            ],
+            if (toolCountLabel != null) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: onExpandToggle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withAlpha(25),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppTheme.primaryBlue.withAlpha(70),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        toolCountLabel,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       );
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.security, color: orangeColor, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  l.toolPermissionsHitl,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: orangeColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l.toolPermissionsHitlDesc,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    return SwitchListTile(
+      secondary: Icon(
+        icon,
+        color: isEnabled ? AppTheme.primaryBlue : Colors.grey,
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isEnabled ? null : Colors.grey,
               ),
             ),
-            const SizedBox(height: 12),
-            buildSwitchRow(l.autoApproveReadTools, perms.autoApproveRead, (
-              val,
-            ) {
-              setState(() {
-                perms.autoApproveRead = val;
-              });
-              perms.save();
-            }),
-            buildSwitchRow(l.autoApproveWriteTools, perms.autoApproveWrite, (
-              val,
-            ) {
-              setState(() {
-                perms.autoApproveWrite = val;
-              });
-              perms.save();
-            }),
-            buildSwitchRow(
-              l.autoApproveExecutionTools,
-              perms.autoApproveExecute,
-              (val) {
-                setState(() {
-                  perms.autoApproveExecute = val;
-                });
-                perms.save();
-              },
-            ),
-            buildSwitchRow(
-              l.autoApproveNetworkTools,
-              perms.autoApproveNetwork,
-              (val) {
-                setState(() {
-                  perms.autoApproveNetwork = val;
-                });
-                perms.save();
-              },
+          ),
+          if (toolCountLabel != null) ...[
+            const SizedBox(width: 4),
+            Chip(
+              label: Text(
+                toolCountLabel,
+                style: const TextStyle(fontSize: 11),
+              ),
+              visualDensity: VisualDensity.compact,
+              backgroundColor: AppTheme.primaryBlue.withAlpha(25),
             ),
           ],
-        ),
+          const SizedBox(width: 4),
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onExpandToggle,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                isExpanded ? Icons.expand_less : Icons.expand_more,
+                size: 20,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        ],
       ),
+      subtitle: Text(
+        description,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+      value: isEnabled,
+      activeTrackColor: AppTheme.primaryBlue,
+      onChanged: onToggle,
     );
   }
 
@@ -3290,9 +3433,14 @@ class _TealKitAssistantSettingsDialogState
           label: const Text('Browse...', style: TextStyle(fontSize: 12)),
           onPressed: () async {
             try {
-              final selected = await FilePicker.getDirectoryPath(
+              final selectedUri = await FilePicker.pickDirectory(
                 dialogTitle: 'Select Auto-Save Directory',
               );
+              final selected = selectedUri == null
+                  ? null
+                  : (selectedUri.scheme == 'file'
+                      ? selectedUri.toFilePath()
+                      : selectedUri.toString());
               if (selected != null) {
                 await sessionService.updateSettings(
                   autoSaveEnabled: sessionService.autoSaveEnabled,

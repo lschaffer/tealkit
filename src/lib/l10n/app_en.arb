@@ -498,7 +498,7 @@
   "fileNamePatternHint": "task_result_{date}.txt",
   "addExecutionLogToOutput": "Add execution log to output",
   "zipOutputFiles": "Zip output files",
-  "runningTaskWithDuckdb": "Running task and indexing/searching with DuckDB...",
+  "runningTaskWithDuckdb": "Running task and indexing/searching local index...",
   "openLatestFile": "Open latest file",
   "pathNotFound": "Path not found",
   "openFailed": "Open failed: {error}",
@@ -509,9 +509,9 @@
       }
     }
   },
-  "localSearchIndexDuckdb": "Local search index (DuckDB)",
+  "localSearchIndexDuckdb": "Local search index",
   "duckdbSizeLimitDescription": "Maximum indexed data size in GB. Indexing stops when the cap is reached.",
-  "duckdbSizeLimitGb": "DuckDB size limit (GB)",
+  "duckdbSizeLimitGb": "Search index size limit (GB)",
   "duckdbSizeLimitHint": "1.0",
   "pushNotification": "Push Notification",
   "sendPush": "Send push notification",
@@ -699,7 +699,7 @@
   "weatherDisplayName": "Weather",
   "weatherDescription": "Fetch weather forecasts using Open-Meteo (free, no API key). Provides current conditions, hourly and daily forecasts.",
   "documentDisplayName": "Document Search",
-  "documentDescription": "Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides full-text search via DuckDB.",
+  "documentDescription": "Search and index local documents (TXT, MD, DOCX, XLSX, PDF, CSV). Extracts text content and provides semantic/hybrid search via the local vector index.",
   "documentSystemPrompt": "You are a document search assistant. Use the document tools to find and search through local documents. When the user asks about document content, use search_documents to find relevant files, then get_document_content to read specific documents. Present results clearly with file names and relevant excerpts. If no matches found, suggest broadening the search terms.",
   "reindexDocuments": "Reindex Documents",
   "reindexDocumentsHint": "Re-scan the folder and rebuild the search index.",
@@ -1075,7 +1075,7 @@
   "websiteUrlInvalid": "Typed URL is invalid.",
   "websiteUrlReady": "Ready to add and index this URL.",
   "websiteUrlAlreadyAdded": "URL already selected or max websites reached.",
-  "websiteUrlLimitHint": "Add up to 3 sites. Indexed pages are stored in DuckDB. Max pages: {maxPages}.",
+  "websiteUrlLimitHint": "Add up to 3 sites. Indexed pages are stored in the local search index. Max pages: {maxPages}.",
   "@websiteUrlLimitHint": {
     "placeholders": {
       "maxPages": {
@@ -1304,7 +1304,7 @@
   "vaultIncludedLabel": "Included (selectable per export)",
   "vaultIncludedText": "Configuration: LLM / API keys / email / SSH / integrations\nServer Connections: Remote server profiles, URLs & API keys\nScripts: JS  •  PowerShell  •  Python  •  SSH scripts\nTasks: all tasks with custom LLM, SSH settings & credentials\nSkills: MCP tool skill guides & AgentSkills.io definitions",
   "vaultExcludedLabel": "Never included",
-  "vaultExcludedText": "Conversation history  •  DuckDB document index",
+  "vaultExcludedText": "Conversation history  •  Local document index",
   "vaultExportSection": "Export vault",
   "vaultExportHint": "Choose a folder, then set filename, password and which sections to include.",
   "vaultChooseFolderExport": "Choose Folder & Export",
