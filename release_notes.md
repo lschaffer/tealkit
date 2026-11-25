@@ -15,18 +15,21 @@ This file tracks release changes by version.
   - **Windows System Tray Native API (`WindowsTrayService`)**: Migrated from `tray_manager 0.5.x` (`TrayListener`) to the `tray_manager 0.7.0` `nativeapi` `TrayIcon` / `Menu` / `MenuItem` API with live EN/DE language switching via `AppPreferencesService`.
   - **Modern URI-Based Directory Pickers (`FilePicker.pickDirectory`)**: Replaced all 9 deprecated `FilePicker.getDirectoryPath` calls across Playground, Startup Wizard, Workflow Editor, Settings Vault, Data Sources, and Assistant Settings with `FilePicker.pickDirectory()` (native file paths on Desktop/iOS, `content://` SAF URIs on Android).
 - **Execution & Session Limits Across All Modes (`CodingSettingsService`, `CodingSettingsCard`)**:
-  - Added a responsive **Execution & Session Limits** settings card to both **Global Settings** and **Assistant Settings** (2-column grid on desktop, vertical stacked layout on mobile) controlling `Max Tool Iterations`, `Max Session Turns`, `Session Turn Limit`, `Max Session Size (MB)`, `Progressive Tool Discovery`, `Episodic Memory`, `Specialized Sub-Agents`, and Human-in-the-Loop Tool Auto-Approval checks.
+  - Added a responsive **Execution & Session Limits** settings card to both **Global Settings** and **Assistant Settings** (2-column grid on desktop, vertical stacked layout on mobile) controlling `Max Tool Iterations`, `Max Session Turns`, `Session Turn Limit`, `Max Session Size (MB)`, `Compression Threshold (tokens)`, `Progressive Tool Discovery`, `Episodic Memory`, `Specialized Sub-Agents`, and Human-in-the-Loop Tool Auto-Approval checks.
   - Added `GET/PUT /api/v1/coding/settings` on TealKit Server so execution limits sync seamlessly in Server Mode.
+  - Fixed Desktop **Server Mode** Coding Mode switch (`PlaygroundScreen`, `TealKitToolsBuilder`) so toggling **Local ↔ Server** on Desktop immediately switches Coding Mode workspace, folder picker, and tools between the remote server (`TEALKIT_FILES_DIR` / `RemoteCodingTool`) and local PC.
 - **Document Search Server/Local Separation & Clickable Download Links**:
   - Cleanly separated **Server Mode** vs **Local Mode** in Assistant Settings → Document Search (`Server Document Folders` with **Add Server Path...** and server-side reindex in Server Mode; local folder/file pickers and local SQLite index in Local Mode) and fixed dynamic root-path sync in `DocumentMcpServer` & `WebsiteSearchMcpServer`.
-  - Added signed 24-hour HMAC-SHA256 document download endpoint `GET /api/v1/index/document/download` on TealKit Server and clickable `[fileName](downloadUrl)` Markdown links in both Server Mode and Local Mode.
+  - Added signed 24-hour HMAC-SHA256 document download endpoint `GET /api/v1/index/document/download` on TealKit Server and pre-formatted `markdownLink` (`[fileName](downloadUrl)`) + `formattingHint` in both Server Mode and Local Mode.
   - Replaced all remaining user-facing `"DuckDB"` strings with neutral local-index wording across `app_en.arb`, `app_de.arb`, and MCP descriptions.
 - **UI Localization, Mobile Layout & Android Toolchain Fixes**:
   - Fixed mobile `Image Generator Settings` preset dropdown overflow and redesigned mobile Tool Group cards (`_buildToolGroupHeader`) so long tool titles never wrap mid-word.
   - Upgraded Android build toolchain to **Gradle 9.5.0**, **AGP 9.3.1**, **Kotlin 2.4.20**, and **`compileSdk = 37`** for Flutter 3.47+ and `flutter_local_notifications 23` / `permission_handler 13`.
   - Completed German (`DE`) translations across Settings, Assistant empty chat background, Session Continue dialog, Embedded Model picker, and Windows tasktray menu, and added `tool/scan_untranslated_ui.dart` + `tool/scan_untranslated_ui.ps1` to audit untranslated UI strings.
-- **TealKit CLI (`v1.4.10`) & VS Code Extension (`v0.1.13`)**:
+- **TealKit CLI (`v1.4.11`) & VS Code Extension (`v0.1.14`)**:
   - Added built-in `generate_image` (AI Image Generator) and pure-Dart `github_*` API tools to TealKit CLI and the VS Code extension.
+  - **Bulletproof Session Auto-Save (`tealkit_cli` v1.4.11)**: Progressively checkpoints `.tealkit/sessions/tealkitcoder_<id>.json` every 5 tool calls, flushes broadcast events before unsubscribing, and guarantees writing the session file in `finally` even after mid-turn context overflows or cancellations.
+  - **Export Assistant Responses (`tealkit-vscode` v0.1.14)**: Added an **Export** button next to **Copy** on every assistant message to save raw Markdown as `.md` or `.txt` via VS Code's native Save dialog.
 
 ## v2.4.1+173 - Built-In AI Image Generator & GitHub API Tools, Mobile Server Coding Mode, LiteRT-LM Models, Android SAF Save-As & Server Runner Fixes
 

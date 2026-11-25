@@ -5167,6 +5167,7 @@ const Map<String, dynamic> _kDefaultCodingSettings = {
   'max_session_turns': 500,
   'turn_limit': 0,
   'max_session_size_mb': 10,
+  'compression_threshold': 16000,
   'progressive_mcp_discovery': false,
   'enable_episodic_memory': true,
   'enable_sub_agents': true,

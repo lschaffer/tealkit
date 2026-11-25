@@ -1166,6 +1166,7 @@
   }
 
   const COPY_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  const EXPORT_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
 
   function createCopyButton(getTextFn, label = 'Copy') {
     const btn = document.createElement('button');
@@ -1177,6 +1178,20 @@
       const text = getTextFn();
       if (!text) return;
       window.copyToClipboard(text, btn);
+    });
+    return btn;
+  }
+
+  function createExportButton(getTextFn, label = 'Export .md/.txt') {
+    const btn = document.createElement('button');
+    btn.className = 'msg-copy-btn';
+    btn.title = 'Export response as Markdown (.md) or Text (.txt)';
+    btn.innerHTML = `${EXPORT_SVG}<span>${escapeHtml(label)}</span>`;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const text = getTextFn();
+      if (!text) return;
+      vscode.postMessage({ type: 'export_message', content: text });
     });
     return btn;
   }
@@ -1231,8 +1246,11 @@
 
       const footer = document.createElement('div');
       footer.className = 'msg-footer';
-      const copyBtn = createCopyButton(() => bubble.innerText || bubble.textContent || '', 'Copy');
+      const getContent = () => bubble.dataset.rawMarkdown || bubble.innerText || bubble.textContent || '';
+      const copyBtn = createCopyButton(getContent, 'Copy');
+      const exportBtn = createExportButton(getContent, 'Export');
       footer.appendChild(copyBtn);
+      footer.appendChild(exportBtn);
       msgDiv.appendChild(footer);
 
       messagesContainer.appendChild(msgDiv);
@@ -2661,6 +2679,7 @@ system_prompt: |
 
       case 'chunk':
         const bubble = getOrCreateAssistantBubble();
+        bubble.dataset.rawMarkdown = (bubble.dataset.rawMarkdown || '') + (ev.text || '');
         bubble.innerHTML += formatSimpleMarkdown(ev.text || '');
         scrollToBottom();
         break;

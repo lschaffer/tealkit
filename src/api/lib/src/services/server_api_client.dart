@@ -944,6 +944,7 @@ class ServerApiClient {
   }
 
   void _resolveDocumentDownloadUrls(Map<String, dynamic> payload) {
+    var addedAny = false;
     for (final listKey in const ['documents', 'results']) {
       final items = payload[listKey];
       if (items is List) {
@@ -951,11 +952,19 @@ class ServerApiClient {
           if (item is Map<String, dynamic>) {
             final dlPath = (item['downloadPath'] as String? ?? '').trim();
             if (dlPath.isNotEmpty) {
-              item['downloadUrl'] = _url(dlPath);
+              final url = _url(dlPath);
+              final name = (item['fileName'] as String? ?? 'document').trim();
+              item['downloadUrl'] = url;
+              item['markdownLink'] = '[$name]($url)';
+              addedAny = true;
             }
           }
         }
       }
+    }
+    if (addedAny) {
+      payload['formattingHint'] =
+          'IMPORTANT: When showing files to the user, always render each filename using its exact markdownLink ([fileName](downloadUrl)) without backticks so the user can click to download it.';
     }
   }
 

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 3.0.0+179
+version: 3.0.0+180
 
 environment:
   sdk: ^3.10.7
@@ -117,8 +117,7 @@ dependencies:
     #path: ./third_party/dartssh2
 
   # Embedded (on-device) LLM via llama.cpp
-  llamadart:
-    path: third_party/llamadart_stub
+  llamadart: ^0.20.7
 
   # Background scheduling
   workmanager: ^0.10.10
@@ -149,8 +148,7 @@ dev_dependencies:
 dependency_overrides:
   android_alarm_manager_plus:
     path: third_party/android_alarm_manager_plus
-  llamadart:
-    path: third_party/llamadart_stub
+  llamadart: ^0.20.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

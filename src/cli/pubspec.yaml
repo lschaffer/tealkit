@@ -1,6 +1,6 @@
 name: tealkit_cli
 description: "TealKit native CLI — server management, configuration auto-discovery, task runner, and direct skill prompt execution."
-version: 1.4.10
+version: 1.4.11
 publish_to: 'none'
 
 environment:

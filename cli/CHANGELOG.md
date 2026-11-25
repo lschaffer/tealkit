@@ -2,6 +2,12 @@
 
 All notable changes to the TealKit CLI package will be documented in this file.
 
+## 1.4.11
+
+- **Bulletproof Session Auto-Save (`TealKitRpcEngine`)**:
+  - Progressively checkpoints active session transcripts to `.tealkit/sessions/tealkitcoder_<id>.json` every 5 tool calls during long multi-tool turns so even a mid-turn context overflow or connection drop preserves the session.
+  - Added a 30ms broadcast flush before cancelling the event stream subscription and a `finally` fallback that synthesizes `history` from the user prompt, tool results, and `finalResponse` whenever `AgentFinalResultEvent` is not emitted—guaranteeing a session file is always written.
+
 ## 1.4.10
 
 - **Built-In AI Image Generator (`generate_image`) & Pure-Dart GitHub API Tools (`github_*`)**:

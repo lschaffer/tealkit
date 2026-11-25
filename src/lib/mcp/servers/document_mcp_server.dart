@@ -803,17 +803,24 @@ class DocumentMcpServer extends InternalMcpServer {
       'rootPaths': _rootPaths,
       'totalDocuments': totalCount,
       'returned': rows.length,
+      'formattingHint':
+          'IMPORTANT: When showing files to the user, always render each filename using its exact markdownLink ([fileName](downloadUrl)) without backticks so the user can click to open/download it.',
       'documents': rows
           .map(
-            (r) => {
-              'filePath': r[0],
-              'fileName': r[1],
-              'fileType': r[2],
-              'fileSize': r[3],
-              'lastModified': r[4],
-              'contentLength': r[5],
-              if ((r[0]?.toString() ?? '').isNotEmpty)
-                'downloadUrl': Uri.file(r[0].toString()).toString(),
+            (r) {
+              final fp = r[0]?.toString() ?? '';
+              final fn = r[1]?.toString() ?? 'document';
+              final url = fp.isNotEmpty ? Uri.file(fp).toString() : null;
+              return {
+                'filePath': r[0],
+                'fileName': r[1],
+                'fileType': r[2],
+                'fileSize': r[3],
+                'lastModified': r[4],
+                'contentLength': r[5],
+                if (url != null) 'downloadUrl': url,
+                if (url != null) 'markdownLink': '[$fn]($url)',
+              };
             },
           )
           .toList(),
@@ -957,16 +964,23 @@ class DocumentMcpServer extends InternalMcpServer {
     }).join('\n');
     return {
       'summary':
-          'Found ${limited.length} file(s) matching "$query":\n$fileLines\n\nUse get_document_content with the filePath to read the full content. Format filenames as [fileName](downloadUrl) links.',
+          'Found ${limited.length} file(s) matching "$query":\n$fileLines\n\nUse get_document_content with the filePath to read the full content. Render filenames using markdownLink ([fileName](downloadUrl)) without backticks.',
+      'formattingHint':
+          'IMPORTANT: When showing files to the user, always render each filename using its exact markdownLink ([fileName](downloadUrl)) without backticks so the user can click to open/download it.',
       'totalResults': limited.length,
       'results': limited
           .map(
-            (r) => {
-              'fileName': r['fileName'],
-              'filePath': r['filePath'],
-              'fileType': r['fileType'],
-              if ((r['filePath']?.toString() ?? '').isNotEmpty)
-                'downloadUrl': Uri.file(r['filePath'].toString()).toString(),
+            (r) {
+              final fp = r['filePath']?.toString() ?? '';
+              final fn = r['fileName']?.toString() ?? 'document';
+              final url = fp.isNotEmpty ? Uri.file(fp).toString() : null;
+              return {
+                'fileName': r['fileName'],
+                'filePath': r['filePath'],
+                'fileType': r['fileType'],
+                if (url != null) 'downloadUrl': url,
+                if (url != null) 'markdownLink': '[$fn]($url)',
+              };
             },
           )
           .toList(),

@@ -19,6 +19,7 @@ import 'package:tealkit_api/tealkit_api.dart'
         MCPToolResult,
         Agent,
         ChatRole,
+        MessageType,
         MessageAttachment;
 import '../engine/builtin_mcp_servers.dart';
 import '../engine/cli_attachment_helper.dart';
@@ -1839,6 +1840,9 @@ class TealKitRpcEngine {
     _isTurnActive = true;
 
     String finalResponse = '';
+    bool receivedFinalResult = false;
+    final liveTurnToolMessages = <ChatMessage>[];
+    int liveToolCount = 0;
     final preWriteSnapshots = <String, String>{};
     ModelRateInfo? resolvedRates = TokenUsageTracker.getRates(activeLlmConfig);
     if (resolvedRates == null) {
@@ -1927,6 +1931,42 @@ class TealKitRpcEngine {
                 :final parameters,
                 :final result,
               ):
+                liveToolCount++;
+                liveTurnToolMessages.add(
+                  ChatMessage(
+                    id: 'tool_${DateTime.now().microsecondsSinceEpoch}_$liveToolCount',
+                    role: ChatRole.tool,
+                    content: result,
+                    toolName: toolName,
+                    toolArguments: parameters,
+                    timestamp: DateTime.now(),
+                  ),
+                );
+                // Progressively checkpoint session every 5 tool calls so even a
+                // mid-turn crash or context overflow preserves the session file.
+                if (liveToolCount % 5 == 0 &&
+                    (autoSaveSession ||
+                        cliConfig.autoSaveSession ||
+                        saveSessionPath != null)) {
+                  final snapshot = <ChatMessage>[
+                    ...history,
+                    ChatMessage(
+                      id: 'user_${turnId}_live',
+                      role: ChatRole.user,
+                      content: effectivePromptText,
+                      timestamp: DateTime.now(),
+                    ),
+                    ...liveTurnToolMessages,
+                  ];
+                  unawaited(
+                    _autoSaveActiveSession(
+                      workspaceDir: workspaceDir,
+                      history: snapshot,
+                      activeLlmName: activeLlmName,
+                      activeLlmConfig: activeLlmConfig,
+                    ).catchError((_) {}),
+                  );
+                }
                 _sendEvent('tool_result', {
                   'id': turnId,
                   'tool': toolName,
@@ -2046,6 +2086,7 @@ class TealKitRpcEngine {
                 });
 
               case AgentFinalResultEvent(:final response, :final messages):
+                receivedFinalResult = true;
                 if (finalResponse.trim().isEmpty &&
                     response.trim().isNotEmpty) {
                   finalResponse = response;
@@ -2126,6 +2167,9 @@ class TealKitRpcEngine {
             },
       );
 
+      // Allow any buffered broadcast events (e.g. AgentFinalResultEvent) to flush
+      // before cancelling the subscription.
+      await Future<void>.delayed(const Duration(milliseconds: 30));
       await subscription.cancel();
 
       if (finalResponse.trim().isEmpty) {
@@ -2165,6 +2209,35 @@ class TealKitRpcEngine {
       try {
         await engine.dispose();
       } catch (_) {}
+
+      // Guarantee turn messages are captured in history even if AgentFinalResultEvent
+      // was not emitted (e.g. context overflow, connection drop, or cancellation).
+      if (!receivedFinalResult &&
+          (effectivePromptText.trim().isNotEmpty ||
+              liveTurnToolMessages.isNotEmpty ||
+              finalResponse.trim().isNotEmpty)) {
+        if (effectivePromptText.trim().isNotEmpty) {
+          history.add(
+            ChatMessage(
+              id: 'user_${DateTime.now().microsecondsSinceEpoch}',
+              role: ChatRole.user,
+              content: effectivePromptText,
+              timestamp: DateTime.now(),
+            ),
+          );
+        }
+        history.addAll(liveTurnToolMessages);
+        if (finalResponse.trim().isNotEmpty) {
+          history.add(
+            ChatMessage(
+              id: 'assistant_${DateTime.now().microsecondsSinceEpoch}',
+              role: ChatRole.assistant,
+              content: finalResponse,
+              timestamp: DateTime.now(),
+            ),
+          );
+        }
+      }
 
       // Auto-save session transcript if enabled
       if (history.isNotEmpty &&

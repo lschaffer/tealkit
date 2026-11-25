@@ -2,7 +2,7 @@
   "name": "tealkit-vscode",
   "displayName": "TealKit Coder",
   "description": "Autonomous AI Coding Agent powered by TealKit CLI with sub-agents, MCP servers, and full workspace control.",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "publisher": "tealkit",
   "license": "MIT",
   "icon": "media/icon.png",

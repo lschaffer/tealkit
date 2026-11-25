@@ -183,6 +183,35 @@ export class TealKitChatViewProvider implements vscode.WebviewViewProvider {
             vscode.window.showWarningMessage(String(message.message));
           }
           break;
+        case 'export_message': {
+          const content = String(message.content ?? '');
+          if (!content.trim()) break;
+          const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+          const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const defaultUri = wsRoot
+            ? vscode.Uri.joinPath(wsRoot, `tealkit_report_${ts}.md`)
+            : undefined;
+          const uri = await vscode.window.showSaveDialog({
+            defaultUri,
+            saveLabel: 'Export Response',
+            filters: {
+              'Markdown (*.md)': ['md'],
+              'Plain Text (*.txt)': ['txt'],
+            },
+          });
+          if (uri) {
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
+            const openAction = await vscode.window.showInformationMessage(
+              `Exported response to ${path.basename(uri.fsPath)}`,
+              'Open File'
+            );
+            if (openAction === 'Open File') {
+              const doc = await vscode.workspace.openTextDocument(uri);
+              await vscode.window.showTextDocument(doc);
+            }
+          }
+          break;
+        }
         case 'open_tasks':
           vscode.commands.executeCommand('tealkit.openTasks');
           break;

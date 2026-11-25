@@ -51,20 +51,9 @@ class TealKitToolsBuilder {
         !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     // 1. Coding Tools Suite (10 tools)
-    // - Desktop: local workspace filesystem & terminal
-    // - Mobile in Server Mode: sandboxed remote server coding tools rooted at server files_dir
-    if (isDesktop) {
-      try {
-        final codingTools = CodingTools.createAll(
-          workingDirectory: workspaceDirectory ?? Directory.current.path,
-        );
-        for (final t in codingTools) {
-          addTool(t);
-        }
-      } catch (e) {
-        log.warning('[TealKitToolsBuilder] Could not register CodingTools: $e');
-      }
-    } else if (serverClient != null) {
+    // - Server Mode (Desktop & Mobile): sandboxed remote server coding tools rooted at server files_dir
+    // - Local Mode (Desktop): local workspace filesystem & terminal
+    if (serverClient != null) {
       try {
         final remoteCodingTools = RemoteCodingTool.createAll(
           serverClient: serverClient,
@@ -75,6 +64,17 @@ class TealKitToolsBuilder {
         }
       } catch (e) {
         log.warning('[TealKitToolsBuilder] Could not register RemoteCodingTools: $e');
+      }
+    } else if (isDesktop) {
+      try {
+        final codingTools = CodingTools.createAll(
+          workingDirectory: workspaceDirectory ?? Directory.current.path,
+        );
+        for (final t in codingTools) {
+          addTool(t);
+        }
+      } catch (e) {
+        log.warning('[TealKitToolsBuilder] Could not register CodingTools: $e');
       }
     }
 

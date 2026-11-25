@@ -17,6 +17,7 @@ class CodingSettingsService extends ChangeNotifier {
   static const _kMaxSessionTurns = 'coding_pref_max_session_turns';
   static const _kTurnLimit = 'coding_pref_turn_limit';
   static const _kMaxSessionSizeMb = 'coding_pref_max_session_size_mb';
+  static const _kCompressionThreshold = 'coding_pref_compression_threshold';
   static const _kProgressiveMcpDiscovery =
       'coding_pref_progressive_mcp_discovery';
   static const _kEnableEpisodicMemory = 'coding_pref_enable_episodic_memory';
@@ -41,6 +42,9 @@ class CodingSettingsService extends ChangeNotifier {
   /// Max auto-saved session file size in MB.
   int _maxSessionSizeMb = 10;
 
+  /// Context compression token threshold (0 = auto/default).
+  int _compressionThreshold = 16000;
+
   /// On-demand progressive MCP tool discovery instead of sending all schemas.
   bool _progressiveMcpDiscovery = false;
 
@@ -62,6 +66,7 @@ class CodingSettingsService extends ChangeNotifier {
   int get maxSessionTurns => _maxSessionTurns;
   int get turnLimit => _turnLimit;
   int get maxSessionSizeMb => _maxSessionSizeMb;
+  int get compressionThreshold => _compressionThreshold;
   bool get progressiveMcpDiscovery => _progressiveMcpDiscovery;
   bool get enableEpisodicMemory => _enableEpisodicMemory;
   bool get enableSubAgents => _enableSubAgents;
@@ -75,6 +80,7 @@ class CodingSettingsService extends ChangeNotifier {
         'max_session_turns': _maxSessionTurns,
         'turn_limit': _turnLimit,
         'max_session_size_mb': _maxSessionSizeMb,
+        'compression_threshold': _compressionThreshold,
         'progressive_mcp_discovery': _progressiveMcpDiscovery,
         'enable_episodic_memory': _enableEpisodicMemory,
         'enable_sub_agents': _enableSubAgents,
@@ -94,6 +100,8 @@ class CodingSettingsService extends ChangeNotifier {
       _turnLimit = (prefs.getInt(_kTurnLimit) ?? 0).clamp(0, 10000);
       _maxSessionSizeMb =
           (prefs.getInt(_kMaxSessionSizeMb) ?? 10).clamp(1, 500);
+      _compressionThreshold =
+          (prefs.getInt(_kCompressionThreshold) ?? 16000).clamp(4000, 200000);
       _progressiveMcpDiscovery =
           prefs.getBool(_kProgressiveMcpDiscovery) ?? false;
       _enableEpisodicMemory = prefs.getBool(_kEnableEpisodicMemory) ?? true;
@@ -116,6 +124,7 @@ class CodingSettingsService extends ChangeNotifier {
       await prefs.setInt(_kMaxSessionTurns, _maxSessionTurns);
       await prefs.setInt(_kTurnLimit, _turnLimit);
       await prefs.setInt(_kMaxSessionSizeMb, _maxSessionSizeMb);
+      await prefs.setInt(_kCompressionThreshold, _compressionThreshold);
       await prefs.setBool(_kProgressiveMcpDiscovery, _progressiveMcpDiscovery);
       await prefs.setBool(_kEnableEpisodicMemory, _enableEpisodicMemory);
       await prefs.setBool(_kEnableSubAgents, _enableSubAgents);
@@ -154,6 +163,7 @@ class CodingSettingsService extends ChangeNotifier {
     int? maxSessionTurns,
     int? turnLimit,
     int? maxSessionSizeMb,
+    int? compressionThreshold,
     bool? progressiveMcpDiscovery,
     bool? enableEpisodicMemory,
     bool? enableSubAgents,
@@ -174,6 +184,9 @@ class CodingSettingsService extends ChangeNotifier {
     }
     if (maxSessionSizeMb != null) {
       _maxSessionSizeMb = maxSessionSizeMb.clamp(1, 500);
+    }
+    if (compressionThreshold != null) {
+      _compressionThreshold = compressionThreshold.clamp(4000, 200000);
     }
     if (progressiveMcpDiscovery != null) {
       _progressiveMcpDiscovery = progressiveMcpDiscovery;
@@ -242,6 +255,10 @@ class CodingSettingsService extends ChangeNotifier {
     if (data['max_session_size_mb'] is num) {
       _maxSessionSizeMb =
           (data['max_session_size_mb'] as num).toInt().clamp(1, 500);
+    }
+    if (data['compression_threshold'] is num) {
+      _compressionThreshold =
+          (data['compression_threshold'] as num).toInt().clamp(4000, 200000);
     }
     if (data['progressive_mcp_discovery'] is bool) {
       _progressiveMcpDiscovery = data['progressive_mcp_discovery'] as bool;

@@ -52,6 +52,7 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
   late final TextEditingController _maxSessionTurnsCtrl;
   late final TextEditingController _turnLimitCtrl;
   late final TextEditingController _maxSessionSizeCtrl;
+  late final TextEditingController _compressionThresholdCtrl;
 
   bool _expanded = true;
   bool _saving = false;
@@ -74,6 +75,9 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
     _maxSessionSizeCtrl = TextEditingController(
       text: _settings.maxSessionSizeMb.toString(),
     );
+    _compressionThresholdCtrl = TextEditingController(
+      text: _settings.compressionThreshold.toString(),
+    );
     _settings.addListener(_syncControllersFromService);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeSyncFromServer();
@@ -87,6 +91,7 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
     _maxSessionTurnsCtrl.dispose();
     _turnLimitCtrl.dispose();
     _maxSessionSizeCtrl.dispose();
+    _compressionThresholdCtrl.dispose();
     super.dispose();
   }
 
@@ -104,6 +109,10 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
     _setTextIfDifferent(
       _maxSessionSizeCtrl,
       _settings.maxSessionSizeMb.toString(),
+    );
+    _setTextIfDifferent(
+      _compressionThresholdCtrl,
+      _settings.compressionThreshold.toString(),
     );
     setState(() {});
   }
@@ -138,12 +147,16 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
     final maxSessionSize =
         int.tryParse(_maxSessionSizeCtrl.text.trim()) ??
         _settings.maxSessionSizeMb;
+    final compressionThreshold =
+        int.tryParse(_compressionThresholdCtrl.text.trim()) ??
+        _settings.compressionThreshold;
 
     await _applyUpdate(
       maxToolIterations: maxToolIter,
       maxSessionTurns: maxSessionTurns,
       turnLimit: turnLimit,
       maxSessionSizeMb: maxSessionSize,
+      compressionThreshold: compressionThreshold,
       showFeedback: true,
     );
   }
@@ -154,6 +167,7 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
       maxSessionTurns: 500,
       turnLimit: 0,
       maxSessionSizeMb: 10,
+      compressionThreshold: 16000,
       progressiveMcpDiscovery: false,
       enableEpisodicMemory: true,
       enableSubAgents: true,
@@ -170,6 +184,7 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
     int? maxSessionTurns,
     int? turnLimit,
     int? maxSessionSizeMb,
+    int? compressionThreshold,
     bool? progressiveMcpDiscovery,
     bool? enableEpisodicMemory,
     bool? enableSubAgents,
@@ -193,6 +208,7 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
       maxSessionTurns: maxSessionTurns,
       turnLimit: turnLimit,
       maxSessionSizeMb: maxSessionSizeMb,
+      compressionThreshold: compressionThreshold,
       progressiveMcpDiscovery: progressiveMcpDiscovery,
       enableEpisodicMemory: enableEpisodicMemory,
       enableSubAgents: enableSubAgents,
@@ -288,6 +304,15 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
                 ? 'Auto-Save Rotationsgröße'
                 : 'Auto-save rotation limit',
           );
+          final compressionField = _buildNumberField(
+            controller: _compressionThresholdCtrl,
+            label: isDe
+                ? 'Komprimierungsschwelle (Tokens)'
+                : 'Compression Threshold (tokens)',
+            helper: isDe
+                ? 'Ab wie vielen Tokens Kontext komprimiert wird (4.000–200.000)'
+                : 'Token count before compressing context (4,000–200,000)',
+          );
 
           return Padding(
             padding: const EdgeInsets.all(14),
@@ -370,6 +395,8 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
                     turnLimitField,
                     const SizedBox(height: 12),
                     maxSizeField,
+                    const SizedBox(height: 12),
+                    compressionField,
                   ] else ...[
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,6 +415,8 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
                         Expanded(child: maxSizeField),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    compressionField,
                   ],
 
                   const SizedBox(height: 10),

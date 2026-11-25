@@ -2,6 +2,15 @@
 
 All notable changes to the TealKit Coder extension will be documented in this file.
 
+## 0.1.14
+
+### Reliable Session Auto-Save (`tealkit_cli` 1.4.11) & Markdown/Text Response Export
+
+- **Bundled `tealkit_cli` 1.4.11**:
+  - Fixed missing session files on long multi-tool turns or mid-turn `llama.cpp` context overflows: `TealKitRpcEngine` now checkpoints `.tealkit/sessions/tealkitcoder_<id>.json` every 5 tool calls, flushes `AgentFinalResultEvent` cleanly, and guarantees writing the session file in `finally`.
+- **Export Assistant Responses (`.md` / `.txt`)**:
+  - Added an **Export** button next to **Copy** on every assistant message bubble (preserving raw Markdown) that opens VS Code's native Save dialog with **Markdown (`*.md`)** and **Plain Text (`*.txt`)** filters plus a one-click **Open File** action.
+
 ## 0.1.13
 
 ### Bundled `tealkit_cli` 1.4.10 — Built-In `generate_image` & GitHub REST API (`github_*`) Tools

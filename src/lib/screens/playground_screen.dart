@@ -85,8 +85,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
   bool get _isRemoteMobileCoding =>
-      !_isDesktopPlatform &&
-      (ref.read(serverModeProvider).value?.isRemote ?? false);
+      ref.read(serverModeProvider).value?.isRemote ?? false;
 
   bool _isCodingMode = false;
   String _codingSubMode = '/code';
@@ -209,13 +208,25 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
       );
     }
 
-    if (_isDesktopPlatform) return;
     if (!isRemote || serverClient == null) {
-      if (_isCodingMode) {
+      if (!_isDesktopPlatform && _isCodingMode) {
         _exitCodingMode(context, showSnackbar: false);
       }
+      final wasServerWorkspace =
+          _serverCodingRootDir != null &&
+          _workspaceDirectory.startsWith(_serverCodingRootDir!);
       _serverCodingRootDir = null;
+      if (_isDesktopPlatform && (wasServerWorkspace || _workspaceDirectory.isEmpty)) {
+        final localDir = Directory.current.path;
+        setState(() {
+          _workspaceDirectory = localDir;
+          _controller.workspaceDirectory = localDir;
+        });
+      }
       _refreshTools();
+      if (_isCodingMode && _isDesktopPlatform) {
+        _applyCodingSubMode(_codingSubMode);
+      }
       return;
     }
 
