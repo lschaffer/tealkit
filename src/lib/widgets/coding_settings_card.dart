@@ -543,6 +543,34 @@ class _CodingSettingsCardState extends ConsumerState<CodingSettingsCard> {
                     value: _settings.enableSubAgents,
                     onChanged: (v) => _applyUpdate(enableSubAgents: v),
                   ),
+                  if (!kIsWeb)
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(
+                        isDe
+                            ? 'Assistent aktiv halten (Wakelock / Hintergrund)'
+                            : 'Keep Assistant Awake (Wakelock / Foreground)',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        isDe
+                            ? 'Nur im Assistenten aktiv: verhindert Standby & hält laufende Agenten stabil (Android zusätzlich als Foreground-Dienst)'
+                            : 'Assistant only: prevents device sleep while an agent is running (plus Android Foreground Service when switching apps)',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      value: AppPreferencesService
+                          .instance
+                          .keepAssistantAliveInBackground,
+                      onChanged: (v) async {
+                        await AppPreferencesService.instance
+                            .setKeepAssistantAliveInBackground(v);
+                        if (mounted) setState(() {});
+                      },
+                    ),
 
                   if (showToolApprovals) ...[
                     const Divider(height: 24),

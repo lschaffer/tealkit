@@ -311,6 +311,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "8.1.0"
+  dinja:
+    dependency: transitive
+    description:
+      name: dinja
+      sha256: a3addbe07ebb562c062256f7c644ac498ab2ab3d97a85d9f95aafac7f53fa808
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.2"
   encrypter_plus:
     dependency: transitive
     description:
@@ -668,21 +676,21 @@ packages:
       path: "../mcp_playground/flutter_ui_mcp"
       relative: true
     source: path
-    version: "1.5.17"
+    version: "1.5.18"
   flutter_ui_mcp_core:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_core"
       relative: true
     source: path
-    version: "1.5.17"
+    version: "1.5.18"
   flutter_ui_mcp_embedded:
     dependency: "direct main"
     description:
       path: "../mcp_playground/flutter_ui_mcp_embedded"
       relative: true
     source: path
-    version: "1.5.19"
+    version: "1.5.21"
   flutter_web_auth_2:
     dependency: "direct main"
     description:
@@ -1170,10 +1178,11 @@ packages:
   llamadart:
     dependency: "direct main"
     description:
-      path: "third_party/llamadart_stub"
-      relative: true
-    source: path
-    version: "0.20.1"
+      name: llamadart
+      sha256: "8ea2b63a55524a06fb373c1b486eeda3ea4f22c85ebe13f9523024b7d5b3dc74"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.21.0"
   logging:
     dependency: "direct main"
     description:
@@ -2139,7 +2148,7 @@ packages:
     source: hosted
     version: "15.4.0"
   wakelock_plus:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: wakelock_plus
       sha256: "22b3e7e937721de70e63c85e7139f4ac781dc22863b9262431a53ac030eb074b"

@@ -22,6 +22,8 @@ class AppPreferencesService extends ChangeNotifier {
   static const _kCustomThemeColor = 'app_pref_custom_theme_color'; // hex int
   static const _kAutoReduceImageSize = 'app_pref_auto_reduce_image_size';
   static const _kMaxImageDimension = 'app_pref_max_image_dimension';
+  static const _kKeepAssistantForeground =
+      'app_pref_keep_assistant_foreground';
 
   /// Allowed values for the background check interval setting.
   static const List<int> backgroundCheckIntervalOptions = [5, 10, 15];
@@ -41,6 +43,7 @@ class AppPreferencesService extends ChangeNotifier {
   Color _customThemeColor = const Color(0xFF00838F); // Default teal base
   bool _autoReduceImageSize = true;
   int _maxImageDimension = defaultMaxImageDimension;
+  bool _keepAssistantAliveInBackground = false;
 
   ThemeMode get themeMode => _themeMode;
   String get locale => _locale;
@@ -51,6 +54,7 @@ class AppPreferencesService extends ChangeNotifier {
   Color get customThemeColor => _customThemeColor;
   bool get autoReduceImageSize => _autoReduceImageSize;
   int get maxImageDimension => _maxImageDimension;
+  bool get keepAssistantAliveInBackground => _keepAssistantAliveInBackground;
 
   /// How often (in minutes) the background heartbeat wakes up to check for due tasks.
   /// Allowed values: 5, 10, 15. Default: 10.
@@ -102,6 +106,8 @@ class AppPreferencesService extends ChangeNotifier {
       _autoReduceImageSize = prefs.getBool(_kAutoReduceImageSize) ?? true;
       final dim = prefs.getInt(_kMaxImageDimension) ?? defaultMaxImageDimension;
       _maxImageDimension = maxImageDimensionOptions.contains(dim) ? dim : defaultMaxImageDimension;
+      _keepAssistantAliveInBackground =
+          prefs.getBool(_kKeepAssistantForeground) ?? false;
       log.info(
         '[AppPrefs] Loaded themeMode=$t locale=$_locale outputPath=$_defaultOutputPath retentionDays=$_outputRetentionDays bgInterval=$_backgroundCheckIntervalMinutes aiConsent=$_aiDataSharingConsent uiStyle=$_uiStyle customColor=$_customThemeColor autoReduceImage=$_autoReduceImageSize maxDim=$_maxImageDimension',
       );
@@ -195,6 +201,15 @@ class AppPreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Android: keeps the app in a foreground service (dataSync + partial wake
+  /// lock) while an Assistant / Coding agent turn is actively running so the
+  /// OS does not sever network connections when switching apps.
+  Future<void> setKeepAssistantAliveInBackground(bool value) async {
+    _keepAssistantAliveInBackground = value;
+    await _persist();
+    notifyListeners();
+  }
+
   Future<void> _persist() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -211,6 +226,10 @@ class AppPreferencesService extends ChangeNotifier {
       await prefs.setInt(_kCustomThemeColor, _customThemeColor.toARGB32());
       await prefs.setBool(_kAutoReduceImageSize, _autoReduceImageSize);
       await prefs.setInt(_kMaxImageDimension, _maxImageDimension);
+      await prefs.setBool(
+        _kKeepAssistantForeground,
+        _keepAssistantAliveInBackground,
+      );
     } catch (e) {
       log.warning('[AppPrefs] persist failed: $e');
     }

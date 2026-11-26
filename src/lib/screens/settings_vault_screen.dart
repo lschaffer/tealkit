@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -49,6 +51,53 @@ class _SettingsVaultScreenState extends ConsumerState<SettingsVaultScreen> {
   // ─── Export ───────────────────────────────────────────────────────────────
 
   Future<void> _doExport() async {
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+    if (isMobile) {
+      // On Android / iOS, ask for filename, password, and sections FIRST,
+      // build encrypted bytes, then use native FilePicker.saveFile (SAF / Files)
+      // so Downloads, Documents, Google Drive, and any folder work cleanly.
+      final params = await showDialog<(String, String, VaultOptions)>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const _VaultExportDialog(),
+      );
+      if (params == null || !mounted) return;
+
+      setState(() => _exporting = true);
+      try {
+        final serverClient = ref.read(serverApiClientProvider);
+        final rawName = params.$1.trim();
+        final fileName = rawName.endsWith('.tkv') ? rawName : '$rawName.tkv';
+        final bytes = await SettingsVaultService.instance.buildVaultBytes(
+          params.$2,
+          params.$3,
+          serverClient: serverClient,
+        );
+        final savedUri = await FilePicker.saveFile(
+          dialogTitle: L.of(context).vaultTitle,
+          fileName: fileName,
+          bytes: bytes,
+        );
+        if (!mounted) return;
+        if (savedUri == null) return; // User cancelled SAF save dialog.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(L.of(context).vaultSaved(fileName)),
+            backgroundColor: AppTheme.success,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } on VaultException catch (e) {
+        if (mounted) _showError(e.message);
+      } catch (e) {
+        if (mounted) _showError(L.of(context).vaultExportFailed(e.toString()));
+      } finally {
+        if (mounted) setState(() => _exporting = false);
+      }
+      return;
+    }
+
     final String? dirPath;
     try {
       dirPath = await SettingsVaultService.instance.pickExportDirectory();

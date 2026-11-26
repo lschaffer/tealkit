@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 3.0.0+180
+version: 3.0.0+183
 
 environment:
   sdk: ^3.10.7
@@ -45,9 +45,9 @@ dependencies:
   tealkit_api:
     path: ./api
   dart_mcp_core: ^1.5.16
-  flutter_ui_mcp_core: ^1.5.17
-  flutter_ui_mcp: ^1.5.17
-  flutter_ui_mcp_embedded: ^1.5.19
+  flutter_ui_mcp_core: ^1.5.18
+  flutter_ui_mcp: ^1.5.18
+  flutter_ui_mcp_embedded: ^1.5.21
 
   # HTTP client
   http: ^1.2.2
@@ -117,12 +117,13 @@ dependencies:
     #path: ./third_party/dartssh2
 
   # Embedded (on-device) LLM via llama.cpp
-  llamadart: ^0.20.7
+  llamadart: ^0.21.0
 
   # Background scheduling
   workmanager: ^0.10.10
   android_alarm_manager_plus: 4.0.8
   flutter_local_notifications: ^23.0.4
+  wakelock_plus: ^1.8.0
 
   # Windows: system tray + startup
   tray_manager: ^0.7.0
@@ -148,7 +149,7 @@ dev_dependencies:
 dependency_overrides:
   android_alarm_manager_plus:
     path: third_party/android_alarm_manager_plus
-  llamadart: ^0.20.7
+  llamadart: ^0.21.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

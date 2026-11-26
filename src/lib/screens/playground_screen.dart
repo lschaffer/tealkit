@@ -16,6 +16,7 @@ import '../models/workflow_task.dart' hide ChatRole;
 import '../providers/database_providers.dart';
 import '../providers/server_mode_provider.dart';
 import '../providers/sidebar_provider.dart';
+import '../services/assistant_foreground_service.dart';
 import '../services/coding_settings_service.dart';
 import '../services/data_sources_settings_service.dart';
 import '../services/external_tools_settings_service.dart';
@@ -140,6 +141,7 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
   @override
   void dispose() {
     _isDisposed = true;
+    unawaited(AssistantForegroundService.stop());
     tk_llm.LlmSettingsService.instance.removeListener(_onTealKitLlmSettingsChanged);
     CodingSettingsService.instance.removeListener(_onCodingSettingsChanged);
     _controller.removeListener(_onControllerChanged);
@@ -424,6 +426,19 @@ class _PlaygroundScreenState extends ConsumerState<PlaygroundScreen> {
         _hasSessionLlmOverride = true;
       }
     }
+    if (_controller.isGenerating) {
+      unawaited(
+        AssistantForegroundService.startIfEnabled(
+          title: _isCodingMode ? 'TealKit Coding Agent' : 'TealKit Assistant',
+          text: _isCodingMode
+              ? 'Coding agent is running in the background…'
+              : 'AI assistant is running in the background…',
+        ),
+      );
+    } else {
+      unawaited(AssistantForegroundService.stop());
+    }
+
     if (_controller.messages.isNotEmpty && !_controller.isGenerating) {
       if (SessionService.instance.autoSaveEnabled) {
         SessionService.instance.autoSaveSession(

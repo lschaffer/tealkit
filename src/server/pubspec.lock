@@ -317,10 +317,10 @@ packages:
     dependency: "direct main"
     description:
       name: llamadart
-      sha256: de2b281d53ff2ca9c644a981ed25943846830320de40f2e2160fa1b87160af7b
+      sha256: "8ea2b63a55524a06fb373c1b486eeda3ea4f22c85ebe13f9523024b7d5b3dc74"
       url: "https://pub.dev"
     source: hosted
-    version: "0.20.7"
+    version: "0.21.0"
   logging:
     dependency: transitive
     description:

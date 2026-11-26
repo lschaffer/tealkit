@@ -2,7 +2,7 @@
 
 This file tracks release changes by version.
 
-## v3.0.0+178 - Pure SQLite + `sqlite_vector` Engine (DuckDB Removed), Major Dependency Modernization, Tray Native API & Localization Polish
+## v3.0.0+182 - Pure SQLite + `sqlite_vector` Engine (DuckDB Removed), Major Dependency Modernization, Assistant Wakelock/Foreground Service & Mobile SAF Export Fixes
 
 ### ⚠️ Breaking / Major Changes
 - **Complete DuckDB Removal (Release 2 — Pure `sqlite3` + `sqlite_vector` + `FTS5`)**:
@@ -26,6 +26,12 @@ This file tracks release changes by version.
   - Fixed mobile `Image Generator Settings` preset dropdown overflow and redesigned mobile Tool Group cards (`_buildToolGroupHeader`) so long tool titles never wrap mid-word.
   - Upgraded Android build toolchain to **Gradle 9.5.0**, **AGP 9.3.1**, **Kotlin 2.4.20**, and **`compileSdk = 37`** for Flutter 3.47+ and `flutter_local_notifications 23` / `permission_handler 13`.
   - Completed German (`DE`) translations across Settings, Assistant empty chat background, Session Continue dialog, Embedded Model picker, and Windows tasktray menu, and added `tool/scan_untranslated_ui.dart` + `tool/scan_untranslated_ui.ps1` to audit untranslated UI strings.
+- **Cross-Platform Assistant Wakelock & Android Foreground Service (`wakelock_plus` `^1.8.0`, `AssistantForegroundService`)**:
+  - Added a **"Keep Assistant Awake (Wakelock / Foreground)"** toggle in Global Settings and Assistant Settings (`CodingSettingsCard`, persisted via `AppPreferencesService`) that applies **only while an Assistant turn is running** (`PlaygroundScreen`).
+  - Uses `wakelock_plus` (`^1.8.0`) across Android, iOS, Windows, macOS, and Linux to prevent device sleep, paired on Android with a native `dataSync` Foreground Service (`AssistantForegroundService.kt`) and 60-minute capped `PARTIAL_WAKE_LOCK` so long-running Coding Agent and network requests survive app switching.
+- **Mobile SAF Save-As Export Fixes (Settings Vault & Document Export)**:
+  - Fixed Android Settings Vault (Tresor) export (`PathNotFoundException` on `content://` URIs) in `SettingsVaultScreen` by using `FilePicker.saveFile(fileName: ..., bytes: ...)` (`ACTION_CREATE_DOCUMENT`) on mobile so `.tkv` backups save cleanly into `Downloads`, `Documents`, or Google Drive.
+  - Upgraded `flutter_ui_mcp_core` / `flutter_ui_mcp` (`^1.5.18`), `flutter_ui_mcp_embedded` (`^1.5.21`), and `llamadart` (`^0.21.0` in Full & Server builds) for consistent mobile Save-As PDF/Word/Markdown export and updated on-device LLM support.
 - **TealKit CLI (`v1.4.11`) & VS Code Extension (`v0.1.14`)**:
   - Added built-in `generate_image` (AI Image Generator) and pure-Dart `github_*` API tools to TealKit CLI and the VS Code extension.
   - **Bulletproof Session Auto-Save (`tealkit_cli` v1.4.11)**: Progressively checkpoints `.tealkit/sessions/tealkitcoder_<id>.json` every 5 tool calls, flushes broadcast events before unsubscribing, and guarantees writing the session file in `finally` even after mid-turn context overflows or cancellations.
